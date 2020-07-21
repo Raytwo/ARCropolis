@@ -1,4 +1,4 @@
-# arc_replace
+# ARCropolis
 
 A Skyline plugin for replacing arbitrary files in Smash Ultimate with files of arbitrary size. Made in equal parts by Raytwo and jam1garner. In-game textures (nutexb) are not currently support.
 
@@ -38,3 +38,7 @@ you place it in
 ### Ultimate Mod Manager Backwards Compatibility
 
 The plugin also supports backwards compatibility with UMM paths to allow for mods to continue to work.
+
+Currently, to prevent issues with nutexb-related crashes, it is opt-in. In the future, this may be removed.
+
+While UMM stores files in `sd:/UltimateModManager/mods`, ARCropolis stores its modpack-style mods in `sd:/ultimate/mods` while maintaining the same folder structure as UMM. If none of your files are `.nutexb` textures, you can simply rename your `UltimateModManager` folder to `ultimate` and all mods will work. If you no longer need UMM, it is recommended you delete your data.arc file from romfs.
