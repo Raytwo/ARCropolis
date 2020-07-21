@@ -45,4 +45,8 @@ impl ArcFiles {
         let hash = hash40(&game_path);
         self.0.insert(hash, path.to_owned());
     }
+
+    pub fn get_from_hash(&self, hash: u64) -> Option<&PathBuf> {
+        self.0.get(&hash)
+    }
 }

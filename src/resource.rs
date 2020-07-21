@@ -7,33 +7,26 @@ fn offset_to_addr(offset: usize) -> *const () {
 }
 
 #[repr(C)]
-pub struct LuaState {
-    pub ignore: [u8; 0x10],
-    pub top: *mut TValue,
-    pub global_state: *const (),
-    pub call_info: *mut CallInfo,
-}
-
-#[repr(C)]
-pub struct TValue {
-    pub val: u64,
-    pub tt: u32,
-}
-
-#[repr(C)]
-pub struct CallInfo {
-    pub func: *mut TValue,
-    pub top: *mut TValue,
-    pub prev: *mut CallInfo,
-    pub next: *mut CallInfo,
-    // more...
-}
-
-#[repr(C)]
 #[repr(packed)]
 pub struct Table1Entry {
     pub table2_index: u32,
     pub is_in_table_2: u32,
+}
+
+#[repr(u8)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(dead_code)]
+pub enum FileState {
+    Unused = 0,
+    Unloaded = 1,
+    Unk2 = 2,
+    Loaded = 3,
+}
+
+impl fmt::Display for FileState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 #[repr(C)]
@@ -42,17 +35,11 @@ pub struct Table2Entry {
     pub data: *const u8,
     pub ref_count: AtomicU32,
     pub is_used: bool,
-    pub state: u8,
+    pub state: FileState,
     pub file_flags2: bool,
     pub flags: u8,
     pub version: u32,
     pub unk: u8,
-}
-
-#[repr(C)]
-pub struct LuaAgent<'a> {
-    pub unk: u64,
-    pub lua_state: &'a mut LuaState,
 }
 
 #[repr(C)]
@@ -165,10 +152,6 @@ impl LoadedTables {
         self.loaded_data.arc
     }
 
-    pub fn get_arc_mut(&mut self) -> &mut LoadedArc {
-        self.loaded_data.arc
-    }
-
     pub fn get_instance() -> &'static mut Self {
         unsafe {
             let instance_ptr: *mut &'static mut Self =
@@ -190,10 +173,6 @@ impl LoadedTables {
 
     pub fn table_2(&self) -> &[Table2Entry] {
         unsafe { std::slice::from_raw_parts(self.table2, self.table2_len as usize) }
-    }
-
-    pub fn table_1_mut(&mut self) -> &mut [Table1Entry] {
-        unsafe { std::slice::from_raw_parts_mut(self.table1, self.table1_len as usize) }
     }
 
     pub fn table_2_mut(&mut self) -> &mut [Table2Entry] {

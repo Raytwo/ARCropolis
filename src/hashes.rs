@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fs;
 
 lazy_static::lazy_static! {
-    pub static ref HASHES : HashMap<u64, &'static str> = {
+    static ref HASHES : HashMap<u64, &'static str> = {
         let mut hashes = HashMap::default();
 
         let str_path = "rom:/skyline/hashes.txt";
@@ -26,6 +26,11 @@ lazy_static::lazy_static! {
 
 fn string_to_static_str(s: String) -> &'static str {
     Box::leak(s.into_boxed_str())
+}
+
+#[allow(dead_code)]
+pub fn get(x: u64) -> Option<&'static &'static str> {
+    HASHES.get(&x)
 }
 
 pub fn init() {

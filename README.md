@@ -33,6 +33,8 @@ you place it in
     sd:/atmosphere/contents/01006A800016E000/romfs/arc/ui/message/msg_melee.msbt
 ```
 
+**Note:** In some Arc tooling, regional files will show up with a `+us_en` (or another region code) at the end of the filename. Do not include this.
+
 ### Ultimate Mod Manager Backwards Compatibility
 
 The plugin also supports backwards compatibility with UMM paths to allow for mods to continue to work.
