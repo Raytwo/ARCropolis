@@ -14,6 +14,10 @@ crate-type = ["cdylib"]
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline_smash = { git = "https://github.com/ultimate-research/skyline-smash.git" }
 lazy_static = "1.4"
+rand = "0.7.3"
+
+[patch.crates-io]
+getrandom = { git = "https://github.com/Raytwo/getrandom" }
 
 [profile.dev]
 panic = "abort"
