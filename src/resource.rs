@@ -1,3 +1,4 @@
+use skyline::nn;
 use skyline::hooks::{getRegionAddress, Region};
 use std::fmt;
 use std::sync::atomic::AtomicU32;
@@ -51,7 +52,7 @@ pub struct CppVector<T> {
 
 #[repr(C)]
 pub struct LoadedTables {
-    pub mutex: *const (),
+    pub mutex: *mut nn::os::MutexType,
     pub table1: *mut Table1Entry,
     pub table2: *mut Table2Entry,
     pub table1_len: u32,
