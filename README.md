@@ -1,6 +1,6 @@
 # ARCropolis
 
-A Skyline plugin for replacing arbitrary files in Smash Ultimate with files of arbitrary size. Made in equal parts by Raytwo and jam1garner, with lots of help from Shadow as well. In-game textures (nutexb) are not currently support.
+A Skyline plugin for replacing arbitrary files in Smash Ultimate with files of arbitrary size. Made in equal parts by Raytwo and jam1garner, with lots of help from Shadow as well. In-game textures (nutexb) are not currently supported.
 
 
 **Warning:** Not everything will work. Report issues to the issues tab.
