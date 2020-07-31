@@ -1,5 +1,5 @@
-use skyline::nn;
 use skyline::hooks::{getRegionAddress, Region};
+use skyline::nn;
 use std::fmt;
 use std::sync::atomic::AtomicU32;
 
@@ -103,33 +103,40 @@ pub struct LoadedArc {
 }
 
 impl LoadedArc {
-    pub fn get_subfile_by_t1_index(&self, t1_index: u32)  -> &mut SubFile {
+    pub fn get_subfile_by_t1_index(&self, t1_index: u32) -> &mut SubFile {
         let file_info = self.lookup_file_information_by_t1_index(t1_index);
         let mut sub_index_index = file_info.sub_index_index;
         // TODO: Fix this trash
         sub_index_index += 2;
         let sub_index = self.lookup_fileinfosubindex_by_index(sub_index_index);
-        let sub_file = unsafe { self.sub_files.offset(sub_index.sub_file_index as isize) as *mut SubFile };
+        let sub_file =
+            unsafe { self.sub_files.offset(sub_index.sub_file_index as isize) as *mut SubFile };
         unsafe { &mut *sub_file }
     }
 
     pub fn lookup_fileinfopath_by_t1_index(&self, t1_index: u32) -> &mut FileInfoPath {
         let file_info_path_table = self.file_info_path;
-        let file_info = unsafe { file_info_path_table.offset(t1_index as isize) as *mut FileInfoPath };
+        let file_info =
+            unsafe { file_info_path_table.offset(t1_index as isize) as *mut FileInfoPath };
         unsafe { &mut *file_info }
     }
 
     pub fn lookup_file_information_by_t1_index(&self, t1_index: u32) -> &mut FileInfo {
         let file_info_path = self.lookup_fileinfopath_by_t1_index(t1_index);
-        let file_info_idx = unsafe { self.file_info_idx.offset(file_info_path.path.index.as_u32() as isize) };
+        let file_info_idx = unsafe {
+            self.file_info_idx
+                .offset(file_info_path.path.index.as_u32() as isize)
+        };
         let file_info_table = self.file_info as *mut FileInfo;
-        let file_info = unsafe { file_info_table.offset((*file_info_idx).file_info_index as isize)};
+        let file_info =
+            unsafe { file_info_table.offset((*file_info_idx).file_info_index as isize) };
         unsafe { &mut (*file_info) }
     }
 
     pub fn lookup_fileinfosubindex_by_index(&self, sub_index_index: u32) -> &mut FileInfoSubIndex {
         let file_info_sub_index_table = self.file_info_sub_index as *mut FileInfoSubIndex;
-        let file_info_sub_index = unsafe { &mut *file_info_sub_index_table.offset(sub_index_index as isize) };
+        let file_info_sub_index =
+            unsafe { &mut *file_info_sub_index_table.offset(sub_index_index as isize) };
         file_info_sub_index
     }
 }
@@ -271,4 +278,53 @@ impl LoadedTables {
 pub enum LoadError {
     NoTable1,
     NoTable2,
+}
+
+#[repr(C)]
+pub struct FileNX {
+    vtable: *const (),
+    unk1: *const (),
+    unk2: u32,
+    pub is_open: u32,
+    pub file_handle: *mut nn::fs::FileHandle,
+    unk3: u32,
+    pub position: u64,
+    pub filename_fixedstring: [u8; 516],
+    unk4: u32,
+}
+
+#[repr(C)]
+pub struct ResServiceState {
+    pub mutex: *mut nn::os::MutexType,
+    pub res_update_event: *mut nn::os::EventType,
+    unk1: *const (),
+    pub io_swap_event: *mut nn::os::EventType,
+    unk2: *const (),
+    pub semaphore1: *const (),
+    pub semaphore2: *const (),
+    pub res_update_thread: *mut nn::os::ThreadType,
+    pub res_loading_thread: *mut nn::os::ThreadType,
+    pub res_inflate_thread: *mut nn::os::ThreadType,
+    unk4: *const (),
+    unk5: [CppVector<CppVector<u32>>; 4],
+    unk6: *const (),
+    unk7: *const (),
+    unk8: *const (),
+    pub loaded_tables: *mut LoadedTables,
+    pub unk_region_idx: u32,
+    pub regular_region_idx: u32,
+    unk9: u32,
+    pub state: i16,
+    pub is_loader_thread_running: bool,
+    unk10: u8,
+    pub data_arc_string: [u8; 256],
+    unk11: *const (),
+    pub data_arc_filenx: *mut FileNX,
+    pub buffer_size: usize,
+    pub buffer_array: [*const skyline::libc::c_void; 2],
+    pub buffer_array_idx: u32,
+    unk12: *const (),
+    pub data_ptr: *const skyline::libc::c_void,
+    pub offset_into_read: u64,
+    //Still need to add some
 }
