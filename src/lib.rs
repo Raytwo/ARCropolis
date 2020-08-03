@@ -1,4 +1,5 @@
 #![feature(proc_macro_hygiene)]
+#![feature(str_strip)]
 
 use skyline::hooks::{getRegionAddress, Region};
 use skyline::{nn, libc::{c_void, c_char}, logging::hex_dump_ptr, hook, install_hooks};
