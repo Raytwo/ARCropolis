@@ -3,7 +3,9 @@ use skyline::nn;
 use std::fmt;
 use std::sync::atomic::AtomicU32;
 
-fn offset_to_addr(offset: usize) -> *const () {
+pub static mut LOADED_TABLES_OFFSET: usize = 0x4ed7200;  // 8.0.0 offset
+
+pub fn offset_to_addr(offset: usize) -> *const () {
     unsafe { (getRegionAddress(Region::Text) as *const u8).offset(offset as isize) as _ }
 }
 
@@ -238,7 +240,7 @@ impl LoadedTables {
     pub fn get_instance() -> &'static mut Self {
         unsafe {
             let instance_ptr: *mut &'static mut Self =
-                std::mem::transmute(offset_to_addr(0x4ed7200));
+                std::mem::transmute(offset_to_addr(LOADED_TABLES_OFFSET));
             *instance_ptr
         }
     }
