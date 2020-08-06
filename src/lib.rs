@@ -271,7 +271,7 @@ fn lookup_by_stream_hash(
 }
 
 
-#[skyline::main(name = "replace")]
+#[skyline::main(name = "arcropolis")]
 pub fn main() {
     lazy_static::initialize(&ARC_FILES);
     lazy_static::initialize(&STREAM_FILES);
