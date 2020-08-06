@@ -1,4 +1,5 @@
 #![feature(proc_macro_hygiene)]
+#![feature(str_strip)]
 
 use skyline::hooks::{getRegionAddress, Region};
 use skyline::{nn, libc::{c_void, c_char}, logging::hex_dump_ptr, hook, install_hooks};
@@ -36,14 +37,54 @@ static ADD_IDX_TO_TABLE1_AND_TABLE2_SEARCH_CODE: &[u8] = &[
     0x1f, 0x01, 0x01, 0x6b,
 ];
 
-static mut IDK_OFFSET: usize = 0x32545a0; // default = 8.0.0 offset
-static mut ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET: usize = 0x324e9f0; // default = 8.0.0 offset
-static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x324f7a0; // default = 8.0.0 offset
+static LOADED_TABLES_ADRP_SEARCH_CODE: &[u8] = &[
+    0x28, 0x4b, 0x40, 0xb9,
+    0xf4, 0x03, 0x01, 0x2a,
+    0x1f, 0x01, 0x01, 0x6b,
+    0x29, 0x0a, 0x00, 0x54,
+    0x36, 0x03, 0x40, 0xf9,
+    0xe0, 0x03, 0x16, 0xaa,
+];
+
+static LOOKUP_STREAM_HASH_SEARCH_CODE: &[u8] = &[
+    0x29, 0x58, 0x40, 0xf9,
+    0x28, 0x60, 0x40, 0xf9,
+    0x2a, 0x05, 0x40, 0xb9,
+    0x09, 0x0d, 0x0a, 0x8b,
+    0xaa, 0x01, 0x00, 0x34,
+    0x5f, 0x01, 0x00, 0xf1,
+];
+
+// default 8.0.0 offsets
+static mut IDK_OFFSET: usize = 0x32545a0;
+static mut ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET: usize = 0x324e9f0;
+static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x324f7a0;
+static mut LOADED_TABLES_ADRP_OFFSET: usize = 0x324c3a0;
 
 macro_rules! log {
     ($($arg:tt)*) => {
         // Uncomment to enable logging
         //println!($($arg)*);
+    }
+}
+
+fn offset_from_adrp(adrp_offset: usize) -> usize {
+    unsafe {
+        let adrp = *(resource::offset_to_addr(adrp_offset) as *const u32);
+        let immhi = (adrp & 0b0_00_00000_1111111111111111111_00000) >> 3;
+        let immlo = (adrp & 0b0_11_00000_0000000000000000000_00000) >> 29;
+        let imm = ((immhi | immlo) << 12) as i32 as usize;
+        let base = adrp_offset & 0xFFFFFFFFFFFFF000;
+        base + imm
+    }
+}
+
+fn offset_from_ldr(ldr_offset: usize) -> usize {
+    unsafe {
+        let ldr = *(resource::offset_to_addr(ldr_offset) as *const u32);
+        let size = (ldr & 0b11_000_0_00_00_000000000000_00000_00000) >> 30;
+        let imm = (ldr & 0b00_000_0_00_00_111111111111_00000_00000) >> 10;
+        (imm as usize) << size
     }
 }
 
@@ -157,7 +198,7 @@ pub fn random_media_select(directory: &str) -> io::Result<String>{
     let mut media_files = HashMap::new();
 
     let mut media_count = 0;
-    
+
     for entry in fs::read_dir(Path::new(directory))? {
         let entry = entry?;
         let filename = entry.path();
@@ -171,7 +212,7 @@ pub fn random_media_select(directory: &str) -> io::Result<String>{
     if media_count <= 0 {
         return Err(Error::new(ErrorKind::Other, "No Files Found!"))
     }
-    
+
     let random_result = rng.gen_range(0, media_count);
 
     Ok(media_files.get(&random_result).unwrap().to_string())
@@ -189,7 +230,7 @@ fn lookup_by_stream_hash(
         let random_selection;
 
         let directory = path.display().to_string();
-        
+
         if  Path::new(&directory).is_dir() {
 
             match random_media_select(&directory){
@@ -235,7 +276,7 @@ pub fn main() {
     lazy_static::initialize(&ARC_FILES);
     lazy_static::initialize(&STREAM_FILES);
     hashes::init();
-    
+
     unsafe {
         let text_ptr = getRegionAddress(Region::Text) as *const u8;
         let text_size = (getRegionAddress(Region::Rodata) as usize) - (text_ptr as usize);
@@ -245,12 +286,27 @@ pub fn main() {
         } else {
             println!("Error: no offset found for function 'idk'. Defaulting to 8.0.0 offset. This likely won't work.");
         }
-        
+
         if let Some(offset) = find_subsequence(text, ADD_IDX_TO_TABLE1_AND_TABLE2_SEARCH_CODE) {
             ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET = offset
         } else {
             println!("Error: no offset found for function 'add_idx_to_table1_and_table2'. Defaulting to 8.0.0 offset. This likely won't work.");
         }
+
+        if let Some(offset) = find_subsequence(text, LOOKUP_STREAM_HASH_SEARCH_CODE) {
+            LOOKUP_STREAM_HASH_OFFSET = offset
+        } else {
+            println!("Error: no offset found for function 'add_idx_to_table1_and_table2'. Defaulting to 8.0.0 offset. This likely won't work.");
+        }
+
+        if let Some(offset) = find_subsequence(text, LOADED_TABLES_ADRP_SEARCH_CODE) {
+            LOADED_TABLES_ADRP_OFFSET = offset - 8
+        } else {
+            println!("Error: no offset found for 'loaded_tables_adrp'. Defaulting to 8.0.0 offset. This likely won't work.");
+        }
+        let adrp_offset = offset_from_adrp(LOADED_TABLES_ADRP_OFFSET);
+        let ldr_offset = offset_from_ldr(LOADED_TABLES_ADRP_OFFSET + 4);
+        resource::LOADED_TABLES_OFFSET = adrp_offset + ldr_offset;
     }
 
     install_hooks!(idk, add_idx_to_table1_and_table2, lookup_by_stream_hash);
