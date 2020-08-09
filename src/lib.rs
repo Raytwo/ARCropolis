@@ -6,6 +6,7 @@ use skyline::{nn, libc::{c_void, c_char}, logging::hex_dump_ptr, hook, install_h
 use std::{ptr, fs, io, path::Path, collections::HashMap};
 use std::io::{Error, ErrorKind};
 use rand::Rng;
+use std::fs::File;
 
 mod replacement_files;
 use replacement_files::*;
@@ -64,7 +65,7 @@ static mut LOADED_TABLES_ADRP_OFFSET: usize = 0x324c3a0;
 macro_rules! log {
     ($($arg:tt)*) => {
         // Uncomment to enable logging
-        //println!($($arg)*);
+        println!($($arg)*);
     }
 }
 
@@ -85,6 +86,31 @@ fn offset_from_ldr(ldr_offset: usize) -> usize {
         let size = (ldr & 0b11_000_0_00_00_000000000000_00000_00000) >> 30;
         let imm = (ldr & 0b00_000_0_00_00_111111111111_00000_00000) >> 10;
         (imm as usize) << size
+    }
+}
+
+pub fn patch_table1(table1_idx: u32) {
+    let loaded_tables = LoadedTables::get_instance();
+    let mut subfile = loaded_tables.get_arc().get_subfile_by_t1_index(table1_idx);
+    let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
+
+    if let Some(path) = ARC_FILES.get_from_hash(hash) {
+        let file = File::open(path).ok().unwrap();
+        let metadata = file.metadata().ok().unwrap();
+
+        log!(
+            "Filename: {}, original decompressed size {:#x}",
+            hashes::get(hash).unwrap_or(&"none"),
+            subfile.decompressed_size as u32
+        );
+        //subfile.compressed_size = 0x4200069u32;
+        subfile.decompressed_size = metadata.len() as u32;
+
+        log!(
+            "Filename: {}, new decompressed size {:#x}",
+            hashes::get(hash).unwrap_or(&"none"),
+            subfile.decompressed_size as u32
+        );
     }
 }
 
@@ -114,26 +140,30 @@ fn print_table1idx_info(table1_idx: u32) {
     // }
 
     log!(
-        "Filename: {}, State: {}, Flags: {}, RefCount: {:x?}, Data loaded: {}",
+        "Filename: {}, State: {}, Flags: {}, RefCount: {:x?}, Data loaded: {}, Version: {:#x}, Unk: {}",
         hashes::get(hash.as_u64()).unwrap_or(&"none"),
         table2entry.state,
         table2entry.flags,
         table2entry.ref_count,
-        !table2entry.data.is_null()
+        !table2entry.data.is_null(),
+        table2entry.version,
+        table2entry.unk
     );
 }
 
 #[hook(offset = IDK_OFFSET)]
 unsafe fn idk(res_state: *const u64, table1_idx: u32, flag_related: u32) {
-    original!()(res_state, table1_idx, flag_related);
-
     let loaded_tables = LoadedTables::get_instance();
     let mutex = loaded_tables.mutex;
     let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
 
+    original!()(res_state, table1_idx, flag_related);
+
     if let Some(path) = ARC_FILES.get_from_hash(hash) {
         log!("--- [Idk] ---");
         log!("File hash matching, path: {}", path.display());
+
+        patch_table1(table1_idx);
 
         let mut table2entry = loaded_tables.get_t2_mut(table1_idx).unwrap();
 
@@ -159,16 +189,17 @@ unsafe fn idk(res_state: *const u64, table1_idx: u32, flag_related: u32) {
 
 #[hook(offset = ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET)]
 unsafe fn add_idx_to_table1_and_table2(loaded_table: *const LoadedTables, table1_idx: u32) {
-    original!()(loaded_table, table1_idx);
-
     let loaded_tables = LoadedTables::get_instance();
-    let mutex = loaded_tables.mutex;
     let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
+    let mutex = loaded_tables.mutex;
+
+    original!()(loaded_table, table1_idx);
 
     if let Some(path) = ARC_FILES.get_from_hash(hash) {
         log!("--- [AddIdx] ---");
         log!("File hash matching, path: {}", path.display());
 
+        patch_table1(table1_idx);
         let mut table2entry = loaded_tables.get_t2_mut(table1_idx).unwrap();
 
         if table2entry.state == FileState::Loaded || table2entry.state == FileState::Unloaded && !table2entry.data.is_null() {
@@ -189,6 +220,8 @@ unsafe fn add_idx_to_table1_and_table2(loaded_table: *const LoadedTables, table1
 
         print_table1idx_info(table1_idx);
     }
+
+
 }
 
 
@@ -270,6 +303,59 @@ fn lookup_by_stream_hash(
     }
 }
 
+#[hook(offset = 0x34e42f0)]
+fn parse_nutexb_footer(
+    unk1: *const u64, data: *const u8, decompressed_size: u64, unk2: *mut u64
+) -> u64 {
+    // Write 0xFF over half of the buffer to see changes
+
+    // unsafe {
+    //     let data_slice = std::slice::from_raw_parts_mut(data as *mut u8, decompressed_size as usize);
+
+    //     for mut value in data_slice[0..((decompressed_size - 0xb0) / 2) as usize].iter_mut() {
+    //         *value = 0xFF;
+    //     }
+    // }
+    original!()(unk1, data, decompressed_size, unk2)
+}
+
+
+// Somewhat working, does not affect fighter textures. Only BC2 textures?
+#[hook(offset = 0x3355d80)]
+unsafe fn get_texture_by_table1_index(
+    unk1: *const u64, table1_idx: *const u32
+) {
+    print_table1idx_info(*table1_idx);
+    let loaded_tables = LoadedTables::get_instance();
+
+    let hash = loaded_tables.get_hash_from_t1_index(*table1_idx).as_u64();
+    let mutex = loaded_tables.mutex;
+
+    if let Some(path) = ARC_FILES.get_from_hash(hash) {
+        log!("--- [GetTextureByPath?] ---");
+        log!("File hash matching, path: {}", path.display());
+
+        patch_table1(*table1_idx);
+
+        let mut table2entry = loaded_tables.get_t2_mut(*table1_idx).unwrap();
+
+        log!("Replacing...");
+
+        nn::os::LockMutex(mutex);
+        let data = fs::read(path).unwrap().into_boxed_slice();
+        let data = Box::leak(data);
+        table2entry.data = data.as_ptr();
+        table2entry.state = FileState::Loaded;
+        table2entry.flags = 43;
+
+        nn::os::UnlockMutex(mutex);
+
+        print_table1idx_info(*table1_idx);
+    }
+
+    original!()(unk1, table1_idx);
+
+}
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
@@ -310,5 +396,17 @@ pub fn main() {
     }
 
     install_hooks!(idk, add_idx_to_table1_and_table2, lookup_by_stream_hash);
-    log!("File replacement mod installed.");
+    //install_hooks!(get_texture_by_table1_index);
+    println!("ARCropolis installed.");
+
+    // Expand table2
+
+    // let loaded_tables = LoadedTables::get_instance();
+    // unsafe { nn::os::LockMutex(loaded_tables.mutex); }
+    // let mut table2_vec = loaded_tables.table_2().to_vec();
+    // table2_vec.push(Table2Entry { data: 0 as *const u8, ref_count: 0, is_used: false, state: FileState::Unused, file_flags2: false, flags: 45, version: 0xFFFF, unk: 0});
+    // loaded_tables.table2_len = table2_vec.len() as u32;
+    // let mut table2_array = table2_vec.into_boxed_slice();
+    // loaded_tables.table2 = table2_array.as_ptr() as *mut Table2Entry;
+    // unsafe { nn::os::UnlockMutex(loaded_tables.mutex); }
 }
