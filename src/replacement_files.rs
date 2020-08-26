@@ -18,7 +18,6 @@ const ARC_DIR: &str = "rom:/arc";
 const STREAM_DIR: &str = "rom:/arc/stream";
 const UMM_DIR: &str = "sd:/ultimate/mods";
 
-
 impl StreamFiles {
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
@@ -35,11 +34,13 @@ impl StreamFiles {
                 let filename = entry.path();
                 let real_path = format!("{}/{}", dir.display(), filename.display());
                 let path = Path::new(&real_path);
-                if path.is_dir() &&  path.display().to_string().contains("."){
-                    let new_path = format!("stream:{}", &path.display().to_string()[STREAM_DIR.len()..]);
+                if path.is_dir() && path.display().to_string().contains(".") {
+                    let new_path =
+                        format!("stream:{}", &path.display().to_string()[STREAM_DIR.len()..]);
                     let hash = hash40(&new_path);
-                    self.0.insert(hash, Path::new(&path.display().to_string()).to_path_buf());
-                }else if path.is_dir(){
+                    self.0
+                        .insert(hash, Path::new(&path.display().to_string()).to_path_buf());
+                } else if path.is_dir() {
                     self.visit_dir(&path)?;
                 } else {
                     self.visit_file(path);
@@ -62,8 +63,6 @@ impl StreamFiles {
         }
     }
 }
-
-
 
 impl ArcFiles {
     fn new() -> Self {
@@ -118,5 +117,9 @@ impl ArcFiles {
 
     pub fn get_from_hash(&self, hash: u64) -> Option<&PathBuf> {
         self.0.get(&hash)
+    }
+
+    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, u64, std::path::PathBuf> {
+        self.0.iter()
     }
 }

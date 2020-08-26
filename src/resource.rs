@@ -1,24 +1,13 @@
-use skyline::hooks::{getRegionAddress, Region, };
-use skyline::from_offset;
-use skyline::nn;
 use std::fmt;
 use std::sync::atomic::AtomicU32;
-use std::mem::transmute;
 
-pub static mut LOADED_TABLES_OFFSET: usize = 0x4ed7200;  // 8.0.0 offset
+use skyline::nn;
+use skyline::hooks::{getRegionAddress, Region};
+
+pub static mut LOADED_TABLES_OFFSET: usize = 0x4ed7200; // 8.0.0 offset
 
 pub fn offset_to_addr(offset: usize) -> *const () {
     unsafe { (getRegionAddress(Region::Text) as *const u8).offset(offset as isize) as _ }
-}
-
-#[from_offset(0x7711b0)]
-pub fn bsearch(key: *const skyline::libc::c_void, base: *const skyline::libc::c_void, nmemb: *const skyline::libc::c_void, size: usize, compar: *const skyline::libc::c_void) -> *const skyline::libc::c_void;
-
-#[repr(C)]
-#[repr(packed)]
-pub struct Table1Entry {
-    pub table2_index: u32,
-    pub is_in_table_2: u32,
 }
 
 #[repr(u8)]
@@ -38,10 +27,39 @@ impl fmt::Display for FileState {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone)]
+#[repr(packed)]
+pub struct Table1Entry {
+    pub table2_index: u32,
+    pub in_table_2: u32,
+}
+
+impl Table1Entry {
+    pub fn get_t2_entry(&self) -> Result<&Table2Entry, LoadError> {
+        LoadedTables::get_instance()
+            .table_2()
+            .get(self.table2_index as usize)
+            .ok_or(LoadError::NoTable2)
+    }
+}
+
+impl fmt::Display for Table1Entry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        unsafe {
+            write!(
+                f,
+                "Table2 index: {} (In Table2: {})",
+                self.table2_index,
+                self.in_table_2 != 0
+            )
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug)]
 pub struct Table2Entry {
     pub data: *const u8,
-    pub ref_count: u32,
+    pub ref_count: AtomicU32,
     pub is_used: bool,
     pub state: FileState,
     pub file_flags2: bool,
@@ -50,11 +68,19 @@ pub struct Table2Entry {
     pub unk: u8,
 }
 
-#[repr(C)]
-pub struct CppVector<T> {
-    start: *const T,
-    end: *const T,
-    eos: *const T,
+impl fmt::Display for Table2Entry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "State: {}, Flags: {}, RefCount: {:x?}, Data loaded: {}, Version: {:#x}, Unk: {}",
+            self.state,
+            self.flags,
+            self.ref_count,
+            !self.data.is_null(),
+            self.version,
+            self.unk
+        )
+    }
 }
 
 #[repr(C)]
@@ -111,6 +137,13 @@ pub struct LoadedArc {
 }
 
 #[repr(C)]
+pub struct CppVector<T> {
+    start: *const T,
+    end: *const T,
+    eos: *const T,
+}
+
+#[repr(C)]
 pub struct LoadedSearch {
     pub header: *const (),
     pub body: *const FsSearchBody,
@@ -130,10 +163,8 @@ pub struct FsSearchBody {
 
 impl LoadedArc {
     pub fn get_subfile_by_t1_index(&self, t1_index: u32) -> &mut SubFile {
-        let file_info = self.lookup_file_information_by_t1_index(t1_index);
+        let mut file_info = self.lookup_file_information_by_t1_index(t1_index);
         let file_index = self.lookup_fileinfoindex_by_t1_index(t1_index);
-
-        //log!("Flags before: {:#x}", file_info.flags);
 
         // Redirect
         if (file_info.flags & 0x00000010) == 0x10 {
@@ -142,7 +173,7 @@ impl LoadedArc {
 
             // let loaded_tables = LoadedTables::get_instance();
             // unsafe { nn::os::LockMutex(loaded_tables.mutex); }
-            
+
             // let count: [u8; 4] = unsafe { transmute((loaded_tables.table2_len -1).to_le()) };
             // self.lookup_fileinfopath_by_t1_index(t1_index).path.index.0[0] = count[0];
             // self.lookup_fileinfopath_by_t1_index(t1_index).path.index.0[1] = count[1];
@@ -153,21 +184,21 @@ impl LoadedArc {
 
             // println!("Table2_len: {:#x}", loaded_tables.table2_len);
             // println!("Flags after: {:#x}, PathIndex: {:#x}", file_info.flags, self.lookup_fileinfopath_by_t1_index(t1_index).path.index.as_u32());
-            
+
             //let file_index = self.lookup_fileinfoindex_by_t1_index(t1_index);
-            let file_info = self.lookup_file_information_by_t1_index(file_index.file_info_index);
+            file_info = self.lookup_file_information_by_t1_index(file_index.file_info_index);
         }
 
-        let sub_index = self.lookup_fileinfosubindex_by_index(file_info.sub_index_index);
+        let mut sub_index = self.lookup_fileinfosubindex_by_index(file_info.sub_index_index);
 
         // Regional
         if (file_info.flags & 0x00008000) == 0x8000 {
-            let sub_index = self.lookup_fileinfosubindex_by_index(file_info.sub_index_index + 2);
+            sub_index = self.lookup_fileinfosubindex_by_index(file_info.sub_index_index + 2);
         }
 
         let sub_file =
             unsafe { self.sub_files.offset(sub_index.sub_file_index as isize) as *mut SubFile };
-        
+
         unsafe { &mut *sub_file }
     }
 
@@ -182,13 +213,13 @@ impl LoadedArc {
         let file_info_path = self.lookup_fileinfopath_by_t1_index(t1_index);
         let file_info_idx = unsafe {
             self.file_info_idx
-                .offset(file_info_path.path.index.as_u32() as isize) as *mut FileInfoIndex
+                .offset(file_info_path.path.index.as_u32() as isize)
+                as *mut FileInfoIndex
         };
         unsafe { &mut *file_info_idx }
     }
 
     pub fn lookup_file_information_by_t1_index(&self, t1_index: u32) -> &mut FileInfo {
-        let file_info_path = self.lookup_fileinfopath_by_t1_index(t1_index);
         let file_info_idx = self.lookup_fileinfoindex_by_t1_index(t1_index);
         let file_info_table = self.file_info as *mut FileInfo;
         let file_info =
@@ -196,20 +227,11 @@ impl LoadedArc {
         unsafe { &mut (*file_info) }
     }
 
-    pub fn lookup_file_information_by_hash(&self, path: u32)
-    {
-        
-    }
-
     pub fn lookup_fileinfosubindex_by_index(&self, sub_index_index: u32) -> &mut FileInfoSubIndex {
         let file_info_sub_index_table = self.file_info_sub_index as *mut FileInfoSubIndex;
         let file_info_sub_index =
             unsafe { &mut *file_info_sub_index_table.offset(sub_index_index as isize) };
         file_info_sub_index
-    }
-
-    pub fn lookup_hash_group(&self, path: u32) {
-
     }
 }
 
@@ -274,8 +296,8 @@ impl fmt::Debug for HashIndexGroup {
 #[repr(packed)]
 #[derive(Copy, Clone)]
 pub struct Hash40 {
-    crc32: u32,
-    len: u8,
+    pub crc32: u32,
+    pub len: u8,
 }
 
 #[repr(transparent)]
@@ -311,14 +333,17 @@ impl LoadedTables {
         self.loaded_data.arc
     }
 
+    #[allow(dead_code)]
     pub fn get_search(&self) -> &LoadedSearch {
         self.loaded_data.search
     }
 
+    #[allow(dead_code)]
     pub fn get_arc_mut(&mut self) -> &mut LoadedArc {
         &mut self.loaded_data.arc
     }
 
+    #[allow(dead_code)]
     pub fn get_search_mut(&mut self) -> &LoadedSearch {
         &mut self.loaded_data.search
     }
@@ -355,8 +380,7 @@ impl LoadedTables {
     }
 
     pub fn get_t1_mut(&mut self, t1_index: u32) -> Result<&mut Table1Entry, LoadError> {
-        self
-            .table_1_mut()
+        self.table_1_mut()
             .get_mut(t1_index as usize)
             .ok_or(LoadError::NoTable1)
     }
@@ -380,6 +404,7 @@ pub enum LoadError {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct FileNX {
     vtable: *const (),
     unk1: *const (),
@@ -393,6 +418,7 @@ pub struct FileNX {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct ResServiceState {
     pub mutex: *mut nn::os::MutexType,
     pub res_update_event: *mut nn::os::EventType,
