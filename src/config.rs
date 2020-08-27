@@ -9,8 +9,7 @@ use crate::log;
 use serde::{Deserialize, Serialize};
 
 const CONFIG_PATH: &str = "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml";
-const CONFIG_CURR_VERSION: &str = "1.0.0";
-
+const CONFIG_CURR_VERSION: &str = "1.1.0";
 
 lazy_static::lazy_static! {
     pub static ref CONFIG: Config = init();
@@ -20,6 +19,7 @@ lazy_static::lazy_static! {
 pub struct Config {
     pub infos: Infos,
     pub paths: Paths,
+    pub misc: Miscellaneous,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -34,6 +34,12 @@ pub struct Paths {
     pub umm: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct Miscellaneous {
+    pub debug: bool,
+    pub mowjoh: Option<bool>,
+}
+
 fn generate_config() -> Result<Config, &'static str> {
     // Create a new default configuration
     let config = Config {
@@ -44,6 +50,10 @@ fn generate_config() -> Result<Config, &'static str> {
             arc: "rom:/arc".to_string(),
             stream: "rom:/arc/stream".to_string(),
             umm: "sd:/umm".to_string(),
+        },
+        misc: Miscellaneous {
+            debug: false,
+            mowjoh: None,
         },
     };
 
@@ -72,19 +82,21 @@ fn generate_config() -> Result<Config, &'static str> {
 fn init() -> Config {
     let config = match fs::read_to_string(CONFIG_PATH) {
         Ok(content) => {
-            let config: Config = toml::from_str(&content).unwrap();
-
-            if config.infos.version != CONFIG_CURR_VERSION {
-                log!("[ARC::Config] Configuration file version mismatch");
-                show_error(69, "Configuration file version mismatch.", &format!("The version of your configuration file ({}) indicate that the file is either outdated, corrupted or in a format unfit for ARCropolis.\n\nA new configuration file will now be generated, but it might ignore your modpacks. Consider double checking.", CONFIG_PATH));
-                log!("[ARC::Config] Deleting configuration file...");
-                unsafe {
-                    nn::fs::DeleteFile(c_str(&(CONFIG_PATH.to_owned() + "\0")));
+            let config: Config = match toml::from_str(&content) {
+                Ok(conf) => conf,
+                Err(_) => {
+                    log!("[ARC::Config] Configuration file version mismatch");
+                    show_error(69, "Configuration file version mismatch.", &format!("The version of your configuration file ({}) indicate that the file is either poorly manually edited, outdated, corrupted or in a format unfit for ARCropolis.\n\nA new configuration file will now be generated, but it might ignore your modpacks. Consider double checking.", CONFIG_PATH));
+                    log!("[ARC::Config] Deleting configuration file...");
+                    unsafe {
+                        nn::fs::DeleteFile(c_str(&(CONFIG_PATH.to_owned() + "\0")));
+                    }
+                    log!("[ARC::Config] Generating configuration file...");
+                    let config = generate_config().unwrap();
+                    log!("[ARC::Config] Configuration file successfully created");
+                    config
                 }
-                log!("[ARC::Config] Generating configuration file...");
-                let config = generate_config().unwrap();
-                log!("[ARC::Config] Configuration file successfully created");
-            }
+            };
 
             config
         }
