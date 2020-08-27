@@ -140,7 +140,10 @@ pub fn filesize_replacement() {
                 .position(|x| x.path.hash40.as_u64() == *hash)
                 {
                     Some(index) => index as u32,
-                    None => continue
+                    None => {
+                        log!("[ARC::Patching] Hash {} not found in table1, skipping", hash);
+                        continue;
+                    }
                 };
 
             let mut subfile = loaded_tables.get_arc().get_subfile_by_t1_index(t1_index);
