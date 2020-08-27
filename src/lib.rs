@@ -18,14 +18,16 @@ mod resource;
 use resource::*;
 
 mod config;
-use config::{CONFIG};
+use config::CONFIG;
 
 #[macro_export]
 macro_rules! log {
     ($($arg:tt)*) => {
         // Uncomment to enable logging
-        //println!($($arg)*);
-    }
+        if crate::config::CONFIG.misc.debug {
+            println!($($arg)*);
+        }
+    };
 }
 
 fn handle_file_load(table1_idx: u32) {
@@ -60,6 +62,16 @@ fn handle_file_load(table1_idx: u32) {
         }
 
         println!("[ARC::Replace] Replacing {}...", internal_filepath);
+
+        // This is a personal request, don't mind it too much.
+        if let Some(_) = CONFIG.misc.mowjoh {
+            use skyline::error::show_error;
+            show_error(
+                69,
+                &format!("[ARC::Replace] Replacing {}...", internal_filepath),
+                "Nothing to see here",
+            );
+        }
 
         unsafe {
             nn::os::LockMutex(mutex);
@@ -128,7 +140,6 @@ unsafe fn get_texture_by_table1_index(unk1: &u64, table1_idx: &u32) {
 pub fn main() {
     // Read the configuration so we can set the filepaths
     lazy_static::initialize(&CONFIG);
-
     lazy_static::initialize(&ARC_FILES);
     lazy_static::initialize(&STREAM_FILES);
 
@@ -140,6 +151,12 @@ pub fn main() {
     patching::filesize_replacement();
     // Attempt at expanding table2 (Does not work, do not use!)
     //patching::expand_table2();
+
+    // This is a personal request, don't mind it too much.
+    if let Some(_) = CONFIG.misc.mowjoh {
+        use skyline::error::show_error;
+        show_error(69, "I'm Mowjoh!", "No really, he is.");
+    }
 
     install_hooks!(
         idk,

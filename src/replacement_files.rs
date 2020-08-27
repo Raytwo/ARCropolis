@@ -33,8 +33,10 @@ impl StreamFiles {
                 let real_path = format!("{}/{}", dir.display(), filename.display());
                 let path = Path::new(&real_path);
                 if path.is_dir() && path.display().to_string().contains(".") {
-                    let new_path =
-                        format!("stream:{}", &path.display().to_string()[CONFIG.paths.stream.len()..]);
+                    let new_path = format!(
+                        "stream:{}",
+                        &path.display().to_string()[CONFIG.paths.stream.len()..]
+                    );
                     let hash = hash40(&new_path);
                     self.0
                         .insert(hash, Path::new(&path.display().to_string()).to_path_buf());
@@ -50,7 +52,10 @@ impl StreamFiles {
     }
 
     fn visit_file(&mut self, path: &Path) {
-        let mut game_path = format!("stream:{}", &path.display().to_string()[CONFIG.paths.stream.len()..]);
+        let mut game_path = format!(
+            "stream:{}",
+            &path.display().to_string()[CONFIG.paths.stream.len()..]
+        );
         match game_path.strip_suffix("mp4") {
             Some(x) => game_path = format!("{}{}", x, "webm"),
             None => (),
