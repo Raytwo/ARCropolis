@@ -8,7 +8,7 @@ use crate::log;
 
 use serde::{Deserialize, Serialize};
 
-const CONFIG_PATH: &str = "sd:/atmosphere/contents/01006A800016E000/arcropolis.toml";
+const CONFIG_PATH: &str = "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml";
 const CONFIG_CURR_VERSION: &str = "1.0.0";
 
 

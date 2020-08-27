@@ -24,7 +24,7 @@ use config::{CONFIG};
 macro_rules! log {
     ($($arg:tt)*) => {
         // Uncomment to enable logging
-        println!($($arg)*);
+        //println!($($arg)*);
     }
 }
 
@@ -70,7 +70,7 @@ fn handle_file_load(table1_idx: u32) {
 
         table2entry.data = data.as_ptr();
         table2entry.state = FileState::Loaded;
-        table2entry.flags = 45;
+        table2entry.flags = 43;
 
         unsafe {
             nn::os::UnlockMutex(mutex);
