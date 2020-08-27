@@ -1,8 +1,8 @@
 use std::fmt;
 use std::sync::atomic::AtomicU32;
 
-use skyline::nn;
 use skyline::hooks::{getRegionAddress, Region};
+use skyline::nn;
 
 pub static mut LOADED_TABLES_OFFSET: usize = 0x4ed7200; // 8.0.0 offset
 

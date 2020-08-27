@@ -11,10 +11,14 @@ titleid = "01006A800016E000"
 crate-type = ["cdylib"]
 
 [dependencies]
+rand = "0.7.3"
+toml = "0.5.6"
+lazy_static = "1.4"
+owo-colors = "1.0.3"
+serde = { version = "1", features = ["derive"] }
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline_smash = { git = "https://github.com/ultimate-research/skyline-smash.git" }
-lazy_static = "1.4"
-rand = "0.7.3"
+
 
 [patch.crates-io]
 getrandom = { git = "https://github.com/Raytwo/getrandom" }

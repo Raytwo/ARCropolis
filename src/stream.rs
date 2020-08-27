@@ -10,8 +10,8 @@ use skyline::{
 };
 
 use crate::log;
-use crate::replacement_files::STREAM_FILES;
 use crate::patching::LOOKUP_STREAM_HASH_OFFSET;
+use crate::replacement_files::STREAM_FILES;
 
 pub fn random_media_select(directory: &str) -> io::Result<String> {
     let mut rng = rand::thread_rng();

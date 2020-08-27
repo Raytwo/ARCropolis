@@ -1,13 +1,13 @@
-use std::slice;
 use std::fs::File;
+use std::slice;
 use std::sync::atomic::AtomicU32;
 
 use crate::log;
-use crate::resource::*;
 use crate::replacement_files::ARC_FILES;
+use crate::resource::*;
 
-use skyline::nn;
 use skyline::hooks::{getRegionAddress, Region};
+use skyline::nn;
 
 // default 8.0.0 offsets
 pub static mut IDK_OFFSET: usize = 0x32545a0;

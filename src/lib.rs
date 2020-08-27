@@ -17,6 +17,8 @@ use replacement_files::{ARC_FILES, STREAM_FILES};
 mod resource;
 use resource::*;
 
+mod config;
+
 #[macro_export]
 macro_rules! log {
     ($($arg:tt)*) => {
@@ -31,11 +33,24 @@ fn handle_file_load(table1_idx: u32) {
     let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
     let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
-    log!("[ARC::Loading | #{}] File path: {}, Hash: {}, {}", table1_idx, internal_filepath, hash, loaded_tables.get_t1_mut(table1_idx).unwrap().get_t2_entry().unwrap());
+    log!(
+        "[ARC::Loading | #{}] File path: {}, Hash: {}, {}",
+        table1_idx,
+        internal_filepath,
+        hash,
+        loaded_tables
+            .get_t1_mut(table1_idx)
+            .unwrap()
+            .get_t2_entry()
+            .unwrap()
+    );
 
     // Println!() calls are on purpose so these show up no matter what.
     if let Some(path) = ARC_FILES.get_from_hash(hash) {
-        println!("[ARC::Replace] Hash matching for file path: {}", path.display());
+        println!(
+            "[ARC::Replace] Hash matching for file path: {}",
+            path.display()
+        );
 
         let mut table2entry = loaded_tables.get_t2_mut(table1_idx).unwrap();
 
@@ -110,6 +125,9 @@ unsafe fn get_texture_by_table1_index(unk1: &u64, table1_idx: &u32) {
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
+    // Read the configuration so we can set the filepaths
+    config::init();
+
     lazy_static::initialize(&ARC_FILES);
     lazy_static::initialize(&STREAM_FILES);
 
