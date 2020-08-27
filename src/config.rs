@@ -8,7 +8,7 @@ use crate::log;
 
 use serde::{Deserialize, Serialize};
 
-const CONFIG_PATH: &str = "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml";
+const CONFIG_PATH: &str = "sd:/atmosphere/contents/01006A800016E000/arcropolis.toml";
 const CONFIG_CURR_VERSION: &str = "1.0.0";
 
 
@@ -74,7 +74,7 @@ fn init() -> Config {
         Ok(content) => {
             let config: Config = toml::from_str(&content).unwrap();
 
-            if config.infos.version != "0.1.4" {
+            if config.infos.version != CONFIG_CURR_VERSION {
                 log!("[ARC::Config] Configuration file version mismatch");
                 show_error(69, "Configuration file version mismatch.", &format!("The version of your configuration file ({}) indicate that the file is either outdated, corrupted or in a format unfit for ARCropolis.\n\nA new configuration file will now be generated, but it might ignore your modpacks. Consider double checking.", CONFIG_PATH));
                 log!("[ARC::Config] Deleting configuration file...");
