@@ -65,8 +65,7 @@ fn handle_file_load(table1_idx: u32) {
 
         // This is a personal request, don't mind it too much.
         if let Some(_) = CONFIG.misc.mowjoh {
-            use skyline::error::show_error;
-            show_error(
+            skyline::error::show_error(
                 69,
                 &format!("[ARC::Replace] Replacing {}...", internal_filepath),
                 "Nothing to see here",
@@ -154,8 +153,7 @@ pub fn main() {
 
     // This is a personal request, don't mind it too much.
     if let Some(_) = CONFIG.misc.mowjoh {
-        use skyline::error::show_error;
-        show_error(69, "I'm Mowjoh!", "No really, he is.");
+        skyline::error::show_error(69, "I'm Mowjoh!", "No really, he is.");
     }
 
     install_hooks!(
