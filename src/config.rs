@@ -74,7 +74,7 @@ fn generate_config() -> Result<Config, &'static str> {
         nn::fs::CloseFile(fhandle);
     }
 
-    log!("[ARC::Config] Configuration file successfully created");
+    println!("[ARC::Config] Configuration file successfully created");
 
     Ok(config)
 }
@@ -85,15 +85,15 @@ fn init() -> Config {
             let config: Config = match toml::from_str(&content) {
                 Ok(conf) => conf,
                 Err(_) => {
-                    log!("[ARC::Config] Configuration file version mismatch");
+                    println!("[ARC::Config] Configuration file version mismatch");
                     show_error(69, "Configuration file version mismatch.", &format!("The version of your configuration file ({}) indicate that the file is either poorly manually edited, outdated, corrupted or in a format unfit for ARCropolis.\n\nA new configuration file will now be generated, but it might ignore your modpacks. Consider double checking.", CONFIG_PATH));
-                    log!("[ARC::Config] Deleting configuration file...");
+                    println!("[ARC::Config] Deleting configuration file...");
                     unsafe {
                         nn::fs::DeleteFile(c_str(&(CONFIG_PATH.to_owned() + "\0")));
                     }
-                    log!("[ARC::Config] Generating configuration file...");
+                    println!("[ARC::Config] Generating configuration file...");
                     let config = generate_config().unwrap();
-                    log!("[ARC::Config] Configuration file successfully created");
+                    println!("[ARC::Config] Configuration file successfully created");
                     config
                 }
             };
@@ -101,7 +101,7 @@ fn init() -> Config {
             config
         }
         Err(_) => {
-            log!("[ARC::Config] Configuration file not found. Generating a new one...");
+            println!("[ARC::Config] Configuration file not found. Generating a new one...");
             show_error(69, "Thank you for installing ARCropolis!\nConfiguration file will now be generated.", "Your installation of ARCropolis does not have a configuration file yet.\nSit tight while we create one for you!");
             match generate_config() {
                 Ok(config) => config,
