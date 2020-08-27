@@ -18,6 +18,7 @@ mod resource;
 use resource::*;
 
 mod config;
+use config::{CONFIG};
 
 #[macro_export]
 macro_rules! log {
@@ -126,7 +127,7 @@ unsafe fn get_texture_by_table1_index(unk1: &u64, table1_idx: &u32) {
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Read the configuration so we can set the filepaths
-    config::init();
+    lazy_static::initialize(&CONFIG);
 
     lazy_static::initialize(&ARC_FILES);
     lazy_static::initialize(&STREAM_FILES);

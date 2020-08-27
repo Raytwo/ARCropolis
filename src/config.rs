@@ -8,31 +8,37 @@ use crate::log;
 
 use serde::{Deserialize, Serialize};
 
-const CONFIG_PATH: &str = "sd:/arcropolis.toml";
+const CONFIG_PATH: &str = "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml";
+const CONFIG_CURR_VERSION: &str = "0.1.4";
 
-#[derive(Serialize, Deserialize)]
-struct Config {
-    infos: Infos,
-    paths: Paths,
+
+lazy_static::lazy_static! {
+    pub static ref CONFIG: Config = init();
 }
 
 #[derive(Serialize, Deserialize)]
-struct Infos {
-    version: String,
+pub struct Config {
+    pub infos: Infos,
+    pub paths: Paths,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Paths {
-    arc: String,
-    stream: String,
-    umm: String,
+pub struct Infos {
+    pub version: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Paths {
+    pub arc: String,
+    pub stream: String,
+    pub umm: String,
 }
 
 fn generate_config() -> Result<Config, &'static str> {
     // Create a new default configuration
     let config = Config {
         infos: Infos {
-            version: "0.1.4".to_string(),
+            version: CONFIG_CURR_VERSION.to_string(),
         },
         paths: Paths {
             arc: "rom:/arc".to_string(),
@@ -63,7 +69,7 @@ fn generate_config() -> Result<Config, &'static str> {
     Ok(config)
 }
 
-pub fn init() {
+fn init() -> Config {
     let config = match fs::read_to_string(CONFIG_PATH) {
         Ok(content) => {
             let config: Config = toml::from_str(&content).unwrap();
@@ -94,4 +100,5 @@ pub fn init() {
             }
         }
     };
+    config
 }

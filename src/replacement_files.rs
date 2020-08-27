@@ -5,6 +5,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::config::CONFIG;
+
 lazy_static::lazy_static! {
     pub static ref ARC_FILES: ArcFiles = ArcFiles::new();
     pub static ref STREAM_FILES: StreamFiles = StreamFiles::new();
@@ -14,15 +16,11 @@ pub struct ArcFiles(pub HashMap<u64, PathBuf>);
 
 pub struct StreamFiles(pub HashMap<u64, PathBuf>);
 
-const ARC_DIR: &str = "rom:/arc";
-const STREAM_DIR: &str = "rom:/arc/stream";
-const UMM_DIR: &str = "sd:/ultimate/mods";
-
 impl StreamFiles {
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
 
-        let _ = instance.visit_dir(Path::new(STREAM_DIR));
+        let _ = instance.visit_dir(Path::new(&CONFIG.paths.stream));
 
         instance
     }
@@ -36,7 +34,7 @@ impl StreamFiles {
                 let path = Path::new(&real_path);
                 if path.is_dir() && path.display().to_string().contains(".") {
                     let new_path =
-                        format!("stream:{}", &path.display().to_string()[STREAM_DIR.len()..]);
+                        format!("stream:{}", &path.display().to_string()[CONFIG.paths.stream.len()..]);
                     let hash = hash40(&new_path);
                     self.0
                         .insert(hash, Path::new(&path.display().to_string()).to_path_buf());
@@ -52,7 +50,7 @@ impl StreamFiles {
     }
 
     fn visit_file(&mut self, path: &Path) {
-        let mut game_path = format!("stream:{}", &path.display().to_string()[STREAM_DIR.len()..]);
+        let mut game_path = format!("stream:{}", &path.display().to_string()[CONFIG.paths.stream.len()..]);
         match game_path.strip_suffix("mp4") {
             Some(x) => game_path = format!("{}{}", x, "webm"),
             None => (),
@@ -68,8 +66,8 @@ impl ArcFiles {
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
 
-        let _ = instance.visit_dir(Path::new(ARC_DIR), ARC_DIR.len());
-        let _ = instance.visit_umm_dirs(Path::new(UMM_DIR));
+        let _ = instance.visit_dir(Path::new(&CONFIG.paths.arc), CONFIG.paths.arc.len());
+        let _ = instance.visit_umm_dirs(Path::new(&CONFIG.paths.umm));
 
         instance
     }
