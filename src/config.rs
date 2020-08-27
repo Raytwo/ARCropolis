@@ -9,7 +9,7 @@ use crate::log;
 use serde::{Deserialize, Serialize};
 
 const CONFIG_PATH: &str = "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml";
-const CONFIG_CURR_VERSION: &str = "0.1.4";
+const CONFIG_CURR_VERSION: &str = "1.0.0";
 
 
 lazy_static::lazy_static! {
