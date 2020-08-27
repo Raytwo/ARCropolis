@@ -16,6 +16,8 @@ pub struct ArcFiles(pub HashMap<u64, PathBuf>);
 
 pub struct StreamFiles(pub HashMap<u64, PathBuf>);
 
+const UNSUPPORTED_FORMATS: &'static [&'static str] = &["nutexb", "eff"];
+
 impl StreamFiles {
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
@@ -33,13 +35,7 @@ impl StreamFiles {
                 let real_path = format!("{}/{}", dir.display(), filename.display());
                 let path = Path::new(&real_path);
                 if path.is_dir() && path.display().to_string().contains(".") {
-                    let new_path = format!(
-                        "stream:{}",
-                        &path.display().to_string()[CONFIG.paths.stream.len()..]
-                    );
-                    let hash = hash40(&new_path);
-                    self.0
-                        .insert(hash, Path::new(&path.display().to_string()).to_path_buf());
+                    self.visit_file(path);
                 } else if path.is_dir() {
                     self.visit_dir(&path)?;
                 } else {
@@ -68,6 +64,7 @@ impl StreamFiles {
 }
 
 impl ArcFiles {
+
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
 
@@ -113,9 +110,13 @@ impl ArcFiles {
     }
 
     fn visit_file(&mut self, path: &Path, arc_dir_len: usize) {
-        let game_path = path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
-        let hash = hash40(&game_path);
-        self.0.insert(hash, path.to_owned());
+        let file_ext = path.extension().and_then(std::ffi::OsStr::to_str).unwrap();
+
+        if !UNSUPPORTED_FORMATS.iter().any(|&i| i==file_ext) {
+            let game_path = path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
+            let hash = hash40(&game_path);
+            self.0.insert(hash, path.to_owned());
+        }
     }
 
     pub fn get_from_hash(&self, hash: u64) -> Option<&PathBuf> {
