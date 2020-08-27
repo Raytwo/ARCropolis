@@ -24,7 +24,7 @@ use config::{CONFIG};
 macro_rules! log {
     ($($arg:tt)*) => {
         // Uncomment to enable logging
-        println!($($arg)*);
+        //println!($($arg)*);
     }
 }
 

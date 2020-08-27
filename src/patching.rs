@@ -135,10 +135,13 @@ pub fn filesize_replacement() {
                 (*loaded_tables).table1_len as usize,
             );
 
-            let t1_index = hashindexgroup_slice
+            let t1_index = match hashindexgroup_slice
                 .iter()
                 .position(|x| x.path.hash40.as_u64() == *hash)
-                .unwrap() as u32;
+                {
+                    Some(index) => index as u32,
+                    None => continue
+                };
 
             let mut subfile = loaded_tables.get_arc().get_subfile_by_t1_index(t1_index);
 
