@@ -57,7 +57,7 @@ fn handle_file_load(table1_idx: u32) {
 
         let mut table2entry = loaded_tables.get_t2_mut(table1_idx).unwrap();
 
-        if table2entry.state == FileState::Loaded {
+        if table2entry.state == FileState::Loaded || table2entry.state == FileState::Unloaded && !table2entry.data.is_null() {
             return;
         }
 
@@ -87,7 +87,7 @@ fn handle_file_load(table1_idx: u32) {
             nn::os::UnlockMutex(mutex);
         }
 
-        log!("[ARC::Replace] Table2 entry status: {}", table2entry);
+        println!("[ARC::Replace] Table2 entry status: {}", table2entry);
     }
 }
 

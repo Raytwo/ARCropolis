@@ -129,6 +129,12 @@ pub fn filesize_replacement() {
     for (hash, path) in ARC_FILES.iter() {
         let loaded_tables = LoadedTables::get_instance();
 
+        // Some formats don't appreciate me messing with their size
+        match path.as_path().extension().unwrap().to_str().unwrap() {
+            "bntx" => {},
+            &_ => continue
+        }
+
         unsafe {
             let hashindexgroup_slice = slice::from_raw_parts(
                 loaded_tables.get_arc().file_info_path,
@@ -141,7 +147,7 @@ pub fn filesize_replacement() {
             {
                 Some(index) => index as u32,
                 None => {
-                    log!(
+                    println!(
                         "[ARC::Patching] Hash {} not found in table1, skipping",
                         hash
                     );
@@ -154,10 +160,10 @@ pub fn filesize_replacement() {
             let file = File::open(path).ok().unwrap();
             let metadata = file.metadata().ok().unwrap();
 
-            subfile.compressed_size = metadata.len() as u32;
+            //subfile.compressed_size = metadata.len() as u32;
             subfile.decompressed_size = metadata.len() as u32;
 
-            log!(
+            println!(
                 "[ARC::Patching] New decompressed size for {}: {:#x}",
                 path.as_path().display(),
                 subfile.decompressed_size

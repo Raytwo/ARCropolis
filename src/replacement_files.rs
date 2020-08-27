@@ -112,6 +112,7 @@ impl ArcFiles {
     fn visit_file(&mut self, path: &Path, arc_dir_len: usize) {
         let file_ext = path.extension().and_then(std::ffi::OsStr::to_str).unwrap();
 
+        // Ignore some formats that crash the game for now
         if !UNSUPPORTED_FORMATS.iter().any(|&i| i==file_ext) {
             let game_path = path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
             let hash = hash40(&game_path);
