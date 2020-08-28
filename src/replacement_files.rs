@@ -22,12 +22,14 @@ impl StreamFiles {
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
 
-        let _ = instance.visit_dir(Path::new(&CONFIG.paths.stream));
+        let _ = instance.visit_dir(Path::new(&CONFIG.paths.stream), CONFIG.paths.stream.len());
+
+        let _ = instance.visit_umm_dirs(Path::new(&CONFIG.paths.umm));
 
         instance
     }
 
-    fn visit_dir(&mut self, dir: &Path) -> io::Result<()> {
+    fn visit_dir(&mut self, dir: &Path, cut_len: usize) -> io::Result<()> {
         if dir.is_dir() {
             for entry in fs::read_dir(dir)? {
                 let entry = entry?;
@@ -35,11 +37,11 @@ impl StreamFiles {
                 let real_path = format!("{}/{}", dir.display(), filename.display());
                 let path = Path::new(&real_path);
                 if path.is_dir() && path.display().to_string().contains(".") {
-                    self.visit_file(path);
+                    self.visit_file(path, cut_len);
                 } else if path.is_dir() {
-                    self.visit_dir(&path)?;
+                    self.visit_dir(&path, cut_len)?;
                 } else {
-                    self.visit_file(path);
+                    self.visit_file(path, cut_len);
                 }
             }
         }
@@ -47,10 +49,32 @@ impl StreamFiles {
         Ok(())
     }
 
-    fn visit_file(&mut self, path: &Path) {
+    /// Visit Ultimate Mod Manager directories for backwards compatibility
+    fn visit_umm_dirs(&mut self, dir: &Path) -> io::Result<()> {
+        if dir.is_dir() {
+            for entry in fs::read_dir(dir)? {
+                let entry = entry?;
+                let stream_entry_path = format!( "{}/{}/stream;", dir.display(), entry.path().display());
+                let cut_len = stream_entry_path.len();
+                if Path::new(&stream_entry_path).exists() {
+                    for stream_entry in fs::read_dir(Path::new(&stream_entry_path))? {
+                        let stream_entry = stream_entry?;
+                        let filename = stream_entry.path();
+                        let real_path = format!("{}/{}", stream_entry_path, filename.display());
+                        let path = Path::new(&real_path);
+                        self.visit_dir(&path, cut_len)?;
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn visit_file(&mut self, path: &Path, cut_len: usize) {
         let mut game_path = format!(
             "stream:{}",
-            &path.display().to_string()[CONFIG.paths.stream.len()..]
+            &path.display().to_string()[cut_len..]
         );
         match game_path.strip_suffix("mp4") {
             Some(x) => game_path = format!("{}{}", x, "webm"),
@@ -113,7 +137,7 @@ impl ArcFiles {
         let file_ext = path.extension().and_then(std::ffi::OsStr::to_str).unwrap();
 
         // Ignore some formats that crash the game for now
-        if !UNSUPPORTED_FORMATS.iter().any(|&i| i==file_ext) {
+        if !UNSUPPORTED_FORMATS.iter().any(|&i| i == file_ext) {
             let game_path = path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
             let hash = hash40(&game_path);
             self.0.insert(hash, path.to_owned());
