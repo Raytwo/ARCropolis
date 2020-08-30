@@ -1,9 +1,9 @@
 # ARCropolis
 
-A Skyline plugin for replacing arbitrary files in Smash Ultimate with files of arbitrary size. Made in equal parts by Raytwo and jam1garner, with lots of help from Shadow as well. Effect files (.eff) are not currently supported.
+A Skyline plugin for replacing arbitrary files in Smash Ultimate with files of arbitrary size. Made in equal parts by Raytwo and jam1garner, with lots of help from Shadow as well.
 
 
-**Warning:** Not everything will work. Report issues to the issues tab.
+**Warning:** Numshexb files larger than the original currently cause a crash. This is being investigated.
 
 ### Installation
 
