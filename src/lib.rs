@@ -127,7 +127,7 @@ fn parse_nutexb_footer(ctx: &InlineCtx) {
         let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
         let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
-        println!(
+        log!(
             "[ARC::Loading | #{}] File path: {}, Hash: {}, {}",
             table1_idx,
             internal_filepath,
