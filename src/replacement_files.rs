@@ -131,7 +131,14 @@ impl ArcFiles {
     }
 
     fn visit_file(&mut self, path: &Path, arc_dir_len: usize) {
-        let file_ext = path.extension().and_then(std::ffi::OsStr::to_str).unwrap();
+        let mut file_ext;
+        match path.extension().and_then(std::ffi::OsStr::to_str) {
+            Some(x) => file_ext = x,
+            None => {
+                println!("Error getting file extension for: {}", path.display());
+                return;
+            },
+        }
 
         // Ignore some formats that crash the game for now
         if !UNSUPPORTED_FORMATS.iter().any(|&i| i == file_ext) {
