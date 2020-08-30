@@ -138,7 +138,11 @@ impl ArcFiles {
 
         // Ignore some formats that crash the game for now
         if !UNSUPPORTED_FORMATS.iter().any(|&i| i == file_ext) {
-            let game_path = path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
+            let mut game_path = path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
+            match game_path.strip_suffix("mp4") {
+                Some(x) => game_path = format!("{}{}", x, "webm"),
+                None => (),
+            }
             let hash = hash40(&game_path);
             self.0.insert(hash, path.to_owned());
         }
