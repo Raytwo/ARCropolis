@@ -2,7 +2,10 @@
 #![feature(str_strip)]
 
 use std::fs;
+use std::fs::File;
+use std::slice;
 
+use skyline::hooks::InlineCtx;
 use skyline::{hook, install_hooks, nn};
 
 mod hashes;
@@ -50,6 +53,12 @@ fn handle_file_load(table1_idx: u32) {
 
     // Println!() calls are on purpose so these show up no matter what.
     if let Some(path) = ARC_FILES.get_from_hash(hash) {
+        // Some formats don't appreciate me replacing the data pointer
+        match path.as_path().extension().unwrap().to_str().unwrap() {
+            "nutexb" => return,
+            &_ => (),
+        }
+
         println!(
             "[ARC::Replace] Hash matching for file path: {}",
             path.display()
@@ -57,7 +66,9 @@ fn handle_file_load(table1_idx: u32) {
 
         let mut table2entry = loaded_tables.get_t2_mut(table1_idx).unwrap();
 
-        if table2entry.state == FileState::Loaded || table2entry.state == FileState::Unloaded && !table2entry.data.is_null() {
+        if table2entry.state == FileState::Loaded
+            || table2entry.state == FileState::Unloaded && !table2entry.data.is_null()
+        {
             return;
         }
 
@@ -107,23 +118,48 @@ unsafe fn add_idx_to_table1_and_table2(loaded_table: *const LoadedTables, table1
     handle_file_load(table1_idx);
 }
 
-#[hook(offset = 0x34e42f0)]
-fn parse_nutexb_footer(
-    unk1: *const u64,
-    data: *const u8,
-    decompressed_size: u64,
-    unk2: *mut u64,
-) -> u64 {
-    // Write 0xFF over half of the buffer to see changes
+// This is a bit ew for now, I'll try fixing it eventually
+#[hook(offset = 0x330615c, inline)]
+fn parse_nutexb_footer(ctx: &InlineCtx) {
+    unsafe {
+        let table1_idx = *ctx.registers[25].w.as_ref();
+        let loaded_tables = LoadedTables::get_instance();
+        let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
+        let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
-    // unsafe {
-    //     let data_slice = std::slice::from_raw_parts_mut(data as *mut u8, decompressed_size as usize);
+        println!(
+            "[ARC::Loading | #{}] File path: {}, Hash: {}, {}",
+            table1_idx,
+            internal_filepath,
+            hash,
+            loaded_tables
+                .get_t1_mut(table1_idx)
+                .unwrap()
+                .get_t2_entry()
+                .unwrap()
+        );
 
-    //     for mut value in data_slice[0..((decompressed_size - 0xb0) / 2) as usize].iter_mut() {
-    //         *value = 0xFF;
-    //     }
-    // }
-    original!()(unk1, data, decompressed_size, unk2)
+        if let Some(path) = ARC_FILES.get_from_hash(hash) {
+            println!(
+                "[ARC::Replace] Hash matching for file path: {}",
+                path.display()
+            );
+
+            println!("[ARC::Replace] Replacing {}...", internal_filepath);
+
+            let file = fs::read(path).unwrap();
+            let file_slice = file.as_slice();
+
+            let data_slice = std::slice::from_raw_parts_mut(
+                *ctx.registers[1].x.as_ref() as *mut u8,
+                *ctx.registers[2].x.as_ref() as usize,
+            );
+
+            for (i, value) in data_slice.iter_mut().enumerate() {
+                *value = file_slice[i];
+            }
+        }
+    }
 }
 
 // Somewhat working, does not affect fighter textures. Only BC2 textures?
@@ -146,6 +182,8 @@ pub fn main() {
     hashes::init();
     // Look for the offset of the various functions to hook
     patching::search_offsets();
+    // Not working so far, does not crash the game
+    //patching::shared_redirection();
     // Patch filesizes in the Subfile table
     patching::filesize_replacement();
     // Attempt at expanding table2 (Does not work, do not use!)
@@ -159,7 +197,8 @@ pub fn main() {
     install_hooks!(
         idk,
         add_idx_to_table1_and_table2,
-        stream::lookup_by_stream_hash
+        stream::lookup_by_stream_hash,
+        parse_nutexb_footer
     );
 
     println!(

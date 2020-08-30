@@ -16,7 +16,7 @@ pub struct ArcFiles(pub HashMap<u64, PathBuf>);
 
 pub struct StreamFiles(pub HashMap<u64, PathBuf>);
 
-const UNSUPPORTED_FORMATS: &'static [&'static str] = &["nutexb", "eff"];
+const UNSUPPORTED_FORMATS: &'static [&'static str] = &["eff"];
 
 impl StreamFiles {
     fn new() -> Self {
@@ -54,7 +54,8 @@ impl StreamFiles {
         if dir.is_dir() {
             for entry in fs::read_dir(dir)? {
                 let entry = entry?;
-                let stream_entry_path = format!( "{}/{}/stream;", dir.display(), entry.path().display());
+                let stream_entry_path =
+                    format!("{}/{}/stream;", dir.display(), entry.path().display());
                 let cut_len = stream_entry_path.len();
                 if Path::new(&stream_entry_path).exists() {
                     for stream_entry in fs::read_dir(Path::new(&stream_entry_path))? {
@@ -72,10 +73,7 @@ impl StreamFiles {
     }
 
     fn visit_file(&mut self, path: &Path, cut_len: usize) {
-        let mut game_path = format!(
-            "stream:{}",
-            &path.display().to_string()[cut_len..]
-        );
+        let mut game_path = format!("stream:{}", &path.display().to_string()[cut_len..]);
         match game_path.strip_suffix("mp4") {
             Some(x) => game_path = format!("{}{}", x, "webm"),
             None => (),
@@ -88,7 +86,6 @@ impl StreamFiles {
 }
 
 impl ArcFiles {
-
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
 
