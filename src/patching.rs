@@ -137,7 +137,7 @@ pub fn filesize_replacement() {
 
         // Some formats don't appreciate me messing with their size
         match path.as_path().extension().unwrap().to_str().unwrap() {
-            "bntx" | "nutexb" => {}
+            "bntx" | "nutexb" | "eff" => {}
             &_ => continue,
         }
 

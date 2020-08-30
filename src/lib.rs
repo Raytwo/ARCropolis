@@ -55,7 +55,7 @@ fn handle_file_load(table1_idx: u32) {
     if let Some(path) = ARC_FILES.get_from_hash(hash) {
         // Some formats don't appreciate me replacing the data pointer
         match path.as_path().extension().unwrap().to_str().unwrap() {
-            "nutexb" => return,
+            "nutexb" | "eff" => return,
             &_ => (),
         }
 
@@ -120,7 +120,7 @@ unsafe fn add_idx_to_table1_and_table2(loaded_table: *const LoadedTables, table1
 
 // This is a bit ew for now, I'll try fixing it eventually
 #[hook(offset = 0x330615c, inline)]
-fn parse_nutexb_footer(ctx: &InlineCtx) {
+fn parse_nutexb(ctx: &InlineCtx) {
     unsafe {
         let table1_idx = *ctx.registers[25].w.as_ref();
         let loaded_tables = LoadedTables::get_instance();
@@ -154,6 +154,48 @@ fn parse_nutexb_footer(ctx: &InlineCtx) {
                 *ctx.registers[1].x.as_ref() as *mut u8,
                 *ctx.registers[2].x.as_ref() as usize,
             );
+
+            for (i, value) in data_slice.iter_mut().enumerate() {
+                *value = file_slice[i];
+            }
+        }
+    }
+}
+
+#[hook(offset = 0x3278984, inline)]
+fn parse_eff(ctx: &InlineCtx) {
+    unsafe {
+        let table1_idx = *ctx.registers[10].w.as_ref();
+        let loaded_tables = LoadedTables::get_instance();
+        let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
+        let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
+        let t2_entry = loaded_tables
+            .get_t1_mut(table1_idx)
+            .unwrap()
+            .get_t2_entry()
+            .unwrap();
+
+        log!(
+            "[ARC::Loading | #{}] File path: {}, Hash: {}, {}",
+            table1_idx,
+            internal_filepath,
+            hash,
+            t2_entry
+        );
+
+        if let Some(path) = ARC_FILES.get_from_hash(hash) {
+            println!(
+                "[ARC::Replace] Hash matching for file path: {}",
+                path.display()
+            );
+
+            println!("[ARC::Replace] Replacing {}...", internal_filepath);
+
+            let file = fs::read(path).unwrap();
+            let file_slice = file.as_slice();
+
+            let data_slice =
+                std::slice::from_raw_parts_mut(t2_entry.data as *mut u8, file_slice.len());
 
             for (i, value) in data_slice.iter_mut().enumerate() {
                 *value = file_slice[i];
@@ -198,7 +240,8 @@ pub fn main() {
         idk,
         add_idx_to_table1_and_table2,
         stream::lookup_by_stream_hash,
-        parse_nutexb_footer
+        parse_nutexb,
+        parse_eff
     );
 
     println!(
