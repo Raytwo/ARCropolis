@@ -53,6 +53,4 @@ Error messages have been added for most cases, so if you manage to butcher your 
 
 ### Ultimate Mod Manager Backwards Compatibility
 
-The plugin also supports backwards compatibility with UMM paths to allow for mods to continue to work.
-
-While UMM stores files in `sd:/UltimateModManager/mods`, ARCropolis stores its modpack-style mods in `sd:/ultimate/mods` while maintaining the same folder structure as UMM. If none of your files are `.nutexb` textures, you can simply rename your `UltimateModManager` folder to `ultimate` and all mods will work. If you no longer need UMM, it is recommended you delete your data.arc file from romfs.
+The plugin also supports backwards compatibility with UMM paths to allow for mods to continue to work. You can simply rename your `UltimateModManager` folder to `ultimate` and all mods will work. If you no longer need UMM, it is recommended you delete your data.arc file from romfs.
