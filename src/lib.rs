@@ -3,10 +3,11 @@
 
 use std::fs;
 use std::fs::File;
+use std::io::Write;
 use std::slice;
 
-use skyline::hooks::InlineCtx;
 use skyline::{hook, install_hooks, nn};
+use skyline::hooks::InlineCtx;
 
 mod hashes;
 mod stream;
@@ -66,9 +67,7 @@ fn handle_file_load(table1_idx: u32) {
 
         let mut table2entry = loaded_tables.get_t2_mut(table1_idx).unwrap();
 
-        if table2entry.state == FileState::Loaded
-            || table2entry.state == FileState::Unloaded && !table2entry.data.is_null()
-        {
+        if table2entry.state == FileState::Loaded {
             return;
         }
 
@@ -150,14 +149,12 @@ fn parse_nutexb(ctx: &InlineCtx) {
             let file = fs::read(path).unwrap();
             let file_slice = file.as_slice();
 
-            let data_slice = std::slice::from_raw_parts_mut(
+            let mut data_slice = std::slice::from_raw_parts_mut(
                 *ctx.registers[1].x.as_ref() as *mut u8,
-                *ctx.registers[2].x.as_ref() as usize,
+                file_slice.len(),
             );
 
-            for (i, value) in data_slice.iter_mut().enumerate() {
-                *value = file_slice[i];
-            }
+            data_slice.write(file_slice);
         }
     }
 }
@@ -194,23 +191,12 @@ fn parse_eff(ctx: &InlineCtx) {
             let file = fs::read(path).unwrap();
             let file_slice = file.as_slice();
 
-            let data_slice =
+            let mut data_slice =
                 std::slice::from_raw_parts_mut(t2_entry.data as *mut u8, file_slice.len());
 
-            for (i, value) in data_slice.iter_mut().enumerate() {
-                *value = file_slice[i];
-            }
+            data_slice.write(file_slice);
         }
     }
-}
-
-// Somewhat working, does not affect fighter textures. Only BC2 textures?
-#[hook(offset = 0x3355d80)]
-unsafe fn get_texture_by_table1_index(unk1: &u64, table1_idx: &u32) {
-    log!("--- [GetTextureByPath?] ---");
-    handle_file_load(*table1_idx);
-
-    original!()(unk1, table1_idx);
 }
 
 #[skyline::main(name = "arcropolis")]

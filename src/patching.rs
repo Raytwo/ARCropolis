@@ -200,7 +200,9 @@ pub fn filesize_replacement() {
             let metadata = file.metadata().ok().unwrap();
 
             //subfile.compressed_size = metadata.len() as u32;
-            subfile.decompressed_size = metadata.len() as u32;
+            if subfile.decompressed_size < metadata.len() as u32 {
+                subfile.decompressed_size = metadata.len() as u32;
+            }
 
             println!(
                 "[ARC::Patching] New decompressed size for {}: {:#x}",

@@ -199,6 +199,9 @@ impl LoadedArc {
         let sub_file =
             unsafe { self.sub_files.offset(sub_index.sub_file_index as isize) as *mut SubFile };
 
+        // Compressed flag
+        // unsafe { (*sub_file).flags &= !3; }
+
         unsafe { &mut *sub_file }
     }
 
