@@ -6,14 +6,16 @@ use std::fs::File;
 use std::io::Write;
 use std::slice;
 
-use skyline::{hook, install_hooks, nn};
 use skyline::hooks::InlineCtx;
+use skyline::{hook, install_hooks, nn};
 
 mod hashes;
 mod stream;
 
 mod patching;
-use patching::{ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_NUTEXB_OFFSET, PARSE_EFF_OFFSET};
+use patching::{
+    ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET, PARSE_NUTEXB_OFFSET,
+};
 
 mod replacement_files;
 use replacement_files::{ARC_FILES, STREAM_FILES};

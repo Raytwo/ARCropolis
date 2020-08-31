@@ -146,7 +146,7 @@ impl ArcFiles {
             Some(x) => game_path = format!("{}{}", x, "webm"),
             None => (),
         }
-        
+
         let hash = hash40(&game_path);
         self.0.insert(hash, path.to_owned());
     }

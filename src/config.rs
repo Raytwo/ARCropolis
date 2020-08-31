@@ -9,7 +9,7 @@ use crate::log;
 use serde::{Deserialize, Serialize};
 
 const CONFIG_PATH: &str = "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml";
-const CONFIG_CURR_VERSION: &str = "1.1.1";
+const CONFIG_CURR_VERSION: &str = "1.2.0";
 
 lazy_static::lazy_static! {
     pub static ref CONFIG: Config = init();
@@ -38,6 +38,7 @@ pub struct Paths {
 pub struct Miscellaneous {
     pub debug: bool,
     pub mowjoh: Option<bool>,
+    pub region: String,
 }
 
 fn generate_config() -> Result<Config, &'static str> {
@@ -54,6 +55,7 @@ fn generate_config() -> Result<Config, &'static str> {
         misc: Miscellaneous {
             debug: false,
             mowjoh: None,
+            region: "us_en".to_string(),
         },
     };
 
