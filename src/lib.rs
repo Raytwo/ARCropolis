@@ -12,7 +12,7 @@ mod hashes;
 mod stream;
 
 mod patching;
-use patching::{ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET};
+use patching::{ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_NUTEXB_OFFSET, PARSE_EFF_OFFSET};
 
 mod replacement_files;
 use replacement_files::{ARC_FILES, STREAM_FILES};
@@ -119,7 +119,7 @@ unsafe fn add_idx_to_table1_and_table2(loaded_table: *const LoadedTables, table1
 }
 
 // This is a bit ew for now, I'll try fixing it eventually
-#[hook(offset = 0x330615c, inline)]
+#[hook(offset = PARSE_NUTEXB_OFFSET, inline)]
 fn parse_nutexb(ctx: &InlineCtx) {
     unsafe {
         let table1_idx = *ctx.registers[25].w.as_ref();
@@ -162,7 +162,7 @@ fn parse_nutexb(ctx: &InlineCtx) {
     }
 }
 
-#[hook(offset = 0x3278984, inline)]
+#[hook(offset = PARSE_EFF_OFFSET, inline)]
 fn parse_eff(ctx: &InlineCtx) {
     unsafe {
         let table1_idx = *ctx.registers[10].w.as_ref();
