@@ -142,11 +142,6 @@ impl ArcFiles {
         // Here was CoolSonicKirby's fix to ignore unsupported formats. May it rest in peace.
         let mut game_path = path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
 
-        match game_path.strip_suffix("mp4") {
-            Some(x) => game_path = format!("{}{}", x, "webm"),
-            None => (),
-        }
-
         let hash = hash40(&game_path);
         self.0.insert(hash, path.to_owned());
     }
