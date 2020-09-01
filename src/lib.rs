@@ -151,12 +151,21 @@ fn parse_nutexb(ctx: &InlineCtx) {
             let file = fs::read(path).unwrap();
             let file_slice = file.as_slice();
 
-            let mut data_slice = std::slice::from_raw_parts_mut(
-                *ctx.registers[1].x.as_ref() as *mut u8,
-                file_slice.len(),
-            );
+            let orig_size = *ctx.registers[2].x.as_ref() as usize;
 
-            data_slice.write(file_slice);
+            let mut data_slice =
+                std::slice::from_raw_parts_mut(*ctx.registers[1].x.as_ref() as *mut u8, orig_size);
+
+            if (orig_size > file_slice.len()) {
+                // Copy our new footer at the end
+                data_slice[orig_size - 0xB0..orig_size]
+                    .copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
+                // Copy the content at the beginning
+                data_slice[0..file_slice.len() - 0xB0]
+                    .copy_from_slice(&file_slice[0..file_slice.len() - 0xB0]);
+            } else {
+                data_slice.write(file_slice);
+            }
         }
     }
 }

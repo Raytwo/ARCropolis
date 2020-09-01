@@ -160,13 +160,14 @@ pub fn filesize_replacement() {
     for (hash, path) in ARC_FILES.iter() {
         let loaded_tables = LoadedTables::get_instance();
 
-        // Some formats don't appreciate me messing with their size
-        match path.as_path().extension().unwrap().to_str().unwrap() {
-            "bntx" | "nutexb" | "eff" => {}
-            &_ => continue,
-        }
-
         unsafe {
+            let extension = path.as_path().extension().unwrap().to_str().unwrap();
+            // Some formats don't appreciate me messing with their size
+            match extension {
+                "bntx" | "nutexb" | "eff" | "numshexb" => {}
+                &_ => continue,
+            }
+
             let hashindexgroup_slice = slice::from_raw_parts(
                 loaded_tables.get_arc().file_info_path,
                 (*loaded_tables).table1_len as usize,
@@ -191,16 +192,26 @@ pub fn filesize_replacement() {
             let file = File::open(path).ok().unwrap();
             let metadata = file.metadata().ok().unwrap();
 
-            //subfile.compressed_size = metadata.len() as u32;
-            if subfile.decompressed_size < metadata.len() as u32 {
-                subfile.decompressed_size = metadata.len() as u32;
-            }
+            if (subfile.decompressed_size < metadata.len() as u32) && extension == "nutexb" {
+                // Is compressed?
+                if (subfile.flags & 0x3) == 3 {
+                    subfile.decompressed_size = metadata.len() as u32;
 
-            println!(
-                "[ARC::Patching] New decompressed size for {}: {:#x}",
-                path.as_path().display(),
-                subfile.decompressed_size
-            );
+                    println!(
+                        "[ARC::Patching] New decompressed size for {}: {:#x}",
+                        path.as_path().display(),
+                        subfile.decompressed_size
+                    );
+                }
+            }
+            else if subfile.decompressed_size < metadata.len() as u32 {
+                subfile.decompressed_size = metadata.len() as u32;
+                println!(
+                    "[ARC::Patching] New decompressed size for {}: {:#x}",
+                    path.as_path().display(),
+                    subfile.decompressed_size
+                );
+            }
         }
     }
 }
