@@ -4,8 +4,7 @@ A Skyline plugin for replacing arbitrary files in Smash Ultimate with files of a
 
 
 **Warning:** 
-* Numshexb files larger than the original currently cause a crash. This is being investigated.
-* Nutexb files smaller than the original decompressed size cause a crash. This can't be solved for the time being.
+* Character .numshexb files larger than the original currently cause a crash. This is being investigated.
 
 ### Installation
 
