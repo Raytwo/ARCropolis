@@ -9,7 +9,7 @@ A Skyline plugin for replacing arbitrary files in Smash Ultimate with files of a
 
 ### Installation
 
-Copy the zip from the latest release onto the SD so the plugin is in the following folder:
+Copy the content of the zip from the latest release onto the SD so the plugin is in the following folder:
 
 ```
     sd:/atmosphere/contents/01006A800016E000/romfs/skyline/plugins/
