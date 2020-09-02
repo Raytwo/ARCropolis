@@ -409,6 +409,17 @@ impl LoadedTables {
             .ok_or(LoadError::NoTable1)
     }
 
+    pub fn get_t2(&self, t1_index: u32) -> Result<&Table2Entry, LoadError> {
+        let t1 = self
+            .table_1()
+            .get(t1_index as usize)
+            .ok_or(LoadError::NoTable1)?;
+        let t2_index = t1.table2_index as usize;
+        self.table_2()
+            .get(t2_index)
+            .ok_or(LoadError::NoTable2)
+    }
+
     pub fn get_t2_mut(&mut self, t1_index: u32) -> Result<&mut Table2Entry, LoadError> {
         let t1 = self
             .table_1()
@@ -420,6 +431,7 @@ impl LoadedTables {
             .ok_or(LoadError::NoTable2)
     }
 }
+
 
 #[derive(Copy, Clone, Debug)]
 pub enum LoadError {
