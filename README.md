@@ -5,7 +5,6 @@ A Skyline plugin for replacing arbitrary files in Smash Ultimate with files of a
 
 **Warning:** 
 * Character .numshexb files larger than the original currently cause a crash. This is being investigated.
-* Trails textures and some other textures such as the "lut" ones are not being replaced for now. This will be added soon.
 * Layout.arc files over the size limit cause crashes. This is being investigated.
 
 ### Installation
