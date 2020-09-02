@@ -132,7 +132,7 @@ pub fn search_offsets() {
         if let Some(offset) = find_subsequence(text, RES_SERVICE_INITIALIZED_CODE) {
             RES_SERVICE_INITIALIZED_OFFSET = offset
         } else {
-            println!("Error: no offset found for function 'parse_eff'. Defaulting to 8.1.0 offset. This likely won't work.");
+            println!("Error: no offset found for function 'patch_resource_service'. Defaulting to 8.1.0 offset. This likely won't work.");
         }
     }
 }
