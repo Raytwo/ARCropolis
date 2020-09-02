@@ -14,7 +14,7 @@ mod stream;
 
 mod patching;
 use patching::{
-    ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET, PARSE_NUTEXB_OFFSET,
+    ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET, PARSE_NUTEXB_OFFSET, RES_SERVICE_INITIALIZED_OFFSET
 };
 
 mod replacement_files;
@@ -105,18 +105,20 @@ fn handle_file_load(table1_idx: u32) {
 
 #[hook(offset = IDK_OFFSET)]
 unsafe fn idk(res_state: *const ResServiceState, table1_idx: u32, flag_related: u32) {
-    original!()(res_state, table1_idx, flag_related);
 
     log!("--- [Idk] ---");
     handle_file_load(table1_idx);
+    original!()(res_state, table1_idx, flag_related);
+
 }
 
 #[hook(offset = ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET)]
 unsafe fn add_idx_to_table1_and_table2(loaded_table: *const LoadedTables, table1_idx: u32) {
-    original!()(loaded_table, table1_idx);
 
     log!("--- [AddIdx] ---");
     handle_file_load(table1_idx);
+    original!()(loaded_table, table1_idx);
+
 }
 
 // This is a bit ew for now, I'll try fixing it eventually
@@ -210,6 +212,12 @@ fn parse_eff(ctx: &InlineCtx) {
     }
 }
 
+#[hook(offset = RES_SERVICE_INITIALIZED_OFFSET, inline)]
+fn patch_resource_service(ctx: &InlineCtx) {
+    // Patch filesizes in the Subfile table
+    patching::filesize_replacement();
+}
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Read the configuration so we can set the filepaths
@@ -223,8 +231,6 @@ pub fn main() {
     patching::search_offsets();
     // Not working so far, does not crash the game
     //patching::shared_redirection();
-    // Patch filesizes in the Subfile table
-    patching::filesize_replacement();
     // Attempt at expanding table2 (Does not work, do not use!)
     //patching::expand_table2();
 
@@ -238,7 +244,8 @@ pub fn main() {
         add_idx_to_table1_and_table2,
         stream::lookup_by_stream_hash,
         parse_nutexb,
-        parse_eff
+        parse_eff,
+        patch_resource_service,
     );
 
     println!(
