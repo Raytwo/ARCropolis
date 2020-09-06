@@ -14,7 +14,8 @@ mod stream;
 
 mod patching;
 use patching::{
-    ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET, RES_SERVICE_INITIALIZED_OFFSET
+    ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET, PARSE_NUTEXB_OFFSET,
+    RES_SERVICE_INITIALIZED_OFFSET,
 };
 
 mod replacement_files;
@@ -36,7 +37,21 @@ macro_rules! log {
     };
 }
 
-fn handle_file_load(table1_idx: u32) {
+#[hook(offset = IDK_OFFSET)]
+unsafe fn idk(res_state: *const ResServiceState, table1_idx: u32, flag_related: u32) {
+    log!("--- [Idk] ---");
+    handle_file_load(table1_idx);
+    original!()(res_state, table1_idx, flag_related);
+}
+
+#[hook(offset = ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET)]
+unsafe fn add_idx_to_table1_and_table2(loaded_table: *const LoadedTables, table1_idx: u32) {
+    log!("--- [AddIdx] ---");
+    handle_file_load(table1_idx);
+    original!()(loaded_table, table1_idx);
+}
+
+fn handle_file_load(table1_idx: u32, flag: u8) {
     let loaded_tables = LoadedTables::get_instance();
     let mutex = loaded_tables.mutex;
     let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
@@ -57,34 +72,27 @@ fn handle_file_load(table1_idx: u32) {
         table2entry
     );
 
-    
-
     // Println!() calls are on purpose so these show up no matter what.
     if let Some(path) = ARC_FILES.get_from_hash(hash) {
+        // Some formats don't appreciate me replacing the data pointer
+        match path.as_path().extension().unwrap().to_str().unwrap() {
+            "nutexb" | "eff" => return,
+            &_ => (),
+        }
+
         println!(
             "[ARC::Replace] Hash matching for file path: {}",
             path.display()
         );
 
-
-        // Some formats don't appreciate me replacing the data pointer
-        match path.as_path().extension().unwrap().to_str().unwrap() {
-            "nutexb" => {
-                handle_texture_files(table1_idx);
-                return;
-            },
-            "eff" => return,
-            &_ => (),
-        }
-
-        println!("[ARC::Replace] Replacing {}...", internal_filepath);
+        println!("[ARC::Replace] Replacing {}", internal_filepath);
 
         // This is a personal request, don't mind it too much.
         if let Some(_) = CONFIG.misc.mowjoh {
             skyline::error::show_error(
                 69,
-                &format!("[ARC::Replace] Replacing {}...", internal_filepath),
-                "Nothing to see here",
+                &format!("[ARC::Replace] Replacing {}", internal_filepath),
+                &format!("{}", internal_filepath),
             );
         }
 
@@ -107,36 +115,57 @@ fn handle_file_load(table1_idx: u32) {
     }
 }
 
+#[hook(offset = PARSE_NUTEXB_OFFSET, inline)]
+fn parse_fighter_nutexb(ctx: &InlineCtx) {
+    unsafe {
+        handle_texture_files(*ctx.registers[25].w.as_ref());
+    }
+}
+
+#[hook(offset = 0x3278f20, inline)]
+fn parse_eff_nutexb(ctx: &InlineCtx) {
+    unsafe {
+        handle_texture_files(*ctx.registers[24].w.as_ref());
+    }
+}
+
 fn handle_texture_files(table1_idx: u32) {
     unsafe {
+        let loaded_tables = LoadedTables::get_instance();
+        let mutex = loaded_tables.mutex;
+        let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
+        let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
-    let loaded_tables = LoadedTables::get_instance();
-    let mutex = loaded_tables.mutex;
-    let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
-    let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
+        if let Some(path) = ARC_FILES.get_from_hash(hash) {
+            println!(
+                "[ARC::Replace] Hash matching for file path: {}",
+                path.display()
+            );
 
-    if let Some(path) = ARC_FILES.get_from_hash(hash) {
-        println!(
-            "[ARC::Replace] Hash matching for file path: {}",
-            path.display()
-        );
+            let mut table2entry = match loaded_tables.get_t2_mut(table1_idx) {
+                Ok(entry) => entry,
+                Err(_) => {
+                    return;
+                }
+            };
 
-        let table2entry = loaded_tables.get_t2(table1_idx).unwrap();
+            if table2entry.state != FileState::Loaded {
+                return;
+            }
 
-        if table2entry.state != FileState::Loaded {
-            return;
-        }
+            println!("[ARC::Replace] Replacing {}...", internal_filepath);
 
-        println!("[ARC::Replace] Replacing {}...", internal_filepath);
+            let file = fs::read(path).unwrap();
+            let file_slice = file.as_slice();
 
+            let orig_size = LoadedTables::get_instance()
+                .get_arc()
+                .get_subfile_by_t1_index(table1_idx)
+                .decompressed_size as usize;
 
-        let file = fs::read(path).unwrap();
-        let file_slice = file.as_slice();
+            let mut data_slice =
+                std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
 
-        let orig_size = loaded_tables.get_arc().get_subfile_by_t1_index(table1_idx).decompressed_size as usize;
-
-         let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
-        
             if (orig_size > file_slice.len()) {
                 // Copy our new footer at the end
                 data_slice[orig_size - 0xB0..orig_size]
@@ -151,24 +180,6 @@ fn handle_texture_files(table1_idx: u32) {
     }
 }
 
-#[hook(offset = IDK_OFFSET)]
-unsafe fn idk(res_state: *const ResServiceState, table1_idx: u32, flag_related: u32) {
-
-    log!("--- [Idk] ---");
-    handle_file_load(table1_idx);
-    original!()(res_state, table1_idx, flag_related);
-
-}
-
-#[hook(offset = ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET)]
-unsafe fn add_idx_to_table1_and_table2(loaded_table: *const LoadedTables, table1_idx: u32) {
-
-    log!("--- [AddIdx] ---");
-    handle_file_load(table1_idx);
-    original!()(loaded_table, table1_idx);
-
-}
-
 #[hook(offset = PARSE_EFF_OFFSET, inline)]
 fn parse_eff(ctx: &InlineCtx) {
     unsafe {
@@ -176,11 +187,13 @@ fn parse_eff(ctx: &InlineCtx) {
         let loaded_tables = LoadedTables::get_instance();
         let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
         let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
-        let t2_entry = loaded_tables
-            .get_t1_mut(table1_idx)
-            .unwrap()
-            .get_t2_entry()
-            .unwrap();
+
+        let mut t2_entry = match loaded_tables.get_t2_mut(table1_idx) {
+            Ok(entry) => entry,
+            Err(_) => {
+                return;
+            }
+        };
 
         log!(
             "[ARC::Loading | #{}] File path: {}, Hash: {}, {}",
@@ -240,6 +253,8 @@ pub fn main() {
         idk,
         add_idx_to_table1_and_table2,
         stream::lookup_by_stream_hash,
+        parse_fighter_nutexb,
+        parse_eff_nutexb,
         parse_eff,
         resource_service_initialized,
     );

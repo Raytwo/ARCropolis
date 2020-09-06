@@ -20,9 +20,11 @@ pub static mut IDK_OFFSET: usize = 0x32545a0;
 pub static mut ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET: usize = 0x324e9f0;
 pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x324f7a0;
 pub static mut LOADED_TABLES_ADRP_OFFSET: usize = 0x324c3a0;
+pub static mut RES_SERVICE_ADRP_OFFSET: usize = 0x325a4b0;
 // default 8.1.0 offsets
+pub static mut PARSE_NUTEXB_OFFSET: usize = 0x330615c;
 pub static mut PARSE_EFF_OFFSET: usize = 0x3278984;
-pub static mut RES_SERVICE_INITIALIZED_OFFSET: usize = 0x2c5994;
+pub static mut RES_SERVICE_INITIALIZED_OFFSET: usize = 0x2c5b34;
 
 static IDK_SEARCH_CODE: &[u8] = &[
     0xf8, 0x5f, 0xbc, 0xa9, 0xf6, 0x57, 0x01, 0xa9, 0xf4, 0x4f, 0x02, 0xa9, 0xfd, 0x7b, 0x03, 0xa9,
@@ -39,18 +41,29 @@ static LOADED_TABLES_ADRP_SEARCH_CODE: &[u8] = &[
     0x36, 0x03, 0x40, 0xf9, 0xe0, 0x03, 0x16, 0xaa,
 ];
 
+static RES_SERVICE_ADRP_SEARCH_CODE: &[u8] = &[
+    0x48, 0xe4, 0x00, 0xd0, 0x15, 0x15, 0x41, 0xf9, 0xb6, 0x02, 0x40, 0xf9, 0xf4, 0x03, 0x00, 0xaa,
+    0xe0, 0x03, 0x16, 0xaa, 0xf3, 0x03, 0x01, 0x2a, 0xf2, 0xef, 0x11, 0x94,
+];
+
 static LOOKUP_STREAM_HASH_SEARCH_CODE: &[u8] = &[
     0x29, 0x58, 0x40, 0xf9, 0x28, 0x60, 0x40, 0xf9, 0x2a, 0x05, 0x40, 0xb9, 0x09, 0x0d, 0x0a, 0x8b,
     0xaa, 0x01, 0x00, 0x34, 0x5f, 0x01, 0x00, 0xf1,
 ];
 
+static RES_SERVICE_INITIALIZED_CODE: &[u8] = &[
+    0x14, 0x05, 0x00, 0xf9, 0xe8, 0x1b, 0x40, 0xf9, 0xf4, 0x13, 0x00, 0xf9, 0xf4, 0x12, 0x41, 0xf9,
+    0x08, 0x05, 0x00, 0x91, 0xe8, 0x1b, 0x00, 0xf9,
+];
+
+static PARSE_NUTEXB_SEARCH_CODE: &[u8] = &[
+    0xe8, 0x3f, 0x00, 0x32, 0xe8, 0xfb, 0x00, 0xb9, 0xe8, 0x0f, 0x40, 0xf9, 0xea, 0x4b, 0x40, 0xf9,
+    0xe9, 0x07, 0x40, 0xf9, 0xf3, 0x03, 0x00, 0xaa,
+];
+
 static PARSE_EFF_SEARCH_CODE: &[u8] = &[
     0x09, 0x19, 0x40, 0xb9, 0x3f, 0x01, 0x0a, 0x6b, 0xfb, 0x03, 0x16, 0xaa, 0xc9, 0x02, 0x00, 0x54,
     0x09, 0x05, 0x40, 0xf9, 0x2b, 0x0d, 0x0a, 0x8b,
-];
-
-static RES_SERVICE_INITIALIZED_CODE: &[u8] = &[
-    0x09, 0x01, 0x40, 0xf9, 0x28, 0x39, 0x40, 0xf9, 0x29, 0x21, 0x40, 0xf9, 0x2a, 0x0d, 0x40, 0xb9, 0x09, 0x0d, 0x0a, 0x8b, 0xaa, 0x01, 0x00, 0x34,
 ];
 
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -107,9 +120,25 @@ pub fn search_offsets() {
         } else {
             println!("Error: no offset found for 'loaded_tables_adrp'. Defaulting to 8.0.0 offset. This likely won't work.");
         }
+        if let Some(offset) = find_subsequence(text, RES_SERVICE_ADRP_SEARCH_CODE) {
+            RES_SERVICE_ADRP_OFFSET = offset
+        } else {
+            println!("Error: no offset found for 'loaded_tables_adrp'. Defaulting to 8.0.0 offset. This likely won't work.");
+        }
+
         let adrp_offset = offset_from_adrp(LOADED_TABLES_ADRP_OFFSET);
         let ldr_offset = offset_from_ldr(LOADED_TABLES_ADRP_OFFSET + 4);
         LOADED_TABLES_OFFSET = adrp_offset + ldr_offset;
+
+        let adrp_offset = offset_from_adrp(RES_SERVICE_ADRP_OFFSET);
+        let ldr_offset = offset_from_ldr(RES_SERVICE_ADRP_OFFSET + 4);
+        RES_SERVICE_OFFSET = adrp_offset + ldr_offset;
+
+        if let Some(offset) = find_subsequence(text, PARSE_NUTEXB_SEARCH_CODE) {
+            PARSE_NUTEXB_OFFSET = offset - 8
+        } else {
+            println!("Error: no offset found for function 'parse_fighter_nutexb'. Defaulting to 8.1.0 offset. This likely won't work.");
+        }
 
         if let Some(offset) = find_subsequence(text, PARSE_EFF_SEARCH_CODE) {
             PARSE_EFF_OFFSET = offset
@@ -163,7 +192,7 @@ pub fn filesize_replacement() {
             let extension = path.as_path().extension().unwrap().to_str().unwrap();
             // Some formats don't appreciate me messing with their size
             match extension {
-                "bntx" | "nutexb" | "eff" | "numshexb" => {}
+                "bntx" | "nutexb" | "eff" | "numshexb" | "arc" => {}
                 &_ => continue,
             }
 
@@ -179,8 +208,8 @@ pub fn filesize_replacement() {
                 Some(index) => index as u32,
                 None => {
                     println!(
-                        "[ARC::Patching] Hash {} not found in table1, skipping",
-                        hash
+                        "[ARC::Patching] Hash for file {} not found in table1, skipping",
+                        path.as_path().display()
                     );
                     continue;
                 }
@@ -202,20 +231,20 @@ pub fn filesize_replacement() {
                         subfile.decompressed_size
                     );
                 }
-            }
-            else if subfile.decompressed_size < metadata.len() as u32 {
-                subfile.decompressed_size = metadata.len() as u32;
-                println!(
-                    "[ARC::Patching] New decompressed size for {}: {:#x}",
-                    path.as_path().display(),
-                    subfile.decompressed_size
-                );
+            } else {
+                if (subfile.decompressed_size < metadata.len() as u32) {
+                    subfile.decompressed_size = metadata.len() as u32;
+                    println!(
+                        "[ARC::Patching] New decompressed size for {}: {:#x}",
+                        path.as_path().display(),
+                        subfile.decompressed_size
+                    );
+                }
             }
         }
     }
 }
 
-// Don't stare at it too much, it's disgusting and was just supposed to be a test
 pub fn shared_redirection() {
     let str_path = "rom:/skyline/redirect.txt";
 
@@ -287,6 +316,7 @@ pub fn shared_redirection() {
                 println!("New file_info_index: {}", file_index.file_info_index);
             }
         }
-        //hashes.insert(hash40(hs), hs);
     }
+
+    //hashes.insert(hash40(hs), hs);
 }

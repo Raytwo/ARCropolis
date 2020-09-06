@@ -52,8 +52,14 @@ impl StreamFiles {
         if dir.is_dir() {
             for entry in fs::read_dir(dir)? {
                 let entry = entry?;
-                if entry.path().file_name().map(|s| s.to_str().map(|s| s.starts_with("."))).flatten().unwrap_or(false) {
-                    continue
+                if entry
+                    .path()
+                    .file_name()
+                    .map(|s| s.to_str().map(|s| s.starts_with(".")))
+                    .flatten()
+                    .unwrap_or(false)
+                {
+                    continue;
                 }
                 let stream_entry_path =
                     format!("{}/{}/stream;", dir.display(), entry.path().display());
@@ -101,8 +107,14 @@ impl ArcFiles {
         if dir.is_dir() {
             for entry in fs::read_dir(dir)? {
                 let entry = entry?;
-                if entry.path().file_name().map(|s| s.to_str().map(|s| s.starts_with("."))).flatten().unwrap_or(false) {
-                    continue
+                if entry
+                    .path()
+                    .file_name()
+                    .map(|s| s.to_str().map(|s| s.starts_with(".")))
+                    .flatten()
+                    .unwrap_or(false)
+                {
+                    continue;
                 }
                 let filename = entry.path();
                 let real_path = format!("{}/{}", dir.display(), filename.display());

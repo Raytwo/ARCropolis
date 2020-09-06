@@ -5,6 +5,7 @@ use skyline::hooks::{getRegionAddress, Region};
 use skyline::nn;
 
 pub static mut LOADED_TABLES_OFFSET: usize = 0x4ed7200; // 8.0.0 offset
+pub static mut RES_SERVICE_OFFSET: usize = 0x4ee4228; // 8.1.0 offset
 
 pub fn offset_to_addr(offset: usize) -> *const () {
     unsafe { (getRegionAddress(Region::Text) as *const u8).offset(offset as isize) as _ }
@@ -213,8 +214,9 @@ impl LoadedArc {
 
         // Regional
         if (file_info.flags & 0x00008000) == 0x8000 {
-            sub_index =
-                self.lookup_fileinfosubindex_by_index(file_info.sub_index_index + 1 + region_index);
+            sub_index = self.lookup_fileinfosubindex_by_index(
+                file_info.sub_index_index + 1 + ResServiceState::get_instance().regular_region_idx,
+            );
         }
 
         let sub_file =
@@ -415,9 +417,7 @@ impl LoadedTables {
             .get(t1_index as usize)
             .ok_or(LoadError::NoTable1)?;
         let t2_index = t1.table2_index as usize;
-        self.table_2()
-            .get(t2_index)
-            .ok_or(LoadError::NoTable2)
+        self.table_2().get(t2_index).ok_or(LoadError::NoTable2)
     }
 
     pub fn get_t2_mut(&mut self, t1_index: u32) -> Result<&mut Table2Entry, LoadError> {
@@ -431,7 +431,6 @@ impl LoadedTables {
             .ok_or(LoadError::NoTable2)
     }
 }
-
 
 #[derive(Copy, Clone, Debug)]
 pub enum LoadError {
@@ -488,4 +487,14 @@ pub struct ResServiceState {
     pub data_ptr: *const skyline::libc::c_void,
     pub offset_into_read: u64,
     //Still need to add some
+}
+
+impl ResServiceState {
+    pub fn get_instance() -> &'static mut Self {
+        unsafe {
+            let instance_ptr: *mut &'static mut Self =
+                std::mem::transmute(offset_to_addr(RES_SERVICE_OFFSET));
+            *instance_ptr
+        }
+    }
 }
