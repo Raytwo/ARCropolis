@@ -4,8 +4,7 @@ A Skyline plugin for replacing arbitrary files in Smash Ultimate with files of a
 
 
 **Warning:** 
-* Character .numshexb files larger than the original currently cause a crash. This is being investigated.
-* Layout.arc files over the size limit cause crashes. This is being investigated.
+* Character .numshexb files larger than the original currently cause a crash. There is currently no way of fixing this and will remain as such for the time being.
 
 ### Installation
 
