@@ -51,7 +51,7 @@ unsafe fn add_idx_to_table1_and_table2(loaded_table: *const LoadedTables, table1
     original!()(loaded_table, table1_idx);
 }
 
-fn handle_file_load(table1_idx: u32, flag: u8) {
+fn handle_file_load(table1_idx: u32) {
     let loaded_tables = LoadedTables::get_instance();
     let mutex = loaded_tables.mutex;
     let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();

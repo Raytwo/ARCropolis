@@ -192,25 +192,25 @@ impl LoadedArc {
 
         let mut sub_index = self.lookup_fileinfosubindex_by_index(file_info.sub_index_index);
 
-        let region_index;
+        // let region_index;
 
-        match &crate::config::CONFIG.misc.region[..] {
-            "jp_ja" => region_index = 0,
-            "us_en" => region_index = 1,
-            "us_fr" => region_index = 2,
-            "us_es" => region_index = 3,
-            "eu_en" => region_index = 4,
-            "eu_fr" => region_index = 5,
-            "eu_es" => region_index = 6,
-            "eu_de" => region_index = 7,
-            "eu_nl" => region_index = 8,
-            "eu_it" => region_index = 9,
-            "eu_ru" => region_index = 10,
-            "kr_ko" => region_index = 11,
-            "zh_cn" => region_index = 12,
-            "zh_tw" => region_index = 13,
-            _ => region_index = 1,
-        }
+        // match &crate::config::CONFIG.misc.region[..] {
+        //     "jp_ja" => region_index = 0,
+        //     "us_en" => region_index = 1,
+        //     "us_fr" => region_index = 2,
+        //     "us_es" => region_index = 3,
+        //     "eu_en" => region_index = 4,
+        //     "eu_fr" => region_index = 5,
+        //     "eu_es" => region_index = 6,
+        //     "eu_de" => region_index = 7,
+        //     "eu_nl" => region_index = 8,
+        //     "eu_it" => region_index = 9,
+        //     "eu_ru" => region_index = 10,
+        //     "kr_ko" => region_index = 11,
+        //     "zh_cn" => region_index = 12,
+        //     "zh_tw" => region_index = 13,
+        //     _ => region_index = 1,
+        // }
 
         // Regional
         if (file_info.flags & 0x00008000) == 0x8000 {

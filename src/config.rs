@@ -38,7 +38,6 @@ pub struct Paths {
 pub struct Miscellaneous {
     pub debug: bool,
     pub mowjoh: Option<bool>,
-    pub region: String,
 }
 
 fn generate_config() -> Result<Config, &'static str> {
