@@ -215,7 +215,7 @@ impl LoadedArc {
         // Regional
         if (file_info.flags & 0x00008000) == 0x8000 {
             sub_index = self.lookup_fileinfosubindex_by_index(
-                file_info.sub_index_index + 1 + ResServiceState::get_instance().regular_region_idx,
+                file_info.sub_index_index + 1 + ResServiceState::get_instance().regular_region_idx
             );
         }
 

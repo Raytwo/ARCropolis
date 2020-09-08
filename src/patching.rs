@@ -231,14 +231,14 @@ pub fn filesize_replacement() {
                     );
                 }
             } else {
-                //if (subfile.decompressed_size < metadata.len() as u32) {
+                if (subfile.decompressed_size < metadata.len() as u32) {
                     subfile.decompressed_size = metadata.len() as u32;
                     println!(
                         "[ARC::Patching] New decompressed size for {}: {:#x}",
                         path.as_path().display(),
                         subfile.decompressed_size
                     );
-                //}
+                }
             }
         }
     }
