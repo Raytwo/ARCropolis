@@ -2,9 +2,7 @@
 #![feature(str_strip)]
 
 use std::fs;
-use std::fs::File;
 use std::io::Write;
-use std::slice;
 
 use skyline::hooks::InlineCtx;
 use skyline::{hook, install_hooks, nn};
@@ -138,14 +136,14 @@ fn parse_param_file(ctx: &InlineCtx) {
         let hash = loaded_tables.get_hash_from_t1_index(*table1_idx).as_u64();
         let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
-        let mut t2_entry = match loaded_tables.get_t2_mut(*table1_idx) {
+        let t2_entry = match loaded_tables.get_t2_mut(*table1_idx) {
             Ok(entry) => entry,
             Err(_) => {
                 return;
             }
         };
 
-        println!(
+        log!(
             "[ARC::Loading | #{}] File path: {}, Hash: {}, {}",
             *table1_idx,
             internal_filepath,
@@ -167,7 +165,7 @@ fn parse_param_file(ctx: &InlineCtx) {
             let mut data_slice =
                 std::slice::from_raw_parts_mut(t2_entry.data as *mut u8, file_slice.len());
 
-            data_slice.write(file_slice);
+            data_slice.write(file_slice).unwrap();
         }
     }
 }
@@ -175,7 +173,6 @@ fn parse_param_file(ctx: &InlineCtx) {
 fn handle_texture_files(table1_idx: u32) {
     unsafe {
         let loaded_tables = LoadedTables::get_instance();
-        let mutex = loaded_tables.mutex;
         let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
         let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
@@ -185,7 +182,7 @@ fn handle_texture_files(table1_idx: u32) {
                 path.display()
             );
 
-            let mut table2entry = match loaded_tables.get_t2_mut(table1_idx) {
+            let table2entry = match loaded_tables.get_t2_mut(table1_idx) {
                 Ok(entry) => entry,
                 Err(_) => {
                     return;
@@ -209,7 +206,7 @@ fn handle_texture_files(table1_idx: u32) {
             let mut data_slice =
                 std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
 
-            if (orig_size > file_slice.len()) {
+            if orig_size > file_slice.len() {
                 // Copy our new footer at the end
                 data_slice[orig_size - 0xB0..orig_size]
                     .copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
@@ -217,7 +214,7 @@ fn handle_texture_files(table1_idx: u32) {
                 data_slice[0..file_slice.len() - 0xB0]
                     .copy_from_slice(&file_slice[0..file_slice.len() - 0xB0]);
             } else {
-                data_slice.write(file_slice);
+                data_slice.write(file_slice).unwrap();
             }
         }
     }
@@ -231,7 +228,7 @@ fn parse_eff(ctx: &InlineCtx) {
         let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
         let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
-        let mut t2_entry = match loaded_tables.get_t2_mut(table1_idx) {
+        let t2_entry = match loaded_tables.get_t2_mut(table1_idx) {
             Ok(entry) => entry,
             Err(_) => {
                 return;
@@ -260,13 +257,13 @@ fn parse_eff(ctx: &InlineCtx) {
             let mut data_slice =
                 std::slice::from_raw_parts_mut(t2_entry.data as *mut u8, file_slice.len());
 
-            data_slice.write(file_slice);
+            data_slice.write(file_slice).unwrap();
         }
     }
 }
 
 #[hook(offset = RES_SERVICE_INITIALIZED_OFFSET, inline)]
-fn resource_service_initialized(ctx: &InlineCtx) {
+fn resource_service_initialized(_ctx: &InlineCtx) {
     // Patch filesizes in the Subfile table
     patching::filesize_replacement();
 }

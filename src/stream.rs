@@ -6,7 +6,6 @@ use std::{collections::HashMap, fs, io, path::Path, ptr};
 use skyline::{
     hook,
     libc::{c_char, c_void},
-    logging::hex_dump_ptr,
 };
 
 use crate::log;
@@ -88,7 +87,6 @@ fn lookup_by_stream_hash(
             ptr::copy_nonoverlapping(bytes.as_ptr(), out_path, bytes.len());
             *out_path.offset(bytes.len() as _) = 0u8;
         }
-        hex_dump_ptr(out_path);
     } else {
         original!()(out_path, loaded_arc, size_out, offset_out, hash);
     }

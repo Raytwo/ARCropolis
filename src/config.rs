@@ -1,10 +1,7 @@
+use std::fs;
+
 use skyline::error::show_error;
 use skyline::{c_str, nn};
-use std::fs;
-use std::fs::File;
-use std::io::prelude::*;
-
-use crate::log;
 
 use serde::{Deserialize, Serialize};
 

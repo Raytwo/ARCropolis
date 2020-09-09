@@ -1,15 +1,11 @@
 use std::fs;
 use std::fs::File;
 use std::slice;
-use std::str::FromStr;
-use std::sync::atomic::AtomicU32;
 
-use crate::log;
 use crate::replacement_files::ARC_FILES;
-use smash::resource::{ LoadedTables, offset_to_addr };
+use smash::resource::{ LoadedTables };
 
 use skyline::hooks::{getRegionAddress, Region};
-use skyline::nn;
 
 use smash::hash40;
 
@@ -57,26 +53,6 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
         .position(|window| window == needle)
-}
-
-fn offset_from_adrp(adrp_offset: usize) -> usize {
-    unsafe {
-        let adrp = *(offset_to_addr(adrp_offset) as *const u32);
-        let immhi = (adrp & 0b0_00_00000_1111111111111111111_00000) >> 3;
-        let immlo = (adrp & 0b0_11_00000_0000000000000000000_00000) >> 29;
-        let imm = ((immhi | immlo) << 12) as i32 as usize;
-        let base = adrp_offset & 0xFFFFFFFFFFFFF000;
-        base + imm
-    }
-}
-
-fn offset_from_ldr(ldr_offset: usize) -> usize {
-    unsafe {
-        let ldr = *(offset_to_addr(ldr_offset) as *const u32);
-        let size = (ldr & 0b11_000_0_00_00_000000000000_00000_00000) >> 30;
-        let imm = (ldr & 0b00_000_0_00_00_111111111111_00000_00000) >> 10;
-        (imm as usize) << size
-    }
 }
 
 pub fn search_offsets() {
@@ -200,7 +176,7 @@ pub fn filesize_replacement() {
                     );
                 }
             } else {
-                if (subfile.decompressed_size < metadata.len() as u32) {
+                if subfile.decompressed_size < metadata.len() as u32 {
                     subfile.decompressed_size = metadata.len() as u32;
                     println!(
                         "[ARC::Patching] New decompressed size for {}: {:#x}",
@@ -213,78 +189,78 @@ pub fn filesize_replacement() {
     }
 }
 
-pub fn shared_redirection() {
-    let str_path = "rom:/skyline/redirect.txt";
+// pub fn shared_redirection() {
+//     let str_path = "rom:/skyline/redirect.txt";
 
-    let s = match fs::read_to_string(str_path) {
-        Err(why) => {
-            println!("[HashesMgr] Failed to read \"{}\" \"({})\"", str_path, why);
-            return;
-        }
-        Ok(s) => s,
-    };
+//     let s = match fs::read_to_string(str_path) {
+//         Err(why) => {
+//             println!("[HashesMgr] Failed to read \"{}\" \"({})\"", str_path, why);
+//             return;
+//         }
+//         Ok(s) => s,
+//     };
 
-    for entry in string_to_static_str(s).lines() {
-        let mut values = entry.split_whitespace();
+//     for entry in string_to_static_str(s).lines() {
+//         let mut values = entry.split_whitespace();
 
-        let loaded_tables = LoadedTables::get_instance();
-        let arc = loaded_tables.get_arc();
-        let path = values.next().unwrap();
-        println!("Path to replace: {}", path);
-        let hash = hash40(path);
+//         let loaded_tables = LoadedTables::get_instance();
+//         let arc = loaded_tables.get_arc();
+//         let path = values.next().unwrap();
+//         println!("Path to replace: {}", path);
+//         let hash = hash40(path);
 
-        unsafe {
-            let hashindexgroup_slice =
-                slice::from_raw_parts(arc.file_info_path, (*loaded_tables).table1_len as usize);
+//         unsafe {
+//             let hashindexgroup_slice =
+//                 slice::from_raw_parts(arc.file_info_path, (*loaded_tables).table1_len as usize);
 
-            let t1_index = match hashindexgroup_slice
-                .iter()
-                .position(|x| x.path.hash40.as_u64() == hash)
-            {
-                Some(index) => index as u32,
-                None => {
-                    println!(
-                        "[ARC::Patching] Hash {} not found in table1, skipping",
-                        hash
-                    );
-                    continue;
-                }
-            };
-            println!("T1 index found: {}", t1_index);
+//             let t1_index = match hashindexgroup_slice
+//                 .iter()
+//                 .position(|x| x.path.hash40.as_u64() == hash)
+//             {
+//                 Some(index) => index as u32,
+//                 None => {
+//                     println!(
+//                         "[ARC::Patching] Hash {} not found in table1, skipping",
+//                         hash
+//                     );
+//                     continue;
+//                 }
+//             };
+//             println!("T1 index found: {}", t1_index);
 
-            let file_info = arc.lookup_file_information_by_t1_index(t1_index);
-            println!("Path index: {}", file_info.path_index);
+//             let file_info = arc.lookup_file_information_by_t1_index(t1_index);
+//             println!("Path index: {}", file_info.path_index);
 
-            let mut file_index = arc.lookup_fileinfoindex_by_t1_index(t1_index);
-            println!("File_info_index: {}", file_index.file_info_index);
+//             let mut file_index = arc.lookup_fileinfoindex_by_t1_index(t1_index);
+//             println!("File_info_index: {}", file_index.file_info_index);
 
-            // Make sure it is flagged as a shared file
-            if (file_info.flags & 0x00000010) == 0x10 {
-                let path = values.next().unwrap();
-                println!("Replacing path: {}", path);
-                let hash = hash40(path);
+//             // Make sure it is flagged as a shared file
+//             if (file_info.flags & 0x00000010) == 0x10 {
+//                 let path = values.next().unwrap();
+//                 println!("Replacing path: {}", path);
+//                 let hash = hash40(path);
 
-                let t1_index = match hashindexgroup_slice
-                    .iter()
-                    .position(|x| x.path.hash40.as_u64() == hash)
-                {
-                    Some(index) => index as u32,
-                    None => {
-                        println!(
-                            "[ARC::Patching] Hash {} not found in table1, skipping",
-                            hash
-                        );
-                        continue;
-                    }
-                };
+//                 let t1_index = match hashindexgroup_slice
+//                     .iter()
+//                     .position(|x| x.path.hash40.as_u64() == hash)
+//                 {
+//                     Some(index) => index as u32,
+//                     None => {
+//                         println!(
+//                             "[ARC::Patching] Hash {} not found in table1, skipping",
+//                             hash
+//                         );
+//                         continue;
+//                     }
+//                 };
 
-                println!("T1 index found: {}", t1_index);
-                file_index.file_info_index = t1_index;
-                file_index.file_info_index = t1_index;
-                println!("New file_info_index: {}", file_index.file_info_index);
-            }
-        }
-    }
+//                 println!("T1 index found: {}", t1_index);
+//                 file_index.file_info_index = t1_index;
+//                 file_index.file_info_index = t1_index;
+//                 println!("New file_info_index: {}", file_index.file_info_index);
+//             }
+//         }
+//     }
 
-    //hashes.insert(hash40(hs), hs);
-}
+//     //hashes.insert(hash40(hs), hs);
+// }
