@@ -11,7 +11,7 @@ use skyline::{
 
 use crate::log;
 use crate::patching::LOOKUP_STREAM_HASH_OFFSET;
-use crate::replacement_files::STREAM_FILES;
+use crate::replacement_files::ARC_FILES;
 
 pub fn random_media_select(directory: &str) -> io::Result<String> {
     let mut rng = rand::thread_rng();
@@ -48,7 +48,7 @@ fn lookup_by_stream_hash(
     offset_out: *mut u64,
     hash: u64,
 ) {
-    if let Some(path) = STREAM_FILES.0.get(&hash) {
+    if let Some(path) = ARC_FILES.0.get(&hash) {
         let file;
         let metadata;
         let size;
