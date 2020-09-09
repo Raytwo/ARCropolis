@@ -6,7 +6,7 @@ use std::sync::atomic::AtomicU32;
 
 use crate::log;
 use crate::replacement_files::ARC_FILES;
-use crate::resource::*;
+use smash::resource::{ LoadedTables, offset_to_addr };
 
 use skyline::hooks::{getRegionAddress, Region};
 use skyline::nn;
@@ -19,8 +19,6 @@ use crate::hashes::string_to_static_str;
 pub static mut IDK_OFFSET: usize = 0x32545a0;
 pub static mut ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET: usize = 0x324e9f0;
 pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x324f7a0;
-pub static mut LOADED_TABLES_ADRP_OFFSET: usize = 0x324c3a0;
-pub static mut RES_SERVICE_ADRP_OFFSET: usize = 0x325a4b0;
 // default 8.1.0 offsets
 pub static mut PARSE_NUTEXB_OFFSET: usize = 0x330615c;
 pub static mut PARSE_EFF_OFFSET: usize = 0x3278984;
@@ -34,16 +32,6 @@ static IDK_SEARCH_CODE: &[u8] = &[
 static ADD_IDX_TO_TABLE1_AND_TABLE2_SEARCH_CODE: &[u8] = &[
     0xf6, 0x57, 0xbd, 0xa9, 0xf4, 0x4f, 0x01, 0xa9, 0xfd, 0x7b, 0x02, 0xa9, 0xfd, 0x83, 0x00, 0x91,
     0x08, 0x18, 0x40, 0xb9, 0x1f, 0x01, 0x01, 0x6b,
-];
-
-static LOADED_TABLES_ADRP_SEARCH_CODE: &[u8] = &[
-    0x28, 0x4b, 0x40, 0xb9, 0xf4, 0x03, 0x01, 0x2a, 0x1f, 0x01, 0x01, 0x6b, 0x29, 0x0a, 0x00, 0x54,
-    0x36, 0x03, 0x40, 0xf9, 0xe0, 0x03, 0x16, 0xaa,
-];
-
-static RES_SERVICE_ADRP_SEARCH_CODE: &[u8] = &[
-    0x48, 0xe4, 0x00, 0xd0, 0x15, 0x15, 0x41, 0xf9, 0xb6, 0x02, 0x40, 0xf9, 0xf4, 0x03, 0x00, 0xaa,
-    0xe0, 0x03, 0x16, 0xaa, 0xf3, 0x03, 0x01, 0x2a, 0xf2, 0xef, 0x11, 0x94,
 ];
 
 static LOOKUP_STREAM_HASH_SEARCH_CODE: &[u8] = &[
@@ -113,25 +101,6 @@ pub fn search_offsets() {
         } else {
             println!("Error: no offset found for function 'add_idx_to_table1_and_table2'. Defaulting to 8.0.0 offset. This likely won't work.");
         }
-
-        if let Some(offset) = find_subsequence(text, LOADED_TABLES_ADRP_SEARCH_CODE) {
-            LOADED_TABLES_ADRP_OFFSET = offset - 8
-        } else {
-            println!("Error: no offset found for 'loaded_tables_adrp'. Defaulting to 8.0.0 offset. This likely won't work.");
-        }
-        if let Some(offset) = find_subsequence(text, RES_SERVICE_ADRP_SEARCH_CODE) {
-            RES_SERVICE_ADRP_OFFSET = offset
-        } else {
-            println!("Error: no offset found for 'loaded_tables_adrp'. Defaulting to 8.0.0 offset. This likely won't work.");
-        }
-
-        let adrp_offset = offset_from_adrp(LOADED_TABLES_ADRP_OFFSET);
-        let ldr_offset = offset_from_ldr(LOADED_TABLES_ADRP_OFFSET + 4);
-        LOADED_TABLES_OFFSET = adrp_offset + ldr_offset;
-
-        let adrp_offset = offset_from_adrp(RES_SERVICE_ADRP_OFFSET);
-        let ldr_offset = offset_from_ldr(RES_SERVICE_ADRP_OFFSET + 4);
-        RES_SERVICE_OFFSET = adrp_offset + ldr_offset;
 
         if let Some(offset) = find_subsequence(text, PARSE_NUTEXB_SEARCH_CODE) {
             PARSE_NUTEXB_OFFSET = offset - 8

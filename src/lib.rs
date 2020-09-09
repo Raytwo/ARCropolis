@@ -21,8 +21,7 @@ use patching::{
 mod replacement_files;
 use replacement_files::ARC_FILES;
 
-mod resource;
-use resource::*;
+use smash::resource::{ LoadedTables, ResServiceState, FileState };
 
 mod config;
 use config::CONFIG;
@@ -132,7 +131,7 @@ fn parse_eff_nutexb(ctx: &InlineCtx) {
 }
 
 #[hook(offset = 0x3436890, inline)]
-fn parse_prc_file(ctx: &InlineCtx) {
+fn parse_param_file(ctx: &InlineCtx) {
     unsafe {
         let table1_idx = (*ctx.registers[20].x.as_ref()) as *const u32;
         let loaded_tables = LoadedTables::get_instance();
@@ -299,7 +298,7 @@ pub fn main() {
         parse_fighter_nutexb,
         parse_eff_nutexb,
         parse_eff,
-        parse_prc_file,
+        parse_param_file,
         resource_service_initialized,
     );
 
