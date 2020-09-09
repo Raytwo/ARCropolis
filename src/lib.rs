@@ -19,7 +19,7 @@ use patching::{
 };
 
 mod replacement_files;
-use replacement_files::{ARC_FILES, STREAM_FILES};
+use replacement_files::ARC_FILES;
 
 mod resource;
 use resource::*;
@@ -76,7 +76,7 @@ fn handle_file_load(table1_idx: u32) {
     if let Some(path) = ARC_FILES.get_from_hash(hash) {
         // Some formats don't appreciate me replacing the data pointer
         match path.as_path().extension().unwrap().to_str().unwrap() {
-            "nutexb" | "eff" | "prc" => return,
+            "nutexb" | "eff" | "prc" | "stdat" | "stprm" => return,
             &_ => (),
         }
 
@@ -277,7 +277,6 @@ pub fn main() {
     // Read the configuration so we can set the filepaths
     lazy_static::initialize(&CONFIG);
     lazy_static::initialize(&ARC_FILES);
-    lazy_static::initialize(&STREAM_FILES);
 
     // Load hashes from rom:/skyline/hashes.txt if the file is present
     hashes::init();
