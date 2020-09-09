@@ -76,7 +76,7 @@ fn handle_file_load(table1_idx: u32) {
     if let Some(path) = ARC_FILES.get_from_hash(hash) {
         // Some formats don't appreciate me replacing the data pointer
         match path.as_path().extension().unwrap().to_str().unwrap() {
-            "nutexb" | "eff" => return,
+            "nutexb" | "eff" | "prc" => return,
             &_ => (),
         }
 
@@ -103,6 +103,8 @@ fn handle_file_load(table1_idx: u32) {
         let data = fs::read(path).unwrap().into_boxed_slice();
         let data = Box::leak(data);
 
+        unsafe { skyline::libc::free(table2entry.data as *const skyline::libc::c_void); }
+
         table2entry.data = data.as_ptr();
         table2entry.state = FileState::Loaded;
         table2entry.flags = 43;
@@ -126,6 +128,48 @@ fn parse_fighter_nutexb(ctx: &InlineCtx) {
 fn parse_eff_nutexb(ctx: &InlineCtx) {
     unsafe {
         handle_texture_files(*ctx.registers[24].w.as_ref());
+    }
+}
+
+#[hook(offset = 0x3436890, inline)]
+fn parse_prc_file(ctx: &InlineCtx) {
+    unsafe {
+        let table1_idx = (*ctx.registers[20].x.as_ref()) as *const u32;
+        let loaded_tables = LoadedTables::get_instance();
+        let hash = loaded_tables.get_hash_from_t1_index(*table1_idx).as_u64();
+        let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
+
+        let mut t2_entry = match loaded_tables.get_t2_mut(*table1_idx) {
+            Ok(entry) => entry,
+            Err(_) => {
+                return;
+            }
+        };
+
+        println!(
+            "[ARC::Loading | #{}] File path: {}, Hash: {}, {}",
+            *table1_idx,
+            internal_filepath,
+            hash,
+            t2_entry
+        );
+
+        if let Some(path) = ARC_FILES.get_from_hash(hash) {
+            println!(
+                "[ARC::Replace] Hash matching for file path: {}",
+                path.display()
+            );
+
+            println!("[ARC::Replace] Replacing {}...", internal_filepath);
+
+            let file = fs::read(path).unwrap();
+            let file_slice = file.as_slice();
+
+            let mut data_slice =
+                std::slice::from_raw_parts_mut(t2_entry.data as *mut u8, file_slice.len());
+
+            data_slice.write(file_slice);
+        }
     }
 }
 
@@ -256,6 +300,7 @@ pub fn main() {
         parse_fighter_nutexb,
         parse_eff_nutexb,
         parse_eff,
+        parse_prc_file,
         resource_service_initialized,
     );
 

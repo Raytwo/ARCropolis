@@ -191,7 +191,7 @@ pub fn filesize_replacement() {
             let extension = path.as_path().extension().unwrap().to_str().unwrap();
             // Some formats don't appreciate me messing with their size
             match extension {
-                "bntx" | "nutexb" | "eff" | "numshexb" | "arc" => {}
+                "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" => {}
                 &_ => continue,
             }
 
