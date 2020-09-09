@@ -71,10 +71,8 @@ impl ArcFiles {
     }
 
     fn visit_file(&mut self, path: &Path, arc_dir_len: usize) {
-        let mut file_ext;
-
         match path.extension().and_then(std::ffi::OsStr::to_str) {
-            Some(x) => file_ext = x,
+            Some(_) => {},
             None => {
                 println!("Error getting file extension for: {}", path.display());
                 return;
