@@ -32,7 +32,6 @@ pub struct Paths {
 #[derive(Serialize, Deserialize)]
 pub struct Miscellaneous {
     pub debug: bool,
-    pub mowjoh: Option<bool>,
 }
 
 fn generate_config() -> Result<Config, &'static str> {
@@ -47,7 +46,6 @@ fn generate_config() -> Result<Config, &'static str> {
         },
         misc: Miscellaneous {
             debug: false,
-            mowjoh: None,
         },
     };
 

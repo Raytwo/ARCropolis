@@ -84,15 +84,6 @@ fn handle_file_load(table1_idx: u32) {
 
         println!("[ARC::Replace] Replacing {}", internal_filepath);
 
-        // This is a personal request, don't mind it too much.
-        if let Some(_) = CONFIG.misc.mowjoh {
-            skyline::error::show_error(
-                69,
-                &format!("[ARC::Replace] Replacing {}", internal_filepath),
-                &format!("{}", internal_filepath),
-            );
-        }
-
         unsafe {
             nn::os::LockMutex(mutex);
         }
@@ -271,8 +262,8 @@ fn resource_service_initialized(_ctx: &InlineCtx) {
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Read the configuration so we can set the filepaths
-    lazy_static::initialize(&CONFIG);
-    lazy_static::initialize(&ARC_FILES);
+    // lazy_static::initialize(&CONFIG);
+    // lazy_static::initialize(&ARC_FILES);
 
     // Load hashes from rom:/skyline/hashes.txt if the file is present
     hashes::init();
@@ -282,11 +273,6 @@ pub fn main() {
     //patching::shared_redirection();
     // Attempt at expanding table2 (Does not work, do not use!)
     //patching::expand_table2();
-
-    // This is a personal request, don't mind it too much.
-    if let Some(_) = CONFIG.misc.mowjoh {
-        skyline::error::show_error(69, "I'm Mowjoh!", "No really, he is.");
-    }
 
     install_hooks!(
         idk,
