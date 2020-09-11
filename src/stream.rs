@@ -33,7 +33,7 @@ pub fn random_media_select(directory: &str) -> io::Result<String> {
         return Err(Error::new(ErrorKind::Other, "No Files Found!"));
     }
 
-    let random_result = rng.gen_range(0, media_count);
+    let random_result = rng.gen_range(0..media_count);
 
     Ok(media_files.get(&random_result).unwrap().to_string())
 }
