@@ -44,9 +44,7 @@ fn generate_config() -> Result<Config, &'static str> {
             arc: "rom:/arc".to_string(),
             umm: "sd:/ultimate/mods".to_string(),
         },
-        misc: Miscellaneous {
-            debug: false,
-        },
+        misc: Miscellaneous { debug: false },
     };
 
     let config_txt = toml::to_string(&config).unwrap();
@@ -110,7 +108,7 @@ fn init() -> Config {
                 }
                 println!("[ARC::Config] Configuration file successfully updated");
                 config
-            }else{
+            } else {
                 config
             }
         }

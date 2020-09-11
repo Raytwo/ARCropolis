@@ -23,6 +23,9 @@ skyline_smash = { git = "https://github.com/ultimate-research/skyline-smash.git"
 [patch.crates-io]
 getrandom = { git = "https://github.com/Raytwo/getrandom" }
 
+[patch.'https://github.com/ultimate-research/nnsdk-rs']
+nnsdk = { git = "https://github.com/Raytwo/nnsdk-rs" }
+
 [profile.dev]
 panic = "abort"
 

@@ -19,7 +19,7 @@ use patching::{
 mod replacement_files;
 use replacement_files::ARC_FILES;
 
-use smash::resource::{ LoadedTables, ResServiceState, FileState };
+use smash::resource::{FileState, LoadedTables, ResServiceState};
 
 mod config;
 use config::CONFIG;
@@ -91,7 +91,9 @@ fn handle_file_load(table1_idx: u32) {
         let data = fs::read(path).unwrap().into_boxed_slice();
         let data = Box::leak(data);
 
-        unsafe { skyline::libc::free(table2entry.data as *const skyline::libc::c_void); }
+        unsafe {
+            skyline::libc::free(table2entry.data as *const skyline::libc::c_void);
+        }
 
         table2entry.data = data.as_ptr();
         table2entry.state = FileState::Loaded;
@@ -262,8 +264,8 @@ fn resource_service_initialized(_ctx: &InlineCtx) {
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Read the configuration so we can set the filepaths
-    // lazy_static::initialize(&CONFIG);
-    // lazy_static::initialize(&ARC_FILES);
+    lazy_static::initialize(&CONFIG);
+    lazy_static::initialize(&ARC_FILES);
 
     // Load hashes from rom:/skyline/hashes.txt if the file is present
     hashes::init();

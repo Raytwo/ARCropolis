@@ -5,6 +5,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use std::ffi::CString;
+
+use skyline::{c_str, nn};
+
 use crate::config::CONFIG;
 
 lazy_static::lazy_static! {
@@ -70,9 +74,38 @@ impl ArcFiles {
         Ok(())
     }
 
+    // This is for the rework, don't mind it for now
+    fn visit_dir_rewrite(&mut self, dir: &Path, _arc_dir_len: usize) -> io::Result<()> {
+        if dir.is_dir() {
+            unsafe {
+                let mut handle = nn::fs::DirectoryHandle {
+                    handle: 0 as *mut skyline::libc::c_void,
+                };
+
+                nn::fs::OpenDirectory(
+                    &mut handle,
+                    c_str(dir.as_os_str().to_str().unwrap()),
+                    nn::fs::OpenDirectoryMode_OpenDirectoryMode_All as i32,
+                );
+
+                let mut entry_count = 0;
+                nn::fs::GetDirectoryEntryCount(&mut entry_count, handle);
+
+                let mut dir_entries: Vec<nn::fs::DirectoryEntry> = vec![nn::fs::DirectoryEntry { name: [0; 769], _x302: [0;3], type_: 0, _x304: 0, fileSize: 0 }; entry_count as usize];
+                let dir_entries = dir_entries.as_mut_slice();
+                let mut count_result = 0;
+                nn::fs::ReadDirectory(&mut count_result, dir_entries.as_mut_ptr(), handle, entry_count);
+
+                println!("{}", CString::from_vec_unchecked(dir_entries[0].name.to_vec()).to_str().unwrap());
+            }
+        }
+
+        Ok(())
+    }
+
     fn visit_file(&mut self, path: &Path, arc_dir_len: usize) {
         match path.extension().and_then(std::ffi::OsStr::to_str) {
-            Some(_) => {},
+            Some(_) => {}
             None => {
                 println!("Error getting file extension for: {}", path.display());
                 return;
