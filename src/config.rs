@@ -1,7 +1,7 @@
 use std::fs;
 
-use skyline::error::show_error;
 use skyline::{c_str, nn};
+use skyline::error::show_error;
 
 use serde::{Deserialize, Serialize};
 

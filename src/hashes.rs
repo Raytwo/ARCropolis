@@ -1,6 +1,7 @@
-use smash::hash40;
-use std::collections::HashMap;
 use std::fs;
+use std::collections::HashMap;
+
+use smash::hash40;
 
 lazy_static::lazy_static! {
     static ref HASHES : HashMap<u64, &'static str> = {

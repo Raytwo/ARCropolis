@@ -1,13 +1,12 @@
-use smash::hash40;
 use std::{
+    slice,
     collections::HashMap,
     fs, io,
-    path::{Path, PathBuf},
 };
+use std::path::{ Path, PathBuf };
 
-use std::ffi::CString;
-
-use skyline::{c_str, nn};
+use smash::hash40;
+use smash::resource::LoadedTables;
 
 use crate::config::CONFIG;
 
@@ -60,13 +59,41 @@ impl ArcFiles {
                 let filename = entry.path();
                 let real_path = format!("{}/{}", dir.display(), filename.display());
                 let path = Path::new(&real_path);
-                if path.is_dir() && path.file_name().unwrap().to_os_string().into_string().unwrap().contains("."){
+                if path.is_dir()
+                    && path
+                        .file_name()
+                        .unwrap()
+                        .to_os_string()
+                        .into_string()
+                        .unwrap()
+                        .contains(".")
+                {
                     self.visit_file(path, arc_dir_len);
-                }
-                else if path.is_dir() {
+                } else if path.is_dir() {
                     self.visit_dir(&path, arc_dir_len)?;
-                } else {
-                    self.visit_file(path, arc_dir_len);
+                } else {                    
+                    match path.extension().and_then(std::ffi::OsStr::to_str) {
+                        Some(_) => {}
+                        None => {
+                            println!("Error getting file extension for: {}", path.display());
+                        }
+                    }
+
+                    println!("Path: {}", path.display());
+                    let mut game_path = path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
+
+                    match game_path.strip_suffix("mp4") {
+                        Some(x) => game_path = format!("{}{}", x, "webm"),
+                        None => (),
+                    }
+
+                    let hash = hash40(&game_path);
+                    let metadata = match entry.metadata() {
+                        Ok(meta) => meta,
+                        Err(err) => panic!(err),
+                    };
+                    self.0.insert(hash, path.to_owned());
+                    self.filesize_replacement_rewrite(hash, path, metadata.len() as _);
                 }
             }
         }
@@ -74,33 +101,60 @@ impl ArcFiles {
         Ok(())
     }
 
-    // This is for the rework, don't mind it for now
-    fn visit_dir_rewrite(&mut self, dir: &Path, _arc_dir_len: usize) -> io::Result<()> {
-        if dir.is_dir() {
-            unsafe {
-                let mut handle = nn::fs::DirectoryHandle {
-                    handle: 0 as *mut skyline::libc::c_void,
-                };
+    pub fn filesize_replacement_rewrite(&self, hash: u64, path: &Path, filesize: u32) {
+        let loaded_tables = LoadedTables::get_instance();
 
-                nn::fs::OpenDirectory(
-                    &mut handle,
-                    c_str(dir.as_os_str().to_str().unwrap()),
-                    nn::fs::OpenDirectoryMode_OpenDirectoryMode_All as i32,
-                );
+        unsafe {
+            let extension = path.extension().unwrap().to_str().unwrap();
+            // Some formats don't appreciate me messing with their size
+            match extension {
+                "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" => {}
+                &_ => return,
+            }
 
-                let mut entry_count = 0;
-                nn::fs::GetDirectoryEntryCount(&mut entry_count, handle);
+            let hashindexgroup_slice = slice::from_raw_parts(
+                loaded_tables.get_arc().file_info_path,
+                (*loaded_tables).table1_len as usize,
+            );
 
-                let mut dir_entries: Vec<nn::fs::DirectoryEntry> = vec![nn::fs::DirectoryEntry { name: [0; 769], _x302: [0;3], type_: 0, _x304: 0, fileSize: 0 }; entry_count as usize];
-                let dir_entries = dir_entries.as_mut_slice();
-                let mut count_result = 0;
-                nn::fs::ReadDirectory(&mut count_result, dir_entries.as_mut_ptr(), handle, entry_count);
+            let t1_index = match hashindexgroup_slice
+                .iter()
+                .position(|x| x.path.hash40.as_u64() == hash)
+            {
+                Some(index) => index as u32,
+                None => {
+                    println!(
+                        "[ARC::Patching] Hash for file {} not found in table1, skipping",
+                        path.display()
+                    );
+                    return;
+                }
+            };
 
-                println!("{}", CString::from_vec_unchecked(dir_entries[0].name.to_vec()).to_str().unwrap());
+            let mut subfile = loaded_tables.get_arc().get_subfile_by_t1_index(t1_index);
+
+            if (subfile.decompressed_size < filesize) && extension == "nutexb" {
+                // Is compressed?
+                if (subfile.flags & 0x3) == 3 {
+                    subfile.decompressed_size = filesize;
+
+                    println!(
+                        "[ARC::Patching] New decompressed size for {}: {:#x}",
+                        path.display(),
+                        subfile.decompressed_size
+                    );
+                }
+            } else {
+                //if subfile.decompressed_size < filesize {
+                    subfile.decompressed_size = filesize;
+                    println!(
+                        "[ARC::Patching] New decompressed size for {}: {:#x}",
+                        path.display(),
+                        subfile.decompressed_size
+                    );
+                //}
             }
         }
-
-        Ok(())
     }
 
     fn visit_file(&mut self, path: &Path, arc_dir_len: usize) {
@@ -125,9 +179,5 @@ impl ArcFiles {
 
     pub fn get_from_hash(&self, hash: u64) -> Option<&PathBuf> {
         self.0.get(&hash)
-    }
-
-    pub fn iter(&self) -> std::collections::hash_map::Iter<'_, u64, std::path::PathBuf> {
-        self.0.iter()
     }
 }

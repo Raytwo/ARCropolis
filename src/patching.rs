@@ -1,9 +1,3 @@
-use std::fs::File;
-use std::slice;
-
-use crate::replacement_files::ARC_FILES;
-use smash::resource::LoadedTables;
-
 use skyline::hooks::{getRegionAddress, Region};
 
 // default 8.0.0 offsets
@@ -56,6 +50,7 @@ pub fn search_offsets() {
         let text_ptr = getRegionAddress(Region::Text) as *const u8;
         let text_size = (getRegionAddress(Region::Rodata) as usize) - (text_ptr as usize);
         let text = std::slice::from_raw_parts(text_ptr, text_size);
+
         if let Some(offset) = find_subsequence(text, IDK_SEARCH_CODE) {
             IDK_OFFSET = offset
         } else {
@@ -123,67 +118,6 @@ pub fn search_offsets() {
 //         nn::os::UnlockMutex(loaded_tables.mutex);
 //     }
 // }
-
-pub fn filesize_replacement() {
-    for (hash, path) in ARC_FILES.iter() {
-        let loaded_tables = LoadedTables::get_instance();
-
-        unsafe {
-            let extension = path.as_path().extension().unwrap().to_str().unwrap();
-            // Some formats don't appreciate me messing with their size
-            match extension {
-                "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" => {}
-                &_ => continue,
-            }
-
-            let hashindexgroup_slice = slice::from_raw_parts(
-                loaded_tables.get_arc().file_info_path,
-                (*loaded_tables).table1_len as usize,
-            );
-
-            let t1_index = match hashindexgroup_slice
-                .iter()
-                .position(|x| x.path.hash40.as_u64() == *hash)
-            {
-                Some(index) => index as u32,
-                None => {
-                    println!(
-                        "[ARC::Patching] Hash for file {} not found in table1, skipping",
-                        path.as_path().display()
-                    );
-                    continue;
-                }
-            };
-
-            let mut subfile = loaded_tables.get_arc().get_subfile_by_t1_index(t1_index);
-
-            let file = File::open(path).ok().unwrap();
-            let metadata = file.metadata().ok().unwrap();
-
-            if (subfile.decompressed_size < metadata.len() as u32) && extension == "nutexb" {
-                // Is compressed?
-                if (subfile.flags & 0x3) == 3 {
-                    subfile.decompressed_size = metadata.len() as u32;
-
-                    println!(
-                        "[ARC::Patching] New decompressed size for {}: {:#x}",
-                        path.as_path().display(),
-                        subfile.decompressed_size
-                    );
-                }
-            } else {
-                if subfile.decompressed_size < metadata.len() as u32 {
-                    subfile.decompressed_size = metadata.len() as u32;
-                    println!(
-                        "[ARC::Patching] New decompressed size for {}: {:#x}",
-                        path.as_path().display(),
-                        subfile.decompressed_size
-                    );
-                }
-            }
-        }
-    }
-}
 
 // pub fn shared_redirection() {
 //     let str_path = "rom:/skyline/redirect.txt";

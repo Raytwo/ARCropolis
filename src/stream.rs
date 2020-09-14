@@ -1,12 +1,12 @@
 use rand::Rng;
 
+use std::{fs, io, ptr};
 use std::io::{Error, ErrorKind};
-use std::{collections::HashMap, fs, io, path::Path, ptr};
+use std::path::Path;
+use std::collections::HashMap;
 
-use skyline::{
-    hook,
-    libc::{c_char, c_void},
-};
+use skyline::hook;
+use skyline::libc::{c_char, c_void};
 
 use crate::log;
 use crate::patching::LOOKUP_STREAM_HASH_OFFSET;

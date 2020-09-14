@@ -9,6 +9,10 @@ use skyline::{hook, install_hooks, nn};
 
 mod hashes;
 mod stream;
+mod config;
+
+mod replacement_files;
+use replacement_files::ARC_FILES;
 
 mod patching;
 use patching::{
@@ -16,13 +20,7 @@ use patching::{
     RES_SERVICE_INITIALIZED_OFFSET,
 };
 
-mod replacement_files;
-use replacement_files::ARC_FILES;
-
 use smash::resource::{FileState, LoadedTables, ResServiceState};
-
-mod config;
-use config::CONFIG;
 
 #[macro_export]
 macro_rules! log {
@@ -258,14 +256,18 @@ fn parse_eff(ctx: &InlineCtx) {
 #[hook(offset = RES_SERVICE_INITIALIZED_OFFSET, inline)]
 fn resource_service_initialized(_ctx: &InlineCtx) {
     // Patch filesizes in the Subfile table
-    patching::filesize_replacement();
+    //lazy_static::initialize(&CONFIG);
+    println!("Res Service Initialized");
+    //lazy_static::initialize(&ARC_FILES);
+
+    //patching::filesize_replacement();
 }
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Read the configuration so we can set the filepaths
-    lazy_static::initialize(&CONFIG);
-    lazy_static::initialize(&ARC_FILES);
+    //lazy_static::initialize(&CONFIG);
+    //lazy_static::initialize(&ARC_FILES);
 
     // Load hashes from rom:/skyline/hashes.txt if the file is present
     hashes::init();
@@ -284,7 +286,7 @@ pub fn main() {
         parse_eff_nutexb,
         parse_eff,
         parse_param_file,
-        resource_service_initialized,
+        //resource_service_initialized,
     );
 
     println!(
