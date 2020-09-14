@@ -7,7 +7,6 @@ pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x324f7a0;
 // default 8.1.0 offsets
 pub static mut PARSE_NUTEXB_OFFSET: usize = 0x330615c;
 pub static mut PARSE_EFF_OFFSET: usize = 0x3278984;
-pub static mut RES_SERVICE_INITIALIZED_OFFSET: usize = 0x2c5994;
 
 static IDK_SEARCH_CODE: &[u8] = &[
     0xf8, 0x5f, 0xbc, 0xa9, 0xf6, 0x57, 0x01, 0xa9, 0xf4, 0x4f, 0x02, 0xa9, 0xfd, 0x7b, 0x03, 0xa9,
@@ -22,11 +21,6 @@ static ADD_IDX_TO_TABLE1_AND_TABLE2_SEARCH_CODE: &[u8] = &[
 static LOOKUP_STREAM_HASH_SEARCH_CODE: &[u8] = &[
     0x29, 0x58, 0x40, 0xf9, 0x28, 0x60, 0x40, 0xf9, 0x2a, 0x05, 0x40, 0xb9, 0x09, 0x0d, 0x0a, 0x8b,
     0xaa, 0x01, 0x00, 0x34, 0x5f, 0x01, 0x00, 0xf1,
-];
-
-static RES_SERVICE_INITIALIZED_CODE: &[u8] = &[
-    0x09, 0x01, 0x40, 0xf9, 0x28, 0x39, 0x40, 0xf9, 0x29, 0x21, 0x40, 0xf9, 0x2a, 0x0d, 0x40, 0xb9,
-    0x09, 0x0d, 0x0a, 0x8b, 0xaa, 0x01, 0x00, 0x34,
 ];
 
 static PARSE_NUTEXB_SEARCH_CODE: &[u8] = &[
@@ -79,12 +73,6 @@ pub fn search_offsets() {
             PARSE_EFF_OFFSET = offset
         } else {
             println!("Error: no offset found for function 'parse_eff'. Defaulting to 8.1.0 offset. This likely won't work.");
-        }
-
-        if let Some(offset) = find_subsequence(text, RES_SERVICE_INITIALIZED_CODE) {
-            RES_SERVICE_INITIALIZED_OFFSET = offset
-        } else {
-            println!("Error: no offset found for function 'patch_resource_service'. Defaulting to 8.1.0 offset. This likely won't work.");
         }
     }
 }

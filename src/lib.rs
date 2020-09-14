@@ -253,30 +253,12 @@ fn parse_eff(ctx: &InlineCtx) {
     }
 }
 
-#[hook(offset = RES_SERVICE_INITIALIZED_OFFSET, inline)]
-fn resource_service_initialized(_ctx: &InlineCtx) {
-    // Patch filesizes in the Subfile table
-    //lazy_static::initialize(&CONFIG);
-    println!("Res Service Initialized");
-    //lazy_static::initialize(&ARC_FILES);
-
-    //patching::filesize_replacement();
-}
-
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
-    // Read the configuration so we can set the filepaths
-    //lazy_static::initialize(&CONFIG);
-    //lazy_static::initialize(&ARC_FILES);
-
     // Load hashes from rom:/skyline/hashes.txt if the file is present
     hashes::init();
     // Look for the offset of the various functions to hook
     patching::search_offsets();
-    // Not working so far, does not crash the game
-    //patching::shared_redirection();
-    // Attempt at expanding table2 (Does not work, do not use!)
-    //patching::expand_table2();
 
     install_hooks!(
         idk,
@@ -286,7 +268,6 @@ pub fn main() {
         parse_eff_nutexb,
         parse_eff,
         parse_param_file,
-        //resource_service_initialized,
     );
 
     println!(

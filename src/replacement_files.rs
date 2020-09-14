@@ -157,26 +157,6 @@ impl ArcFiles {
         }
     }
 
-    fn visit_file(&mut self, path: &Path, arc_dir_len: usize) {
-        match path.extension().and_then(std::ffi::OsStr::to_str) {
-            Some(_) => {}
-            None => {
-                println!("Error getting file extension for: {}", path.display());
-                return;
-            }
-        }
-
-        // Here was CoolSonicKirby's fix to ignore unsupported formats. May it rest in peace.
-        let mut game_path = path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
-        match game_path.strip_suffix("mp4") {
-            Some(x) => game_path = format!("{}{}", x, "webm"),
-            None => (),
-        }
-
-        let hash = hash40(&game_path);
-        self.0.insert(hash, path.to_owned());
-    }
-
     pub fn get_from_hash(&self, hash: u64) -> Option<&PathBuf> {
         self.0.get(&hash)
     }
