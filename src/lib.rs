@@ -7,9 +7,9 @@ use std::io::Write;
 use skyline::hooks::InlineCtx;
 use skyline::{hook, install_hooks, nn};
 
+mod config;
 mod hashes;
 mod stream;
-mod config;
 
 mod replacement_files;
 use replacement_files::ARC_FILES;
@@ -17,7 +17,6 @@ use replacement_files::ARC_FILES;
 mod patching;
 use patching::{
     ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET, PARSE_NUTEXB_OFFSET,
-    RES_SERVICE_INITIALIZED_OFFSET,
 };
 
 use smash::resource::{FileState, LoadedTables, ResServiceState};

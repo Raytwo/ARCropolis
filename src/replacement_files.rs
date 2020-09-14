@@ -1,9 +1,5 @@
-use std::{
-    slice,
-    collections::HashMap,
-    fs, io,
-};
-use std::path::{ Path, PathBuf };
+use std::path::{Path, PathBuf};
+use std::{collections::HashMap, fs, io, slice};
 
 use smash::hash40;
 use smash::resource::LoadedTables;
@@ -68,10 +64,6 @@ impl ArcFiles {
                         .unwrap()
                         .contains(".")
                 {
-                    self.visit_file(path, arc_dir_len);
-                } else if path.is_dir() {
-                    self.visit_dir(&path, arc_dir_len)?;
-                } else {                    
                     match path.extension().and_then(std::ffi::OsStr::to_str) {
                         Some(_) => {}
                         None => {
@@ -80,7 +72,34 @@ impl ArcFiles {
                     }
 
                     println!("Path: {}", path.display());
-                    let mut game_path = path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
+                    let mut game_path =
+                        path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
+
+                    match game_path.strip_suffix("mp4") {
+                        Some(x) => game_path = format!("{}{}", x, "webm"),
+                        None => (),
+                    }
+
+                    let hash = hash40(&game_path);
+                    let metadata = match entry.metadata() {
+                        Ok(meta) => meta,
+                        Err(err) => panic!(err),
+                    };
+                    self.0.insert(hash, path.to_owned());
+                    self.filesize_replacement_rewrite(hash, path, metadata.len() as _);
+                } else if path.is_dir() {
+                    self.visit_dir(&path, arc_dir_len)?;
+                } else {
+                    match path.extension().and_then(std::ffi::OsStr::to_str) {
+                        Some(_) => {}
+                        None => {
+                            println!("Error getting file extension for: {}", path.display());
+                        }
+                    }
+
+                    println!("Path: {}", path.display());
+                    let mut game_path =
+                        path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
 
                     match game_path.strip_suffix("mp4") {
                         Some(x) => game_path = format!("{}{}", x, "webm"),

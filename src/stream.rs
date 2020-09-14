@@ -1,9 +1,9 @@
 use rand::Rng;
 
-use std::{fs, io, ptr};
+use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::path::Path;
-use std::collections::HashMap;
+use std::{fs, io, ptr};
 
 use skyline::hook;
 use skyline::libc::{c_char, c_void};
