@@ -145,14 +145,14 @@ impl ArcFiles {
                     );
                 }
             } else {
-                //if subfile.decompressed_size < filesize {
+                if subfile.decompressed_size < filesize {
                     subfile.decompressed_size = filesize;
                     println!(
                         "[ARC::Patching] New decompressed size for {}: {:#x}",
                         path.display(),
                         subfile.decompressed_size
                     );
-                //}
+                }
             }
         }
     }
