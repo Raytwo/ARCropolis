@@ -4,8 +4,15 @@
 use std::fs;
 use std::io::Write;
 
+use nnsdk::root::nn::*;
+use nnsdk::root::*;
+use skyline::c_str;
 use skyline::hooks::InlineCtx;
-use skyline::{hook, install_hooks, nn};
+use skyline::libc;
+use skyline::libc::*;
+use skyline::libc::{in_addr, sockaddr_in, INADDR_ANY, SO_KEEPALIVE};
+use skyline::{hook, install_hooks};
+use std::mem;
 
 mod config;
 mod hashes;
@@ -14,9 +21,10 @@ mod stream;
 mod replacement_files;
 use replacement_files::ARC_FILES;
 
-mod patching;
-use patching::{
+mod offsets;
+use offsets::{
     ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET, PARSE_NUTEXB_OFFSET,
+    RES_SERVICE_INITIALIZED_OFFSET,
 };
 
 use smash::resource::{FileState, LoadedTables, ResServiceState};
@@ -67,16 +75,23 @@ fn handle_file_load(table1_idx: u32) {
     );
 
     // Println!() calls are on purpose so these show up no matter what.
-    if let Some(path) = ARC_FILES.get_from_hash(hash) {
+    if let Some(file_ctx) = ARC_FILES.get_from_hash(hash) {
         // Some formats don't appreciate me replacing the data pointer
-        match path.as_path().extension().unwrap().to_str().unwrap() {
+        match file_ctx
+            .path
+            .as_path()
+            .extension()
+            .unwrap()
+            .to_str()
+            .unwrap()
+        {
             "nutexb" | "eff" | "prc" | "stdat" | "stprm" => return,
             &_ => (),
         }
 
         println!(
             "[ARC::Replace] Hash matching for file path: {}",
-            path.display()
+            file_ctx.path.display()
         );
 
         println!("[ARC::Replace] Replacing {}", internal_filepath);
@@ -85,7 +100,7 @@ fn handle_file_load(table1_idx: u32) {
             nn::os::LockMutex(mutex);
         }
 
-        let data = fs::read(path).unwrap().into_boxed_slice();
+        let data = fs::read(&file_ctx.path).unwrap().into_boxed_slice();
         let data = Box::leak(data);
 
         unsafe {
@@ -101,6 +116,45 @@ fn handle_file_load(table1_idx: u32) {
         }
 
         println!("[ARC::Replace] Table2 entry status: {}", table2entry);
+    }
+}
+
+fn handle_file_overwrite(table1_idx: u32) {
+    let loaded_tables = LoadedTables::get_instance();
+    let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
+    let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
+
+    let t2_entry = match loaded_tables.get_t2_mut(table1_idx) {
+        Ok(entry) => entry,
+        Err(_) => {
+            return;
+        }
+    };
+
+    log!(
+        "[ARC::Loading | #{}] File path: {}, Hash: {}, {}",
+        table1_idx,
+        internal_filepath,
+        hash,
+        t2_entry
+    );
+
+    if let Some(file_ctx) = ARC_FILES.get_from_hash(hash) {
+        println!(
+            "[ARC::Replace] Hash matching for file path: {}",
+            file_ctx.path.display()
+        );
+
+        println!("[ARC::Replace] Replacing {}...", internal_filepath);
+
+        let file = fs::read(&file_ctx.path).unwrap();
+        let file_slice = file.as_slice();
+
+        unsafe {
+            let mut data_slice =
+                std::slice::from_raw_parts_mut(t2_entry.data as *mut u8, file_slice.len());
+            data_slice.write(file_slice).unwrap();
+        }
     }
 }
 
@@ -121,42 +175,7 @@ fn parse_eff_nutexb(ctx: &InlineCtx) {
 #[hook(offset = 0x3436890, inline)]
 fn parse_param_file(ctx: &InlineCtx) {
     unsafe {
-        let table1_idx = (*ctx.registers[20].x.as_ref()) as *const u32;
-        let loaded_tables = LoadedTables::get_instance();
-        let hash = loaded_tables.get_hash_from_t1_index(*table1_idx).as_u64();
-        let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
-
-        let t2_entry = match loaded_tables.get_t2_mut(*table1_idx) {
-            Ok(entry) => entry,
-            Err(_) => {
-                return;
-            }
-        };
-
-        log!(
-            "[ARC::Loading | #{}] File path: {}, Hash: {}, {}",
-            *table1_idx,
-            internal_filepath,
-            hash,
-            t2_entry
-        );
-
-        if let Some(path) = ARC_FILES.get_from_hash(hash) {
-            println!(
-                "[ARC::Replace] Hash matching for file path: {}",
-                path.display()
-            );
-
-            println!("[ARC::Replace] Replacing {}...", internal_filepath);
-
-            let file = fs::read(path).unwrap();
-            let file_slice = file.as_slice();
-
-            let mut data_slice =
-                std::slice::from_raw_parts_mut(t2_entry.data as *mut u8, file_slice.len());
-
-            data_slice.write(file_slice).unwrap();
-        }
+        handle_file_overwrite(*((*ctx.registers[20].x.as_ref()) as *const u32));
     }
 }
 
@@ -166,10 +185,10 @@ fn handle_texture_files(table1_idx: u32) {
         let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
         let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
-        if let Some(path) = ARC_FILES.get_from_hash(hash) {
+        if let Some(file_ctx) = ARC_FILES.get_from_hash(hash) {
             println!(
                 "[ARC::Replace] Hash matching for file path: {}",
-                path.display()
+                file_ctx.path.display()
             );
 
             let table2entry = match loaded_tables.get_t2_mut(table1_idx) {
@@ -185,7 +204,7 @@ fn handle_texture_files(table1_idx: u32) {
 
             println!("[ARC::Replace] Replacing {}...", internal_filepath);
 
-            let file = fs::read(path).unwrap();
+            let file = fs::read(&file_ctx.path).unwrap();
             let file_slice = file.as_slice();
 
             let orig_size = LoadedTables::get_instance()
@@ -213,51 +232,18 @@ fn handle_texture_files(table1_idx: u32) {
 #[hook(offset = PARSE_EFF_OFFSET, inline)]
 fn parse_eff(ctx: &InlineCtx) {
     unsafe {
-        let table1_idx = *ctx.registers[10].w.as_ref();
-        let loaded_tables = LoadedTables::get_instance();
-        let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
-        let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
-
-        let t2_entry = match loaded_tables.get_t2_mut(table1_idx) {
-            Ok(entry) => entry,
-            Err(_) => {
-                return;
-            }
-        };
-
-        log!(
-            "[ARC::Loading | #{}] File path: {}, Hash: {}, {}",
-            table1_idx,
-            internal_filepath,
-            hash,
-            t2_entry
-        );
-
-        if let Some(path) = ARC_FILES.get_from_hash(hash) {
-            println!(
-                "[ARC::Replace] Hash matching for file path: {}",
-                path.display()
-            );
-
-            println!("[ARC::Replace] Replacing {}...", internal_filepath);
-
-            let file = fs::read(path).unwrap();
-            let file_slice = file.as_slice();
-
-            let mut data_slice =
-                std::slice::from_raw_parts_mut(t2_entry.data as *mut u8, file_slice.len());
-
-            data_slice.write(file_slice).unwrap();
-        }
+        handle_file_overwrite(*ctx.registers[10].w.as_ref());
     }
 }
 
-#[skyline::main(name = "arcropolis")]
-pub fn main() {
-    // Load hashes from rom:/skyline/hashes.txt if the file is present
-    hashes::init();
-    // Look for the offset of the various functions to hook
-    patching::search_offsets();
+#[hook(offset = RES_SERVICE_INITIALIZED_OFFSET, inline)]
+fn resource_service_initialized(_ctx: &InlineCtx) {
+    // Patch filesizes in the Subfile table
+    //lazy_static::initialize(&CONFIG);
+
+    println!("Res Service Initialized");
+
+    lazy_static::initialize(&ARC_FILES);
 
     install_hooks!(
         idk,
@@ -267,6 +253,25 @@ pub fn main() {
         parse_eff_nutexb,
         parse_eff,
         parse_param_file,
+    );
+}
+
+#[skyline::main(name = "arcropolis")]
+pub fn main() {
+    // Load hashes from rom:/skyline/hashes.txt if the file is present
+    hashes::init();
+    // Look for the offset of the various functions to hook
+    offsets::search_offsets();
+
+    install_hooks!(
+        // idk,
+        // add_idx_to_table1_and_table2,
+        // stream::lookup_by_stream_hash,
+        // parse_fighter_nutexb,
+        // parse_eff_nutexb,
+        // parse_eff,
+        // parse_param_file,
+        resource_service_initialized
     );
 
     println!(

@@ -1,25 +1,41 @@
+use rayon::iter::ParallelBridge;
+use rayon::prelude::ParallelIterator;
+use rayon::prelude::*;
+
+use std::fs::DirEntry;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::{collections::HashMap, fs, io, slice};
 
 use smash::hash40;
-use smash::resource::LoadedTables;
+use smash::resource::{LoadedTables, SubFile};
 
 use crate::config::CONFIG;
 
 lazy_static::lazy_static! {
-    pub static ref ARC_FILES: ArcFiles = ArcFiles::new();
+    pub static ref ARC_FILES: ArcFiles = {
+    let instance = ArcFiles::new();
+    instance
+    };
 }
 
-pub struct ArcFiles(pub HashMap<u64, PathBuf>);
+pub struct ArcFiles(pub HashMap<u64, FileCtx>);
+
+pub struct FileCtx {
+    pub path: PathBuf,
+    pub filesize: u32,
+    pub orig_subfile: SubFile,
+}
 
 impl ArcFiles {
     fn new() -> Self {
-        let mut instance = Self(HashMap::new());
+        // let mut instance = Self(Mutex<HashMap::new()>);
 
-        let _ = instance.visit_dir(Path::new(&CONFIG.paths.arc), CONFIG.paths.arc.len());
-        let _ = instance.visit_umm_dirs(Path::new(&CONFIG.paths.umm));
+        // let _ = visit_dir_rewrite(Path::new(&CONFIG.paths.arc), CONFIG.paths.arc.len());
+        // let _ = instance.visit_umm_dirs(Path::new(&CONFIG.paths.umm));
 
-        instance
+        // instance
+        ArcFiles(HashMap::new())
     }
 
     /// Visit Ultimate Mod Manager directories for backwards compatibility
@@ -39,6 +55,7 @@ impl ArcFiles {
                 let filename = entry.path();
                 let real_path = format!("{}/{}", dir.display(), filename.display());
                 let path = Path::new(&real_path);
+
                 if path.is_dir() {
                     self.visit_dir(&path, real_path.len())?;
                 }
@@ -48,83 +65,161 @@ impl ArcFiles {
         Ok(())
     }
 
-    fn visit_dir(&mut self, dir: &Path, arc_dir_len: usize) -> io::Result<()> {
-        if dir.is_dir() {
-            for entry in fs::read_dir(dir)? {
-                let entry = entry?;
-                let filename = entry.path();
-                let real_path = format!("{}/{}", dir.display(), filename.display());
-                let path = Path::new(&real_path);
-                if path.is_dir()
-                    && path
-                        .file_name()
-                        .unwrap()
-                        .to_os_string()
-                        .into_string()
-                        .unwrap()
-                        .contains(".")
-                {
-                    match path.extension().and_then(std::ffi::OsStr::to_str) {
-                        Some(_) => {}
-                        None => {
-                            println!("Error getting file extension for: {}", path.display());
-                        }
+    fn visit_dir_rewrite(&self, dir: &Path, arc_dir_len: usize) {
+        let files = fs::read_dir(dir)
+            .unwrap()
+            .map(|x| {
+                let entry = x.unwrap();
+                let path = PathBuf::from(&format!("{}/{}", dir.display(), entry.path().display()));
+
+                if entry.file_type().unwrap().is_dir() {
+                    if let Some(_) = path.extension() {
+                        let (hash, context) = self.visit_file(&entry, arc_dir_len);
+                        return;
                     }
 
-                    println!("Path: {}", path.display());
-                    let mut game_path =
-                        path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
-
-                    match game_path.strip_suffix("mp4") {
-                        Some(x) => game_path = format!("{}{}", x, "webm"),
-                        None => (),
-                    }
-
-                    let hash = hash40(&game_path);
-                    let metadata = match entry.metadata() {
-                        Ok(meta) => meta,
-                        Err(err) => panic!(err),
-                    };
-                    self.0.insert(hash, path.to_owned());
-                    self.filesize_replacement_rewrite(hash, path, metadata.len() as _);
-                } else if path.is_dir() {
-                    self.visit_dir(&path, arc_dir_len)?;
+                    self.visit_dir_rewrite(&path, arc_dir_len);
                 } else {
-                    match path.extension().and_then(std::ffi::OsStr::to_str) {
-                        Some(_) => {}
-                        None => {
-                            println!("Error getting file extension for: {}", path.display());
-                        }
-                    }
-
-                    println!("Path: {}", path.display());
-                    let mut game_path =
-                        path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
-
-                    match game_path.strip_suffix("mp4") {
-                        Some(x) => game_path = format!("{}{}", x, "webm"),
-                        None => (),
-                    }
-
-                    let hash = hash40(&game_path);
-                    let metadata = match entry.metadata() {
-                        Ok(meta) => meta,
-                        Err(err) => panic!(err),
-                    };
-                    self.0.insert(hash, path.to_owned());
-                    self.filesize_replacement_rewrite(hash, path, metadata.len() as _);
+                    let (hash, context) = self.visit_file(&entry, arc_dir_len);
                 }
+            })
+            .collect::<Vec<_>>();
+    }
+
+    fn visit_file(&self, entry: &DirEntry, arc_dir_len: usize) -> (u64, FileCtx) {
+        match entry.path().extension() {
+            Some(_) => {}
+            None => {
+                println!(
+                    "Error getting file extension for: {}",
+                    entry.path().display()
+                );
+            }
+        }
+
+        // This is the path that gets hashed. Replace ; to : for Smash's internal paths since ; is not a valid character for filepaths.
+        let mut game_path = entry.path().to_str().unwrap()[arc_dir_len + 1..].replace(";", ":");
+
+        // TODO: Move that stuff in a separate function that can handle more than one format
+        match game_path.strip_suffix("mp4") {
+            Some(x) => game_path = format!("{}{}", x, "webm"),
+            None => (),
+        }
+
+        let mut file_ctx = FileCtx {
+            path: entry.path(),
+            filesize: 0,
+            orig_subfile: SubFile {
+                offset: 0,
+                compressed_size: 0,
+                decompressed_size: 0,
+                flags: 0,
+            },
+        };
+
+        let hash = hash40(&game_path);
+
+        let metadata = match entry.metadata() {
+            Ok(meta) => meta,
+            Err(err) => panic!(err),
+        };
+
+        file_ctx.filesize = metadata.len() as _;
+
+        // TODO: Move this method in a impl for FileCtx
+        self.filesize_replacement(hash, &mut file_ctx);
+        (hash, file_ctx)
+    }
+
+    fn visit_dir(&mut self, dir: &Path, arc_dir_len: usize) -> io::Result<()> {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let filename = entry.path();
+            let real_path = format!("{}/{}", dir.display(), filename.display());
+            let path = PathBuf::from(&real_path);
+
+            let mut file_ctx = FileCtx {
+                path: path.clone(),
+                filesize: 0,
+                orig_subfile: SubFile {
+                    offset: 0,
+                    compressed_size: 0,
+                    decompressed_size: 0,
+                    flags: 0,
+                },
+            };
+
+            if path.is_dir()
+                && path
+                    .file_name()
+                    .unwrap()
+                    .to_os_string()
+                    .into_string()
+                    .unwrap()
+                    .contains(".")
+            {
+                match path.extension().and_then(std::ffi::OsStr::to_str) {
+                    Some(_) => {}
+                    None => {
+                        println!("Error getting file extension for: {}", path.display());
+                    }
+                }
+
+                let mut game_path = path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
+
+                match game_path.strip_suffix("mp4") {
+                    Some(x) => game_path = format!("{}{}", x, "webm"),
+                    None => (),
+                }
+
+                let hash = hash40(&game_path);
+                let metadata = match entry.metadata() {
+                    Ok(meta) => meta,
+                    Err(err) => panic!(err),
+                };
+
+                file_ctx.filesize = metadata.len() as _;
+
+                self.filesize_replacement(hash, &mut file_ctx);
+                self.0.insert(hash, file_ctx);
+            } else if path.is_dir() {
+                self.visit_dir(&path, arc_dir_len).unwrap();
+            } else {
+                match path.extension().and_then(std::ffi::OsStr::to_str) {
+                    Some(_) => {}
+                    None => {
+                        println!("Error getting file extension for: {}", path.display());
+                    }
+                }
+
+                let mut game_path = path.display().to_string()[arc_dir_len + 1..].replace(";", ":");
+
+                match game_path.strip_suffix("mp4") {
+                    Some(x) => game_path = format!("{}{}", x, "webm"),
+                    None => (),
+                }
+
+                let hash = hash40(&game_path);
+                let metadata = match entry.metadata() {
+                    Ok(meta) => meta,
+                    Err(err) => panic!(err),
+                };
+
+                file_ctx.filesize = metadata.len() as _;
+
+                self.filesize_replacement(hash, &mut file_ctx);
+                self.0.insert(hash, file_ctx);
             }
         }
 
         Ok(())
     }
 
-    pub fn filesize_replacement_rewrite(&self, hash: u64, path: &Path, filesize: u32) {
+    pub fn filesize_replacement(&self, hash: u64, file_ctx: &mut FileCtx) {
         let loaded_tables = LoadedTables::get_instance();
 
         unsafe {
-            let extension = path.extension().unwrap().to_str().unwrap();
+            let extension = file_ctx.path.extension().unwrap().to_str().unwrap();
             // Some formats don't appreciate me messing with their size
             match extension {
                 "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" => {}
@@ -144,7 +239,7 @@ impl ArcFiles {
                 None => {
                     println!(
                         "[ARC::Patching] Hash for file {} not found in table1, skipping",
-                        path.display()
+                        file_ctx.path.display()
                     );
                     return;
                 }
@@ -152,23 +247,29 @@ impl ArcFiles {
 
             let mut subfile = loaded_tables.get_arc().get_subfile_by_t1_index(t1_index);
 
-            if (subfile.decompressed_size < filesize) && extension == "nutexb" {
+            // Gotta make SubFile derive Clone and Copy 'cause this is massive ass
+            file_ctx.orig_subfile.offset = (*subfile).offset;
+            file_ctx.orig_subfile.compressed_size = (*subfile).compressed_size;
+            file_ctx.orig_subfile.decompressed_size = (*subfile).decompressed_size;
+            file_ctx.orig_subfile.flags = (*subfile).flags;
+
+            if (subfile.decompressed_size < file_ctx.filesize) && extension == "nutexb" {
                 // Is compressed?
                 if (subfile.flags & 0x3) == 3 {
-                    subfile.decompressed_size = filesize;
+                    subfile.decompressed_size = file_ctx.filesize;
 
                     println!(
                         "[ARC::Patching] New decompressed size for {}: {:#x}",
-                        path.display(),
+                        file_ctx.path.display(),
                         subfile.decompressed_size
                     );
                 }
             } else {
-                if subfile.decompressed_size < filesize {
-                    subfile.decompressed_size = filesize;
+                if subfile.decompressed_size < file_ctx.filesize {
+                    subfile.decompressed_size = file_ctx.filesize;
                     println!(
                         "[ARC::Patching] New decompressed size for {}: {:#x}",
-                        path.display(),
+                        file_ctx.path.display(),
                         subfile.decompressed_size
                     );
                 }
@@ -176,7 +277,7 @@ impl ArcFiles {
         }
     }
 
-    pub fn get_from_hash(&self, hash: u64) -> Option<&PathBuf> {
+    pub fn get_from_hash(&self, hash: u64) -> Option<&FileCtx> {
         self.0.get(&hash)
     }
 }

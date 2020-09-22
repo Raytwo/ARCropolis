@@ -18,13 +18,14 @@ owo-colors = "1.0.3"
 serde = { version = "1", features = ["derive"] }
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline_smash = { git = "https://github.com/ultimate-research/skyline-smash.git" }
-
+nnsdk = { git = "https://github.com/ultimate-research/nnsdk-rs" }
+rayon = "1.4.0"
 
 [patch.crates-io]
 getrandom = { git = "https://github.com/Raytwo/getrandom" }
 
-[patch.'https://github.com/ultimate-research/nnsdk-rs']
-nnsdk = { git = "https://github.com/Raytwo/nnsdk-rs" }
+#[patch.'https://github.com/ultimate-research/nnsdk-rs']
+#nnsdk = { git = "https://github.com/Raytwo/nnsdk-rs" }
 
 [profile.dev]
 panic = "abort"
