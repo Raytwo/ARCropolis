@@ -12,9 +12,6 @@ use smash::resource::{LoadedTables, SubFile};
 
 use crate::config::CONFIG;
 
-extern crate elapsed;
-use elapsed::measure_time;
-
 use std::time::Instant;
 use skyline::error::show_error;
 
@@ -40,13 +37,10 @@ macro_rules! get_from_hash {
 impl ArcFiles {
     fn new() -> Self {
          let mut instance = Self(RwLock::new(HashMap::new()));
-
-         let start = std::time::Instant::now();
          
          let _ = instance.visit_dir(Path::new(&CONFIG.paths.arc), CONFIG.paths.arc.len());
          let _ = instance.visit_umm_dirs(Path::new(&CONFIG.paths.umm));
 
-         show_error(69, &format!("Time spend dicovering: {:?}", start.elapsed()), "nothing");
         // instance
         instance
     }
@@ -237,7 +231,7 @@ impl ArcFiles {
                 Some(ext) => ext.to_str().unwrap(),
                 None => return,
              };
-             
+
             // Some formats don't appreciate me messing with their size
             match extension {
                 "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" => {}

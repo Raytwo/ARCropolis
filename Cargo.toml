@@ -20,10 +20,10 @@ skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline_smash = { git = "https://github.com/ultimate-research/skyline-smash.git" }
 nnsdk = { git = "https://github.com/ultimate-research/nnsdk-rs" }
 rayon = "1.4.0"
-elapsed = "0.1"
 
 [patch.crates-io]
 getrandom = { git = "https://github.com/Raytwo/getrandom" }
+#num_cpus = { path = "../num_cpus" }
 
 #[patch.'https://github.com/ultimate-research/nnsdk-rs']
 #nnsdk = { git = "https://github.com/Raytwo/nnsdk-rs" }
