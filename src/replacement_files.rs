@@ -233,7 +233,11 @@ impl ArcFiles {
         let loaded_tables = LoadedTables::get_instance();
 
         unsafe {
-            let extension = file_ctx.path.extension().unwrap().to_str().unwrap();
+            let extension = match file_ctx.path.extension() {
+                Some(ext) => ext.to_str().unwrap(),
+                None => return,
+             };
+             
             // Some formats don't appreciate me messing with their size
             match extension {
                 "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" => {}
