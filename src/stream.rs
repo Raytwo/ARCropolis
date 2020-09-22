@@ -9,6 +9,7 @@ use skyline::hook;
 use skyline::libc::{c_char, c_void};
 
 use crate::log;
+use crate::get_from_hash;
 use crate::offsets::LOOKUP_STREAM_HASH_OFFSET;
 use crate::replacement_files::ARC_FILES;
 
@@ -47,7 +48,7 @@ fn lookup_by_stream_hash(
     offset_out: *mut u64,
     hash: u64,
 ) {
-    if let Some(file_ctx) = ARC_FILES.0.get(&hash) {
+    if let Some(file_ctx) = get_from_hash!(hash) {
         let file;
         let metadata;
         let size;

@@ -75,7 +75,7 @@ fn handle_file_load(table1_idx: u32) {
     );
 
     // Println!() calls are on purpose so these show up no matter what.
-    if let Some(file_ctx) = ARC_FILES.get_from_hash(hash) {
+    if let Some(file_ctx) = get_from_hash!(hash) {
         // Some formats don't appreciate me replacing the data pointer
         match file_ctx
             .path
@@ -139,7 +139,7 @@ fn handle_file_overwrite(table1_idx: u32) {
         t2_entry
     );
 
-    if let Some(file_ctx) = ARC_FILES.get_from_hash(hash) {
+    if let Some(file_ctx) = get_from_hash!(hash) {
         println!(
             "[ARC::Replace] Hash matching for file path: {}",
             file_ctx.path.display()
@@ -185,7 +185,7 @@ fn handle_texture_files(table1_idx: u32) {
         let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
         let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
-        if let Some(file_ctx) = ARC_FILES.get_from_hash(hash) {
+        if let Some(file_ctx) = get_from_hash!(hash) {
             println!(
                 "[ARC::Replace] Hash matching for file path: {}",
                 file_ctx.path.display()

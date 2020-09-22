@@ -4,7 +4,7 @@ use rayon::prelude::*;
 
 use std::fs::DirEntry;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Mutex, RwLock};
 use std::{collections::HashMap, fs, io, slice};
 
 use smash::hash40;
@@ -19,12 +19,19 @@ lazy_static::lazy_static! {
     };
 }
 
-pub struct ArcFiles(pub HashMap<u64, FileCtx>);
+pub struct ArcFiles(pub RwLock<HashMap<u64, FileCtx>>);
 
 pub struct FileCtx {
     pub path: PathBuf,
     pub filesize: u32,
     pub orig_subfile: SubFile,
+}
+
+#[macro_export]
+macro_rules! get_from_hash {
+    ($hash:expr) => {
+        $crate::replacement_files::ARC_FILES.0.read().unwrap().get(&($hash))
+    }
 }
 
 impl ArcFiles {
@@ -35,7 +42,7 @@ impl ArcFiles {
         // let _ = instance.visit_umm_dirs(Path::new(&CONFIG.paths.umm));
 
         // instance
-        ArcFiles(HashMap::new())
+        ArcFiles(RwLock::new(HashMap::new()))
     }
 
     /// Visit Ultimate Mod Manager directories for backwards compatibility
@@ -131,8 +138,8 @@ impl ArcFiles {
         (hash, file_ctx)
     }
 
-    fn visit_dir(&mut self, dir: &Path, arc_dir_len: usize) -> io::Result<()> {
-        for entry in fs::read_dir(dir)? {
+    fn visit_dir(&self, dir: &Path, arc_dir_len: usize) -> io::Result<()> {
+        fs::read_dir(dir)?.par_bridge().map(|entry| {
             let entry = entry?;
             let filename = entry.path();
             let real_path = format!("{}/{}", dir.display(), filename.display());
@@ -181,7 +188,7 @@ impl ArcFiles {
                 file_ctx.filesize = metadata.len() as _;
 
                 self.filesize_replacement(hash, &mut file_ctx);
-                self.0.insert(hash, file_ctx);
+                self.0.write().unwrap().insert(hash, file_ctx);
             } else if path.is_dir() {
                 self.visit_dir(&path, arc_dir_len).unwrap();
             } else {
@@ -208,11 +215,12 @@ impl ArcFiles {
                 file_ctx.filesize = metadata.len() as _;
 
                 self.filesize_replacement(hash, &mut file_ctx);
-                self.0.insert(hash, file_ctx);
+                self.0.write().unwrap().insert(hash, file_ctx);
             }
-        }
 
-        Ok(())
+            Ok(())
+        })
+        .collect()
     }
 
     pub fn filesize_replacement(&self, hash: u64, file_ctx: &mut FileCtx) {
@@ -277,7 +285,7 @@ impl ArcFiles {
         }
     }
 
-    pub fn get_from_hash(&self, hash: u64) -> Option<&FileCtx> {
-        self.0.get(&hash)
-    }
+    //pub fn get_from_hash(&self, hash: u64) -> Option<&FileCtx> {
+    //    self.0.get(&hash)
+    //}
 }
