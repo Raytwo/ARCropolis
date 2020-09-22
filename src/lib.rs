@@ -3,6 +3,7 @@
 
 use std::fs;
 use std::io::Write;
+use std::path::Path;
 
 use nnsdk::root::nn::*;
 use nnsdk::root::*;
@@ -77,16 +78,8 @@ fn handle_file_load(table1_idx: u32) {
     // Println!() calls are on purpose so these show up no matter what.
     if let Some(file_ctx) = get_from_hash!(hash) {
         // Some formats don't appreciate me replacing the data pointer
-        match file_ctx
-            .path
-            .as_path()
-            .extension()
-            .unwrap()
-            .to_str()
-            .unwrap()
-        {
-            "nutexb" | "eff" | "prc" | "stdat" | "stprm" => return,
-            &_ => (),
+        if !is_file_allowed(&file_ctx.path) {
+            return;
         }
 
         println!(
@@ -116,6 +109,20 @@ fn handle_file_load(table1_idx: u32) {
         }
 
         println!("[ARC::Replace] Table2 entry status: {}", table2entry);
+    }
+}
+
+pub fn is_file_allowed(filepath: &Path) -> bool {
+    // Check filenames
+    match filepath.file_name().unwrap().to_str().unwrap() {
+        "motion_list.bin" => return false,
+        &_ => {},
+    }
+
+    // Check extensions
+    match filepath.extension().unwrap().to_str().unwrap() {
+        "nutexb" | "eff" | "prc" | "stdat" | "stprm" => false,
+        &_ => true,
     }
 }
 

@@ -12,11 +12,14 @@ use smash::resource::{LoadedTables, SubFile};
 
 use crate::config::CONFIG;
 
+extern crate elapsed;
+use elapsed::measure_time;
+
+use std::time::Instant;
+use skyline::error::show_error;
+
 lazy_static::lazy_static! {
-    pub static ref ARC_FILES: ArcFiles = {
-    let instance = ArcFiles::new();
-    instance
-    };
+    pub static ref ARC_FILES: ArcFiles = ArcFiles::new();
 }
 
 pub struct ArcFiles(pub RwLock<HashMap<u64, FileCtx>>);
@@ -36,13 +39,16 @@ macro_rules! get_from_hash {
 
 impl ArcFiles {
     fn new() -> Self {
-        // let mut instance = Self(Mutex<HashMap::new()>);
+         let mut instance = Self(RwLock::new(HashMap::new()));
 
-        // let _ = visit_dir_rewrite(Path::new(&CONFIG.paths.arc), CONFIG.paths.arc.len());
-        // let _ = instance.visit_umm_dirs(Path::new(&CONFIG.paths.umm));
+         let start = std::time::Instant::now();
+         
+         let _ = instance.visit_dir(Path::new(&CONFIG.paths.arc), CONFIG.paths.arc.len());
+         let _ = instance.visit_umm_dirs(Path::new(&CONFIG.paths.umm));
 
+         show_error(69, &format!("Time spend dicovering: {:?}", start.elapsed()), "nothing");
         // instance
-        ArcFiles(RwLock::new(HashMap::new()))
+        instance
     }
 
     /// Visit Ultimate Mod Manager directories for backwards compatibility
