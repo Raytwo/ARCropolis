@@ -120,24 +120,41 @@ impl ArcFiles {
 
         file_ctx.path = full_path.to_path_buf();
         file_ctx.hash = hash40(&game_path);
-        
+
         file_ctx.filesize = match entry.metadata() {
             Ok(meta) => meta.len() as u32,
             Err(err) => panic!(err),
         };
 
         // TODO: Move this method in a impl for FileCtx
-        self.filesize_replacement(&mut file_ctx);
+        file_ctx.filesize_replacement();
         Ok(file_ctx)
     }
+}
 
-    pub fn filesize_replacement(&self, file_ctx: &mut FileCtx) {
+impl FileCtx {
+    pub fn new() -> Self {
+        FileCtx {
+            path: PathBuf::new(),
+            hash: 0,
+            filesize: 0,
+            region: 0,
+            orig_subfile: SubFile {
+                offset: 0,
+                compressed_size: 0,
+                decompressed_size: 0,
+                flags: 0,
+            },
+        }
+    }
+
+    pub fn filesize_replacement(&mut self) {
         let loaded_tables = LoadedTables::get_instance();
 
-        let extension = match file_ctx.path.extension() {
+        let extension = match self.path.extension() {
             Some(ext) => ext.to_str().unwrap(),
             None => {
-                println!("File {} does not have an extension, skipping", file_ctx.path.display());
+                println!("File {} does not have an extension, skipping", self.path.display());
                 return;
             },
         };
@@ -156,13 +173,13 @@ impl ArcFiles {
 
             let t1_index = match hashindexgroup_slice
                 .iter()
-                .position(|x| x.path.hash40.as_u64() == file_ctx.hash)
+                .position(|x| x.path.hash40.as_u64() == self.hash)
             {
                 Some(index) => index as u32,
                 None => {
                     println!(
                         "[ARC::Patching] Hash for file {} not found in table1, skipping",
-                        file_ctx.path.display()
+                        self.path.display()
                     );
                     return;
                 }
@@ -171,49 +188,32 @@ impl ArcFiles {
             let mut subfile = loaded_tables.get_arc().get_subfile_by_t1_index(t1_index);
 
             // Gotta make SubFile derive Clone and Copy 'cause this is massive ass
-            file_ctx.orig_subfile.offset = (*subfile).offset;
-            file_ctx.orig_subfile.compressed_size = (*subfile).compressed_size;
-            file_ctx.orig_subfile.decompressed_size = (*subfile).decompressed_size;
-            file_ctx.orig_subfile.flags = (*subfile).flags;
+            self.orig_subfile.offset = (*subfile).offset;
+            self.orig_subfile.compressed_size = (*subfile).compressed_size;
+            self.orig_subfile.decompressed_size = (*subfile).decompressed_size;
+            self.orig_subfile.flags = (*subfile).flags;
 
-            if (subfile.decompressed_size < file_ctx.filesize) && extension == "nutexb" {
+            if (subfile.decompressed_size < self.filesize) && extension == "nutexb" {
                 // Is compressed?
                 if (subfile.flags & 0x3) == 3 {
-                    subfile.decompressed_size = file_ctx.filesize;
+                    subfile.decompressed_size = self.filesize;
 
                     println!(
                         "[ARC::Patching] New decompressed size for {}: {:#x}",
-                        file_ctx.path.display(),
+                        self.path.display(),
                         subfile.decompressed_size
                     );
                 }
             } else {
-                if subfile.decompressed_size < file_ctx.filesize {
-                    subfile.decompressed_size = file_ctx.filesize;
+                if subfile.decompressed_size < self.filesize {
+                    subfile.decompressed_size = self.filesize;
                     println!(
                         "[ARC::Patching] New decompressed size for {}: {:#x}",
-                        file_ctx.path.display(),
+                        self.path.display(),
                         subfile.decompressed_size
                     );
                 }
             }
-        }
-    }
-}
-
-impl FileCtx {
-    pub fn new() -> Self {
-        FileCtx {
-            path: PathBuf::new(),
-            hash: 0,
-            filesize: 0,
-            region: 0,
-            orig_subfile: SubFile {
-                offset: 0,
-                compressed_size: 0,
-                decompressed_size: 0,
-                flags: 0,
-            },
         }
     }
 }
