@@ -101,7 +101,7 @@ impl ArcFiles {
             }).collect()
     }
 
-    fn visit_file(&self, entry: &DirEntry, full_path: &PathBuf, arc_dir_len: usize) -> Result<(FileCtx), String> {
+    fn visit_file(&self, entry: &DirEntry, full_path: &PathBuf, arc_dir_len: usize) -> Result<FileCtx, String> {
         match full_path.extension() {
             Some(_) => {}
             None => return Err(format!("Error getting file extension for: {}", full_path.display())),
@@ -173,7 +173,7 @@ impl FileCtx {
 
             let t1_index = match hashindexgroup_slice
                 .par_iter()
-                .position(|x| x.path.hash40.as_u64() == self.hash)
+                .position_any(|x| x.path.hash40.as_u64() == self.hash)
             {
                 Some(index) => index as u32,
                 None => {
