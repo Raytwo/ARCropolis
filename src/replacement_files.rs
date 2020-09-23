@@ -62,9 +62,7 @@ impl ArcFiles {
     }
 
     fn visit_dir(&self, dir: &PathBuf, arc_dir_len: usize) -> io::Result<()> {
-        fs::read_dir(dir)?
-            .par_bridge()
-            .map(|entry| {
+        fs::read_dir(dir)?.par_bridge().map(|entry| {
                 let entry = entry?;
                 let path = PathBuf::from(&format!("{}/{}", dir.display(), entry.path().display()));
 
@@ -73,8 +71,8 @@ impl ArcFiles {
                     // If it is one of the stream randomizer directories
                     if let Some(_) = path.extension() {
                         match self.visit_file(&entry, &path, arc_dir_len) {
-                            Ok((hash, file_ctx)) => {
-                                self.0.write().unwrap().insert(hash, file_ctx);
+                            Ok(file_ctx) => {
+                                self.0.write().unwrap().insert(file_ctx.hash, file_ctx);
                                 return Ok(());
                             },
                             Err(err) => {
@@ -88,8 +86,8 @@ impl ArcFiles {
                     self.visit_dir(&path, arc_dir_len).unwrap();
                 } else {
                     match self.visit_file(&entry, &path, arc_dir_len) {
-                        Ok((hash, file_ctx)) => {
-                            self.0.write().unwrap().insert(hash, file_ctx);
+                        Ok(file_ctx) => {
+                            self.0.write().unwrap().insert(file_ctx.hash, file_ctx);
                             return Ok(());
                         },
                         Err(err) => {
@@ -100,11 +98,10 @@ impl ArcFiles {
                 }
 
                 Ok(())
-            })
-            .collect()
+            }).collect()
     }
 
-    fn visit_file(&self, entry: &DirEntry, full_path: &PathBuf, arc_dir_len: usize) -> Result<(u64, FileCtx), String> {
+    fn visit_file(&self, entry: &DirEntry, full_path: &PathBuf, arc_dir_len: usize) -> Result<(FileCtx), String> {
         match full_path.extension() {
             Some(_) => {}
             None => return Err(format!("Error getting file extension for: {}", full_path.display())),
@@ -119,32 +116,22 @@ impl ArcFiles {
             None => (),
         }
 
-        let hash = hash40(&game_path);
+        let mut file_ctx = FileCtx::new();
 
-        let filesize = match entry.metadata() {
+        file_ctx.path = full_path.to_path_buf();
+        file_ctx.hash = hash40(&game_path);
+        
+        file_ctx.filesize = match entry.metadata() {
             Ok(meta) => meta.len() as u32,
             Err(err) => panic!(err),
         };
 
-        let mut file_ctx = FileCtx {
-            path: full_path.to_path_buf(),
-            hash,
-            filesize,
-            region: 0,
-            orig_subfile: SubFile {
-                offset: 0,
-                compressed_size: 0,
-                decompressed_size: 0,
-                flags: 0,
-            },
-        };
-
         // TODO: Move this method in a impl for FileCtx
-        self.filesize_replacement(hash, &mut file_ctx);
-        Ok((hash, file_ctx))
+        self.filesize_replacement(&mut file_ctx);
+        Ok(file_ctx)
     }
 
-    pub fn filesize_replacement(&self, hash: u64, file_ctx: &mut FileCtx) {
+    pub fn filesize_replacement(&self, file_ctx: &mut FileCtx) {
         let loaded_tables = LoadedTables::get_instance();
 
         let extension = match file_ctx.path.extension() {
@@ -169,7 +156,7 @@ impl ArcFiles {
 
             let t1_index = match hashindexgroup_slice
                 .iter()
-                .position(|x| x.path.hash40.as_u64() == hash)
+                .position(|x| x.path.hash40.as_u64() == file_ctx.hash)
             {
                 Some(index) => index as u32,
                 None => {
@@ -210,6 +197,23 @@ impl ArcFiles {
                     );
                 }
             }
+        }
+    }
+}
+
+impl FileCtx {
+    pub fn new() -> Self {
+        FileCtx {
+            path: PathBuf::new(),
+            hash: 0,
+            filesize: 0,
+            region: 0,
+            orig_subfile: SubFile {
+                offset: 0,
+                compressed_size: 0,
+                decompressed_size: 0,
+                flags: 0,
+            },
         }
     }
 }
