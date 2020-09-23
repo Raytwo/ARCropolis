@@ -8,10 +8,9 @@ use std::{fs, io, ptr};
 use skyline::hook;
 use skyline::libc::{c_char, c_void};
 
-use crate::log;
 use crate::get_from_hash;
+use crate::log;
 use crate::offsets::LOOKUP_STREAM_HASH_OFFSET;
-use crate::replacement_files::ARC_FILES;
 
 pub fn random_media_select(directory: &str) -> io::Result<String> {
     let mut rng = rand::thread_rng();

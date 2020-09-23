@@ -11,22 +11,18 @@ titleid = "01006A800016E000"
 crate-type = ["cdylib"]
 
 [dependencies]
-rand = { git = "https://github.com/Raytwo/rand" }
 toml = "0.5.6"
+rayon = "1.4.0"
 lazy_static = "1.4"
-owo-colors = "1.0.3"
+#owo-colors = "1.0.3"
 serde = { version = "1", features = ["derive"] }
+rand = { git = "https://github.com/Raytwo/rand" }
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline_smash = { git = "https://github.com/ultimate-research/skyline-smash.git" }
-nnsdk = { git = "https://github.com/ultimate-research/nnsdk-rs" }
-rayon = "1.4.0"
 
 [patch.crates-io]
 getrandom = { git = "https://github.com/Raytwo/getrandom" }
 #num_cpus = { path = "../num_cpus" }
-
-#[patch.'https://github.com/ultimate-research/nnsdk-rs']
-#nnsdk = { git = "https://github.com/Raytwo/nnsdk-rs" }
 
 [profile.dev]
 panic = "abort"

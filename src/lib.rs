@@ -5,28 +5,17 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 
-use nnsdk::root::nn::*;
-use nnsdk::root::*;
-use skyline::c_str;
-use skyline::hooks::InlineCtx;
-use skyline::libc;
-use skyline::libc::*;
-use skyline::libc::{in_addr, sockaddr_in, INADDR_ANY, SO_KEEPALIVE};
 use skyline::{hook, install_hooks};
-use std::mem;
+use skyline::hooks::InlineCtx;
 
 mod config;
 mod hashes;
 mod stream;
 
 mod replacement_files;
-use replacement_files::ARC_FILES;
 
 mod offsets;
-use offsets::{
-    ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET, PARSE_NUTEXB_OFFSET,
-    RES_SERVICE_INITIALIZED_OFFSET,
-};
+use offsets::{ ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET, PARSE_NUTEXB_OFFSET };
 
 use smash::resource::{FileState, LoadedTables, ResServiceState};
 
@@ -52,6 +41,34 @@ unsafe fn add_idx_to_table1_and_table2(loaded_table: *const LoadedTables, table1
     log!("--- [AddIdx] ---");
     handle_file_load(table1_idx);
     original!()(loaded_table, table1_idx);
+}
+
+#[hook(offset = PARSE_NUTEXB_OFFSET, inline)]
+fn parse_fighter_nutexb(ctx: &InlineCtx) {
+    unsafe {
+        handle_texture_files(*ctx.registers[25].w.as_ref());
+    }
+}
+
+#[hook(offset = 0x3278f20, inline)]
+fn parse_eff_nutexb(ctx: &InlineCtx) {
+    unsafe {
+        handle_texture_files(*ctx.registers[24].w.as_ref());
+    }
+}
+
+#[hook(offset = PARSE_EFF_OFFSET, inline)]
+fn parse_eff(ctx: &InlineCtx) {
+    unsafe {
+        handle_file_overwrite(*ctx.registers[10].w.as_ref());
+    }
+}
+
+#[hook(offset = 0x3436890, inline)]
+fn parse_param_file(ctx: &InlineCtx) {
+    unsafe {
+        handle_file_overwrite(*((*ctx.registers[20].x.as_ref()) as *const u32));
+    }
 }
 
 fn handle_file_load(table1_idx: u32) {
@@ -89,9 +106,9 @@ fn handle_file_load(table1_idx: u32) {
 
         println!("[ARC::Replace] Replacing {}", internal_filepath);
 
-        unsafe {
-            nn::os::LockMutex(mutex);
-        }
+        // unsafe {
+        //     nn::os::LockMutex(mutex);
+        // }
 
         let data = fs::read(&file_ctx.path).unwrap().into_boxed_slice();
         let data = Box::leak(data);
@@ -104,25 +121,11 @@ fn handle_file_load(table1_idx: u32) {
         table2entry.state = FileState::Loaded;
         table2entry.flags = 43;
 
-        unsafe {
-            nn::os::UnlockMutex(mutex);
-        }
+        // unsafe {
+        //     nn::os::UnlockMutex(mutex);
+        // }
 
         println!("[ARC::Replace] Table2 entry status: {}", table2entry);
-    }
-}
-
-pub fn is_file_allowed(filepath: &Path) -> bool {
-    // Check filenames
-    match filepath.file_name().unwrap().to_str().unwrap() {
-        "motion_list.bin" => return false,
-        &_ => {},
-    }
-
-    // Check extensions
-    match filepath.extension().unwrap().to_str().unwrap() {
-        "nutexb" | "eff" | "prc" | "stdat" | "stprm" => false,
-        &_ => true,
     }
 }
 
@@ -162,27 +165,6 @@ fn handle_file_overwrite(table1_idx: u32) {
                 std::slice::from_raw_parts_mut(t2_entry.data as *mut u8, file_slice.len());
             data_slice.write(file_slice).unwrap();
         }
-    }
-}
-
-#[hook(offset = PARSE_NUTEXB_OFFSET, inline)]
-fn parse_fighter_nutexb(ctx: &InlineCtx) {
-    unsafe {
-        handle_texture_files(*ctx.registers[25].w.as_ref());
-    }
-}
-
-#[hook(offset = 0x3278f20, inline)]
-fn parse_eff_nutexb(ctx: &InlineCtx) {
-    unsafe {
-        handle_texture_files(*ctx.registers[24].w.as_ref());
-    }
-}
-
-#[hook(offset = 0x3436890, inline)]
-fn parse_param_file(ctx: &InlineCtx) {
-    unsafe {
-        handle_file_overwrite(*((*ctx.registers[20].x.as_ref()) as *const u32));
     }
 }
 
@@ -236,31 +218,18 @@ fn handle_texture_files(table1_idx: u32) {
     }
 }
 
-#[hook(offset = PARSE_EFF_OFFSET, inline)]
-fn parse_eff(ctx: &InlineCtx) {
-    unsafe {
-        handle_file_overwrite(*ctx.registers[10].w.as_ref());
+pub fn is_file_allowed(filepath: &Path) -> bool {
+    // Check filenames
+    match filepath.file_name().unwrap().to_str().unwrap() {
+        "motion_list.bin" => return false,
+        &_ => {}
     }
-}
 
-#[hook(offset = RES_SERVICE_INITIALIZED_OFFSET, inline)]
-fn resource_service_initialized(_ctx: &InlineCtx) {
-    // Patch filesizes in the Subfile table
-    //lazy_static::initialize(&CONFIG);
-
-    println!("Res Service Initialized");
-
-    lazy_static::initialize(&ARC_FILES);
-
-    install_hooks!(
-        idk,
-        add_idx_to_table1_and_table2,
-        stream::lookup_by_stream_hash,
-        parse_fighter_nutexb,
-        parse_eff_nutexb,
-        parse_eff,
-        parse_param_file,
-    );
+    // Check extensions
+    match filepath.extension().unwrap().to_str().unwrap() {
+        "nutexb" | "eff" | "prc" | "stdat" | "stprm" => false,
+        &_ => true,
+    }
 }
 
 #[skyline::main(name = "arcropolis")]
@@ -271,14 +240,13 @@ pub fn main() {
     offsets::search_offsets();
 
     install_hooks!(
-        // idk,
-        // add_idx_to_table1_and_table2,
-        // stream::lookup_by_stream_hash,
-        // parse_fighter_nutexb,
-        // parse_eff_nutexb,
-        // parse_eff,
-        // parse_param_file,
-        resource_service_initialized
+        idk,
+        add_idx_to_table1_and_table2,
+        stream::lookup_by_stream_hash,
+        parse_fighter_nutexb,
+        parse_eff_nutexb,
+        parse_eff,
+        parse_param_file,
     );
 
     println!(
