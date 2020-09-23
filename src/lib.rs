@@ -106,10 +106,6 @@ fn handle_file_load(table1_idx: u32) {
 
         println!("[ARC::Replace] Replacing {}", internal_filepath);
 
-        // unsafe {
-        //     nn::os::LockMutex(mutex);
-        // }
-
         let data = fs::read(&file_ctx.path).unwrap().into_boxed_slice();
         let data = Box::leak(data);
 
@@ -120,10 +116,6 @@ fn handle_file_load(table1_idx: u32) {
         table2entry.data = data.as_ptr();
         table2entry.state = FileState::Loaded;
         table2entry.flags = 43;
-
-        // unsafe {
-        //     nn::os::UnlockMutex(mutex);
-        // }
 
         println!("[ARC::Replace] Table2 entry status: {}", table2entry);
     }
