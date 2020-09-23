@@ -1,10 +1,10 @@
+use std::{ fs, io, slice};
 use std::fs::DirEntry;
-use std::path::PathBuf;
 use std::sync::RwLock;
-use std::{collections::HashMap, fs, io, slice};
+use std::path::PathBuf;
+use std::collections::HashMap;
 
-use rayon::iter::ParallelBridge;
-use rayon::prelude::ParallelIterator;
+use rayon::iter::{ ParallelIterator, ParallelBridge, IntoParallelRefIterator, IndexedParallelIterator };
 
 use smash::hash40;
 use smash::resource::{LoadedTables, SubFile};
@@ -172,7 +172,7 @@ impl FileCtx {
             );
 
             let t1_index = match hashindexgroup_slice
-                .iter()
+                .par_iter()
                 .position(|x| x.path.hash40.as_u64() == self.hash)
             {
                 Some(index) => index as u32,
