@@ -68,7 +68,6 @@ impl ArcFiles {
                 let entry = entry?;
                 let path = PathBuf::from(&format!("{}/{}", dir.display(), entry.path().display()));
 
-                println!("{}", path.display());
                 // Check if the entry is a directory or a file
                 if entry.file_type().unwrap().is_dir() {
                     // If it is one of the stream randomizer directories
