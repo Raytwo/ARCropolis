@@ -73,7 +73,6 @@ fn parse_param_file(ctx: &InlineCtx) {
 
 fn handle_file_load(table1_idx: u32) {
     let loaded_tables = LoadedTables::get_instance();
-    let mutex = loaded_tables.mutex;
     let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
     let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
