@@ -19,6 +19,8 @@ pub struct ArcFiles(pub RwLock<HashMap<u64, FileCtx>>);
 
 pub struct FileCtx {
     pub path: PathBuf,
+    pub hash: u64,
+    pub region: u8,
     pub filesize: u32,
     pub orig_subfile: SubFile,
 }
@@ -118,9 +120,18 @@ impl ArcFiles {
             None => (),
         }
 
+        let hash = hash40(&game_path);
+
+        let filesize = match entry.metadata() {
+            Ok(meta) => meta.len() as u32,
+            Err(err) => panic!(err),
+        };
+
         let mut file_ctx = FileCtx {
             path: full_path.to_path_buf(),
-            filesize: 0,
+            hash,
+            filesize,
+            region: 0,
             orig_subfile: SubFile {
                 offset: 0,
                 compressed_size: 0,
@@ -128,15 +139,6 @@ impl ArcFiles {
                 flags: 0,
             },
         };
-
-        let hash = hash40(&game_path);
-
-        let metadata = match entry.metadata() {
-            Ok(meta) => meta,
-            Err(err) => panic!(err),
-        };
-
-        file_ctx.filesize = metadata.len() as _;
 
         // TODO: Move this method in a impl for FileCtx
         self.filesize_replacement(hash, &mut file_ctx);
