@@ -22,7 +22,7 @@ skyline_smash = { git = "https://github.com/ultimate-research/skyline-smash.git"
 
 [patch.crates-io]
 getrandom = { git = "https://github.com/Raytwo/getrandom" }
-#num_cpus = { path = "../num_cpus" }
+num_cpus = { git = "https://github.com/Raytwo/num_cpus" }
 
 [profile.dev]
 panic = "abort"
