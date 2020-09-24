@@ -109,6 +109,11 @@ impl ArcFiles {
         // This is the path that gets hashed. Replace ; to : for Smash's internal paths since ; is not a valid character for filepaths.
         let mut game_path = full_path.to_str().unwrap()[arc_dir_len + 1..].replace(";", ":");
 
+        // Remove the regional indicator
+        if let Some(regional_marker) = game_path.find("+") {
+            game_path.replace_range(regional_marker..game_path.find(".").unwrap(), "");
+        }
+
         // TODO: Move that stuff in a separate function that can handle more than one format
         match game_path.strip_suffix("mp4") {
             Some(x) => game_path = format!("{}{}", x, "webm"),
@@ -125,7 +130,11 @@ impl ArcFiles {
             Err(err) => panic!(err),
         };
 
-        // TODO: Move this method in a impl for FileCtx
+        // Don't bother if the region doesn't match
+        if file_ctx.get_region() != ResServiceState::get_instance().regular_region_idx {
+            return Err(format!("Region for file {} does not match, skipping", file_ctx.path.display()));
+        }
+
         file_ctx.filesize_replacement();
         Ok(file_ctx)
     }
@@ -179,6 +188,30 @@ impl FileCtx {
         region_index
     }
 
+    pub fn get_subfile(&self, t1_index: u32) -> &mut SubFile {
+        let loaded_arc = LoadedTables::get_instance().get_arc();
+
+        let mut file_info = loaded_arc.lookup_file_information_by_t1_index(t1_index);
+        let file_index = loaded_arc.lookup_fileinfoindex_by_t1_index(t1_index);
+
+        // Redirect
+        if (file_info.flags & 0x00000010) == 0x10 {
+            file_info = loaded_arc.lookup_file_information_by_t1_index(file_index.file_info_index);
+        }
+
+        let mut sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index);
+
+        // Regional
+        if (file_info.flags & 0x00008000) == 0x8000 {
+            sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index + 1 + self.get_region());
+        }
+
+        unsafe {
+            let sub_file =  loaded_arc.sub_files.offset(sub_index.sub_file_index as isize) as *mut SubFile;
+            &mut *sub_file
+        }
+    }
+
     pub fn filesize_replacement(&mut self) {
         let loaded_tables = LoadedTables::get_instance();
 
@@ -216,13 +249,9 @@ impl FileCtx {
                 }
             };
 
-            let mut subfile = loaded_tables.get_arc().get_subfile_by_t1_index(t1_index);
+            self.orig_subfile = self.get_subfile(t1_index).clone();
 
-            // Gotta make SubFile derive Clone and Copy 'cause this is massive ass
-            self.orig_subfile.offset = (*subfile).offset;
-            self.orig_subfile.compressed_size = (*subfile).compressed_size;
-            self.orig_subfile.decompressed_size = (*subfile).decompressed_size;
-            self.orig_subfile.flags = (*subfile).flags;
+            let mut subfile = self.get_subfile(t1_index);
 
             if (subfile.decompressed_size < self.filesize) && extension == "nutexb" {
                 // Is compressed?
