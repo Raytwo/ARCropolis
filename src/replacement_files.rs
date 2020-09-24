@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use rayon::iter::{ ParallelIterator, ParallelBridge, IntoParallelRefIterator, IndexedParallelIterator };
 
 use smash::hash40;
-use smash::resource::{LoadedTables, SubFile};
+use smash::resource::{ResServiceState, LoadedTables, SubFile};
 
 use crate::config::CONFIG;
 
@@ -20,7 +20,6 @@ pub struct ArcFiles(pub RwLock<HashMap<u64, FileCtx>>);
 pub struct FileCtx {
     pub path: PathBuf,
     pub hash: u64,
-    pub region: u8,
     pub filesize: u32,
     pub orig_subfile: SubFile,
 }
@@ -138,7 +137,6 @@ impl FileCtx {
             path: PathBuf::new(),
             hash: 0,
             filesize: 0,
-            region: 0,
             orig_subfile: SubFile {
                 offset: 0,
                 compressed_size: 0,
@@ -146,6 +144,39 @@ impl FileCtx {
                 flags: 0,
             },
         }
+    }
+
+    pub fn get_region(&self) -> u32 {
+        // Default to the player's region index
+        let mut region_index = ResServiceState::get_instance().regular_region_idx;
+
+        // Make sure the file has an extension
+        if let Some(_) = self.path.extension() {
+            // Split the region identifier from the filepath
+            let region = self.path.to_str().unwrap().to_string();
+            // Check if the filepath it contains a + symbol
+            if let Some(region_marker) = region.find('+') {
+                match &region[region_marker+1..region_marker+6] {
+                    "jp_ja" => region_index = 0,
+                    "us_en" => region_index = 1,
+                    "us_fr" => region_index = 2,
+                    "us_es" => region_index = 3,
+                    "eu_en" => region_index = 4,
+                    "eu_fr" => region_index = 5,
+                    "eu_es" => region_index = 6,
+                    "eu_de" => region_index = 7,
+                    "eu_nl" => region_index = 8,
+                    "eu_it" => region_index = 9,
+                    "eu_ru" => region_index = 10,
+                    "kr_ko" => region_index = 11,
+                    "zh_cn" => region_index = 12,
+                    "zh_tw" => region_index = 13,
+                    _ => region_index = 1,
+                }
+            }
+        }
+
+        region_index
     }
 
     pub fn filesize_replacement(&mut self) {
