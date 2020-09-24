@@ -8,6 +8,8 @@ use std::path::Path;
 use skyline::{hook, install_hooks};
 use skyline::hooks::InlineCtx;
 
+use skyline::nn;
+
 mod config;
 mod hashes;
 mod stream;
@@ -73,6 +75,7 @@ fn parse_param_file(ctx: &InlineCtx) {
 
 fn handle_file_load(table1_idx: u32) {
     let loaded_tables = LoadedTables::get_instance();
+    let mutex = loaded_tables.mutex;
     let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
     let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
@@ -105,6 +108,10 @@ fn handle_file_load(table1_idx: u32) {
 
         println!("[ARC::Replace] Replacing {}", internal_filepath);
 
+        unsafe {
+            nn::os::LockMutex(mutex);
+        }
+
         let data = fs::read(&file_ctx.path).unwrap().into_boxed_slice();
         let data = Box::leak(data);
 
@@ -115,6 +122,10 @@ fn handle_file_load(table1_idx: u32) {
         table2entry.data = data.as_ptr();
         table2entry.state = FileState::Loaded;
         table2entry.flags = 43;
+
+        unsafe {
+            nn::os::UnlockMutex(mutex);
+        }
 
         println!("[ARC::Replace] Table2 entry status: {}", table2entry);
     }
