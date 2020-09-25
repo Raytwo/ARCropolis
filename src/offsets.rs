@@ -7,6 +7,8 @@ pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x324f7a0;
 // default 8.1.0 offsets
 pub static mut PARSE_NUTEXB_OFFSET: usize = 0x330615c;
 pub static mut PARSE_EFF_OFFSET: usize = 0x3278984;
+pub static mut PARSE_PARAM_OFFSET: usize = 0x3436890;
+pub static mut PARSE_EFF_NUTEXB_OFFSET:usize = 0x3278f20;
 
 static IDK_SEARCH_CODE: &[u8] = &[
     0xf8, 0x5f, 0xbc, 0xa9, 0xf6, 0x57, 0x01, 0xa9, 0xf4, 0x4f, 0x02, 0xa9, 0xfd, 0x7b, 0x03, 0xa9,
@@ -28,9 +30,19 @@ static PARSE_NUTEXB_SEARCH_CODE: &[u8] = &[
     0xe9, 0x07, 0x40, 0xf9, 0xf3, 0x03, 0x00, 0xaa,
 ];
 
+static PARSE_EFF_NUTEXB_SEARCH_CODE: &[u8] = &[
+    0xf4, 0xac, 0x09, 0x94, 0xc0, 0x21, 0x00, 0xb4, 0xe8, 0x3f, 0x00, 0x32, 0xe8, 0x63, 0x00, 0xb9,
+    0xe8, 0x2f, 0x40, 0xf9, 0x1f, 0xfd, 0x03, 0xa9,
+];
+
 static PARSE_EFF_SEARCH_CODE: &[u8] = &[
     0x09, 0x19, 0x40, 0xb9, 0x3f, 0x01, 0x0a, 0x6b, 0xfb, 0x03, 0x16, 0xaa, 0xc9, 0x02, 0x00, 0x54,
     0x09, 0x05, 0x40, 0xf9, 0x2b, 0x0d, 0x0a, 0x8b,
+];
+
+static PARSE_PARAM_SEARCH_CODE: &[u8] = &[
+    0x68, 0xa6, 0x01, 0xa9, 0x0a, 0x09, 0x80, 0xb9, 0x29, 0x01, 0x0a, 0x8b, 0x69, 0x16, 0x00, 0xf9,
+    0x08, 0x0d, 0x80, 0xb9, 0x28, 0x01, 0x08, 0x8b,
 ];
 
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -69,10 +81,22 @@ pub fn search_offsets() {
             println!("Error: no offset found for function 'parse_fighter_nutexb'. Defaulting to 8.1.0 offset. This likely won't work.");
         }
 
+        if let Some(offset) = find_subsequence(text, PARSE_EFF_NUTEXB_SEARCH_CODE) {
+            PARSE_EFF_NUTEXB_OFFSET = offset
+        } else {
+            println!("Error: no offset found for function 'parse_fighter_nutexb'. Defaulting to 8.1.0 offset. This likely won't work.");
+        }
+
         if let Some(offset) = find_subsequence(text, PARSE_EFF_SEARCH_CODE) {
             PARSE_EFF_OFFSET = offset
         } else {
             println!("Error: no offset found for function 'parse_eff'. Defaulting to 8.1.0 offset. This likely won't work.");
+        }
+
+        if let Some(offset) = find_subsequence(text, PARSE_PARAM_SEARCH_CODE) {
+            PARSE_PARAM_OFFSET = offset
+        } else {
+            println!("Error: no offset found for function 'parse_param_file'. Defaulting to 8.1.0 offset. This likely won't work.");
         }
     }
 }

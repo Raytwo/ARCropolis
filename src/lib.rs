@@ -17,7 +17,7 @@ mod stream;
 mod replacement_files;
 
 mod offsets;
-use offsets::{ ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET, PARSE_NUTEXB_OFFSET };
+use offsets::{ ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET, PARSE_NUTEXB_OFFSET, PARSE_PARAM_OFFSET, PARSE_EFF_NUTEXB_OFFSET };
 
 use smash::resource::{FileState, LoadedTables, ResServiceState};
 
@@ -52,7 +52,7 @@ fn parse_fighter_nutexb(ctx: &InlineCtx) {
     }
 }
 
-#[hook(offset = 0x3278f20, inline)]
+#[hook(offset = PARSE_EFF_NUTEXB_OFFSET, inline)]
 fn parse_eff_nutexb(ctx: &InlineCtx) {
     unsafe {
         handle_texture_files(*ctx.registers[24].w.as_ref());
@@ -66,12 +66,15 @@ fn parse_eff(ctx: &InlineCtx) {
     }
 }
 
-#[hook(offset = 0x3436890, inline)]
+#[hook(offset = PARSE_PARAM_OFFSET, inline)]
 fn parse_param_file(ctx: &InlineCtx) {
     unsafe {
         handle_file_overwrite(*((*ctx.registers[20].x.as_ref()) as *const u32));
     }
 }
+
+#[skyline::from_offset(0x3643590)]
+pub fn smash_free_mayb(src: *const skyline::libc::c_void);
 
 fn handle_file_load(table1_idx: u32) {
     let loaded_tables = LoadedTables::get_instance();
@@ -116,7 +119,8 @@ fn handle_file_load(table1_idx: u32) {
         let data = Box::leak(data);
 
         unsafe {
-            skyline::libc::free(table2entry.data as *const skyline::libc::c_void);
+            //skyline::libc::free(table2entry.data as *const skyline::libc::c_void);
+            smash_free_mayb(table2entry.data as *const skyline::libc::c_void);
         }
 
         table2entry.data = data.as_ptr();
