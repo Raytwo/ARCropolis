@@ -3,6 +3,7 @@ use std::fs::DirEntry;
 use std::sync::RwLock;
 use std::path::PathBuf;
 use std::collections::HashMap;
+use skyline::nn;
 
 use rayon::iter::{ ParallelIterator, ParallelBridge, IntoParallelRefIterator, IndexedParallelIterator };
 
@@ -35,8 +36,14 @@ impl ArcFiles {
     fn new() -> Self {
         let mut instance = Self(RwLock::new(HashMap::new()));
 
-        let _ = instance.visit_dir(&PathBuf::from(&CONFIG.paths.arc), CONFIG.paths.arc.len());
-        let _ = instance.visit_umm_dirs(&PathBuf::from(&CONFIG.paths.umm));
+        unsafe {
+            nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
+
+            let _ = instance.visit_dir(&PathBuf::from(&CONFIG.paths.arc), CONFIG.paths.arc.len());
+            let _ = instance.visit_umm_dirs(&PathBuf::from(&CONFIG.paths.umm));
+
+            nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
+        }
 
         instance
     }
@@ -46,12 +53,13 @@ impl ArcFiles {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
 
+            // Skip any directory starting with a period
             if entry.file_name().to_str().unwrap().starts_with(".") {
                 continue
             }
 
             let path = PathBuf::from(&format!("{}/{}", dir.display(), entry.path().display()));
-
+            
             if path.is_dir() {
                 self.visit_dir(&path, path.to_str().unwrap().len())?;
             }
@@ -101,6 +109,12 @@ impl ArcFiles {
     }
 
     fn visit_file(&self, entry: &DirEntry, full_path: &PathBuf, arc_dir_len: usize) -> Result<FileCtx, String> {
+        // Skip any file starting with a period, to avoid any error related to path.extension()
+        if entry.file_name().to_str().unwrap().starts_with(".") {
+            return Err(format!("File {} starts with a period, skipping", full_path.display()));
+        }
+
+        // Make sure the file has an extension to not cause issues with the code that follows
         match full_path.extension() {
             Some(_) => {}
             None => return Err(format!("Error getting file extension for: {}", full_path.display())),
