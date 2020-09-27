@@ -109,6 +109,13 @@ fn handle_file_load(table1_idx: u32) {
             file_ctx.path.display()
         );
 
+        if table2entry.state == FileState::Loaded {
+            if file_ctx.path.extension().unwrap().to_str().unwrap() == "bntx" {
+                handle_file_overwrite(table1_idx);
+                return;
+            }
+        }
+
         println!("[ARC::Replace] Replacing {}", internal_filepath);
 
         unsafe {
@@ -160,6 +167,10 @@ fn handle_file_overwrite(table1_idx: u32) {
             "[ARC::Replace] Hash matching for file path: {}",
             file_ctx.path.display()
         );
+
+        if t2_entry.state != FileState::Loaded {
+            return;
+        }
 
         println!("[ARC::Replace] Replacing {}...", internal_filepath);
 
