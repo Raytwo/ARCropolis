@@ -239,7 +239,7 @@ impl FileCtx {
 
         // Some formats don't appreciate me messing with their filesize
         match extension {
-            "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" => {}
+            "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" | "bin" => {}
             &_ => return,
         }
 

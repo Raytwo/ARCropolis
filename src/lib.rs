@@ -114,6 +114,10 @@ fn handle_file_load(table1_idx: u32) {
                 handle_file_overwrite(table1_idx);
                 return;
             }
+            if file_ctx.path.file_name().unwrap().to_str().unwrap() == "motion_list.bin" {
+                handle_file_overwrite(table1_idx);
+                return;
+            }
         }
 
         println!("[ARC::Replace] Replacing {}", internal_filepath);
@@ -236,12 +240,6 @@ fn handle_texture_files(table1_idx: u32) {
 }
 
 pub fn is_file_allowed(filepath: &Path) -> bool {
-    // Check filenames
-    match filepath.file_name().unwrap().to_str().unwrap() {
-        "motion_list.bin" => return false,
-        &_ => {}
-    }
-
     // Check extensions
     match filepath.extension().unwrap().to_str().unwrap() {
         "nutexb" | "eff" | "prc" | "stdat" | "stprm" => false,
