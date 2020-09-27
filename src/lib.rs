@@ -21,6 +21,8 @@ use offsets::{ ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET
 
 use smash::resource::{FileState, LoadedTables, ResServiceState};
 
+use owo_colors::{ OwoColorize };
+
 #[macro_export]
 macro_rules! log {
     ($($arg:tt)*) => {
@@ -90,11 +92,11 @@ fn handle_file_load(table1_idx: u32) {
     };
 
     log!(
-        "[ARC::Loading | #{}] File path: {}, Hash: {}, {}",
-        table1_idx,
-        internal_filepath,
-        hash,
-        table2entry
+        "[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}",
+        table1_idx.green(),
+        internal_filepath.bright_yellow(),
+        hash.cyan(),
+        table2entry.bright_magenta(),
     );
 
     // Println!() calls are on purpose so these show up no matter what.
@@ -105,8 +107,9 @@ fn handle_file_load(table1_idx: u32) {
         }
 
         println!(
-            "[ARC::Replace] Hash matching for file path: {}",
-            file_ctx.path.display()
+            "[ARC::Loading | #{}] Hash matching for file: '{}'",
+            table1_idx.green(),
+            file_ctx.path.display().bright_yellow(),
         );
 
         if table2entry.state == FileState::Loaded {
@@ -120,7 +123,11 @@ fn handle_file_load(table1_idx: u32) {
             }
         }
 
-        println!("[ARC::Replace] Replacing {}", internal_filepath);
+        println!(
+            "[ARC::Replace | #{}] Replacing '{}'",
+            table1_idx.green(),
+            internal_filepath.bright_yellow(),
+        );
 
         unsafe {
             nn::os::LockMutex(mutex);
@@ -141,8 +148,6 @@ fn handle_file_load(table1_idx: u32) {
         unsafe {
             nn::os::UnlockMutex(mutex);
         }
-
-        println!("[ARC::Replace] Table2 entry status: {}", table2entry);
     }
 }
 
@@ -159,24 +164,29 @@ fn handle_file_overwrite(table1_idx: u32) {
     };
 
     log!(
-        "[ARC::Loading | #{}] File path: {}, Hash: {}, {}",
-        table1_idx,
-        internal_filepath,
-        hash,
-        t2_entry
+        "[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}",
+        table1_idx.green(),
+        internal_filepath.bright_yellow(),
+        hash.cyan(),
+        t2_entry.bright_magenta(),
     );
 
     if let Some(file_ctx) = get_from_hash!(hash) {
         println!(
-            "[ARC::Replace] Hash matching for file path: {}",
-            file_ctx.path.display()
+            "[ARC::Loading | #{}] Hash matching for file: '{}'",
+            table1_idx.green(),
+            file_ctx.path.display().bright_yellow(),
         );
 
         if t2_entry.state != FileState::Loaded {
             return;
         }
 
-        println!("[ARC::Replace] Replacing {}...", internal_filepath);
+        println!(
+            "[ARC::Replace | #{}] Replacing '{}'",
+            table1_idx.green(),
+            internal_filepath.bright_yellow(),
+        );
 
         let file = fs::read(&file_ctx.path).unwrap();
         let file_slice = file.as_slice();
@@ -197,9 +207,10 @@ fn handle_texture_files(table1_idx: u32) {
 
         if let Some(file_ctx) = get_from_hash!(hash) {
             println!(
-                "[ARC::Replace] Hash matching for file path: {}",
-                file_ctx.path.display()
-            );
+                "[ARC::Loading | #{}] Hash matching for file: '{}'",
+                table1_idx.green(),
+                file_ctx.path.display().bright_yellow(),
+            );    
 
             let table2entry = match loaded_tables.get_t2_mut(table1_idx) {
                 Ok(entry) => entry,
@@ -212,7 +223,11 @@ fn handle_texture_files(table1_idx: u32) {
                 return;
             }
 
-            println!("[ARC::Replace] Replacing {}...", internal_filepath);
+            println!(
+                "[ARC::Replace | #{}] Replacing '{}'",
+                table1_idx.green(),
+                internal_filepath.bright_yellow(),
+            );
 
             let file = fs::read(&file_ctx.path).unwrap();
             let file_slice = file.as_slice();

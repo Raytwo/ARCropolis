@@ -5,12 +5,13 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 use skyline::nn;
 
-use rayon::iter::{ ParallelIterator, ParallelBridge, IntoParallelRefIterator, IndexedParallelIterator };
+use crate::config::CONFIG;
 
 use smash::hash40;
 use smash::resource::{ResServiceState, LoadedTables, SubFile};
 
-use crate::config::CONFIG;
+use owo_colors::{ OwoColorize };
+use rayon::iter::{ ParallelIterator, ParallelBridge, IntoParallelRefIterator, IndexedParallelIterator };
 
 lazy_static::lazy_static! {
     pub static ref ARC_FILES: ArcFiles = ArcFiles::new();
@@ -111,13 +112,13 @@ impl ArcFiles {
     fn visit_file(&self, entry: &DirEntry, full_path: &PathBuf, arc_dir_len: usize) -> Result<FileCtx, String> {
         // Skip any file starting with a period, to avoid any error related to path.extension()
         if entry.file_name().to_str().unwrap().starts_with(".") {
-            return Err(format!("File {} starts with a period, skipping", full_path.display()));
+            return Err(format!("[ARC::Discovery] File '{}' starts with a period, skipping", full_path.display().bright_yellow()));
         }
 
         // Make sure the file has an extension to not cause issues with the code that follows
         match full_path.extension() {
             Some(_) => {}
-            None => return Err(format!("Error getting file extension for: {}", full_path.display())),
+            None => return Err(format!("[ARC::Discovery] File '{}' does not have an extension, skipping", full_path.display().bright_yellow())),
         }
 
         // This is the path that gets hashed. Replace ; to : for Smash's internal paths since ; is not a valid character for filepaths.
@@ -146,7 +147,7 @@ impl ArcFiles {
 
         // Don't bother if the region doesn't match
         if file_ctx.get_region() != ResServiceState::get_instance().regular_region_idx {
-            return Err(format!("Region for file {} does not match, skipping", file_ctx.path.display()));
+            return Err(format!("[ARC::Discovery] File '{}' does not have a matching region, skipping", file_ctx.path.display().bright_yellow()));
         }
 
         file_ctx.filesize_replacement();
@@ -232,7 +233,7 @@ impl FileCtx {
         let extension = match self.path.extension() {
             Some(ext) => ext.to_str().unwrap(),
             None => {
-                println!("File {} does not have an extension, skipping", self.path.display());
+                println!("[ARC::Patching] File '{}' does not have an extension, skipping", self.path.display().bright_yellow());
                 return;
             },
         };
@@ -256,8 +257,8 @@ impl FileCtx {
                 Some(index) => index as u32,
                 None => {
                     println!(
-                        "[ARC::Patching] Hash for file {} not found in table1, skipping",
-                        self.path.display()
+                        "[ARC::Patching] File '{}' does not have a hash found in table1, skipping",
+                        self.path.display().bright_yellow()
                     );
                     return;
                 }
@@ -273,18 +274,18 @@ impl FileCtx {
                     subfile.decompressed_size = self.filesize;
 
                     println!(
-                        "[ARC::Patching] New decompressed size for {}: {:#x}",
-                        self.path.display(),
-                        subfile.decompressed_size
+                        "[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",
+                        self.path.display().bright_yellow(),
+                        subfile.decompressed_size.bright_red(),
                     );
                 }
             } else {
                 if subfile.decompressed_size < self.filesize {
                     subfile.decompressed_size = self.filesize;
                     println!(
-                        "[ARC::Patching] New decompressed size for {}: {:#x}",
-                        self.path.display(),
-                        subfile.decompressed_size
+                        "[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",
+                        self.path.display().bright_yellow(),
+                        subfile.decompressed_size.bright_red(),
                     );
                 }
             }
