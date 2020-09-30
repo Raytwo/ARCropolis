@@ -96,6 +96,13 @@ fn parse_font_file(ctx: &InlineCtx) {
     }
 }
 
+#[hook(offset = 0x32da328, inline)]
+fn parse_numdlb_file(ctx: &InlineCtx) {
+    unsafe {
+        handle_file_overwrite(*ctx.registers[1].w.as_ref());
+    }
+}
+
 #[skyline::from_offset(0x3643590)]
 pub fn smash_free_mayb(src: *const skyline::libc::c_void);
 
@@ -135,6 +142,10 @@ fn handle_file_load(table1_idx: u32) {
 
         if table2entry.state == FileState::Loaded {
             if file_ctx.path.extension().unwrap().to_str().unwrap() == "bntx" {
+                handle_file_overwrite(table1_idx);
+                return;
+            }
+            if file_ctx.path.extension().unwrap().to_str().unwrap() == "numatb" {
                 handle_file_overwrite(table1_idx);
                 return;
             }
@@ -278,7 +289,7 @@ fn handle_texture_files(table1_idx: u32) {
 pub fn is_file_allowed(filepath: &Path) -> bool {
     // Check extensions
     match filepath.extension().unwrap().to_str().unwrap() {
-        "nutexb" | "eff" | "prc" | "stdat" | "stprm" | "xmb" | "arc" | "bfotf" | "bfttf" => false,
+        "nutexb" | "eff" | "prc" | "stdat" | "stprm" | "xmb" | "arc" | "bfotf" | "bfttf" | "numatb" | "numdlb" => false,
         &_ => true,
     }
 }
@@ -301,6 +312,7 @@ pub fn main() {
         parse_model_xmb,
         parse_arc_file,
         parse_font_file,
+        parse_numdlb_file,
     );
 
     println!(
