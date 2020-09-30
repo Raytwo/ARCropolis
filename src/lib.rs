@@ -75,6 +75,27 @@ fn parse_param_file(ctx: &InlineCtx) {
     }
 }
 
+#[hook(offset = 0x32f89b4, inline)]
+fn parse_model_xmb(ctx: &InlineCtx) {
+    unsafe {
+        handle_file_overwrite(*((*ctx.registers[22].x.as_ref()) as *const u32));
+    }
+}
+
+#[hook(offset = 0x3016524, inline)]
+fn parse_arc_file(ctx: &InlineCtx) {
+    unsafe {
+        handle_file_overwrite(*ctx.registers[8].w.as_ref());
+    }
+}
+
+#[hook(offset = 0x3476808, inline)]
+fn parse_font_file(ctx: &InlineCtx) {
+    unsafe {
+        handle_file_overwrite(*((*ctx.registers[19].x.as_ref()) as *const u32));
+    }
+}
+
 #[skyline::from_offset(0x3643590)]
 pub fn smash_free_mayb(src: *const skyline::libc::c_void);
 
@@ -257,7 +278,7 @@ fn handle_texture_files(table1_idx: u32) {
 pub fn is_file_allowed(filepath: &Path) -> bool {
     // Check extensions
     match filepath.extension().unwrap().to_str().unwrap() {
-        "nutexb" | "eff" | "prc" | "stdat" | "stprm" => false,
+        "nutexb" | "eff" | "prc" | "stdat" | "stprm" | "xmb" | "arc" | "bfotf" | "bfttf" => false,
         &_ => true,
     }
 }
@@ -277,6 +298,9 @@ pub fn main() {
         parse_eff_nutexb,
         parse_eff,
         parse_param_file,
+        parse_model_xmb,
+        parse_arc_file,
+        parse_font_file,
     );
 
     println!(

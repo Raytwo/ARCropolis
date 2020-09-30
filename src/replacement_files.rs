@@ -177,7 +177,7 @@ impl FileCtx {
         // Make sure the file has an extension
         if let Some(_) = self.path.extension() {
             // Split the region identifier from the filepath
-            let region = self.path.to_str().unwrap().to_string();
+            let region = self.path.file_name().unwrap().to_str().unwrap().to_string();
             // Check if the filepath it contains a + symbol
             if let Some(region_marker) = region.find('+') {
                 match &region[region_marker+1..region_marker+6] {
@@ -240,7 +240,7 @@ impl FileCtx {
 
         // Some formats don't appreciate me messing with their filesize
         match extension {
-            "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" | "bin" => {}
+            "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" | "bin" | "bfotf" | "bfttf" => {}
             &_ => return,
         }
 
