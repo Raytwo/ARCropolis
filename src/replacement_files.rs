@@ -240,7 +240,7 @@ impl FileCtx {
 
         // Some formats don't appreciate me messing with their filesize
         match extension {
-            "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" | "bin" | "bfotf" | "bfttf" | "numatb" | "numdlb" => {}
+            "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" | "bin" | "bfotf" | "bfttf" |"numdlb" => {}
             &_ => return,
         }
 
