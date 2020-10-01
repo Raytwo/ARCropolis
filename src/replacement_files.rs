@@ -252,8 +252,8 @@ impl FileCtx {
             );
 
             let t1_index = match hashindexgroup_slice
-                .par_iter()
-                .position_any(|x| x.path.hash40.as_u64() == self.hash)
+                .iter()
+                .position(|x| x.path.hash40.as_u64() == self.hash)
             {
                 Some(index) => index as u32,
                 None => {
