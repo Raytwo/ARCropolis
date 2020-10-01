@@ -204,26 +204,27 @@ impl FileCtx {
     }
 
     pub fn get_subfile(&self, t1_index: u32) -> &mut SubFile {
+        unsafe {
+
         let loaded_arc = LoadedTables::get_instance().get_arc();
 
         let mut file_info = loaded_arc.lookup_file_information_by_t1_index(t1_index);
-        let file_index = loaded_arc.lookup_fileinfoindex_by_t1_index(t1_index);
+        let file_index = loaded_arc.lookup_fileinfoindex_by_t1_index(file_info.index_index);
 
         // Redirect
-        if (file_info.flags & 0x00000010) == 0x10 {
-            file_info = loaded_arc.lookup_file_information_by_t1_index(file_index.file_info_index);
-        }
-
-        let mut sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index);
+        // if (file_info.flags & 0x00000010) == 0x10 {
+        //     file_info = loaded_arc.lookup_file_information_by_t1_index(file_index.file_info_index);
+        // }
+        
+        let sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index);
 
         // Regional
-        if (file_info.flags & 0x00008000) == 0x8000 {
-            sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index + 1 + self.get_region());
+        if (file_info.flags & 0x8000) == 0x8000 {
+            let sub_idx = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index + 1 + self.get_region());
         }
 
-        unsafe {
-            let sub_file =  loaded_arc.sub_files.offset(sub_index.sub_file_index as isize) as *mut SubFile;
-            &mut *sub_file
+        let sub_file =  loaded_arc.sub_files.offset(sub_index.sub_file_index as isize) as *mut SubFile;
+        &mut *sub_file
         }
     }
 
@@ -240,7 +241,7 @@ impl FileCtx {
 
         // Some formats don't appreciate me messing with their filesize
         match extension {
-            "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" | "bin" | "bfotf" | "bfttf" |"numdlb" => {}
+            "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" | "bin" | "bfotf" | "bfttf" | "numdlb" | "numatb" | "nusktb" | "nuanmb" => {}
             &_ => return,
         }
 
@@ -267,6 +268,12 @@ impl FileCtx {
             self.orig_subfile = self.get_subfile(t1_index).clone();
 
             let mut subfile = self.get_subfile(t1_index);
+
+            println!(
+                "[ARC::Patching] File '{}', decomp size: {:x}",
+                self.path.display().bright_yellow(),
+                subfile.decompressed_size.cyan(),
+            );
 
             if (subfile.decompressed_size < self.filesize) && extension == "nutexb" {
                 // Is compressed?

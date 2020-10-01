@@ -103,6 +103,20 @@ fn parse_numdlb_file(ctx: &InlineCtx) {
     }
 }
 
+#[hook(offset = 0x32e18c4, inline)]
+fn parse_numshexb_file(ctx: &InlineCtx) {
+    unsafe {
+        handle_file_overwrite(*ctx.registers[25].w.as_ref());
+    }
+}
+
+#[hook(offset = 0x330559c, inline)]
+fn parse_numatb_file(ctx: &InlineCtx) {
+    unsafe {
+        handle_file_overwrite(*ctx.registers[23].w.as_ref());
+    }
+}
+
 #[skyline::from_offset(0x3643590)]
 pub fn smash_free_mayb(src: *const skyline::libc::c_void);
 
@@ -145,7 +159,18 @@ fn handle_file_load(table1_idx: u32) {
                 handle_file_overwrite(table1_idx);
                 return;
             }
-
+            if file_ctx.path.extension().unwrap().to_str().unwrap() == "numshb" {
+                handle_file_overwrite(table1_idx);
+                return;
+            }
+            if file_ctx.path.extension().unwrap().to_str().unwrap() == "nusktb" {
+                handle_file_overwrite(table1_idx);
+                return;
+            }
+            if file_ctx.path.extension().unwrap().to_str().unwrap() == "nuanmb" {
+                handle_file_overwrite(table1_idx);
+                return;
+            }
             if file_ctx.path.file_name().unwrap().to_str().unwrap() == "motion_list.bin" {
                 handle_file_overwrite(table1_idx);
                 return;
@@ -286,7 +311,7 @@ fn handle_texture_files(table1_idx: u32) {
 pub fn is_file_allowed(filepath: &Path) -> bool {
     // Check extensions
     match filepath.extension().unwrap().to_str().unwrap() {
-        "nutexb" | "eff" | "prc" | "stdat" | "stprm" | "xmb" | "arc" | "bfotf" | "bfttf" | "numdlb" => false,
+        "nutexb" | "eff" | "prc" | "stdat" | "stprm" | "xmb" | "arc" | "bfotf" | "bfttf" | "numdlb" | "numatb" | "numshexb" => false,
         &_ => true,
     }
 }
@@ -310,6 +335,8 @@ pub fn main() {
         parse_arc_file,
         parse_font_file,
         parse_numdlb_file,
+        parse_numshexb_file,
+        parse_numatb_file,
     );
 
     println!(
