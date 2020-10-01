@@ -82,6 +82,13 @@ fn parse_model_xmb(ctx: &InlineCtx) {
     }
 }
 
+#[hook(offset = 0x32f8a74, inline)]
+fn parse_log_xmb(ctx: &InlineCtx) {
+    unsafe {
+        handle_file_overwrite(*ctx.registers[19].w.as_ref());
+    }
+}
+
 #[hook(offset = 0x3016524, inline)]
 fn parse_arc_file(ctx: &InlineCtx) {
     unsafe {
@@ -332,6 +339,7 @@ pub fn main() {
         parse_eff,
         parse_param_file,
         parse_model_xmb,
+        parse_log_xmb,
         parse_arc_file,
         parse_font_file,
         parse_numdlb_file,
