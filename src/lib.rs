@@ -75,10 +75,17 @@ fn parse_param_file(ctx: &InlineCtx) {
     }
 }
 
-#[hook(offset = 0x32f89b4, inline)]
+#[hook(offset = 0x32f89a8, inline)]
 fn parse_model_xmb(ctx: &InlineCtx) {
     unsafe {
-        handle_file_overwrite(*((*ctx.registers[22].x.as_ref()) as *const u32));
+        handle_file_overwrite(*ctx.registers[22].w.as_ref());
+    }
+}
+
+#[hook(offset = 0x3304bc4, inline)]
+fn parse_model_xmb2(ctx: &InlineCtx) {
+    unsafe {
+        handle_file_overwrite(*ctx.registers[22].w.as_ref());
     }
 }
 
@@ -171,10 +178,6 @@ fn handle_file_load(table1_idx: u32) {
                 return;
             }
             if file_ctx.path.extension().unwrap().to_str().unwrap() == "nusktb" {
-                handle_file_overwrite(table1_idx);
-                return;
-            }
-            if file_ctx.path.extension().unwrap().to_str().unwrap() == "nuanmb" {
                 handle_file_overwrite(table1_idx);
                 return;
             }
@@ -339,6 +342,7 @@ pub fn main() {
         parse_eff,
         parse_param_file,
         parse_model_xmb,
+        parse_model_xmb2,
         parse_log_xmb,
         parse_arc_file,
         parse_font_file,
