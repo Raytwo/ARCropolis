@@ -224,12 +224,6 @@ impl FileCtx {
         let loaded_arc = LoadedTables::get_instance().get_arc();
 
         let file_info = loaded_arc.lookup_file_information_by_t1_index(t1_index);
-        let file_index = loaded_arc.lookup_fileinfoindex_by_t1_index(file_info.index_index);
-
-        // Redirect
-        // if (file_info.flags & 0x00000010) == 0x10 {
-        //     file_info = loaded_arc.lookup_file_information_by_t1_index(file_index.file_info_index);
-        // }
         
         let sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index);
 
