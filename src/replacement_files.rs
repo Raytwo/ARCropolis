@@ -13,6 +13,10 @@ use smash::resource::{ResServiceState, LoadedTables, SubFile};
 use owo_colors::{ OwoColorize };
 use rayon::iter::{ ParallelIterator, ParallelBridge, IntoParallelRefIterator, IndexedParallelIterator };
 
+// use notify::{ Watcher, RecursiveMode, watcher };
+// use std::sync::mpsc::channel;
+// use std::time::Duration;
+
 lazy_static::lazy_static! {
     pub static ref ARC_FILES: ArcFiles = ArcFiles::new();
 }
@@ -35,6 +39,17 @@ macro_rules! get_from_hash {
 
 impl ArcFiles {
     fn new() -> Self {
+        // let (tx, rx) = channel();
+        // let mut watcher = watcher(tx, Duration::from_secs(2)).unwrap();
+        // watcher.watch(&PathBuf::from(&CONFIG.paths.arc), RecursiveMode::Recursive).unwrap();
+
+        // loop {
+        //     match rx.recv() {
+        //        Ok(event) => println!("{:?}", event),
+        //        Err(e) => println!("watch error: {:?}", e),
+        //     }
+        // }
+
         let mut instance = Self(RwLock::new(HashMap::new()));
 
         unsafe {

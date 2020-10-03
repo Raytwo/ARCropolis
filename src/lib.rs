@@ -177,6 +177,10 @@ fn handle_file_load(table1_idx: u32) {
                 handle_file_overwrite(table1_idx);
                 return;
             }
+            if file_ctx.path.extension().unwrap().to_str().unwrap() == "numatb" {
+                handle_file_overwrite(table1_idx);
+                return;
+            }
             if file_ctx.path.extension().unwrap().to_str().unwrap() == "nusktb" {
                 handle_file_overwrite(table1_idx);
                 return;
@@ -321,7 +325,7 @@ fn handle_texture_files(table1_idx: u32) {
 pub fn is_file_allowed(filepath: &Path) -> bool {
     // Check extensions
     match filepath.extension().unwrap().to_str().unwrap() {
-        "nutexb" | "eff" | "prc" | "stdat" | "stprm" | "xmb" | "arc" | "bfotf" | "bfttf" | "numdlb" | "numatb" | "numshexb" => false,
+        "nutexb" | "eff" | "prc" | "stdat" | "stprm" | "xmb" | "arc" | "bfotf" | "bfttf" | "numdlb" | "numshexb" => false,
         &_ => true,
     }
 }
