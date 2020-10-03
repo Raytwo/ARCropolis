@@ -223,7 +223,7 @@ impl FileCtx {
 
         let loaded_arc = LoadedTables::get_instance().get_arc();
 
-        let mut file_info = loaded_arc.lookup_file_information_by_t1_index(t1_index);
+        let file_info = loaded_arc.lookup_file_information_by_t1_index(t1_index);
         let file_index = loaded_arc.lookup_fileinfoindex_by_t1_index(file_info.index_index);
 
         // Redirect
@@ -235,7 +235,7 @@ impl FileCtx {
 
         // Regional
         if (file_info.flags & 0x8000) == 0x8000 {
-            let sub_idx = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index + 1 + self.get_region());
+            let sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index + 1 + self.get_region());
         }
 
         let sub_file =  loaded_arc.sub_files.offset(sub_index.sub_file_index as isize) as *mut SubFile;
