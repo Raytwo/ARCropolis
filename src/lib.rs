@@ -2,6 +2,7 @@
 #![feature(str_strip)]
 
 use std::fs;
+use std::ffi::CStr;
 use std::io::Write;
 use std::path::Path;
 
@@ -128,6 +129,20 @@ fn parse_numshexb_file(ctx: &InlineCtx) {
 fn parse_numatb_file(ctx: &InlineCtx) {
     unsafe {
         handle_file_overwrite(*ctx.registers[23].w.as_ref());
+    }
+}
+
+#[hook(offset = 0x34b8320)]
+fn change_version_string(arg1: u64, string: *const u8) {
+    unsafe {
+        let original_str = CStr::from_ptr(string as _).to_str().unwrap();
+
+        if original_str.contains("Ver.") {
+            let new_str = format!("Smash {}\nARCropolis Ver. {}\0", original_str, env!("CARGO_PKG_VERSION").to_string());
+            original!()(arg1, skyline::c_str(&new_str))
+        } else {
+            original!()(arg1, string);
+        }
     }
 }
 
@@ -349,6 +364,7 @@ pub fn main() {
         parse_numdlb_file,
         parse_numshexb_file,
         parse_numatb_file,
+        change_version_string,
     );
 
     println!(
