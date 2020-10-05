@@ -132,16 +132,23 @@ fn parse_numatb_file(ctx: &InlineCtx) {
     }
 }
 
+#[hook(offset = 0x3306004, inline)]
+fn parse_numatb_texture(ctx: &InlineCtx) {
+    unsafe {
+        handle_texture_files(*ctx.registers[25].w.as_ref());
+    }
+}
+
 #[hook(offset = 0x34b8320)]
 fn change_version_string(arg1: u64, string: *const u8) {
     unsafe {
         let original_str = CStr::from_ptr(string as _).to_str().unwrap();
-
+        
         if original_str.contains("Ver.") {
             let new_str = format!("Smash {}\nARCropolis Ver. {}\0", original_str, env!("CARGO_PKG_VERSION").to_string());
             original!()(arg1, skyline::c_str(&new_str))
         } else {
-            original!()(arg1, string);
+            original!()(arg1, string)
         }
     }
 }
@@ -285,7 +292,7 @@ fn handle_texture_files(table1_idx: u32) {
         let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
         if let Some(file_ctx) = get_from_hash!(hash) {
-            println!(
+            log!(
                 "[ARC::Loading | #{}] Hash matching for file: '{}'",
                 table1_idx.green(),
                 file_ctx.path.display().bright_yellow(),
@@ -364,6 +371,7 @@ pub fn main() {
         parse_numdlb_file,
         parse_numshexb_file,
         parse_numatb_file,
+        parse_numatb_texture,
         change_version_string,
     );
 

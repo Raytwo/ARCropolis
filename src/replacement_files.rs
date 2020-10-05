@@ -225,11 +225,11 @@ impl FileCtx {
 
         let file_info = loaded_arc.lookup_file_information_by_t1_index(t1_index);
         
-        let sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index);
+        let mut sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index);
 
         // Regional
         if (file_info.flags & 0x8000) == 0x8000 {
-            let sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index + 1 + self.get_region());
+            sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index + 1 + self.get_region());
         }
 
         let sub_file =  loaded_arc.sub_files.offset(sub_index.sub_file_index as isize) as *mut SubFile;
