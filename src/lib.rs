@@ -1,28 +1,29 @@
 #![feature(proc_macro_hygiene)]
 #![feature(str_strip)]
 
-use std::fs;
-use std::ffi::CStr;
 use std::io::Write;
+use std::ffi::CStr;
 use std::path::Path;
 
-use skyline::{hook, install_hooks};
 use skyline::hooks::InlineCtx;
-
-use skyline::nn;
+use skyline::{hook, install_hooks};
 
 mod config;
 mod hashes;
 mod stream;
 
 mod replacement_files;
+use replacement_files::FileCtx;
 
 mod offsets;
-use offsets::{ ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_OFFSET, PARSE_NUTEXB_OFFSET, PARSE_PARAM_OFFSET, PARSE_EFF_NUTEXB_OFFSET };
+use offsets::{
+    ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_NUTEXB_OFFSET, PARSE_EFF_OFFSET,
+    PARSE_NUTEXB_OFFSET, PARSE_PARAM_OFFSET,
+};
 
-use smash::resource::{FileState, LoadedTables, ResServiceState};
+use owo_colors::OwoColorize;
 
-use owo_colors::{ OwoColorize };
+use smash::resource::{FileState, LoadedTables, ResServiceState, Table2Entry};
 
 #[macro_export]
 macro_rules! log {
@@ -36,14 +37,12 @@ macro_rules! log {
 
 #[hook(offset = IDK_OFFSET)]
 unsafe fn idk(res_state: *const ResServiceState, table1_idx: u32, flag_related: u32) {
-    log!("--- [Idk] ---");
     handle_file_load(table1_idx);
     original!()(res_state, table1_idx, flag_related);
 }
 
 #[hook(offset = ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET)]
 unsafe fn add_idx_to_table1_and_table2(loaded_table: *const LoadedTables, table1_idx: u32) {
-    log!("--- [AddIdx] ---");
     handle_file_load(table1_idx);
     original!()(loaded_table, table1_idx);
 }
@@ -139,200 +138,104 @@ fn parse_numatb_texture(ctx: &InlineCtx) {
     }
 }
 
-#[hook(offset = 0x34b8320)]
-fn change_version_string(arg1: u64, string: *const u8) {
-    unsafe {
-        let original_str = CStr::from_ptr(string as _).to_str().unwrap();
-        
-        if original_str.contains("Ver.") {
-            let new_str = format!("Smash {}\nARCropolis Ver. {}\0", original_str, env!("CARGO_PKG_VERSION").to_string());
-            original!()(arg1, skyline::c_str(&new_str))
-        } else {
-            original!()(arg1, string)
-        }
-    }
-}
-
-#[skyline::from_offset(0x3643590)]
-pub fn smash_free_mayb(src: *const skyline::libc::c_void);
-
-fn handle_file_load(table1_idx: u32) {
+fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(&'a FileCtx, &'a mut Table2Entry)> {
     let loaded_tables = LoadedTables::get_instance();
-    let mutex = loaded_tables.mutex;
     let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
-    let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
 
-    let mut table2entry = match loaded_tables.get_t2_mut(table1_idx) {
+    let table2entry = match loaded_tables.get_t2_mut(table1_idx) {
         Ok(entry) => entry,
         Err(_) => {
-            return;
+            return None;
         }
     };
 
-    log!(
-        "[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}",
-        table1_idx.green(),
-        internal_filepath.bright_yellow(),
-        hash.cyan(),
-        table2entry.bright_magenta(),
-    );
+    log!("[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}", table1_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow(), hash.cyan(), table2entry.bright_magenta());
 
+    match get_from_hash!(hash) {
+        Some(file_ctx) => {
+            println!("[ARC::Loading | #{}] Hash matching for file: '{}'", table1_idx.green(), file_ctx.path.display().bright_yellow());
+            Some((file_ctx, table2entry))
+        }
+        None => None,
+    }
+}
+
+fn handle_file_load(table1_idx: u32) {
     // Println!() calls are on purpose so these show up no matter what.
-    if let Some(file_ctx) = get_from_hash!(hash) {
+    if let Some((file_ctx, table2entry)) = get_filectx_by_t1index(table1_idx) {
         // Some formats don't appreciate me replacing the data pointer
         if !is_file_allowed(&file_ctx.path) {
             return;
         }
 
-        println!(
-            "[ARC::Loading | #{}] Hash matching for file: '{}'",
-            table1_idx.green(),
-            file_ctx.path.display().bright_yellow(),
-        );
-
         if table2entry.state == FileState::Loaded {
-            if file_ctx.path.extension().unwrap().to_str().unwrap() == "bntx" {
-                handle_file_overwrite(table1_idx);
-                return;
-            }
-            if file_ctx.path.extension().unwrap().to_str().unwrap() == "numshb" {
-                handle_file_overwrite(table1_idx);
-                return;
-            }
-            if file_ctx.path.extension().unwrap().to_str().unwrap() == "nusktb" {
-                handle_file_overwrite(table1_idx);
-                return;
-            }
-            if file_ctx.path.file_name().unwrap().to_str().unwrap() == "motion_list.bin" {
-                handle_file_overwrite(table1_idx);
-                return;
+            // For files that are too dependent on timing, make sure the pointer is overwritten instead of swapped
+            match file_ctx.path.extension().unwrap().to_str().unwrap() {
+                "bntx" | "nusktb" | "bin" => {
+                    handle_file_overwrite(table1_idx);
+                    return;
+                }
+                &_ => {}
             }
         }
 
-        println!(
-            "[ARC::Replace | #{}] Replacing '{}'",
-            table1_idx.green(),
-            internal_filepath.bright_yellow(),
-        );
+        println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
-        unsafe {
-            nn::os::LockMutex(mutex);
-        }
-
-        let data = fs::read(&file_ctx.path).unwrap().into_boxed_slice();
+        let data = file_ctx.get_file_content().into_boxed_slice();
         let data = Box::leak(data);
 
         unsafe {
-            //skyline::libc::free(table2entry.data as *const skyline::libc::c_void);
-            smash_free_mayb(table2entry.data as *const skyline::libc::c_void);
+            if !table2entry.data.is_null() {
+                skyline::libc::free(table2entry.data as *const skyline::libc::c_void);
+            }
         }
 
         table2entry.data = data.as_ptr();
         table2entry.state = FileState::Loaded;
         table2entry.flags = 43;
-
-        unsafe {
-            nn::os::UnlockMutex(mutex);
-        }
     }
 }
 
 fn handle_file_overwrite(table1_idx: u32) {
-    let loaded_tables = LoadedTables::get_instance();
-    let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
-    let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
-
-    let t2_entry = match loaded_tables.get_t2_mut(table1_idx) {
-        Ok(entry) => entry,
-        Err(_) => {
-            return;
-        }
-    };
-
-    log!(
-        "[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}",
-        table1_idx.green(),
-        internal_filepath.bright_yellow(),
-        hash.cyan(),
-        t2_entry.bright_magenta(),
-    );
-
-    if let Some(file_ctx) = get_from_hash!(hash) {
-        println!(
-            "[ARC::Loading | #{}] Hash matching for file: '{}'",
-            table1_idx.green(),
-            file_ctx.path.display().bright_yellow(),
-        );
-
-        if t2_entry.state != FileState::Loaded {
+    if let Some((file_ctx, table2entry)) = get_filectx_by_t1index(table1_idx) {
+        if table2entry.state != FileState::Loaded {
             return;
         }
 
-        println!(
-            "[ARC::Replace | #{}] Replacing '{}'",
-            table1_idx.green(),
-            internal_filepath.bright_yellow(),
-        );
+        println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
-        let file = fs::read(&file_ctx.path).unwrap();
+        let file = file_ctx.get_file_content();
         let file_slice = file.as_slice();
 
         unsafe {
             let mut data_slice =
-                std::slice::from_raw_parts_mut(t2_entry.data as *mut u8, file_slice.len());
+                std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
             data_slice.write(file_slice).unwrap();
         }
     }
 }
 
 fn handle_texture_files(table1_idx: u32) {
-    unsafe {
-        let loaded_tables = LoadedTables::get_instance();
-        let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
-        let internal_filepath = hashes::get(hash).unwrap_or(&"Unknown");
+    if let Some((file_ctx, table2entry)) = get_filectx_by_t1index(table1_idx) {
+        if table2entry.state != FileState::Loaded {
+            return;
+        }
 
-        if let Some(file_ctx) = get_from_hash!(hash) {
-            log!(
-                "[ARC::Loading | #{}] Hash matching for file: '{}'",
-                table1_idx.green(),
-                file_ctx.path.display().bright_yellow(),
-            );    
+        println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
-            let table2entry = match loaded_tables.get_t2_mut(table1_idx) {
-                Ok(entry) => entry,
-                Err(_) => {
-                    return;
-                }
-            };
+        let file = file_ctx.get_file_content();
+        let file_slice = file.as_slice();
 
-            if table2entry.state != FileState::Loaded {
-                return;
-            }
+        let orig_size = file_ctx.orig_subfile.decompressed_size as usize;
 
-            println!(
-                "[ARC::Replace | #{}] Replacing '{}'",
-                table1_idx.green(),
-                internal_filepath.bright_yellow(),
-            );
-
-            let file = fs::read(&file_ctx.path).unwrap();
-            let file_slice = file.as_slice();
-
-            let orig_size = LoadedTables::get_instance()
-                .get_arc()
-                .get_subfile_by_t1_index(table1_idx)
-                .decompressed_size as usize;
-
-            let mut data_slice =
-                std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
+        unsafe {
+            let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
 
             if orig_size > file_slice.len() {
                 // Copy our new footer at the end
-                data_slice[orig_size - 0xB0..orig_size]
-                    .copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
+                data_slice[orig_size - 0xB0..orig_size].copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
                 // Copy the content at the beginning
-                data_slice[0..file_slice.len() - 0xB0]
-                    .copy_from_slice(&file_slice[0..file_slice.len() - 0xB0]);
+                data_slice[0..file_slice.len() - 0xB0].copy_from_slice(&file_slice[0..file_slice.len() - 0xB0]);
             } else {
                 data_slice.write(file_slice).unwrap();
             }
@@ -343,8 +246,26 @@ fn handle_texture_files(table1_idx: u32) {
 pub fn is_file_allowed(filepath: &Path) -> bool {
     // Check extensions
     match filepath.extension().unwrap().to_str().unwrap() {
-        "nutexb" | "eff" | "prc" | "stdat" | "stprm" | "xmb" | "arc" | "bfotf" | "bfttf" | "numdlb" | "numatb" | "numshexb" => false,
+        "nutexb" | "eff" | "prc" | "xmb" | "arc" | "bfotf" | "bfttf" | "numdlb" | "numatb" | "numshexb" => false,
         &_ => true,
+    }
+}
+
+#[hook(offset = 0x34b8320)]
+fn change_version_string(arg1: u64, string: *const u8) {
+    unsafe {
+        let original_str = CStr::from_ptr(string as _).to_str().unwrap();
+
+        if original_str.contains("Ver.") {
+            let new_str = format!(
+                "Smash {}\nARCropolis Ver. {}\0",
+                original_str,
+                env!("CARGO_PKG_VERSION").to_string()
+            );
+            original!()(arg1, skyline::c_str(&new_str))
+        } else {
+            original!()(arg1, string)
+        }
     }
 }
 

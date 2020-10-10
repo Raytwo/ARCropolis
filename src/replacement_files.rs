@@ -1,28 +1,25 @@
-use std::{ fs, io, slice};
+use std::{fs, io, slice};
 use std::fs::DirEntry;
-use std::sync::RwLock;
 use std::path::PathBuf;
 use std::collections::HashMap;
+
 use skyline::nn;
 
 use crate::config::CONFIG;
 
+use owo_colors::OwoColorize;
+
 use smash::hash40;
-use smash::resource::{ResServiceState, LoadedTables, SubFile};
-
-use owo_colors::{ OwoColorize };
-use rayon::iter::{ ParallelIterator, ParallelBridge, IntoParallelRefIterator, IndexedParallelIterator };
-
-// use notify::{ Watcher, RecursiveMode, watcher };
-// use std::sync::mpsc::channel;
-// use std::time::Duration;
+use smash::resource::{LoadedTables, ResServiceState, SubFile};
+// use rayon::iter::{ IndexedParallelIterator, IntoParallelRefIterator, ParallelBridge, ParallelIterator };
 
 lazy_static::lazy_static! {
     pub static ref ARC_FILES: ArcFiles = ArcFiles::new();
 }
 
-pub struct ArcFiles(pub RwLock<HashMap<u64, FileCtx>>);
+pub struct ArcFiles(pub HashMap<u64, FileCtx>);
 
+#[derive(Debug, Clone)]
 pub struct FileCtx {
     pub path: PathBuf,
     pub hash: u64,
@@ -33,24 +30,13 @@ pub struct FileCtx {
 #[macro_export]
 macro_rules! get_from_hash {
     ($hash:expr) => {
-        $crate::replacement_files::ARC_FILES.0.read().unwrap().get(&($hash))
+        $crate::replacement_files::ARC_FILES.0.get(&($hash))
     };
 }
 
 impl ArcFiles {
     fn new() -> Self {
-        // let (tx, rx) = channel();
-        // let mut watcher = watcher(tx, Duration::from_secs(2)).unwrap();
-        // watcher.watch(&PathBuf::from(&CONFIG.paths.arc), RecursiveMode::Recursive).unwrap();
-
-        // loop {
-        //     match rx.recv() {
-        //        Ok(event) => println!("{:?}", event),
-        //        Err(e) => println!("watch error: {:?}", e),
-        //     }
-        // }
-
-        let mut instance = Self(RwLock::new(HashMap::new()));
+        let mut instance = Self(HashMap::new());
 
         unsafe {
             nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
@@ -71,11 +57,11 @@ impl ArcFiles {
 
             // Skip any directory starting with a period
             if entry.file_name().to_str().unwrap().starts_with(".") {
-                continue
+                continue;
             }
 
             let path = PathBuf::from(&format!("{}/{}", dir.display(), entry.path().display()));
-            
+
             if path.is_dir() {
                 self.visit_dir(&path, path.to_str().unwrap().len())?;
             }
@@ -84,8 +70,9 @@ impl ArcFiles {
         Ok(())
     }
 
-    fn visit_dir(&self, dir: &PathBuf, arc_dir_len: usize) -> io::Result<()> {
-        fs::read_dir(dir)?.par_bridge().map(|entry| {
+    fn visit_dir(&mut self, dir: &PathBuf, arc_dir_len: usize) -> io::Result<()> {
+        fs::read_dir(dir)?
+            .map(|entry| {
                 let entry = entry?;
                 let path = PathBuf::from(&format!("{}/{}", dir.display(), entry.path().display()));
 
@@ -95,12 +82,12 @@ impl ArcFiles {
                     if let Some(_) = path.extension() {
                         match self.visit_file(&entry, &path, arc_dir_len) {
                             Ok(file_ctx) => {
-                                self.0.write().unwrap().insert(file_ctx.hash, file_ctx);
+                                self.0.insert(file_ctx.hash, file_ctx);
                                 return Ok(());
-                            },
+                            }
                             Err(err) => {
                                 println!("{}", err);
-                                return Ok(())
+                                return Ok(());
                             }
                         }
                     }
@@ -110,21 +97,27 @@ impl ArcFiles {
                 } else {
                     match self.visit_file(&entry, &path, arc_dir_len) {
                         Ok(file_ctx) => {
-                            self.0.write().unwrap().insert(file_ctx.hash, file_ctx);
+                            self.0.insert(file_ctx.hash, file_ctx);
                             return Ok(());
-                        },
+                        }
                         Err(err) => {
                             println!("{}", err);
-                            return Ok(())
+                            return Ok(());
                         }
                     }
                 }
 
                 Ok(())
-            }).collect()
+            })
+            .collect()
     }
 
-    fn visit_file(&self, entry: &DirEntry, full_path: &PathBuf, arc_dir_len: usize) -> Result<FileCtx, String> {
+    fn visit_file(
+        &self,
+        entry: &DirEntry,
+        full_path: &PathBuf,
+        arc_dir_len: usize,
+    ) -> Result<FileCtx, String> {
         // Skip any file starting with a period, to avoid any error related to path.extension()
         if entry.file_name().to_str().unwrap().starts_with(".") {
             return Err(format!("[ARC::Discovery] File '{}' starts with a period, skipping", full_path.display().bright_yellow()));
@@ -195,7 +188,7 @@ impl FileCtx {
             let region = self.path.file_name().unwrap().to_str().unwrap().to_string();
             // Check if the filepath it contains a + symbol
             if let Some(region_marker) = region.find('+') {
-                match &region[region_marker+1..region_marker+6] {
+                match &region[region_marker + 1..region_marker + 6] {
                     "jp_ja" => region_index = 0,
                     "us_en" => region_index = 1,
                     "us_fr" => region_index = 2,
@@ -219,22 +212,32 @@ impl FileCtx {
     }
 
     pub fn get_subfile(&self, t1_index: u32) -> &mut SubFile {
-        unsafe {
-
         let loaded_arc = LoadedTables::get_instance().get_arc();
 
-        let file_info = loaded_arc.lookup_file_information_by_t1_index(t1_index);
-        
+        let mut file_info = loaded_arc.lookup_file_information_by_t1_index(t1_index);
+        let file_index = loaded_arc.lookup_fileinfoindex_by_t1_index(t1_index);
+
+        // TODO: Make a constant for Redirect
+        if (file_info.flags & 0x00000010) == 0x10 {
+            file_info = loaded_arc.lookup_file_information_by_t1_index(file_index.file_info_index);
+        }
+
         let mut sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index);
 
-        // Regional
-        if (file_info.flags & 0x8000) == 0x8000 {
+        // TODO: Make a constant for Regional
+        if (file_info.flags & 0x00008000) == 0x8000 {
             sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index + 1 + self.get_region());
         }
 
-        let sub_file =  loaded_arc.sub_files.offset(sub_index.sub_file_index as isize) as *mut SubFile;
-        &mut *sub_file
+        unsafe {
+            let sub_file = loaded_arc.sub_files.offset(sub_index.sub_file_index as isize) as *mut SubFile;
+            &mut *sub_file
         }
+    }
+
+    pub fn get_file_content(&self) -> Vec<u8> {
+        // TODO: Add error handling in case the user deleted the file while running
+        fs::read(&self.path).unwrap()
     }
 
     pub fn filesize_replacement(&mut self) {
@@ -245,64 +248,39 @@ impl FileCtx {
             None => {
                 println!("[ARC::Patching] File '{}' does not have an extension, skipping", self.path.display().bright_yellow());
                 return;
-            },
+            }
         };
 
-        // Some formats don't appreciate me messing with their filesize
-        match extension {
-            "bntx" | "nutexb" | "eff" | "numshexb" | "arc" | "prc" | "bin" | "bfotf" | "bfttf" | "numdlb" | "numatb" | "nusktb" | "nuanmb" | "xmb" | "shpcanim" => {}
-            &_ => return,
-        }
-
         unsafe {
-            let hashindexgroup_slice = slice::from_raw_parts(
-                loaded_tables.get_arc().file_info_path,
-                (*loaded_tables).table1_len as usize,
-            );
+            let hashindexgroup_slice = slice::from_raw_parts(loaded_tables.get_arc().file_info_path,(*loaded_tables).table1_len as usize);
 
-            let t1_index = match hashindexgroup_slice
-                .iter()
-                .position(|x| x.path.hash40.as_u64() == self.hash)
+            // TODO: Figure out why bsearch does not work
+            let t1_index = match hashindexgroup_slice.iter().position(|x| x.path.hash40.as_u64() == self.hash)
             {
                 Some(index) => index as u32,
                 None => {
-                    println!(
-                        "[ARC::Patching] File '{}' does not have a hash found in table1, skipping",
-                        self.path.display().bright_yellow()
-                    );
+                    println!("[ARC::Patching] File '{}' does not have a hash found in table1, skipping",self.path.display().bright_yellow());
                     return;
                 }
             };
 
+            // Backup the Subfile for when file watching is added
             self.orig_subfile = self.get_subfile(t1_index).clone();
 
             let mut subfile = self.get_subfile(t1_index);
 
-            println!(
-                "[ARC::Patching] File '{}', decomp size: {:x}",
-                self.path.display().bright_yellow(),
-                subfile.decompressed_size.cyan(),
-            );
+            println!("[ARC::Patching] File '{}', decomp size: {:x}",self.path.display().bright_yellow(),subfile.decompressed_size.cyan());
 
             if (subfile.decompressed_size < self.filesize) && extension == "nutexb" {
-                // Is compressed?
+                // Is compressed? Is this still needed?
                 if (subfile.flags & 0x3) == 3 {
                     subfile.decompressed_size = self.filesize;
-
-                    println!(
-                        "[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",
-                        self.path.display().bright_yellow(),
-                        subfile.decompressed_size.bright_red(),
-                    );
+                    println!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decompressed_size.bright_red());
                 }
             } else {
                 if subfile.decompressed_size < self.filesize {
                     subfile.decompressed_size = self.filesize;
-                    println!(
-                        "[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",
-                        self.path.display().bright_yellow(),
-                        subfile.decompressed_size.bright_red(),
-                    );
+                    println!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decompressed_size.bright_red());
                 }
             }
         }

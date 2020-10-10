@@ -8,7 +8,7 @@ pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x324f7a0;
 pub static mut PARSE_NUTEXB_OFFSET: usize = 0x330615c;
 pub static mut PARSE_EFF_OFFSET: usize = 0x3278984;
 pub static mut PARSE_PARAM_OFFSET: usize = 0x3436890;
-pub static mut PARSE_EFF_NUTEXB_OFFSET:usize = 0x3278f20;
+pub static mut PARSE_EFF_NUTEXB_OFFSET: usize = 0x3278f20;
 
 static IDK_SEARCH_CODE: &[u8] = &[
     0xf8, 0x5f, 0xbc, 0xa9, 0xf6, 0x57, 0x01, 0xa9, 0xf4, 0x4f, 0x02, 0xa9, 0xfd, 0x7b, 0x03, 0xa9,
