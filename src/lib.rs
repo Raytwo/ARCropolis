@@ -18,7 +18,7 @@ use replacement_files::FileCtx;
 mod offsets;
 use offsets::{
     ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_NUTEXB_OFFSET, PARSE_EFF_OFFSET,
-    PARSE_NUTEXB_OFFSET, PARSE_PARAM_OFFSET,
+    PARSE_NUTEXB_OFFSET, PARSE_PARAM_OFFSET, PARSE_MODEL_XMB_OFFSET
 };
 
 use owo_colors::OwoColorize;
@@ -47,20 +47,6 @@ unsafe fn add_idx_to_table1_and_table2(loaded_table: *const LoadedTables, table1
     original!()(loaded_table, table1_idx);
 }
 
-#[hook(offset = PARSE_NUTEXB_OFFSET, inline)]
-fn parse_fighter_nutexb(ctx: &InlineCtx) {
-    unsafe {
-        handle_texture_files(*ctx.registers[25].w.as_ref());
-    }
-}
-
-#[hook(offset = PARSE_EFF_NUTEXB_OFFSET, inline)]
-fn parse_eff_nutexb(ctx: &InlineCtx) {
-    unsafe {
-        handle_texture_files(*ctx.registers[24].w.as_ref());
-    }
-}
-
 #[hook(offset = PARSE_EFF_OFFSET, inline)]
 fn parse_eff(ctx: &InlineCtx) {
     unsafe {
@@ -75,7 +61,7 @@ fn parse_param_file(ctx: &InlineCtx) {
     }
 }
 
-#[hook(offset = 0x32f89a8, inline)]
+#[hook(offset = PARSE_MODEL_XMB_OFFSET, inline)]
 fn parse_model_xmb(ctx: &InlineCtx) {
     unsafe {
         handle_file_overwrite(*ctx.registers[22].w.as_ref());
@@ -128,6 +114,20 @@ fn parse_numshexb_file(ctx: &InlineCtx) {
 fn parse_numatb_file(ctx: &InlineCtx) {
     unsafe {
         handle_file_overwrite(*ctx.registers[23].w.as_ref());
+    }
+}
+
+#[hook(offset = PARSE_NUTEXB_OFFSET, inline)]
+fn parse_fighter_nutexb(ctx: &InlineCtx) {
+    unsafe {
+        handle_texture_files(*ctx.registers[25].w.as_ref());
+    }
+}
+
+#[hook(offset = PARSE_EFF_NUTEXB_OFFSET, inline)]
+fn parse_eff_nutexb(ctx: &InlineCtx) {
+    unsafe {
+        handle_texture_files(*ctx.registers[24].w.as_ref());
     }
 }
 

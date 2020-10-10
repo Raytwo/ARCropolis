@@ -1,14 +1,15 @@
 use skyline::hooks::{getRegionAddress, Region};
 
 // default 8.0.0 offsets
-pub static mut IDK_OFFSET: usize = 0x32545a0;
-pub static mut ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET: usize = 0x324e9f0;
 pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x324f7a0;
 // default 8.1.0 offsets
-pub static mut PARSE_NUTEXB_OFFSET: usize = 0x330615c;
-pub static mut PARSE_EFF_OFFSET: usize = 0x3278984;
-pub static mut PARSE_PARAM_OFFSET: usize = 0x3436890;
-pub static mut PARSE_EFF_NUTEXB_OFFSET: usize = 0x3278f20;
+pub static mut IDK_OFFSET: usize = 0x325dcc0;
+pub static mut ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET: usize = 0x3258110;
+pub static mut PARSE_NUTEXB_OFFSET: usize = 0x3306004;
+pub static mut PARSE_EFF_OFFSET: usize = 0x32789e0;
+pub static mut PARSE_EFF_NUTEXB_OFFSET: usize = 0x3278e60;
+pub static mut PARSE_PARAM_OFFSET: usize = 0x3436884;
+pub static mut PARSE_MODEL_XMB_OFFSET:usize = 0x32f89a8;
 
 static IDK_SEARCH_CODE: &[u8] = &[
     0xf8, 0x5f, 0xbc, 0xa9, 0xf6, 0x57, 0x01, 0xa9, 0xf4, 0x4f, 0x02, 0xa9, 0xfd, 0x7b, 0x03, 0xa9,
@@ -30,19 +31,24 @@ static PARSE_NUTEXB_SEARCH_CODE: &[u8] = &[
     0xe9, 0x07, 0x40, 0xf9, 0xf3, 0x03, 0x00, 0xaa,
 ];
 
-static PARSE_EFF_NUTEXB_SEARCH_CODE: &[u8] = &[
-    0xf4, 0xac, 0x09, 0x94, 0xc0, 0x21, 0x00, 0xb4, 0xe8, 0x3f, 0x00, 0x32, 0xe8, 0x63, 0x00, 0xb9,
-    0xe8, 0x2f, 0x40, 0xf9, 0x1f, 0xfd, 0x03, 0xa9,
+static PARSE_EFF_SEARCH_CODE: &[u8] = &[
+    0x0b, 0x01, 0x40, 0xf9, 0x02, 0x00, 0x00, 0x14, 0xeb, 0x03, 0x1f, 0xaa, 0x08, 0x15, 0x80, 0x52,
+    0x08, 0x57, 0x08, 0x9b, 0x09, 0x02, 0x90, 0x52, 0x29, 0x00, 0xa0, 0x72,
 ];
 
-static PARSE_EFF_SEARCH_CODE: &[u8] = &[
-    0x09, 0x19, 0x40, 0xb9, 0x3f, 0x01, 0x0a, 0x6b, 0xfb, 0x03, 0x16, 0xaa, 0xc9, 0x02, 0x00, 0x54,
-    0x09, 0x05, 0x40, 0xf9, 0x2b, 0x0d, 0x0a, 0x8b,
+static PARSE_EFF_NUTEXB_SEARCH_CODE: &[u8] = &[
+    0x1a, 0x01, 0x40, 0xf9, 0x02, 0x00, 0x00, 0x14, 0xfa, 0x03, 0x1f, 0xaa, 0x68, 0xe3, 0x00, 0x90,
+    0x08, 0x11, 0x41, 0xf9, 0xbf, 0x83, 0x14, 0xf8, 0xbf, 0x7f, 0x35, 0xa9, 0x09, 0x3d, 0x40, 0xf9, 
 ];
 
 static PARSE_PARAM_SEARCH_CODE: &[u8] = &[
-    0x68, 0xa6, 0x01, 0xa9, 0x0a, 0x09, 0x80, 0xb9, 0x29, 0x01, 0x0a, 0x8b, 0x69, 0x16, 0x00, 0xf9,
-    0x08, 0x0d, 0x80, 0xb9, 0x28, 0x01, 0x08, 0x8b,
+    0x28, 0x01, 0x40, 0xf9, 0x28, 0x03, 0x00, 0xb4, 0x09, 0x41, 0x00, 0x91, 0x68, 0xa6, 0x01, 0xa9,
+    0x0a, 0x09, 0x80, 0xb9, 0x29, 0x01, 0x0a, 0x8b, 0x69, 0x16, 0x00, 0xf9, 0x08, 0x0d, 0x80, 0xb9,
+];
+
+static PARSE_MODEL_XMB_SEARCH_CODE: &[u8] = &[
+    0x01, 0x01, 0x40, 0xf9, 0x03, 0x00, 0x00, 0x14, 0xf7, 0x17, 0x40, 0xf9, 0xe1, 0x03, 0x1f, 0xaa,
+    0xe0, 0x22, 0x42, 0xf9, 0xcd, 0x07, 0x00, 0x94, 0xe8, 0x46, 0x42, 0xf9, 0x08, 0x01, 0x40, 0xf9,
 ];
 
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -51,54 +57,40 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .position(|window| window == needle)
 }
 
+macro_rules! find_offsets {
+    (
+        $(
+            ($out_variable:expr, $search_pattern:expr)
+        ),*
+        $(,)?
+    ) => {
+        $(
+            unsafe {
+                let text_ptr = getRegionAddress(Region::Text) as *const u8;
+                let text_size = (getRegionAddress(Region::Rodata) as usize) - (text_ptr as usize);
+                let text = std::slice::from_raw_parts(text_ptr, text_size);
+
+                if let Some(offset) = find_subsequence(text, $search_pattern) {
+                    $out_variable = offset
+                } else {
+                    println!("Error: no offset found for '{}'. Defaulting to 8.0.0 offset. This most likely won't work.", stringify!($out_variable));
+                }
+            }
+        )*
+    };
+}
+
 pub fn search_offsets() {
-    unsafe {
-        let text_ptr = getRegionAddress(Region::Text) as *const u8;
-        let text_size = (getRegionAddress(Region::Rodata) as usize) - (text_ptr as usize);
-        let text = std::slice::from_raw_parts(text_ptr, text_size);
-
-        if let Some(offset) = find_subsequence(text, IDK_SEARCH_CODE) {
-            IDK_OFFSET = offset
-        } else {
-            println!("Error: no offset found for function 'idk'. Defaulting to 8.0.0 offset. This likely won't work.");
-        }
-
-        if let Some(offset) = find_subsequence(text, ADD_IDX_TO_TABLE1_AND_TABLE2_SEARCH_CODE) {
-            ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET = offset
-        } else {
-            println!("Error: no offset found for function 'add_idx_to_table1_and_table2'. Defaulting to 8.0.0 offset. This likely won't work.");
-        }
-
-        if let Some(offset) = find_subsequence(text, LOOKUP_STREAM_HASH_SEARCH_CODE) {
-            LOOKUP_STREAM_HASH_OFFSET = offset
-        } else {
-            println!("Error: no offset found for function 'add_idx_to_table1_and_table2'. Defaulting to 8.0.0 offset. This likely won't work.");
-        }
-
-        if let Some(offset) = find_subsequence(text, PARSE_NUTEXB_SEARCH_CODE) {
-            PARSE_NUTEXB_OFFSET = offset - 8
-        } else {
-            println!("Error: no offset found for function 'parse_fighter_nutexb'. Defaulting to 8.1.0 offset. This likely won't work.");
-        }
-
-        if let Some(offset) = find_subsequence(text, PARSE_EFF_NUTEXB_SEARCH_CODE) {
-            PARSE_EFF_NUTEXB_OFFSET = offset
-        } else {
-            println!("Error: no offset found for function 'parse_fighter_nutexb'. Defaulting to 8.1.0 offset. This likely won't work.");
-        }
-
-        if let Some(offset) = find_subsequence(text, PARSE_EFF_SEARCH_CODE) {
-            PARSE_EFF_OFFSET = offset
-        } else {
-            println!("Error: no offset found for function 'parse_eff'. Defaulting to 8.1.0 offset. This likely won't work.");
-        }
-
-        if let Some(offset) = find_subsequence(text, PARSE_PARAM_SEARCH_CODE) {
-            PARSE_PARAM_OFFSET = offset
-        } else {
-            println!("Error: no offset found for function 'parse_param_file'. Defaulting to 8.1.0 offset. This likely won't work.");
-        }
-    }
+        find_offsets!(
+            (IDK_OFFSET, IDK_SEARCH_CODE),
+            (ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, ADD_IDX_TO_TABLE1_AND_TABLE2_SEARCH_CODE),
+            (LOOKUP_STREAM_HASH_OFFSET, LOOKUP_STREAM_HASH_SEARCH_CODE),
+            (PARSE_NUTEXB_OFFSET, PARSE_NUTEXB_SEARCH_CODE),
+            (PARSE_EFF_NUTEXB_OFFSET, PARSE_EFF_NUTEXB_SEARCH_CODE),
+            (PARSE_EFF_OFFSET, PARSE_EFF_SEARCH_CODE),
+            (PARSE_PARAM_OFFSET, PARSE_PARAM_SEARCH_CODE),
+            (PARSE_MODEL_XMB_OFFSET, PARSE_MODEL_XMB_SEARCH_CODE)
+        );
 }
 
 // #[allow(dead_code)]
