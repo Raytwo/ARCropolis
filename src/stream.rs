@@ -8,9 +8,9 @@ use std::{fs, io, ptr};
 use skyline::hook;
 use skyline::libc::{c_char, c_void};
 
+use crate::get_from_hash;
 use crate::log;
-use crate::patching::LOOKUP_STREAM_HASH_OFFSET;
-use crate::replacement_files::ARC_FILES;
+use crate::offsets::LOOKUP_STREAM_HASH_OFFSET;
 
 pub fn random_media_select(directory: &str) -> io::Result<String> {
     let mut rng = rand::thread_rng();
@@ -47,13 +47,13 @@ fn lookup_by_stream_hash(
     offset_out: *mut u64,
     hash: u64,
 ) {
-    if let Some(path) = ARC_FILES.0.get(&hash) {
+    if let Some(file_ctx) = get_from_hash!(hash) {
         let file;
         let metadata;
         let size;
         let random_selection;
 
-        let directory = path.display().to_string();
+        let directory = file_ctx.path.display().to_string();
 
         if Path::new(&directory).is_dir() {
             match random_media_select(&directory) {
@@ -69,7 +69,8 @@ fn lookup_by_stream_hash(
             metadata = file.metadata().unwrap();
             size = metadata.len() as u64;
         } else {
-            random_selection = path
+            random_selection = file_ctx
+                .path
                 .to_str()
                 .expect("Paths must be valid unicode")
                 .to_string();
