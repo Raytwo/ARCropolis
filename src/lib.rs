@@ -18,7 +18,9 @@ use replacement_files::FileCtx;
 mod offsets;
 use offsets::{
     ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_NUTEXB_OFFSET, PARSE_EFF_OFFSET,
-    PARSE_NUTEXB_OFFSET, PARSE_PARAM_OFFSET, PARSE_MODEL_XMB_OFFSET
+    PARSE_NUTEXB_OFFSET, PARSE_PARAM_OFFSET, PARSE_MODEL_XMB_OFFSET, PARSE_ARC_FILE_OFFSET, PARSE_FONT_FILE_OFFSET,
+    PARSE_NUMATB_NUTEXB_OFFSET, PARSE_NUMSHEXB_FILE_OFFSET, PARSE_NUMATB_FILE_OFFSET, PARSE_NUMDLB_FILE_OFFSET,
+    PARSE_LOG_XMB_OFFSET, PARSE_MODEL_XMB_2_OFFSET,
 };
 
 use owo_colors::OwoColorize;
@@ -68,49 +70,49 @@ fn parse_model_xmb(ctx: &InlineCtx) {
     }
 }
 
-#[hook(offset = 0x3304bc4, inline)]
+#[hook(offset = PARSE_MODEL_XMB_2_OFFSET, inline)]
 fn parse_model_xmb2(ctx: &InlineCtx) {
     unsafe {
         handle_file_overwrite(*ctx.registers[22].w.as_ref());
     }
 }
 
-#[hook(offset = 0x32f8a74, inline)]
+#[hook(offset = PARSE_LOG_XMB_OFFSET, inline)]
 fn parse_log_xmb(ctx: &InlineCtx) {
     unsafe {
         handle_file_overwrite(*ctx.registers[19].w.as_ref());
     }
 }
 
-#[hook(offset = 0x3016524, inline)]
+#[hook(offset = PARSE_ARC_FILE_OFFSET, inline)]
 fn parse_arc_file(ctx: &InlineCtx) {
     unsafe {
         handle_file_overwrite(*ctx.registers[8].w.as_ref());
     }
 }
 
-#[hook(offset = 0x3476808, inline)]
+#[hook(offset = PARSE_FONT_FILE_OFFSET, inline)]
 fn parse_font_file(ctx: &InlineCtx) {
     unsafe {
         handle_file_overwrite(*((*ctx.registers[19].x.as_ref()) as *const u32));
     }
 }
 
-#[hook(offset = 0x32da328, inline)]
+#[hook(offset = PARSE_NUMDLB_FILE_OFFSET, inline)]
 fn parse_numdlb_file(ctx: &InlineCtx) {
     unsafe {
         handle_file_overwrite(*ctx.registers[1].w.as_ref());
     }
 }
 
-#[hook(offset = 0x32e18c4, inline)]
+#[hook(offset = PARSE_NUMSHEXB_FILE_OFFSET, inline)]
 fn parse_numshexb_file(ctx: &InlineCtx) {
     unsafe {
         handle_file_overwrite(*ctx.registers[25].w.as_ref());
     }
 }
 
-#[hook(offset = 0x330559c, inline)]
+#[hook(offset = PARSE_NUMATB_FILE_OFFSET, inline)]
 fn parse_numatb_file(ctx: &InlineCtx) {
     unsafe {
         handle_file_overwrite(*ctx.registers[23].w.as_ref());
@@ -131,8 +133,8 @@ fn parse_eff_nutexb(ctx: &InlineCtx) {
     }
 }
 
-#[hook(offset = 0x3306004, inline)]
-fn parse_numatb_texture(ctx: &InlineCtx) {
+#[hook(offset = PARSE_NUMATB_NUTEXB_OFFSET, inline)]
+fn parse_numatb_nutexb(ctx: &InlineCtx) {
     unsafe {
         handle_texture_files(*ctx.registers[25].w.as_ref());
     }
@@ -292,7 +294,7 @@ pub fn main() {
         parse_numdlb_file,
         parse_numshexb_file,
         parse_numatb_file,
-        parse_numatb_texture,
+        parse_numatb_nutexb,
         change_version_string,
     );
 
