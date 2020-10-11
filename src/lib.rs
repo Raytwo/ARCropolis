@@ -228,7 +228,7 @@ fn handle_texture_files(table1_idx: u32) {
         let file = file_ctx.get_file_content();
         let file_slice = file.as_slice();
 
-        let orig_size = file_ctx.orig_subfile.decompressed_size as usize;
+        let orig_size = file_ctx.get_subfile(table1_idx).decompressed_size as usize;
 
         unsafe {
             let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
