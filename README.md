@@ -4,7 +4,7 @@ A Skyline plugin for replacing arbitrary files in Smash Ultimate with files of a
 
 
 **Warning:** 
-* Crashes might sometimes occur after a match, but not for everyone. The cause has not been figured out yet.
+* Crashes might sometimes occur after a match, but not for everyone. The cause has been narrowed down to numshb files.
 
 ### Installation
 
