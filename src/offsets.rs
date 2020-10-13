@@ -18,6 +18,7 @@ pub static mut PARSE_NUMATB_FILE_OFFSET:usize = 0x330559c;
 pub static mut PARSE_NUMDLB_FILE_OFFSET:usize = 0x32da328;
 pub static mut PARSE_LOG_XMB_OFFSET:usize = 0x32f8a74;
 pub static mut PARSE_MODEL_XMB_2_OFFSET:usize = 0x3304bc4;
+pub static mut TITLE_SCREEN_VERSION_OFFSET:usize = 0x34b8327;
 
 static IDK_SEARCH_CODE: &[u8] = &[
     0xf8, 0x5f, 0xbc, 0xa9, 0xf6, 0x57, 0x01, 0xa9, 0xf4, 0x4f, 0x02, 0xa9, 0xfd, 0x7b, 0x03, 0xa9,
@@ -99,6 +100,11 @@ static PARSE_NUMDLB_FILE_SEARCH_CODE: &[u8] = &[
     0xfd, 0x43, 0x00, 0x91, 0xf3, 0x03, 0x00, 0xaa, 0x50, 0xf3, 0x0f, 0x94,
 ];
 
+static TITLE_SCREEN_VERSION_SEARCH_CODE: &[u8] = &[
+    0xfc, 0x0f, 0x1d, 0xf8, 0xf4, 0x4f, 0x01, 0xa9, 0xfd, 0x7b, 0x02, 0xa9, 0xfd, 0x83, 0x00, 0x91,
+    0xff, 0x07, 0x40, 0xd1, 0xf4, 0x03, 0x01, 0xaa, 0xf3, 0x03, 0x00, 0xaa,
+];
+
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
@@ -146,6 +152,7 @@ pub fn search_offsets() {
             (PARSE_NUMDLB_FILE_OFFSET, PARSE_NUMDLB_FILE_SEARCH_CODE),
             (PARSE_LOG_XMB_OFFSET, PARSE_LOG_XMB_SEARCH_CODE),
             (PARSE_MODEL_XMB_2_OFFSET, PARSE_MODEL_XMB_2_SEARCH_CODE),
+            (TITLE_SCREEN_VERSION_OFFSET, TITLE_SCREEN_VERSION_SEARCH_CODE),
         );
 }
 
