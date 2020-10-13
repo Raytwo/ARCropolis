@@ -183,8 +183,30 @@ fn handle_file_load(table1_idx: u32) {
 
         println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
-        let data = file_ctx.get_file_content().into_boxed_slice();
-        let data = Box::leak(data);
+        let hash = file_ctx.hash;
+
+        let orig_size = file_ctx.get_subfile(table1_idx).decompressed_size as usize;
+
+        let file = vec![0;orig_size];
+        let mut file_slice = file.into_boxed_slice();
+
+        let cb_result = match ARC_CALLBACKS.read().get(&hash) {
+            Some(cb) => {
+                cb(hash, file_slice.as_mut_ptr() as *mut skyline::libc::c_void, orig_size)
+            },
+            None => false,
+        };
+
+        if !cb_result {
+            if !file_ctx.virtual_file {
+                file_slice = file_ctx.get_file_content().into_boxed_slice();
+            } else {
+                // The file does not actually exist on the SD, so we abort here
+                return;
+            }
+        }
+
+        let data = Box::leak(file_slice);
 
         unsafe {
             if !table2entry.data.is_null() {
@@ -220,7 +242,7 @@ fn handle_file_overwrite(table1_idx: u32) {
 
         if !cb_result {
             if !file_ctx.virtual_file {
-                file_slice.copy_from_slice(file_ctx.get_file_content().as_slice());
+                file_slice = file_ctx.get_file_content().into_boxed_slice();
             } else {
                 // The file does not actually exist on the SD, so we abort here
                 return;
@@ -307,12 +329,6 @@ fn change_version_string(arg1: u64, string: *const u8) {
             original!()(arg1, string)
         }
     }
-}
-
-
-pub extern "C" fn callback_test(hash: u64, buffer: *const skyline::libc::c_void, buffer_size: usize) -> bool {
-    println!("Callback is being hit");
-    false
 }
 
 #[skyline::main(name = "arcropolis")]
