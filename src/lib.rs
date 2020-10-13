@@ -153,13 +153,12 @@ fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(parking_lot::MappedRwL
 
     log!("[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}", table1_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow(), hash.cyan(), table2entry.bright_magenta());
 
-    let file_ctx = get_from_hash!(hash);
-    if file_ctx.is_some() {
-        let file_ctx = parking_lot::MappedRwLockReadGuard::map(file_ctx, |x| x.unwrap());
-        println!("[ARC::Loading | #{}] Hash matching for file: '{}'", table1_idx.green(), file_ctx.path.display().bright_yellow());
-        Some((file_ctx, table2entry))
-    } else {
-        None
+    match get_from_hash!(hash) {
+        Ok(file_ctx) => {
+            println!("[ARC::Loading | #{}] Hash matching for file: '{}'", table1_idx.green(), file_ctx.path.display().bright_yellow());
+            Some((file_ctx, table2entry))
+        }
+        Err(_) => None,
     }
 }
 

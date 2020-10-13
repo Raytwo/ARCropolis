@@ -51,7 +51,10 @@ pub struct FileCtx {
 #[macro_export]
 macro_rules! get_from_hash {
     ($hash:expr) => {
-        parking_lot::RwLockReadGuard::map($crate::replacement_files::ARC_FILES.read(), |x| &x.0.get(&($hash)))
+        parking_lot::RwLockReadGuard::try_map(
+            $crate::replacement_files::ARC_FILES.read(),
+            |x| x.get($hash)
+        )
     };
 }
 
@@ -69,6 +72,10 @@ impl ArcFiles {
         }
 
         instance
+    }
+
+    pub fn get(&self, hash: u64) -> Option<&FileCtx> {
+        self.0.get(&hash)
     }
 
     fn insert(&mut self, hash: u64, ctx: FileCtx) {
