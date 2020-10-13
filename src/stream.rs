@@ -47,7 +47,7 @@ fn lookup_by_stream_hash(
     offset_out: *mut u64,
     hash: u64,
 ) {
-    if let Some(file_ctx) = get_from_hash!(hash) {
+    if let Ok(file_ctx) = get_from_hash!(hash) {
         let file;
         let metadata;
         let size;

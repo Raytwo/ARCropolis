@@ -13,8 +13,28 @@ use smash::hash40;
 use smash::resource::{LoadedTables, ResServiceState, SubFile};
 // use rayon::iter::{ IndexedParallelIterator, IntoParallelRefIterator, ParallelBridge, ParallelIterator };
 
+type ArcCallback = extern "C" fn(u64, *const skyline::libc::c_void, usize) -> bool;
+
 lazy_static::lazy_static! {
-    pub static ref ARC_FILES: ArcFiles = ArcFiles::new();
+    pub static ref ARC_FILES: parking_lot::RwLock<ArcFiles> = parking_lot::RwLock::new(ArcFiles::new());
+    pub static ref ARC_CALLBACKS: parking_lot::RwLock<HashMap<u64, ArcCallback>>  = parking_lot::RwLock::new(HashMap::new());
+}
+
+#[no_mangle]
+pub extern "C" fn subscribe_callback(hash: u64, callback: ArcCallback) {
+    ARC_CALLBACKS.write().insert(hash, callback);
+}
+
+#[no_mangle]
+pub extern "C" fn subscribe_callback_with_size(hash: u64, filesize: u32, callback: ArcCallback) {
+    let mut file_ctx = FileCtx {
+        hash, filesize, virtual_file:true,
+        .. FileCtx::new()
+    };
+
+    file_ctx.filesize_replacement();
+    ARC_FILES.write().insert(hash, file_ctx);
+    ARC_CALLBACKS.write().insert(hash, callback);
 }
 
 pub struct ArcFiles(pub HashMap<u64, FileCtx>);
@@ -24,13 +44,17 @@ pub struct FileCtx {
     pub path: PathBuf,
     pub hash: u64,
     pub filesize: u32,
+    pub virtual_file: bool,
     pub orig_subfile: SubFile,
 }
 
 #[macro_export]
 macro_rules! get_from_hash {
     ($hash:expr) => {
-        $crate::replacement_files::ARC_FILES.0.get(&($hash))
+        parking_lot::RwLockReadGuard::try_map(
+            $crate::replacement_files::ARC_FILES.read(),
+            |x| x.get($hash)
+        )
     };
 }
 
@@ -48,6 +72,14 @@ impl ArcFiles {
         }
 
         instance
+    }
+
+    pub fn get(&self, hash: u64) -> Option<&FileCtx> {
+        self.0.get(&hash)
+    }
+
+    fn insert(&mut self, hash: u64, ctx: FileCtx) {
+        self.0.insert(hash, ctx);
     }
 
     /// Visit Ultimate Mod Manager directories for backwards compatibility
@@ -169,6 +201,7 @@ impl FileCtx {
             path: PathBuf::new(),
             hash: 0,
             filesize: 0,
+            virtual_file: false,
             orig_subfile: SubFile {
                 offset: 0,
                 compressed_size: 0,
@@ -243,14 +276,6 @@ impl FileCtx {
     pub fn filesize_replacement(&mut self) {
         let loaded_tables = LoadedTables::get_instance();
 
-        let extension = match self.path.extension() {
-            Some(ext) => ext.to_str().unwrap(),
-            None => {
-                println!("[ARC::Patching] File '{}' does not have an extension, skipping", self.path.display().bright_yellow());
-                return;
-            }
-        };
-
         unsafe {
             let hashindexgroup_slice = slice::from_raw_parts(loaded_tables.get_arc().file_info_path,(*loaded_tables).table1_len as usize);
 
@@ -271,17 +296,9 @@ impl FileCtx {
 
             println!("[ARC::Patching] File '{}', decomp size: {:x}",self.path.display().bright_yellow(),subfile.decompressed_size.cyan());
 
-            if (subfile.decompressed_size < self.filesize) && extension == "nutexb" {
-                // Is compressed? Is this still needed?
-                if (subfile.flags & 0x3) == 3 {
-                    subfile.decompressed_size = self.filesize;
-                    println!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decompressed_size.bright_red());
-                }
-            } else {
-                if subfile.decompressed_size < self.filesize {
-                    subfile.decompressed_size = self.filesize;
-                    println!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decompressed_size.bright_red());
-                }
+            if subfile.decompressed_size < self.filesize {
+                 subfile.decompressed_size = self.filesize;
+                println!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decompressed_size.bright_red());
             }
         }
     }
