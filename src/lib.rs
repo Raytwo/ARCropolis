@@ -4,12 +4,14 @@
 use std::io::Write;
 use std::ffi::CStr;
 use std::path::Path;
+use std::net::IpAddr;
 use std::sync::atomic::{ AtomicBool, Ordering };
 
 use skyline::hooks::InlineCtx;
 use skyline::{hook, install_hooks};
 
 mod config;
+use config::CONFIG;
 mod hashes;
 mod stream;
 
@@ -330,6 +332,11 @@ fn change_version_string(arg1: u64, string: *const u8) {
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
+    // Check if an update is available
+    if skyline_update::check_update(IpAddr::V4(CONFIG.updater.as_ref().unwrap().server_ip), "ARCropolis", env!("CARGO_PKG_VERSION"), CONFIG.updater.as_ref().unwrap().beta_updates) {
+        skyline::nn::oe::RestartProgramNoArgs();
+    }
+
     // Load hashes from rom:/skyline/hashes.txt if the file is present
     hashes::init();
     // Look for the offset of the various functions to hook

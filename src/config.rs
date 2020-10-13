@@ -19,7 +19,7 @@ lazy_static::lazy_static! {
 pub struct Config {
     pub infos: Infos,
     pub paths: Paths,
-    pub secret: Option<Secret>,
+    pub updater: Option<Updater>,
     pub misc: Miscellaneous,
 }
 
@@ -35,14 +35,16 @@ pub struct Paths {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Secret {
-    pub ip: Ipv4Addr,
+pub struct Updater {
+    pub server_ip: Ipv4Addr,
+    pub beta_updates: bool,
 }
 
-impl Secret {
-    pub fn new() -> Secret {
-        Secret {
-            ip: "0.0.0.0".parse().unwrap(),
+impl Updater {
+    pub fn new() -> Updater {
+        Updater {
+            server_ip: "178.62.31.147".parse().unwrap(),
+            beta_updates: false,
         }
     }
 }
@@ -95,6 +97,9 @@ impl Config {
 
                     Ok(config)
                 } else {
+                    // TODO: This is probably necessary for people who have tried 0.9.0 before 0.9.0-beta. Should probably removed in the next update
+                    config.update();
+                    config.save().unwrap();
                     Ok(config)
                 }
             }
@@ -114,9 +119,11 @@ impl Config {
 
     /// Should initialize missing fields in the struct when they get added
     fn update(&mut self) {
-        match &self.secret {
+        self.infos.version = env!("CARGO_PKG_VERSION").to_string();
+
+        match &self.updater {
             Some(_) => {},
-            None => self.secret = Some(Secret::new()),
+            None => self.updater = Some(Updater::new()),
         }
     }
 
