@@ -13,7 +13,7 @@ mod hashes;
 mod stream;
 
 mod replacement_files;
-use replacement_files::FileCtx;
+use replacement_files::{ FileCtx, ARC_CALLBACKS, subscribe_callback };
 
 mod offsets;
 use offsets::{
@@ -140,7 +140,7 @@ fn parse_numatb_nutexb(ctx: &InlineCtx) {
     }
 }
 
-fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(&'a FileCtx, &'a mut Table2Entry)> {
+fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
     let loaded_tables = LoadedTables::get_instance();
     let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
 
@@ -153,12 +153,13 @@ fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(&'a FileCtx, &'a mut T
 
     log!("[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}", table1_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow(), hash.cyan(), table2entry.bright_magenta());
 
-    match get_from_hash!(hash) {
-        Some(file_ctx) => {
-            println!("[ARC::Loading | #{}] Hash matching for file: '{}'", table1_idx.green(), file_ctx.path.display().bright_yellow());
-            Some((file_ctx, table2entry))
-        }
-        None => None,
+    let file_ctx = get_from_hash!(hash);
+    if file_ctx.is_some() {
+        let file_ctx = parking_lot::MappedRwLockReadGuard::map(file_ctx, |x| x.unwrap());
+        println!("[ARC::Loading | #{}] Hash matching for file: '{}'", table1_idx.green(), file_ctx.path.display().bright_yellow());
+        Some((file_ctx, table2entry))
+    } else {
+        None
     }
 }
 
@@ -204,15 +205,35 @@ fn handle_file_overwrite(table1_idx: u32) {
             return;
         }
 
-        println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+        let hash = file_ctx.hash;
 
-        let file = file_ctx.get_file_content();
-        let file_slice = file.as_slice();
+        let orig_size = file_ctx.get_subfile(table1_idx).decompressed_size as usize;
+
+        let file = vec![0;orig_size];
+        let mut file_slice = file.into_boxed_slice();
+
+        let cb_result = match ARC_CALLBACKS.read().get(&hash) {
+            Some(cb) => {
+                cb(hash, file_slice.as_mut_ptr() as *mut skyline::libc::c_void, orig_size)
+            },
+            None => false,
+        };
+
+        if !cb_result {
+            if !file_ctx.virtual_file {
+                file_slice.copy_from_slice(file_ctx.get_file_content().as_slice());
+            } else {
+                // The file does not actually exist on the SD, so we abort here
+                return;
+            }
+        }
+
+        println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
         unsafe {
             let mut data_slice =
                 std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
-            data_slice.write(file_slice).unwrap();
+            data_slice.write(&file_slice).unwrap();
         }
     }
 }
@@ -223,12 +244,30 @@ fn handle_texture_files(table1_idx: u32) {
             return;
         }
 
-        println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
-
-        let file = file_ctx.get_file_content();
-        let file_slice = file.as_slice();
+        let hash = file_ctx.hash;
 
         let orig_size = file_ctx.get_subfile(table1_idx).decompressed_size as usize;
+
+        let file = vec![0;orig_size];
+        let mut file_slice = file.into_boxed_slice();
+
+        let cb_result = match ARC_CALLBACKS.read().get(&hash) {
+            Some(cb) => {
+                cb(hash, file_slice.as_mut_ptr() as *mut skyline::libc::c_void, orig_size)
+            },
+            None => false,
+        };
+
+        if !cb_result {
+            if !file_ctx.virtual_file {
+                file_slice.copy_from_slice(file_ctx.get_file_content().as_slice());
+            } else {
+                // The file does not actually exist on the SD, so we abort here
+                return;
+            }
+        }
+
+        println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
         unsafe {
             let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
@@ -239,7 +278,7 @@ fn handle_texture_files(table1_idx: u32) {
                 // Copy the content at the beginning
                 data_slice[0..file_slice.len() - 0xB0].copy_from_slice(&file_slice[0..file_slice.len() - 0xB0]);
             } else {
-                data_slice.write(file_slice).unwrap();
+                data_slice.write(&file_slice).unwrap();
             }
         }
     }
@@ -269,6 +308,12 @@ fn change_version_string(arg1: u64, string: *const u8) {
             original!()(arg1, string)
         }
     }
+}
+
+
+pub extern "C" fn callback_test(hash: u64, buffer: *const skyline::libc::c_void, buffer_size: usize) -> bool {
+    println!("Callback is being hit");
+    false
 }
 
 #[skyline::main(name = "arcropolis")]
