@@ -14,7 +14,7 @@ mod hashes;
 mod stream;
 
 mod replacement_files;
-use replacement_files::{ FileCtx, ARC_FILES, ARC_CALLBACKS, subscribe_callback, subscribe_callback_with_size, QUEUE_HANDLED, CB_QUEUE };
+use replacement_files::{ FileCtx, ARC_FILES, ARC_CALLBACKS, QUEUE_HANDLED, CB_QUEUE };
 
 mod offsets;
 use offsets::{ ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_NUTEXB_OFFSET, PARSE_EFF_OFFSET, PARSE_PARAM_OFFSET, PARSE_MODEL_XMB_OFFSET, PARSE_ARC_FILE_OFFSET, PARSE_FONT_FILE_OFFSET, PARSE_NUMATB_NUTEXB_OFFSET, PARSE_NUMSHEXB_FILE_OFFSET, PARSE_NUMATB_FILE_OFFSET, PARSE_NUMDLB_FILE_OFFSET, PARSE_LOG_XMB_OFFSET, PARSE_MODEL_XMB_2_OFFSET, TITLE_SCREEN_VERSION_OFFSET };
@@ -183,7 +183,7 @@ fn handle_file_load(table1_idx: u32) {
 
         let hash = file_ctx.hash;
 
-        let orig_size = file_ctx.get_subfile(table1_idx).decompressed_size as usize;
+        let orig_size = file_ctx.filesize as usize;
 
         let file = vec![0;orig_size];
         let mut file_slice = file.into_boxed_slice();
@@ -226,7 +226,7 @@ fn handle_file_overwrite(table1_idx: u32) {
 
         let hash = file_ctx.hash;
 
-        let orig_size = file_ctx.get_subfile(table1_idx).decompressed_size as usize;
+        let orig_size = file_ctx.filesize as usize;
 
         let file = vec![0;orig_size];
         let mut file_slice = file.into_boxed_slice();
@@ -250,8 +250,7 @@ fn handle_file_overwrite(table1_idx: u32) {
         println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
         unsafe {
-            let mut data_slice =
-                std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
+            let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
             data_slice.write(&file_slice).unwrap();
         }
     }
