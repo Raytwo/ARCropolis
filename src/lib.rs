@@ -265,7 +265,7 @@ fn handle_texture_files(table1_idx: u32) {
 
         let hash = file_ctx.hash;
 
-        let orig_size = file_ctx.get_subfile(table1_idx).decompressed_size as usize;
+        let orig_size = file_ctx.filesize as usize;
 
         let file = vec![0;orig_size];
         let mut file_slice = file.into_boxed_slice();
@@ -286,16 +286,16 @@ fn handle_texture_files(table1_idx: u32) {
             }
         }
 
-        println!("[ARC::Replace | #{} - {}] Replacing '{}'", table1_idx.green(), file_ctx.hash, hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+        println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
         unsafe {
             let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
 
             if orig_size > file_slice.len() {
-                // Copy our new footer at the end
-                data_slice[orig_size - 0xB0..orig_size].copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
                 // Copy the content at the beginning
                 data_slice[0..file_slice.len() - 0xB0].copy_from_slice(&file_slice[0..file_slice.len() - 0xB0]);
+                // Copy our new footer at the end
+                data_slice[orig_size - 0xB0..orig_size].copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
             } else {
                 data_slice.write(&file_slice).unwrap();
             }
