@@ -25,8 +25,24 @@ lazy_static::lazy_static! {
 pub static QUEUE_HANDLED: AtomicBool = AtomicBool::new(false);
 
 #[no_mangle]
-pub extern "C" fn subscribe_callback(hash: u64, callback: ArcCallback) {
-    ARC_CALLBACKS.write().insert(hash, callback);
+pub extern "C" fn subscribe_callback(hash: u64, extension: *const u8, extension_len: usize, callback: ArcCallback) {
+    unsafe {
+        let filepath = format!("rom:/virtual.{}", std::str::from_utf8(slice::from_raw_parts(extension, extension_len)).unwrap());
+        let path = std::path::Path::new(&filepath).to_path_buf();
+
+        let mut file_ctx = FileCtx {
+            hash, path, virtual_file:true,
+            .. FileCtx::new()
+        };
+
+        if QUEUE_HANDLED.load(Ordering::SeqCst) == true {
+            ARC_FILES.write().0.insert(hash, file_ctx);
+        } else {
+            CB_QUEUE.write().insert(hash, file_ctx);
+        }
+    
+        ARC_CALLBACKS.write().insert(hash, callback);
+    }
 }
 
 #[no_mangle]
