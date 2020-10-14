@@ -307,7 +307,7 @@ fn handle_texture_files(table1_idx: u32) {
 pub fn is_file_allowed(filepath: &Path) -> bool {
     // Check extensions
     match filepath.extension().unwrap().to_str().unwrap() {
-        "nutexb" | "eff" | "prc" | "xmb" | "arc" | "bfotf" | "bfttf" | "numdlb" | "numatb" | "numshexb" => false,
+        "nutexb" | "eff" | "prc" | "stprm" | "stdat" | "xmb" | "arc" | "bfotf" | "bfttf" | "numdlb" | "numatb" | "numshexb" => false,
         &_ => true,
     }
 }
