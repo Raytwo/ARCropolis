@@ -2,6 +2,7 @@ use std::{fs, io, slice};
 use std::fs::DirEntry;
 use std::path::PathBuf;
 use std::collections::HashMap;
+use std::sync::atomic::{ AtomicBool, Ordering };
 
 use skyline::nn;
 
@@ -13,12 +14,15 @@ use smash::hash40;
 use smash::resource::{LoadedTables, ResServiceState, SubFile};
 // use rayon::iter::{ IndexedParallelIterator, IntoParallelRefIterator, ParallelBridge, ParallelIterator };
 
-type ArcCallback = extern "C" fn(u64, *const skyline::libc::c_void, usize) -> bool;
+type ArcCallback = extern "C" fn(u64, *mut skyline::libc::c_void, usize) -> bool;
 
 lazy_static::lazy_static! {
     pub static ref ARC_FILES: parking_lot::RwLock<ArcFiles> = parking_lot::RwLock::new(ArcFiles::new());
-    pub static ref ARC_CALLBACKS: parking_lot::RwLock<HashMap<u64, ArcCallback>>  = parking_lot::RwLock::new(HashMap::new());
+    pub static ref ARC_CALLBACKS: parking_lot::RwLock<HashMap<u64, ArcCallback>> = parking_lot::RwLock::new(HashMap::new());
+    pub static ref CB_QUEUE: parking_lot::RwLock<HashMap<u64, FileCtx>> = parking_lot::RwLock::new(HashMap::new());
 }
+
+pub static QUEUE_HANDLED: AtomicBool = AtomicBool::new(false);
 
 #[no_mangle]
 pub extern "C" fn subscribe_callback(hash: u64, callback: ArcCallback) {
@@ -26,15 +30,25 @@ pub extern "C" fn subscribe_callback(hash: u64, callback: ArcCallback) {
 }
 
 #[no_mangle]
-pub extern "C" fn subscribe_callback_with_size(hash: u64, filesize: u32, callback: ArcCallback) {
-    let mut file_ctx = FileCtx {
-        hash, filesize, virtual_file:true,
-        .. FileCtx::new()
-    };
+pub extern "C" fn subscribe_callback_with_size(hash: u64, filesize: u32, extension: *const u8, extension_len: usize, callback: ArcCallback) {
+    unsafe {
+        let filepath = format!("rom:/virtual.{}", std::str::from_utf8(slice::from_raw_parts(extension, extension_len)).unwrap());
+        let path = std::path::Path::new(&filepath).to_path_buf();
 
-    file_ctx.filesize_replacement();
-    ARC_FILES.write().insert(hash, file_ctx);
-    ARC_CALLBACKS.write().insert(hash, callback);
+        let mut file_ctx = FileCtx {
+            hash, filesize, path, virtual_file:true,
+            .. FileCtx::new()
+        };
+
+        if QUEUE_HANDLED.load(Ordering::SeqCst) == true {
+            file_ctx.filesize_replacement();
+            ARC_FILES.write().0.insert(hash, file_ctx);
+        } else {
+            CB_QUEUE.write().insert(hash, file_ctx);
+        }
+    
+        ARC_CALLBACKS.write().insert(hash, callback);
+    }
 }
 
 pub struct ArcFiles(pub HashMap<u64, FileCtx>);
@@ -78,7 +92,7 @@ impl ArcFiles {
         self.0.get(&hash)
     }
 
-    fn insert(&mut self, hash: u64, ctx: FileCtx) {
+    pub fn insert(&mut self, hash: u64, ctx: FileCtx) {
         self.0.insert(hash, ctx);
     }
 

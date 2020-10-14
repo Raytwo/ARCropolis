@@ -4,6 +4,7 @@
 use std::io::Write;
 use std::ffi::CStr;
 use std::path::Path;
+use std::sync::atomic::{ AtomicBool, Ordering };
 
 use skyline::hooks::InlineCtx;
 use skyline::{hook, install_hooks};
@@ -13,7 +14,7 @@ mod hashes;
 mod stream;
 
 mod replacement_files;
-use replacement_files::{ FileCtx, ARC_CALLBACKS, subscribe_callback };
+use replacement_files::{ FileCtx, ARC_FILES, ARC_CALLBACKS, subscribe_callback, subscribe_callback_with_size, QUEUE_HANDLED, CB_QUEUE };
 
 mod offsets;
 use offsets::{ ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_NUTEXB_OFFSET, PARSE_EFF_OFFSET, PARSE_PARAM_OFFSET, PARSE_MODEL_XMB_OFFSET, PARSE_ARC_FILE_OFFSET, PARSE_FONT_FILE_OFFSET, PARSE_NUMATB_NUTEXB_OFFSET, PARSE_NUMSHEXB_FILE_OFFSET, PARSE_NUMATB_FILE_OFFSET, PARSE_NUMDLB_FILE_OFFSET, PARSE_LOG_XMB_OFFSET, PARSE_MODEL_XMB_2_OFFSET, TITLE_SCREEN_VERSION_OFFSET };
@@ -140,6 +141,15 @@ fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(parking_lot::MappedRwL
     };
 
     log!("[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}", table1_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow(), hash.cyan(), table2entry.bright_magenta());
+
+    if QUEUE_HANDLED.swap(true, Ordering::SeqCst) {
+        for (hash, ctx) in CB_QUEUE.write().iter_mut() {
+            ctx.filesize_replacement();
+            ARC_FILES.write().0.insert(*hash, ctx.clone());
+        }
+
+        CB_QUEUE.write().clear();
+    }
 
     match get_from_hash!(hash) {
         Ok(file_ctx) => {
@@ -269,14 +279,14 @@ fn handle_texture_files(table1_idx: u32) {
 
         if !cb_result {
             if !file_ctx.virtual_file {
-                file_slice.copy_from_slice(file_ctx.get_file_content().as_slice());
+                file_slice = file_ctx.get_file_content().into_boxed_slice();
             } else {
                 // The file does not actually exist on the SD, so we abort here
                 return;
             }
         }
 
-        println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+        println!("[ARC::Replace | #{} - {}] Replacing '{}'", table1_idx.green(), file_ctx.hash, hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
         unsafe {
             let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
