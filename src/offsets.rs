@@ -119,7 +119,6 @@ macro_rules! find_offsets {
                 let text = std::slice::from_raw_parts(text_ptr, text_size);
 
                 if let Some(offset) = find_subsequence(text, $search_pattern) {
-                    println!("Offset for '{}': {:8x}", stringify!($out_variable), offset);
                     $out_variable = offset
                 } else {
                     println!("Error: no offset found for '{}'. Defaulting to 8.1.0 offset. This most likely won't work.", stringify!($out_variable));
