@@ -50,6 +50,14 @@ Even so, you can manually edit the configuration file using any text editor of y
 
 Error messages have been added for most cases, so if you manage to butcher your configuration somehow, don't open an issue for it. Delete your configuration file and generate a new one. (ARCropolis will most likely do it in your stead if everything goes right)
 
+### Auto-Update
+
+As of version 0.9.0, ARCropolis comes with a auto-updater.
+
+From now on, you might see a dialog on boot prompting you to update. You're free to refuse, but updates coming through this prompt should usually be well tested before being published.
+
+You can also opt-in for beta builds for experimental features through your configuration file, which, while usually sufficiently tested, might still have some bugs while shipped. By default, the configuration is set to not use them.
+
 ### Ultimate Mod Manager Backwards Compatibility
 
 The plugin also supports backwards compatibility with UMM paths to allow for mods to continue to work. You can simply rename your `UltimateModManager` folder to `ultimate` and all mods will work. If you no longer need UMM, it is recommended you delete your data.arc file from romfs.
