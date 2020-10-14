@@ -2,22 +2,21 @@ use skyline::hooks::{getRegionAddress, Region};
 
 // default 8.0.0 offsets
 pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x324f7a0;
-// default 8.1.0 offsets
+// default 9.0.0 offsets
 pub static mut IDK_OFFSET: usize = 0x325dcc0;
 pub static mut ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET: usize = 0x3258110;
-pub static mut PARSE_NUTEXB_OFFSET: usize = 0x3306004;
-pub static mut PARSE_EFF_OFFSET: usize = 0x3278984;
-pub static mut PARSE_EFF_NUTEXB_OFFSET: usize = 0x3278e60;
-pub static mut PARSE_PARAM_OFFSET: usize = 0x3436884;
+pub static mut PARSE_EFF_OFFSET: usize = 0x3379804;
+pub static mut PARSE_EFF_NUTEXB_OFFSET: usize = 0x3379ce0;
+pub static mut PARSE_PARAM_OFFSET: usize = 0x3539104;
 pub static mut PARSE_MODEL_XMB_OFFSET:usize = 0x32f89a8;
-pub static mut PARSE_ARC_FILE_OFFSET:usize = 0x3016524;
-pub static mut PARSE_FONT_FILE_OFFSET:usize = 0x3476808;
-pub static mut PARSE_NUMATB_NUTEXB_OFFSET:usize = 0x3306004;
-pub static mut PARSE_NUMSHEXB_FILE_OFFSET:usize = 0x32e18c4;
-pub static mut PARSE_NUMATB_FILE_OFFSET:usize = 0x330559c;
-pub static mut PARSE_NUMDLB_FILE_OFFSET:usize = 0x32da328;
-pub static mut PARSE_LOG_XMB_OFFSET:usize = 0x32f8a74;
-pub static mut PARSE_MODEL_XMB_2_OFFSET:usize = 0x3304bc4;
+pub static mut PARSE_ARC_FILE_OFFSET:usize = 0x358892c;
+pub static mut PARSE_FONT_FILE_OFFSET:usize = 0x3576918;
+pub static mut PARSE_NUMATB_NUTEXB_OFFSET:usize = 0x3407d74;
+pub static mut PARSE_NUMSHEXB_FILE_OFFSET:usize = 0x33e3634;
+pub static mut PARSE_NUMATB_FILE_OFFSET:usize = 0x340730c;
+pub static mut PARSE_NUMDLB_FILE_OFFSET:usize = 0x33dc098;
+pub static mut PARSE_LOG_XMB_OFFSET:usize = 0x33fa7e4;
+pub static mut PARSE_MODEL_XMB_2_OFFSET:usize = 0x3406934;
 pub static mut TITLE_SCREEN_VERSION_OFFSET:usize = 0x34b8327;
 
 static IDK_SEARCH_CODE: &[u8] = &[
@@ -33,11 +32,6 @@ static ADD_IDX_TO_TABLE1_AND_TABLE2_SEARCH_CODE: &[u8] = &[
 static LOOKUP_STREAM_HASH_SEARCH_CODE: &[u8] = &[
     0x29, 0x58, 0x40, 0xf9, 0x28, 0x60, 0x40, 0xf9, 0x2a, 0x05, 0x40, 0xb9, 0x09, 0x0d, 0x0a, 0x8b,
     0xaa, 0x01, 0x00, 0x34, 0x5f, 0x01, 0x00, 0xf1,
-];
-
-static PARSE_NUTEXB_SEARCH_CODE: &[u8] = &[
-    0xe8, 0x3f, 0x00, 0x32, 0xe8, 0xfb, 0x00, 0xb9, 0xe8, 0x0f, 0x40, 0xf9, 0xea, 0x4b, 0x40, 0xf9,
-    0xe9, 0x07, 0x40, 0xf9, 0xf3, 0x03, 0x00, 0xaa,
 ];
 
 static PARSE_EFF_SEARCH_CODE: &[u8] = &[
@@ -125,9 +119,10 @@ macro_rules! find_offsets {
                 let text = std::slice::from_raw_parts(text_ptr, text_size);
 
                 if let Some(offset) = find_subsequence(text, $search_pattern) {
+                    println!("Offset for '{}': {:8x}", stringify!($out_variable), offset);
                     $out_variable = offset
                 } else {
-                    println!("Error: no offset found for '{}'. Defaulting to 8.0.0 offset. This most likely won't work.", stringify!($out_variable));
+                    println!("Error: no offset found for '{}'. Defaulting to 8.1.0 offset. This most likely won't work.", stringify!($out_variable));
                 }
             }
         )*
@@ -139,19 +134,18 @@ pub fn search_offsets() {
             (IDK_OFFSET, IDK_SEARCH_CODE),
             (ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, ADD_IDX_TO_TABLE1_AND_TABLE2_SEARCH_CODE),
             (LOOKUP_STREAM_HASH_OFFSET, LOOKUP_STREAM_HASH_SEARCH_CODE),
-            (PARSE_NUTEXB_OFFSET, PARSE_NUTEXB_SEARCH_CODE),
-            (PARSE_EFF_NUTEXB_OFFSET, PARSE_EFF_NUTEXB_SEARCH_CODE),
-            (PARSE_EFF_OFFSET, PARSE_EFF_SEARCH_CODE),
-            (PARSE_PARAM_OFFSET, PARSE_PARAM_SEARCH_CODE),
-            (PARSE_MODEL_XMB_OFFSET, PARSE_MODEL_XMB_SEARCH_CODE),
-            (PARSE_ARC_FILE_OFFSET, PARSE_ARC_FILE_SEARCH_CODE),
-            (PARSE_FONT_FILE_OFFSET, PARSE_FONT_FILE_SEARCH_CODE),
-            (PARSE_NUMATB_NUTEXB_OFFSET, PARSE_NUMATB_NUTEXB_SEARCH_CODE),
-            (PARSE_NUMSHEXB_FILE_OFFSET, PARSE_NUMSHEXB_FILE_SEARCH_CODE),
-            (PARSE_NUMATB_FILE_OFFSET, PARSE_NUMATB_FILE_SEARCH_CODE),
-            (PARSE_NUMDLB_FILE_OFFSET, PARSE_NUMDLB_FILE_SEARCH_CODE),
-            (PARSE_LOG_XMB_OFFSET, PARSE_LOG_XMB_SEARCH_CODE),
-            (PARSE_MODEL_XMB_2_OFFSET, PARSE_MODEL_XMB_2_SEARCH_CODE),
+            // (PARSE_EFF_NUTEXB_OFFSET, PARSE_EFF_NUTEXB_SEARCH_CODE),
+            // (PARSE_EFF_OFFSET, PARSE_EFF_SEARCH_CODE),
+            // (PARSE_PARAM_OFFSET, PARSE_PARAM_SEARCH_CODE),
+            // (PARSE_MODEL_XMB_OFFSET, PARSE_MODEL_XMB_SEARCH_CODE),
+            // (PARSE_ARC_FILE_OFFSET, PARSE_ARC_FILE_SEARCH_CODE),
+            // (PARSE_FONT_FILE_OFFSET, PARSE_FONT_FILE_SEARCH_CODE),
+            // (PARSE_NUMATB_NUTEXB_OFFSET, PARSE_NUMATB_NUTEXB_SEARCH_CODE),
+            // (PARSE_NUMSHEXB_FILE_OFFSET, PARSE_NUMSHEXB_FILE_SEARCH_CODE),
+            // (PARSE_NUMATB_FILE_OFFSET, PARSE_NUMATB_FILE_SEARCH_CODE),
+            // (PARSE_NUMDLB_FILE_OFFSET, PARSE_NUMDLB_FILE_SEARCH_CODE),
+            // (PARSE_LOG_XMB_OFFSET, PARSE_LOG_XMB_SEARCH_CODE),
+            // (PARSE_MODEL_XMB_2_OFFSET, PARSE_MODEL_XMB_2_SEARCH_CODE),
             (TITLE_SCREEN_VERSION_OFFSET, TITLE_SCREEN_VERSION_SEARCH_CODE),
         );
 }
