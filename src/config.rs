@@ -64,6 +64,7 @@ impl Config {
                 arc: "rom:/arc".to_string(),
                 umm: "sd:/ultimate/mods".to_string(),
             },
+            updater: Some(Updater::new()),
             .. Config::default()
         }
     }
