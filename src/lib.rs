@@ -266,14 +266,14 @@ fn handle_texture_files(table1_idx: u32) {
 
         let hash = file_ctx.hash;
 
-        let orig_size = file_ctx.filesize as usize;
+        let orig_size = file_ctx.orig_subfile.decompressed_size as usize;
 
-        let file = vec![0;orig_size];
+        let file = vec![0;file_ctx.filesize as _];
         let mut file_slice = file.into_boxed_slice();
 
         let cb_result = match ARC_CALLBACKS.read().get(&hash) {
             Some(cb) => {
-                cb(hash, file_slice.as_mut_ptr() as *mut skyline::libc::c_void, orig_size)
+                cb(hash, file_slice.as_mut_ptr() as *mut skyline::libc::c_void, file_ctx.filesize as _)
             },
             None => false,
         };
