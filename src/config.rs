@@ -89,7 +89,7 @@ impl Config {
                 // Make sure the version matches with the current release
                 if Version::parse(&config.infos.version) < Version::parse(&env!("CARGO_PKG_VERSION").to_string()) {
                     println!("[ARC::Config] Configuration file version mismatch");
-                    show_error(420, "Configuration file version mismatch.", &format!("The version of your configuration file ({}) indicate that the file was generated with a different version of ARCropolis.\n\nThe version number in the config file will be updated to match this ARCropolis version.", CONFIG_PATH));
+                    show_error(420, "Updating configuration file to latest format.", &format!("The version of your configuration file ({}) indicate that the file was generated with a different version of ARCropolis.\n\nThe version number in the config file will be updated to match this ARCropolis version.", CONFIG_PATH));
                     println!("[ARC::Config] Changing version number...");
 
                     config.infos.version = env!("CARGO_PKG_VERSION").to_string();
