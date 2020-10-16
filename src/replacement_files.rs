@@ -281,9 +281,9 @@ impl FileCtx {
         let file_index = loaded_arc.lookup_fileinfoindex_by_t1_index(t1_index);
 
         // TODO: Make a constant for Redirect
-        if (file_info.flags & 0x00000010) == 0x10 {
-            file_info = loaded_arc.lookup_file_information_by_t1_index(file_index.file_info_index);
-        }
+        // if (file_info.flags & 0x00000010) == 0x10 {
+        //     file_info = loaded_arc.lookup_file_information_by_t1_index(file_index.file_info_index);
+        // }
 
         let mut sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index);
 
