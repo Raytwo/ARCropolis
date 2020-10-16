@@ -173,7 +173,7 @@ fn handle_file_load(table1_idx: u32) {
         if table2entry.state == FileState::Loaded {
             // For files that are too dependent on timing, make sure the pointer is overwritten instead of swapped
             match file_ctx.path.extension().unwrap().to_str().unwrap() {
-                "bntx" | "nusktb" | "bin" => {
+                "bntx" | "nusktb" | "bin" | "numdlb" => {
                     handle_file_overwrite(table1_idx);
                     return;
                 }
@@ -266,7 +266,7 @@ fn handle_texture_files(table1_idx: u32) {
 
         let hash = file_ctx.hash;
 
-        let orig_size = file_ctx.orig_subfile.decompressed_size as usize;
+        let orig_size = file_ctx.get_subfile(table1_idx).decompressed_size as usize;
 
         let file = vec![0;file_ctx.filesize as _];
         let mut file_slice = file.into_boxed_slice();
