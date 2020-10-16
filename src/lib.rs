@@ -266,7 +266,7 @@ fn handle_texture_files(table1_idx: u32) {
 
         let hash = file_ctx.hash;
 
-        let orig_size = file_ctx.get_subfile(table1_idx).decompressed_size as usize;
+        let orig_size = file_ctx.orig_subfile.decompressed_size as usize;
 
         let file = vec![0;file_ctx.filesize as _];
         let mut file_slice = file.into_boxed_slice();
@@ -282,7 +282,19 @@ fn handle_texture_files(table1_idx: u32) {
             if !file_ctx.virtual_file {
                 file_slice = file_ctx.get_file_content().into_boxed_slice();
             } else {
-                // The file does not actually exist on the SD, so we abort here
+                // The file does not actually exist on the SD, so we abort here and fix the texture if the size has been modified by a callback
+                let new_size = file_ctx.filesize as usize;
+                
+                if new_size > orig_size {
+                    unsafe {
+                        let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, new_size);
+                        // Copy our footer at the end
+                        //let footer = &data_slice[orig_size - 0xB0..orig_size];
+                        let (from, to) = data_slice.split_at_mut(new_size - 0xB0);
+                        to.copy_from_slice(&from[orig_size-0xb0..orig_size]);
+                    }
+                }
+
                 return;
             }
         }
