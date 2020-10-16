@@ -266,7 +266,7 @@ fn handle_texture_files(table1_idx: u32) {
 
         let hash = file_ctx.hash;
 
-        let orig_size = file_ctx.orig_subfile.decompressed_size as usize;
+        let orig_size = file_ctx.get_subfile(table1_idx).decompressed_size as usize;
 
         let file = vec![0;file_ctx.filesize as _];
         let mut file_slice = file.into_boxed_slice();
@@ -284,6 +284,7 @@ fn handle_texture_files(table1_idx: u32) {
             } else {
                 // The file does not actually exist on the SD, so we abort here and fix the texture if the size has been modified by a callback
                 let new_size = file_ctx.filesize as usize;
+                let orig_size = file_ctx.orig_subfile.decompressed_size as usize;
                 
                 if new_size > orig_size {
                     unsafe {
