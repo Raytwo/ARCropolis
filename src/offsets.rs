@@ -11,6 +11,7 @@ pub static mut PARSE_PARAM_OFFSET: usize = 0x3539104;
 pub static mut PARSE_MODEL_XMB_OFFSET:usize = 0x32f89a8;
 pub static mut PARSE_ARC_FILE_OFFSET:usize = 0x358892c;
 pub static mut PARSE_FONT_FILE_OFFSET:usize = 0x3576918;
+pub static mut PARSE_NUMSHB_FILE_OFFSET:usize = 0x33e1740;
 pub static mut PARSE_NUMATB_NUTEXB_OFFSET:usize = 0x3407d74;
 pub static mut PARSE_NUMSHEXB_FILE_OFFSET:usize = 0x33e3634;
 pub static mut PARSE_NUMATB_FILE_OFFSET:usize = 0x340730c;
