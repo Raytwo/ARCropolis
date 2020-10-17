@@ -2,10 +2,6 @@
 
 A Skyline plugin for replacing arbitrary files in Smash Ultimate with files of arbitrary size. Made in equal parts by Raytwo and jam1garner, with lots of help from Shadow as well.
 
-
-**Warning:** 
-* Crashes might sometimes occur after a match, but not for everyone. The cause has been narrowed down to numshb files.
-
 ### Installation
 
 Copy the content of the zip from the latest release onto the SD so the plugin is in the following folder:
