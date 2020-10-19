@@ -139,6 +139,13 @@ fn parse_numshb_file(ctx: &InlineCtx) {
     }
 }
 
+#[hook(offset = 0x35ba800, inline)]
+fn parse_bntx_file(ctx: &InlineCtx) {
+    unsafe {
+        handle_file_overwrite(*ctx.registers[9].w.as_ref());
+    }
+}
+
 fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
     let loaded_tables = LoadedTables::get_instance();
     let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
@@ -181,7 +188,7 @@ fn handle_file_load(table1_idx: u32) {
         if table2entry.state == FileState::Loaded {
             // For files that are too dependent on timing, make sure the pointer is overwritten instead of swapped
             match file_ctx.path.extension().unwrap().to_str().unwrap() {
-                "bntx" | "nusktb" | "bin" | "numdlb" => {
+                "nusktb" | "bin" | "numdlb" => {
                     handle_file_overwrite(table1_idx);
                     return;
                 }
@@ -205,8 +212,11 @@ fn handle_file_load(table1_idx: u32) {
             None => false,
         };
 
+        // Callback returned false or there are no callback for this file
         if !cb_result {
+            // If it is a valid file_ctx
             if !file_ctx.virtual_file {
+                // Load the file on the SD
                 file_slice = file_ctx.get_file_content().into_boxed_slice();
             } else {
                 // The file does not actually exist on the SD, so we abort here
@@ -327,7 +337,7 @@ fn handle_texture_files(table1_idx: u32) {
 pub fn is_file_allowed(filepath: &Path) -> bool {
     // Check extensions
     match filepath.extension().unwrap().to_str().unwrap() {
-        "numshb" | "nutexb" | "eff" | "prc" | "stprm" | "stdat" | "xmb" | "arc" | "bfotf" | "bfttf" | "numatb" | "numshexb" => false,
+        "numshb" | "nutexb" | "eff" | "prc" | "stprm" | "stdat" | "xmb" | "arc" | "bfotf" | "bfttf" | "numatb" | "numshexb" | "bntx" => false,
         &_ => true,
     }
 }
@@ -379,6 +389,7 @@ pub fn main() {
         parse_numshexb_file,
         parse_numatb_file,
         parse_numatb_nutexb,
+        parse_bntx_file,
         change_version_string,
     );
 
