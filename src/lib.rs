@@ -161,8 +161,21 @@ fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(parking_lot::MappedRwL
 
     if QUEUE_HANDLED.swap(true, Ordering::SeqCst) {
         for (hash, ctx) in CB_QUEUE.write().iter_mut() {
-            ctx.filesize_replacement();
-            ARC_FILES.write().0.insert(*hash, ctx.clone());
+            let found = match ARC_FILES.write().0.get_mut(&*hash) {
+                Some(context) => {
+                    if context.filesize < ctx.filesize {
+                        context.filesize = ctx.filesize;
+                        ctx.filesize_replacement();
+                    }
+                    true
+                },
+                None => false,
+            };
+
+            if !found {
+                ctx.filesize_replacement();
+                ARC_FILES.write().0.insert(*hash, ctx.clone());
+            }
         }
 
         CB_QUEUE.write().clear();
