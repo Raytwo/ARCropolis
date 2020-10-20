@@ -6,7 +6,7 @@ use std::io::Write;
 use std::ffi::CStr;
 use std::path::Path;
 use std::net::IpAddr;
-use std::sync::atomic::{ AtomicBool, Ordering };
+use std::sync::atomic::Ordering;
 
 use skyline::hooks::InlineCtx;
 use skyline::{hook, install_hooks};
@@ -26,15 +26,8 @@ use owo_colors::OwoColorize;
 
 use smash::resource::{FileState, LoadedTables, ResServiceState, Table2Entry};
 
-#[macro_export]
-macro_rules! log {
-    ($($arg:tt)*) => {
-        // Uncomment to enable logging
-        if crate::config::CONFIG.misc.debug {
-            println!($($arg)*);
-        }
-    };
-}
+use log::{ trace, info };
+mod logging;
 
 #[hook(offset = IDK_OFFSET)]
 unsafe fn idk(res_state: *const ResServiceState, table1_idx: u32, flag_related: u32) {
@@ -164,16 +157,16 @@ fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(parking_lot::MappedRwL
         }
     };
 
-    log!("[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}", table1_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow(), hash.cyan(), table2entry.bright_magenta());
+    trace!("[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}", table1_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow(), hash.cyan(), table2entry.bright_magenta());
 
     if QUEUE_HANDLED.swap(true, Ordering::SeqCst) {
         for (hash, ctx) in CB_QUEUE.write().iter_mut() {
             let found = match ARC_FILES.write().0.get_mut(&*hash) {
                 Some(context) => {
-                    //if context.filesize < ctx.filesize {
+                    if context.filesize < ctx.filesize {
                         context.filesize = ctx.filesize;
                         ctx.filesize_replacement();
-                    //}
+                    }
                     true
                 },
                 None => false,
@@ -190,7 +183,7 @@ fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(parking_lot::MappedRwL
 
     match get_from_hash!(hash) {
         Ok(file_ctx) => {
-            println!("[ARC::Loading | #{}] Hash matching for file: '{}'", table1_idx.green(), file_ctx.path.display().bright_yellow());
+            info!("[ARC::Loading | #{}] Hash matching for file: '{}'", table1_idx.green(), file_ctx.path.display().bright_yellow());
             Some((file_ctx, table2entry))
         }
         Err(_) => None,
@@ -216,7 +209,7 @@ fn handle_file_load(table1_idx: u32) {
             }
         }
 
-        println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+        info!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
         let hash = file_ctx.hash;
 
@@ -287,7 +280,7 @@ fn handle_file_overwrite(table1_idx: u32) {
             }
         }
 
-        println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+        info!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
         unsafe {
             let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
@@ -326,7 +319,7 @@ fn handle_texture_files(table1_idx: u32) {
                 
                 if new_size > orig_size {
                     unsafe {
-                        let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, new_size);
+                        let data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, new_size);
                         // Copy our footer at the end
                         let (from, to) = data_slice.split_at_mut(new_size - 0xB0);
                         to.copy_from_slice(&from[orig_size-0xb0..orig_size]);
@@ -337,7 +330,7 @@ fn handle_texture_files(table1_idx: u32) {
             }
         }
 
-        println!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+        info!("[ARC::Replace | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
         unsafe {
             let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
@@ -382,6 +375,8 @@ fn change_version_string(arg1: u64, string: *const u8) {
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
+    logging::init(CONFIG.logger.as_ref().unwrap().logger_level.into()).unwrap();
+
     // Check if an update is available
     if skyline_update::check_update(IpAddr::V4(CONFIG.updater.as_ref().unwrap().server_ip), "ARCropolis", env!("CARGO_PKG_VERSION"), CONFIG.updater.as_ref().unwrap().beta_updates) {
         skyline::nn::oe::RestartProgramNoArgs();

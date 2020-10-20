@@ -14,6 +14,8 @@ use smash::hash40;
 use smash::resource::{LoadedTables, ResServiceState, SubFile};
 // use rayon::iter::{ IndexedParallelIterator, IntoParallelRefIterator, ParallelBridge, ParallelIterator };
 
+use log::{ info, warn };
+
 type ArcCallback = extern "C" fn(u64, *mut skyline::libc::c_void, usize) -> bool;
 
 lazy_static::lazy_static! {
@@ -30,7 +32,7 @@ pub extern "C" fn subscribe_callback(hash: u64, extension: *const u8, extension_
         let filepath = format!("rom:/virtual.{}", std::str::from_utf8(slice::from_raw_parts(extension, extension_len)).unwrap());
         let path = std::path::Path::new(&filepath).to_path_buf();
 
-        let mut file_ctx = FileCtx {
+        let file_ctx = FileCtx {
             hash, path, virtual_file:true,
             .. FileCtx::new()
         };
@@ -108,10 +110,6 @@ impl ArcFiles {
         self.0.get(&hash)
     }
 
-    pub fn insert(&mut self, hash: u64, ctx: FileCtx) {
-        self.0.insert(hash, ctx);
-    }
-
     /// Visit Ultimate Mod Manager directories for backwards compatibility
     fn visit_umm_dirs(&mut self, dir: &PathBuf) -> io::Result<()> {
         for entry in fs::read_dir(dir)? {
@@ -148,7 +146,7 @@ impl ArcFiles {
                                 return Ok(());
                             }
                             Err(err) => {
-                                println!("{}", err);
+                                warn!("{}", err);
                                 return Ok(());
                             }
                         }
@@ -163,7 +161,7 @@ impl ArcFiles {
                             return Ok(());
                         }
                         Err(err) => {
-                            println!("{}", err);
+                            warn!("{}", err);
                             return Ok(());
                         }
                     }
@@ -278,7 +276,7 @@ impl FileCtx {
         let loaded_arc = LoadedTables::get_instance().get_arc();
 
         let mut file_info = loaded_arc.lookup_file_information_by_t1_index(t1_index);
-        let file_index = loaded_arc.lookup_fileinfoindex_by_t1_index(t1_index);
+        //let file_index = loaded_arc.lookup_fileinfoindex_by_t1_index(t1_index);
 
         // TODO: Make a constant for Redirect
         // if (file_info.flags & 0x00000010) == 0x10 {
@@ -314,7 +312,7 @@ impl FileCtx {
             {
                 Some(index) => index as u32,
                 None => {
-                    println!("[ARC::Patching] File '{}' does not have a hash found in table1, skipping",self.path.display().bright_yellow());
+                    warn!("[ARC::Patching] File '{}' does not have a hash found in table1, skipping",self.path.display().bright_yellow());
                     return;
                 }
             };
@@ -324,11 +322,11 @@ impl FileCtx {
 
             let mut subfile = self.get_subfile(t1_index);
 
-            println!("[ARC::Patching] File '{}', decomp size: {:x}",self.path.display().bright_yellow(),subfile.decompressed_size.cyan());
+            info!("[ARC::Patching] File '{}', decomp size: {:x}",self.path.display().bright_yellow(),subfile.decompressed_size.cyan());
 
             if subfile.decompressed_size < self.filesize {
                  subfile.decompressed_size = self.filesize;
-                println!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decompressed_size.bright_red());
+                info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decompressed_size.bright_red());
             }
         }
     }

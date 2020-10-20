@@ -9,8 +9,9 @@ use skyline::hook;
 use skyline::libc::{c_char, c_void};
 
 use crate::get_from_hash;
-use crate::log;
 use crate::offsets::LOOKUP_STREAM_HASH_OFFSET;
+
+use log::{ info, warn };
 
 pub fn random_media_select(directory: &str) -> io::Result<String> {
     let mut rng = rand::thread_rng();
@@ -59,7 +60,7 @@ fn lookup_by_stream_hash(
             match random_media_select(&directory) {
                 Ok(pass) => random_selection = pass,
                 Err(_err) => {
-                    log!("{}", _err);
+                    warn!("{}", _err);
                     original!()(out_path, loaded_arc, size_out, offset_out, hash);
                     return;
                 }
@@ -83,7 +84,7 @@ fn lookup_by_stream_hash(
             *size_out = size;
             *offset_out = 0;
             let string = random_selection;
-            log!("Loading '{}'...", string);
+            info!("Loading '{}'...", string);
             let bytes = string.as_bytes();
             ptr::copy_nonoverlapping(bytes.as_ptr(), out_path, bytes.len());
             *out_path.offset(bytes.len() as _) = 0u8;
