@@ -2,6 +2,8 @@ use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::net::Ipv4Addr;
+use std::convert::From;
+use log::LevelFilter;
 
 use skyline::error::show_error;
 
@@ -20,6 +22,7 @@ pub struct Config {
     pub infos: Infos,
     pub paths: Paths,
     pub updater: Option<Updater>,
+    pub logger: Option<Logger>,
     pub misc: Miscellaneous,
 }
 
@@ -49,6 +52,42 @@ impl Updater {
     }
 }
 
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub enum LoggerLevel {
+    Off,
+    Error,
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+impl From<LoggerLevel> for LevelFilter {
+    fn from(item: LoggerLevel) -> Self {
+        match item {
+            LoggerLevel::Off => LevelFilter::Off,
+            LoggerLevel::Error => LevelFilter::Error,
+            LoggerLevel::Warn => LevelFilter::Warn,
+            LoggerLevel::Info => LevelFilter::Info,
+            LoggerLevel::Debug => LevelFilter::Debug,
+            LoggerLevel::Trace => LevelFilter::Trace,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Logger {
+    pub logger_level: LoggerLevel,
+}
+
+impl Logger {
+    pub fn new() -> Logger {
+        Logger {
+            logger_level: LoggerLevel::Info,
+        }
+    }
+}
+
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Miscellaneous {
     pub debug: bool,
@@ -65,6 +104,7 @@ impl Config {
                 umm: "sd:/ultimate/mods".to_string(),
             },
             updater: Some(Updater::new()),
+            logger: Some(Logger::new()),
             .. Config::default()
         }
     }
@@ -74,9 +114,11 @@ impl Config {
             // File exists
             Ok(content) => {
                 // Try deserializing
-                let mut config= match toml::from_str(&content) {
+                let mut config = match toml::from_str(&content) {
                     // Deserialized properly
-                    Ok(conf) => conf,
+                    Ok(conf) => {
+                        conf
+                    },
                     // Something happened when deserializing
                     Err(_) => {
                         println!("[ARC::Config] Configuration file could not be deserialized");
@@ -85,11 +127,12 @@ impl Config {
                         Config::new()
                     }
                 };
+
     
                 // Make sure the version matches with the current release
                 if Version::parse(&config.infos.version) < Version::parse(&env!("CARGO_PKG_VERSION").to_string()) {
                     println!("[ARC::Config] Configuration file version mismatch");
-                    show_error(420, "Updating configuration file to latest format.", &format!("The version of your configuration file ({}) indicate that the file was generated with a different version of ARCropolis.\n\nThe version number in the config file will be updated to match this ARCropolis version.", CONFIG_PATH));
+                    skyline_web::DialogOk::ok(format!("Updating configuration file to latest format"));
                     println!("[ARC::Config] Changing version number...");
 
                     config.infos.version = env!("CARGO_PKG_VERSION").to_string();
@@ -106,8 +149,7 @@ impl Config {
             }
             // File does not exist, generate it
             Err(_) => {
-                // TODO: Replace this soon-ish ( ͡° ͜ʖ ͡°)
-                show_error(69, "Thank you for installing ARCropolis!\nConfiguration file will now be generated.", "Your installation of ARCropolis does not have a configuration file yet.\nSit tight while we create one for you!");
+                skyline_web::DialogOk::ok(format!("Thank you for installing ARCropolis!\n\nConfiguration file will now be generated"));
                 println!("[ARC::Config] Configuration file not found. Generating a new one...");
 
                 let config = Config::new();
@@ -125,6 +167,11 @@ impl Config {
         match &self.updater {
             Some(_) => {},
             None => self.updater = Some(Updater::new()),
+        }
+
+        match &self.logger {
+            Some(_) => {},
+            None => self.logger = Some(Logger::new()),
         }
     }
 
