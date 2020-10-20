@@ -54,6 +54,22 @@ From now on, you might see a dialog on boot prompting you to update. You're free
 
 You can also opt-in for beta builds for experimental features through your configuration file, which, while usually sufficiently tested, might still have some bugs while shipped. By default, the configuration is set to not use them.
 
+### Logging
+
+As of version 0.9.3-beta4 (only for beta users at time of writing), ARCropolis allows you to change the amount of logging you would like to see.
+
+To do so, change the ``logger_level`` field in your configuration to one of the followings:
+
+* Off - Cut off all logs
+* Error - Only shows errors (this is currently unused as is no different from Off)
+* Warn - Warns you about some issues that are most likely not threatening to crash the game
+* Info - Default option, gives you warnings and mentions when a file is replaced
+* Debug - Unused so far
+* Trace - See every file being loaded by the game, replaced or not.
+
+The default option when no configuration file exists is "Info", which is the one that has always been used so far.
+These go from most-important to least-important, meaning that if you opt-in for "Trace" logging, you see absolutely everything, while "Info" won't give you "Trace" logs.
+
 ### Ultimate Mod Manager Backwards Compatibility
 
 The plugin also supports backwards compatibility with UMM paths to allow for mods to continue to work. You can simply rename your `UltimateModManager` folder to `ultimate` and all mods will work. If you no longer need UMM, it is recommended you delete your data.arc file from romfs.
