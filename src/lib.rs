@@ -20,7 +20,7 @@ mod replacement_files;
 use replacement_files::{ FileCtx, ARC_FILES, ARC_CALLBACKS, QUEUE_HANDLED, CB_QUEUE };
 
 mod offsets;
-use offsets::{ ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_NUTEXB_OFFSET, PARSE_EFF_OFFSET, PARSE_PARAM_OFFSET, PARSE_MODEL_XMB_OFFSET, PARSE_ARC_FILE_OFFSET, PARSE_FONT_FILE_OFFSET, PARSE_NUMSHB_FILE_OFFSET,PARSE_NUMATB_NUTEXB_OFFSET, PARSE_NUMSHEXB_FILE_OFFSET, PARSE_NUMATB_FILE_OFFSET, PARSE_NUMDLB_FILE_OFFSET, PARSE_LOG_XMB_OFFSET, PARSE_MODEL_XMB_2_OFFSET, TITLE_SCREEN_VERSION_OFFSET };
+use offsets::{ ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_NUTEXB_OFFSET, PARSE_EFF_OFFSET, PARSE_PARAM_OFFSET, PARSE_MODEL_XMB_OFFSET, PARSE_ARC_FILE_OFFSET, PARSE_FONT_FILE_OFFSET, PARSE_NUMSHB_FILE_OFFSET,PARSE_NUMATB_NUTEXB_OFFSET, PARSE_NUMSHEXB_FILE_OFFSET, PARSE_NUMATB_FILE_OFFSET, PARSE_NUMDLB_FILE_OFFSET, PARSE_LOG_XMB_OFFSET, PARSE_MODEL_XMB_2_OFFSET, TITLE_SCREEN_VERSION_OFFSET, PARSE_NUS3BANK_FILE_OFFSET };
 
 use owo_colors::OwoColorize;
 
@@ -139,6 +139,13 @@ fn parse_numshb_file(ctx: &InlineCtx) {
     }
 }
 
+#[hook(offset = PARSE_NUS3BANK_FILE_OFFSET, inline)]
+fn parse_nus3bank_file(ctx: &InlineCtx) {
+    unsafe {
+        handle_file_overwrite(*ctx.registers[8].w.as_ref());
+    }
+}
+
 #[hook(offset = 0x35ba800, inline)]
 fn parse_bntx_file(ctx: &InlineCtx) {
     unsafe {
@@ -163,10 +170,10 @@ fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(parking_lot::MappedRwL
         for (hash, ctx) in CB_QUEUE.write().iter_mut() {
             let found = match ARC_FILES.write().0.get_mut(&*hash) {
                 Some(context) => {
-                    if context.filesize < ctx.filesize {
+                    //if context.filesize < ctx.filesize {
                         context.filesize = ctx.filesize;
                         ctx.filesize_replacement();
-                    }
+                    //}
                     true
                 },
                 None => false,
@@ -201,7 +208,7 @@ fn handle_file_load(table1_idx: u32) {
         if table2entry.state == FileState::Loaded {
             // For files that are too dependent on timing, make sure the pointer is overwritten instead of swapped
             match file_ctx.path.extension().unwrap().to_str().unwrap() {
-                "nusktb" | "bin" | "numdlb" => {
+                "bntx" | "nusktb" | "bin" | "numdlb" => {
                     handle_file_overwrite(table1_idx);
                     return;
                 }
@@ -350,7 +357,7 @@ fn handle_texture_files(table1_idx: u32) {
 pub fn is_file_allowed(filepath: &Path) -> bool {
     // Check extensions
     match filepath.extension().unwrap().to_str().unwrap() {
-        "numshb" | "nutexb" | "eff" | "prc" | "stprm" | "stdat" | "xmb" | "arc" | "bfotf" | "bfttf" | "numatb" | "numshexb" | "bntx" => false,
+        "numshb" | "nutexb" | "eff" | "prc" | "stprm" | "stdat" | "xmb" | "arc" | "bfotf" | "bfttf" | "numatb" | "numshexb" | "nus3bank" => false,
         &_ => true,
     }
 }
@@ -397,12 +404,13 @@ pub fn main() {
         parse_log_xmb,
         parse_arc_file,
         parse_font_file,
-        //parse_numdlb_file,
+        // parse_numdlb_file,
         parse_numshb_file,
         parse_numshexb_file,
         parse_numatb_file,
         parse_numatb_nutexb,
-        parse_bntx_file,
+        // parse_bntx_file,
+        parse_nus3bank_file,
         change_version_string,
     );
 

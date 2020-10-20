@@ -19,6 +19,7 @@ pub static mut PARSE_NUMDLB_FILE_OFFSET:usize = 0x33dc098;
 pub static mut PARSE_LOG_XMB_OFFSET:usize = 0x33fa7e4;
 pub static mut PARSE_MODEL_XMB_2_OFFSET:usize = 0x3406934;
 pub static mut TITLE_SCREEN_VERSION_OFFSET:usize = 0x34b8327;
+pub static mut PARSE_NUS3BANK_FILE_OFFSET:usize = 0x35522e4;
 
 static IDK_SEARCH_CODE: &[u8] = &[
     0xf8, 0x5f, 0xbc, 0xa9, 0xf6, 0x57, 0x01, 0xa9, 0xf4, 0x4f, 0x02, 0xa9, 0xfd, 0x7b, 0x03, 0xa9,
