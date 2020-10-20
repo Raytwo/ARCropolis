@@ -1,6 +1,6 @@
 [package]
 name = "arcropolis"
-version = "0.9.3-beta3"
+version = "0.9.3-beta4"
 authors = ["Raytwo <raytwost@gmail.com>, jam1garner <jam1.mcleod@hotmail.com>"]
 edition = "2018"
 
@@ -11,6 +11,7 @@ titleid = "01006A800016E000"
 crate-type = ["cdylib"]
 
 [dependencies]
+log = "0.4.11"
 toml = "0.5.6"
 #rayon = "1.4.0"
 semver = "0.11.0"
@@ -20,8 +21,9 @@ parking_lot = "0.11.0"
 serde = { version = "1", features = ["derive"] }
 rand = { git = "https://github.com/skyline-rs/rand" }
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
+skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
 skyline_smash = { git = "https://github.com/ultimate-research/skyline-smash.git" }
-skyline-update = { path = "../skyline-update/skyline-update" }
+skyline-update = { git = "https://github.com/skyline-rs/skyline-update" }
 
 [patch.crates-io]
 getrandom = { git = "https://github.com/skyline-rs/getrandom" }
