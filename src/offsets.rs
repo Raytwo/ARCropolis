@@ -1,25 +1,24 @@
 use skyline::hooks::{getRegionAddress, Region};
 
-// default 8.0.0 offsets
-pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x324f7a0;
-// default 9.0.0 offsets
-pub static mut IDK_OFFSET: usize = 0x325dcc0;
-pub static mut ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET: usize = 0x3258110;
-pub static mut PARSE_EFF_OFFSET: usize = 0x3379804;
-pub static mut PARSE_EFF_NUTEXB_OFFSET: usize = 0x3379ce0;
-pub static mut PARSE_PARAM_OFFSET: usize = 0x3539104;
-pub static mut PARSE_MODEL_XMB_OFFSET:usize = 0x33fa718;
-pub static mut PARSE_ARC_FILE_OFFSET:usize = 0x358892c;
-pub static mut PARSE_FONT_FILE_OFFSET:usize = 0x3576918;
-pub static mut PARSE_NUMSHB_FILE_OFFSET:usize = 0x33e1740;
-pub static mut PARSE_NUMATB_NUTEXB_OFFSET:usize = 0x3407d74;
-pub static mut PARSE_NUMSHEXB_FILE_OFFSET:usize = 0x33e3634;
-pub static mut PARSE_NUMATB_FILE_OFFSET:usize = 0x340730c;
-pub static mut PARSE_NUMDLB_FILE_OFFSET:usize = 0x33dc098;
-pub static mut PARSE_LOG_XMB_OFFSET:usize = 0x33fa7e4;
-pub static mut PARSE_MODEL_XMB_2_OFFSET:usize = 0x3406934;
-pub static mut TITLE_SCREEN_VERSION_OFFSET:usize = 0x34b8327;
-pub static mut PARSE_NUS3BANK_FILE_OFFSET:usize = 0x35522e4;
+// default 9.0.1 offsets
+pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x335a350;
+pub static mut IDK_OFFSET: usize = 0x335f150;
+pub static mut ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET: usize = 0x33595a0;
+pub static mut PARSE_EFF_OFFSET: usize = 0x3379e14;
+pub static mut PARSE_EFF_NUTEXB_OFFSET: usize = 0x337a2f0;
+pub static mut PARSE_PARAM_OFFSET: usize = 0x3539714;
+pub static mut PARSE_MODEL_XMB_OFFSET:usize = 0x33fad28;
+pub static mut PARSE_ARC_FILE_OFFSET:usize = 0x3588f3c;
+pub static mut PARSE_FONT_FILE_OFFSET:usize = 0x3576f28;
+pub static mut PARSE_NUMSHB_FILE_OFFSET:usize = 0x33e1d50;
+pub static mut PARSE_NUMATB_NUTEXB_OFFSET:usize = 0x3408384;
+pub static mut PARSE_NUMSHEXB_FILE_OFFSET:usize = 0x33e3c44;
+pub static mut PARSE_NUMATB_FILE_OFFSET:usize = 0x340791c;
+pub static mut PARSE_NUMDLB_FILE_OFFSET:usize = 0x33dc6a8;
+pub static mut PARSE_LOG_XMB_OFFSET:usize = 0x33fadf4;
+pub static mut PARSE_MODEL_XMB_2_OFFSET:usize = 0x3406f44;
+pub static mut TITLE_SCREEN_VERSION_OFFSET:usize = 0x35ba960;
+pub static mut PARSE_NUS3BANK_FILE_OFFSET:usize = 0x35528f4;
 
 static IDK_SEARCH_CODE: &[u8] = &[
     0xf8, 0x5f, 0xbc, 0xa9, 0xf6, 0x57, 0x01, 0xa9, 0xf4, 0x4f, 0x02, 0xa9, 0xfd, 0x7b, 0x03, 0xa9,
@@ -131,10 +130,14 @@ macro_rules! find_offsets {
 }
 
 pub fn search_offsets() {
+    unsafe {
+        smash::resource::LOADED_TABLES_OFFSET = 0x50567a0;
+        smash::resource::RES_SERVICE_OFFSET = 0x50567a8;
+    }
         find_offsets!(
-            (IDK_OFFSET, IDK_SEARCH_CODE),
-            (ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, ADD_IDX_TO_TABLE1_AND_TABLE2_SEARCH_CODE),
-            (LOOKUP_STREAM_HASH_OFFSET, LOOKUP_STREAM_HASH_SEARCH_CODE),
+            //(IDK_OFFSET, IDK_SEARCH_CODE),
+            //(ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, ADD_IDX_TO_TABLE1_AND_TABLE2_SEARCH_CODE),
+            //(LOOKUP_STREAM_HASH_OFFSET, LOOKUP_STREAM_HASH_SEARCH_CODE),
             // (PARSE_EFF_NUTEXB_OFFSET, PARSE_EFF_NUTEXB_SEARCH_CODE),
             // (PARSE_EFF_OFFSET, PARSE_EFF_SEARCH_CODE),
             // (PARSE_PARAM_OFFSET, PARSE_PARAM_SEARCH_CODE),
@@ -147,7 +150,7 @@ pub fn search_offsets() {
             // (PARSE_NUMDLB_FILE_OFFSET, PARSE_NUMDLB_FILE_SEARCH_CODE),
             // (PARSE_LOG_XMB_OFFSET, PARSE_LOG_XMB_SEARCH_CODE),
             // (PARSE_MODEL_XMB_2_OFFSET, PARSE_MODEL_XMB_2_SEARCH_CODE),
-            (TITLE_SCREEN_VERSION_OFFSET, TITLE_SCREEN_VERSION_SEARCH_CODE),
+            //(TITLE_SCREEN_VERSION_OFFSET, TITLE_SCREEN_VERSION_SEARCH_CODE),
         );
 }
 

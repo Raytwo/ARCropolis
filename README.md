@@ -56,7 +56,7 @@ You can also opt-in for beta builds for experimental features through your confi
 
 ### Logging
 
-As of version 0.9.3-beta4 (only for beta users at time of writing), ARCropolis allows you to change the amount of logging you would like to see.
+As of version 0.9.3, ARCropolis allows you to change the amount of logging you would like to see.
 
 To do so, change the ``logger_level`` field in your configuration to one of the followings:
 
