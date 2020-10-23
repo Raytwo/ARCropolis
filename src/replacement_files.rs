@@ -69,6 +69,20 @@ pub extern "C" fn subscribe_callback_with_size(hash: u64, filesize: u32, extensi
     }
 }
 
+#[no_mangle]
+pub extern "C" fn scan_path(path: *const u8, path_len: usize, umm: bool) {
+    unsafe {
+        let path = std::str::from_utf8(slice::from_raw_parts(path, path_len)).unwrap();
+        let path = std::path::Path::new(&path).to_path_buf();
+
+        if umm {
+            ARC_FILES.write().visit_umm_dirs(&path).unwrap();
+        } else {
+            ARC_FILES.write().visit_dir(&path, path_len).unwrap();
+        }
+    }
+}
+
 pub struct ArcFiles(pub HashMap<u64, FileCtx>);
 
 #[derive(Debug, Clone)]
@@ -157,7 +171,11 @@ impl ArcFiles {
                 } else {
                     match self.visit_file(&entry, &path, arc_dir_len) {
                         Ok(file_ctx) => {
-                            self.0.insert(file_ctx.hash, file_ctx);
+                            if let Some(ctx) = self.0.get_mut(&file_ctx.hash) {
+                                ctx.filesize = file_ctx.filesize;
+                            } else {
+                                self.0.insert(file_ctx.hash, file_ctx);
+                            }
                             return Ok(());
                         }
                         Err(err) => {
