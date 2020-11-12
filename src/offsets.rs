@@ -1,24 +1,24 @@
 use skyline::hooks::{getRegionAddress, Region};
 
 // default 9.0.1 offsets
-pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x335a350;
-pub static mut IDK_OFFSET: usize = 0x335f150;
-pub static mut ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET: usize = 0x33595a0;
-pub static mut PARSE_EFF_OFFSET: usize = 0x3379e14;
-pub static mut PARSE_EFF_NUTEXB_OFFSET: usize = 0x337a2f0;
-pub static mut PARSE_PARAM_OFFSET: usize = 0x3539714;
-pub static mut PARSE_MODEL_XMB_OFFSET:usize = 0x33fad28;
-pub static mut PARSE_ARC_FILE_OFFSET:usize = 0x3588f3c;
-pub static mut PARSE_FONT_FILE_OFFSET:usize = 0x3576f28;
-pub static mut PARSE_NUMSHB_FILE_OFFSET:usize = 0x33e1d50;
-pub static mut PARSE_NUMATB_NUTEXB_OFFSET:usize = 0x3408384;
-pub static mut PARSE_NUMSHEXB_FILE_OFFSET:usize = 0x33e3c44;
-pub static mut PARSE_NUMATB_FILE_OFFSET:usize = 0x340791c;
-pub static mut PARSE_NUMDLB_FILE_OFFSET:usize = 0x33dc6a8;
-pub static mut PARSE_LOG_XMB_OFFSET:usize = 0x33fadf4;
-pub static mut PARSE_MODEL_XMB_2_OFFSET:usize = 0x3406f44;
-pub static mut TITLE_SCREEN_VERSION_OFFSET:usize = 0x35ba960;
-pub static mut PARSE_NUS3BANK_FILE_OFFSET:usize = 0x35528f4;
+pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x335A7F0;
+pub static mut IDK_OFFSET: usize = 0x335F5F0;
+pub static mut ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET: usize = 0x3359A40;
+pub static mut PARSE_EFF_OFFSET: usize = 0x337A2B4;
+pub static mut PARSE_EFF_NUTEXB_OFFSET: usize = 0x337A790;
+pub static mut PARSE_PARAM_OFFSET: usize = 0x3539BB4;
+pub static mut PARSE_MODEL_XMB_OFFSET:usize = 0x33FB1C8;
+pub static mut PARSE_ARC_FILE_OFFSET:usize = 0x35893DC;
+pub static mut PARSE_FONT_FILE_OFFSET:usize = 0x35773C8;
+pub static mut PARSE_NUMSHB_FILE_OFFSET:usize = 0x33E21F0;
+pub static mut PARSE_NUMATB_NUTEXB_OFFSET:usize = 0x3408824;
+pub static mut PARSE_NUMSHEXB_FILE_OFFSET:usize = 0x33E40E4;
+pub static mut PARSE_NUMATB_FILE_OFFSET:usize = 0x3407DBC;
+pub static mut PARSE_NUMDLB_FILE_OFFSET:usize = 0x33DCB48;
+pub static mut PARSE_LOG_XMB_OFFSET:usize = 0x33FB294;
+pub static mut PARSE_MODEL_XMB_2_OFFSET:usize = 0x34073E4;
+pub static mut TITLE_SCREEN_VERSION_OFFSET:usize = 0x35BAE00;
+pub static mut PARSE_NUS3BANK_FILE_OFFSET:usize = 0x3552D94;
 
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
