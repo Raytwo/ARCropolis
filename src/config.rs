@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 const CONFIG_PATH: &str = "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml";
 
 lazy_static::lazy_static! {
-    pub static ref CONFIG: Config = Config::open().unwrap();
+    pub static ref CONFIG: Box<Config> = Config::open().unwrap();
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -109,7 +109,7 @@ impl Config {
         }
     }
 
-    pub fn open() -> Result<Config, String> {
+    pub fn open() -> Result<Box<Config>, String> {
         match fs::read_to_string(CONFIG_PATH) {
             // File exists
             Ok(content) => {
@@ -117,14 +117,14 @@ impl Config {
                 let mut config = match toml::from_str(&content) {
                     // Deserialized properly
                     Ok(conf) => {
-                        conf
+                        Box::new(conf)
                     },
                     // Something happened when deserializing
                     Err(_) => {
                         println!("[ARC::Config] Configuration file could not be deserialized");
                         show_error(69, "Configuration file could not be deserialized", &format!("Your configuration file ({}) is either poorly manually edited, outdated, corrupted or in a format unfit for ARCropolis.\n\nA new configuration file will now be generated, but it might ignore your modpacks. Consider double checking.", CONFIG_PATH));
                         println!("[ARC::Config] Generating configuration file...");
-                        Config::new()
+                        Box::new(Config::new())
                     }
                 };
 
@@ -152,7 +152,7 @@ impl Config {
                 skyline_web::DialogOk::ok(format!("Thank you for installing ARCropolis!\n\nConfiguration file will now be generated"));
                 println!("[ARC::Config] Configuration file not found. Generating a new one...");
 
-                let config = Config::new();
+                let config = Box::new(Config::new());
                 config.save().unwrap();
 
                 Ok(config)

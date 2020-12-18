@@ -293,7 +293,7 @@ impl FileCtx {
     pub fn get_subfile(&self, t1_index: u32) -> &mut SubFile {
         let loaded_arc = LoadedTables::get_instance().get_arc();
 
-        let mut file_info = loaded_arc.lookup_file_information_by_t1_index(t1_index);
+        let file_info = loaded_arc.lookup_file_information_by_t1_index(t1_index);
         //let file_index = loaded_arc.lookup_fileinfoindex_by_t1_index(t1_index);
 
         // TODO: Make a constant for Redirect
