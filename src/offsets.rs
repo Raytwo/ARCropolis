@@ -52,7 +52,7 @@ static PARSE_EFF_SEARCH_CODE: &[u8] = &[
 ];
 
 static PARSE_EFF_NUTEXB_SEARCH_CODE: &[u8] = &[
-    0x1a, 0x01, 0x40, 0xf9, 0x02, 0x00, 0x00, 0x14, 0xfa, 0x03, 0x1f, 0xaa, 
+    0x3f, 0x01, 0x1c, 0x6b, 0xa0, 0x01, 0x00, 0x54, 0x0a, 0x1d, 0x40, 0xb9, 0x5f, 0x01, 0x09, 0x6b,
 ];
 
 static PARSE_PARAM_SEARCH_CODE: &[u8] = &[
@@ -222,6 +222,7 @@ pub fn search_offsets() {
         PARSE_NUMSHEXB_FILE_OFFSET += 8;
         PARSE_NUMATB_FILE_OFFSET += 64;
         PARSE_NUMSHB_FILE_OFFSET += 64;
+        PARSE_EFF_NUTEXB_OFFSET += 48;
     }
 }
 
