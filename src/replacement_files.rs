@@ -236,7 +236,7 @@ impl ArcFiles {
             return Err(format!("[ARC::Discovery] File '{}' does not have a matching region, skipping", file_ctx.path.display().bright_yellow()));
         }
 
-        file_ctx.filesize_replacement();
+        //file_ctx.filesize_replacement();
         Ok(file_ctx)
     }
 }
@@ -342,7 +342,7 @@ impl FileCtx {
 
             info!("[ARC::Patching] File '{}', decomp size: {:x}",self.path.display().bright_yellow(),subfile.decompressed_size.cyan());
 
-            if subfile.decompressed_size < self.filesize {
+           if subfile.decompressed_size < self.filesize {
                  subfile.decompressed_size = self.filesize;
                 info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decompressed_size.bright_red());
             }
