@@ -1,17 +1,23 @@
-use rand::Rng;
-
-use std::collections::HashMap;
-use std::io::{Error, ErrorKind};
+use std::{
+    fs,
+    io,
+    io::{
+        Error,
+        ErrorKind,
+    },
+    ptr
+};
 use std::path::Path;
-use std::{fs, io, ptr};
+use std::collections::HashMap;
 
 use skyline::hook;
 use skyline::libc::{c_char, c_void};
 
+use rand::Rng;
+use log::{ info, warn };
+
 use crate::get_from_hash;
 use crate::offsets::LOOKUP_STREAM_HASH_OFFSET;
-
-use log::{ info, warn };
 
 pub fn random_media_select(directory: &str) -> io::Result<String> {
     let mut rng = rand::thread_rng();

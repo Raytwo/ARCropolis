@@ -2,7 +2,9 @@
 #![feature(str_strip)]
 #![feature(asm)]
 
-use std::io::Write;
+use std::fs::File;
+use std::io::prelude::*;
+//use std::io::Write;
 use std::ffi::CStr;
 use std::net::IpAddr;
 use std::sync::atomic::Ordering;
@@ -25,8 +27,8 @@ use owo_colors::OwoColorize;
 
 use smash::resource::{FileState, LoadedTables, ResServiceState, Table2Entry, CppVector, FileNX};
 
-use log::{ trace, info };
 mod logging;
+use log::{ trace, info };
 
 fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
     let loaded_tables = LoadedTables::get_instance();
@@ -94,7 +96,9 @@ fn change_version_string(arg1: u64, string: *const u8) {
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum LoadingType {
     Directory = 0,
+    // Character/Stage directory related
     Unk1 = 1,
+    // Character/Stage directory related
     Unk2 = 2,
     Unk3 = 3,
     File = 4,
@@ -219,6 +223,35 @@ fn state_change(_ctx: &InlineCtx) {
     }
 }
 
+#[hook(offset = 0x35c6470, inline)]
+fn initial_loading(_ctx: &InlineCtx) {
+    let changelog = if let Ok(mut file) = std::fs::File::open("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.txt") {
+        let mut content = String::new();
+        file.read_to_string(&mut content).unwrap();
+        Some(format!("Changelog\n\n{}", &content))
+    } else {
+        None
+    };
+
+    if let Some(text) = changelog {
+        skyline_web::DialogOk::ok(text);
+        std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.txt").unwrap();
+    }
+
+    // TODO: Modpack selector menu here if a key is held
+
+    // Discover files
+    unsafe {
+        nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
+
+        lazy_static::initialize(&ARC_FILES);
+
+        nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
+    }
+
+
+}
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     logging::init(CONFIG.logger.as_ref().unwrap().logger_level.into()).unwrap();
@@ -236,6 +269,7 @@ pub fn main() {
     offsets::search_offsets();
 
     install_hooks!(
+        initial_loading,
         stream::lookup_by_stream_hash,
         inflate_incoming,
         state_change,

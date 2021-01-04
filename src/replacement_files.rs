@@ -4,8 +4,6 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 use std::sync::atomic::{ AtomicBool, Ordering };
 
-use skyline::nn;
-
 use crate::config::CONFIG;
 
 use owo_colors::OwoColorize;
@@ -108,14 +106,8 @@ impl ArcFiles {
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
 
-        unsafe {
-            nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
-
-            let _ = instance.visit_dir(&PathBuf::from(&CONFIG.paths.arc), CONFIG.paths.arc.len());
-            let _ = instance.visit_umm_dirs(&PathBuf::from(&CONFIG.paths.umm));
-
-            nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
-        }
+        let _ = instance.visit_dir(&PathBuf::from(&CONFIG.paths.arc), CONFIG.paths.arc.len());
+        let _ = instance.visit_umm_dirs(&PathBuf::from(&CONFIG.paths.umm));
 
         instance
     }
