@@ -4,7 +4,6 @@
 
 use std::io::Write;
 use std::ffi::CStr;
-use std::path::Path;
 use std::net::IpAddr;
 use std::sync::atomic::Ordering;
 
@@ -20,11 +19,11 @@ mod replacement_files;
 use replacement_files::{ FileCtx, ARC_FILES, ARC_CALLBACKS, QUEUE_HANDLED, CB_QUEUE };
 
 mod offsets;
-use offsets::{ ADD_IDX_TO_TABLE1_AND_TABLE2_OFFSET, IDK_OFFSET, PARSE_EFF_NUTEXB_OFFSET, PARSE_EFF_OFFSET, PARSE_PARAM_OFFSET, PARSE_MODEL_XMB_OFFSET, PARSE_ARC_FILE_OFFSET, PARSE_FONT_FILE_OFFSET, PARSE_NUMSHB_FILE_OFFSET,PARSE_NUMATB_NUTEXB_OFFSET, PARSE_NUMSHEXB_FILE_OFFSET, PARSE_NUMATB_FILE_OFFSET, PARSE_NUMDLB_FILE_OFFSET, PARSE_LOG_XMB_OFFSET, PARSE_MODEL_XMB_2_OFFSET, TITLE_SCREEN_VERSION_OFFSET, PARSE_NUS3BANK_FILE_OFFSET };
+use offsets::TITLE_SCREEN_VERSION_OFFSET;
 
 use owo_colors::OwoColorize;
 
-use smash::resource::{FileState, LoadedTables, ResServiceState, Table2Entry, HashIndexGroup, CppVector, FileNX};
+use smash::resource::{FileState, LoadedTables, ResServiceState, Table2Entry, CppVector, FileNX};
 
 use log::{ trace, info };
 mod logging;
@@ -102,29 +101,6 @@ pub enum LoadingType {
 }
 
 #[repr(C)]
-pub struct DirectoryOffset {
-    pub offset: u64,
-    pub decomp_size: u32,
-    pub comp_size: u32,
-    pub sub_data_start_index: u32,
-    pub sub_data_count: u32,
-    pub redirect_index: u32,
-}
-
-#[repr(C)]
-pub struct DirectoryList {
-    pub full_path: HashIndexGroup,
-    pub name: HashIndexGroup,
-    pub parent: HashIndexGroup,
-    pub extra_dis_re: HashIndexGroup,
-    pub file_info_start_idx: u32,
-    pub file_info_count: u32,
-    pub child_directory_start_idx: u32,
-    pub child_directory_count: u32,
-    pub flags: u32,
-}
-
-#[repr(C)]
 #[allow(dead_code)]
 pub struct ResService{
     pub mutex: *mut nn::os::MutexType,
@@ -167,16 +143,6 @@ pub struct ResService{
     pub current_index: u32,
     pub current_dir_index: u32,
     //Still need to add some
-}
-
-#[hook(offset = 0x33b7fbc, inline)]
-fn state_change(ctx: &InlineCtx) {
-    unsafe {
-        let res_service = &mut *(ResServiceState::get_instance() as *mut ResServiceState as *mut ResService);
-        handle_file_overwrite_test(res_service.processing_file_idx_curr);
-        // Set it back to 0 just in case
-        res_service.processing_file_idx_curr = 0;
-    }
 }
 
 fn handle_file_overwrite_test(table1_idx: u32) {
@@ -240,6 +206,16 @@ fn inflate_incoming(ctx: &InlineCtx) {
             },
             None => {},
         }
+    }
+}
+
+#[hook(offset = 0x33b7fbc, inline)]
+fn state_change(_ctx: &InlineCtx) {
+    unsafe {
+        let res_service = &mut *(ResServiceState::get_instance() as *mut ResServiceState as *mut ResService);
+        handle_file_overwrite_test(res_service.processing_file_idx_curr);
+        // Set it back to 0 just in case
+        res_service.processing_file_idx_curr = 0;
     }
 }
 

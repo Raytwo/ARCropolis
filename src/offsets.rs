@@ -63,16 +63,14 @@ macro_rules! find_offsets {
         $(,)?
     ) => {
         $(
-            unsafe {
-                let text_ptr = getRegionAddress(Region::Text) as *const u8;
-                let text_size = (getRegionAddress(Region::Rodata) as usize) - (text_ptr as usize);
-                let text = std::slice::from_raw_parts(text_ptr, text_size);
+            let text_ptr = getRegionAddress(Region::Text) as *const u8;
+            let text_size = (getRegionAddress(Region::Rodata) as usize) - (text_ptr as usize);
+            let text = std::slice::from_raw_parts(text_ptr, text_size);
 
-                if let Some(offset) = find_subsequence(text, $search_pattern) {
-                    $out_variable = offset
-                } else {
-                    println!("Error: no offset found for '{}'. Defaulting to 9.0.2 offset. This most likely won't work.", stringify!($out_variable));
-                }
+            if let Some(offset) = find_subsequence(text, $search_pattern) {
+                $out_variable = offset
+            } else {
+                println!("Error: no offset found for '{}'. Defaulting to 9.0.2 offset. This most likely won't work.", stringify!($out_variable));
             }
         )*
     };
