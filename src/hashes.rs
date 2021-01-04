@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::fs;
 
-use smash::hash40;
+use smash_arc::Hash40;
 
 lazy_static::lazy_static! {
-    static ref HASHES : HashMap<u64, &'static str> = {
+    static ref HASHES : HashMap<Hash40, &'static str> = {
         let mut hashes = HashMap::default();
 
         let str_path = "rom:/skyline/hashes.txt";
@@ -18,7 +18,7 @@ lazy_static::lazy_static! {
         };
 
         for hs in string_to_static_str(s).lines() {
-            hashes.insert(hash40(hs), hs);
+            hashes.insert(Hash40::from(hs), hs);
         }
 
         return hashes;
@@ -30,7 +30,7 @@ pub fn string_to_static_str(s: String) -> &'static str {
 }
 
 #[allow(dead_code)]
-pub fn get(x: u64) -> Option<&'static &'static str> {
+pub fn get(x: Hash40) -> Option<&'static &'static str> {
     HASHES.get(&x)
 }
 

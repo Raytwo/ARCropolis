@@ -78,8 +78,8 @@ macro_rules! find_offsets {
 
 pub fn search_offsets() {
     unsafe {
-        smash::resource::LOADED_TABLES_OFFSET = 0x50567a0;
-        smash::resource::RES_SERVICE_OFFSET = 0x50567a8;
+        crate::runtime::LOADED_TABLES_OFFSET = 0x50567a0;
+        crate::runtime::RES_SERVICE_OFFSET = 0x50567a8;
 
         let text_ptr = getRegionAddress(Region::Text) as *const u8;
         let text_size = (getRegionAddress(Region::Rodata) as usize) - (text_ptr as usize);
@@ -91,7 +91,7 @@ pub fn search_offsets() {
 
             let adrp_offset = offset_from_adrp(LOADED_TABLES_ADRP_OFFSET);
             let ldr_offset = offset_from_ldr(LOADED_TABLES_ADRP_OFFSET + 4);
-            smash::resource::LOADED_TABLES_OFFSET = adrp_offset + ldr_offset;
+            crate::runtime::LOADED_TABLES_OFFSET = adrp_offset + ldr_offset;
         } else {
             println!("Error: no offset found for 'loaded_tables_adrp'. Defaulting to 9.0.2 offset. This likely won't work.");
         }
@@ -101,7 +101,7 @@ pub fn search_offsets() {
 
             let adrp_offset = offset_from_adrp(RES_SERVICE_ADRP_OFFSET);
             let ldr_offset = offset_from_ldr(RES_SERVICE_ADRP_OFFSET + 4);
-            smash::resource::RES_SERVICE_OFFSET = adrp_offset + ldr_offset;
+            crate::runtime::RES_SERVICE_OFFSET = adrp_offset + ldr_offset;
         } else {
             println!("Error: no offset found for 'res_service_adrp'. Defaulting to 9.0.2 offset. This likely won't work.");
         }

@@ -4,28 +4,32 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 use std::sync::atomic::{ AtomicBool, Ordering };
 
-use crate::config::CONFIG;
+use crate::{config::CONFIG, runtime};
 
 use owo_colors::OwoColorize;
 
-use smash::hash40;
-use smash::resource::{LoadedTables, ResServiceState, SubFile};
-// use rayon::iter::{ IndexedParallelIterator, IntoParallelRefIterator, ParallelBridge, ParallelIterator };
+use smash_arc::{
+    Hash40,
+    FileData,
+    ArcLookup,
+};
+
+use runtime::{ LoadedTables, ResServiceState };
 
 use log::{ info, warn };
 
-type ArcCallback = extern "C" fn(u64, *mut skyline::libc::c_void, usize) -> bool;
+type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> bool;
 
 lazy_static::lazy_static! {
     pub static ref ARC_FILES: parking_lot::RwLock<ArcFiles> = parking_lot::RwLock::new(ArcFiles::new());
-    pub static ref ARC_CALLBACKS: parking_lot::RwLock<HashMap<u64, ArcCallback>> = parking_lot::RwLock::new(HashMap::new());
-    pub static ref CB_QUEUE: parking_lot::RwLock<HashMap<u64, FileCtx>> = parking_lot::RwLock::new(HashMap::new());
+    pub static ref ARC_CALLBACKS: parking_lot::RwLock<HashMap<Hash40, ArcCallback>> = parking_lot::RwLock::new(HashMap::new());
+    pub static ref CB_QUEUE: parking_lot::RwLock<HashMap<Hash40, FileCtx>> = parking_lot::RwLock::new(HashMap::new());
 }
 
 pub static QUEUE_HANDLED: AtomicBool = AtomicBool::new(false);
 
 #[no_mangle]
-pub extern "C" fn subscribe_callback(hash: u64, extension: *const u8, extension_len: usize, callback: ArcCallback) {
+pub extern "C" fn subscribe_callback(hash: Hash40, extension: *const u8, extension_len: usize, callback: ArcCallback) {
     unsafe {
         let filepath = format!("rom:/virtual.{}", std::str::from_utf8(slice::from_raw_parts(extension, extension_len)).unwrap());
         let path = std::path::Path::new(&filepath).to_path_buf();
@@ -46,7 +50,7 @@ pub extern "C" fn subscribe_callback(hash: u64, extension: *const u8, extension_
 }
 
 #[no_mangle]
-pub extern "C" fn subscribe_callback_with_size(hash: u64, filesize: u32, extension: *const u8, extension_len: usize, callback: ArcCallback) {
+pub extern "C" fn subscribe_callback_with_size(hash: Hash40, filesize: u32, extension: *const u8, extension_len: usize, callback: ArcCallback) {
     unsafe {
         let filepath = format!("rom:/virtual.{}", std::str::from_utf8(slice::from_raw_parts(extension, extension_len)).unwrap());
         let path = std::path::Path::new(&filepath).to_path_buf();
@@ -81,15 +85,15 @@ pub extern "C" fn scan_path(path: *const u8, path_len: usize, umm: bool) {
     }
 }
 
-pub struct ArcFiles(pub HashMap<u64, FileCtx>);
+pub struct ArcFiles(pub HashMap<Hash40, FileCtx>);
 
 #[derive(Debug, Clone)]
 pub struct FileCtx {
     pub path: PathBuf,
-    pub hash: u64,
+    pub hash: Hash40,
     pub filesize: u32,
     pub virtual_file: bool,
-    pub orig_subfile: SubFile,
+    pub orig_subfile: smash_arc::FileData,
 }
 
 #[macro_export]
@@ -112,8 +116,8 @@ impl ArcFiles {
         instance
     }
 
-    pub fn get(&self, hash: u64) -> Option<&FileCtx> {
-        self.0.get(&hash)
+    pub fn get<H: Into<Hash40>>(&self, hash: H) -> Option<&FileCtx> {
+        self.0.get(&hash.into())
     }
 
     /// Visit Ultimate Mod Manager directories for backwards compatibility
@@ -216,7 +220,7 @@ impl ArcFiles {
         let mut file_ctx = FileCtx::new();
 
         file_ctx.path = full_path.to_path_buf();
-        file_ctx.hash = hash40(&game_path);
+        file_ctx.hash = Hash40::from(game_path.as_str());
 
         file_ctx.filesize = match entry.metadata() {
             Ok(meta) => meta.len() as u32,
@@ -237,14 +241,14 @@ impl FileCtx {
     pub fn new() -> Self {
         FileCtx {
             path: PathBuf::new(),
-            hash: 0,
+            hash: Hash40(0),
             filesize: 0,
             virtual_file: false,
-            orig_subfile: SubFile {
-                offset: 0,
-                compressed_size: 0,
-                decompressed_size: 0,
-                flags: 0,
+            orig_subfile: smash_arc::FileData {
+                offset_in_folder: 0,
+                comp_size: 0,
+                decomp_size: 0,
+                flags: smash_arc::FileDataFlags::new().with_compressed(false).with_use_zstd(false).with_unk(0),
             },
         }
     }
@@ -282,27 +286,14 @@ impl FileCtx {
         region_index
     }
 
-    pub fn get_subfile(&self, t1_index: u32) -> &mut SubFile {
+    pub fn get_subfile(&self) -> &mut smash_arc::FileData {
         let loaded_arc = LoadedTables::get_instance().get_arc();
 
-        let file_info = loaded_arc.lookup_file_information_by_t1_index(t1_index);
-        //let file_index = loaded_arc.lookup_fileinfoindex_by_t1_index(t1_index);
-
-        // TODO: Make a constant for Redirect
-        // if (file_info.flags & 0x00000010) == 0x10 {
-        //     file_info = loaded_arc.lookup_file_information_by_t1_index(file_index.file_info_index);
-        // }
-
-        let mut sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index);
-
-        // TODO: Make a constant for Regional
-        if (file_info.flags & 0x00008000) == 0x8000 {
-            sub_index = loaded_arc.lookup_fileinfosubindex_by_index(file_info.sub_index_index + 1 + self.get_region());
-        }
+        let file_info = loaded_arc.get_file_info_from_hash(self.hash).unwrap();
 
         unsafe {
-            let sub_file = loaded_arc.sub_files.offset(sub_index.sub_file_index as isize) as *mut SubFile;
-            &mut *sub_file
+            let file_data = (loaded_arc.get_file_data(file_info) as *const FileData) as *mut FileData;
+            &mut *file_data
         }
     }
 
@@ -314,30 +305,24 @@ impl FileCtx {
     pub fn filesize_replacement(&mut self) {
         let loaded_tables = LoadedTables::get_instance();
 
-        unsafe {
-            let hashindexgroup_slice = slice::from_raw_parts(loaded_tables.get_arc().file_info_path,(*loaded_tables).table1_len as usize);
-
-            // TODO: Figure out why bsearch does not work
-            let t1_index = match hashindexgroup_slice.iter().position(|x| x.path.hash40.as_u64() == self.hash)
-            {
-                Some(index) => index as u32,
-                None => {
-                    warn!("[ARC::Patching] File '{}' does not have a hash found in table1, skipping",self.path.display().bright_yellow());
+            match loaded_tables.get_arc().get_file_data_from_hash(self.hash) {
+                Ok(_) => {},
+                Err(_) => {
+                    println!("[ARC::Patching] File '{}' does not have a hash found in FileInfoPath, skipping",self.path.display());
                     return;
-                }
-            };
+                },
+            }
 
             // Backup the Subfile for when file watching is added
-            self.orig_subfile = self.get_subfile(t1_index).clone();
+            self.orig_subfile = self.get_subfile().clone();
 
-            let mut subfile = self.get_subfile(t1_index);
+            let mut subfile = self.get_subfile();
 
-            info!("[ARC::Patching] File '{}', decomp size: {:x}",self.path.display().bright_yellow(),subfile.decompressed_size.cyan());
+        //info!("[ARC::Patching] File '{}', decomp size: {:x}",self.path.display().bright_yellow(),subfile.decomp_size.cyan());
 
-           if subfile.decompressed_size < self.filesize {
-                 subfile.decompressed_size = self.filesize;
-                info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decompressed_size.bright_red());
+           if subfile.decomp_size < self.filesize {
+                 subfile.decomp_size = self.filesize;
+                info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decomp_size.bright_red());
             }
-        }
     }
 }

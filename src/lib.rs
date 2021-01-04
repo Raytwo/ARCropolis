@@ -25,14 +25,22 @@ use offsets::TITLE_SCREEN_VERSION_OFFSET;
 
 use owo_colors::OwoColorize;
 
-use smash::resource::{FileState, LoadedTables, ResServiceState, Table2Entry, CppVector, FileNX};
+//use smash::resource::{FileState, LoadedTables, ResServiceState, Table2Entry, CppVector, FileNX};
+mod runtime;
+use runtime::{LoadedTables, ResServiceState, FileState, Table2Entry};
 
 mod logging;
 use log::{ trace, info };
 
+use smash_arc::{
+    Hash40,
+    ArcLookup,
+};
+
 fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
     let loaded_tables = LoadedTables::get_instance();
-    let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
+    let hash = unsafe { (*loaded_tables.get_arc().file_paths.offset(table1_idx as isize)).path.hash40() };
+    //let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
 
     let table2entry = match loaded_tables.get_t2_mut(table1_idx) {
         Ok(entry) => entry,
@@ -41,7 +49,7 @@ fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(parking_lot::MappedRwL
         }
     };
 
-    trace!("[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}", table1_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow(), hash.cyan(), table2entry.bright_magenta());
+    trace!("[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}", table1_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow(), hash.as_u64().cyan(), table2entry.bright_magenta());
 
     if QUEUE_HANDLED.swap(true, Ordering::SeqCst) {
         for (hash, ctx) in CB_QUEUE.write().iter_mut() {
@@ -92,66 +100,9 @@ fn change_version_string(arg1: u64, string: *const u8) {
     }
 }
 
-#[repr(u32)]
-#[derive(PartialEq, Copy, Clone, Debug)]
-pub enum LoadingType {
-    Directory = 0,
-    // Character/Stage directory related
-    Unk1 = 1,
-    // Character/Stage directory related
-    Unk2 = 2,
-    Unk3 = 3,
-    File = 4,
-}
-
-#[repr(C)]
-#[allow(dead_code)]
-pub struct ResService{
-    pub mutex: *mut nn::os::MutexType,
-    pub res_update_event: *mut nn::os::EventType,
-    unk1: *const (),
-    pub io_swap_event: *mut nn::os::EventType,
-    unk2: *const (),
-    pub semaphore1: *const (),
-    pub semaphore2: *const (),
-    pub res_update_thread: *mut nn::os::ThreadType,
-    pub res_loading_thread: *mut nn::os::ThreadType,
-    pub res_inflate_thread: *mut nn::os::ThreadType,
-    unk4: *const (),
-    pub directory_idx_queue: [CppVector<CppVector<u32>>; 4],
-    unk6: *const (),
-    unk7: *const (),
-    unk8: *const (),
-    pub loaded_tables: *mut LoadedTables,
-    pub unk_region_idx: u32,
-    pub regular_region_idx: u32,
-    unk9: u32,
-    pub state: i16,
-    pub is_loader_thread_running: bool,
-    unk10: u8,
-    pub data_arc_string: [u8; 256],
-    unk11: *const (),
-    pub data_arc_filenx: *mut *mut FileNX,
-    pub buffer_size: usize,
-    pub buffer_array: [*const skyline::libc::c_void; 2],
-    pub buffer_array_idx: u32,
-    unk12: u32,
-    pub data_ptr: *const skyline::libc::c_void,
-    pub offset_into_read: u64,
-    pub processing_file_idx_curr: u32,
-    pub processing_file_idx_count: u32,
-    pub processing_file_idx_start: u32,
-    pub processing_type: LoadingType,
-    pub processing_dir_idx_start: u32,
-    pub processing_dir_idx_single: u32,
-    pub current_index: u32,
-    pub current_dir_index: u32,
-    //Still need to add some
-}
-
 fn handle_file_overwrite_test(table1_idx: u32) {
     if let Some((file_ctx, table2entry)) = get_filectx_by_t1index(table1_idx) {
-        if table2entry.state != FileState::Unloaded {
+        if table2entry.state == FileState::Loaded {
             return;
         }
 
@@ -190,20 +141,19 @@ fn handle_file_overwrite_test(table1_idx: u32) {
 fn inflate_incoming(ctx: &InlineCtx) {
     unsafe {
         let loaded_tables = LoadedTables::get_instance();
-        let res_service = &mut *(ResServiceState::get_instance() as *mut ResServiceState as *mut ResService);
+        let res_service = ResServiceState::get_instance();
         let arc = loaded_tables.get_arc();
 
         // Replace all this mess by Smash-arc
         let current_index = *ctx.registers[27].x.as_ref() as u32;
-        let file_infos = arc.file_info;
-        let file_info = &*file_infos.offset((res_service.processing_file_idx_start + current_index) as isize);
-        let t1_idx = file_info.path_index;
-        let hash = loaded_tables.get_hash_from_t1_index(t1_idx).as_u64();
+        let file_info = arc.get_file_infos()[(res_service.processing_file_idx_start + current_index) as usize];
+        let t1_idx = file_info.hash_index;
+        let hash = (*arc.file_paths.offset(t1_idx as isize)).path.hash40().as_u64();
 
         // Seems to be unused, store it here so the State_change hook can get it back
         res_service.processing_file_idx_curr = t1_idx;
 
-        match ARC_FILES.write().0.get_mut(&hash) {
+        match ARC_FILES.write().0.get_mut(&Hash40(hash)) {
             Some(context) => {
                 context.filesize_replacement();
                 println!("[ResInflateThread] Replaced FileData");
@@ -215,17 +165,15 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
 #[hook(offset = 0x33b7fbc, inline)]
 fn state_change(_ctx: &InlineCtx) {
-    unsafe {
-        let res_service = &mut *(ResServiceState::get_instance() as *mut ResServiceState as *mut ResService);
+        let res_service = ResServiceState::get_instance();
         handle_file_overwrite_test(res_service.processing_file_idx_curr);
         // Set it back to 0 just in case
         res_service.processing_file_idx_curr = 0;
-    }
 }
 
 #[hook(offset = 0x35c6470, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
-    let changelog = if let Ok(mut file) = std::fs::File::open("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.txt") {
+    let changelog = if let Ok(mut file) = File::open("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.txt") {
         let mut content = String::new();
         file.read_to_string(&mut content).unwrap();
         Some(format!("Changelog\n\n{}", &content))
@@ -248,8 +196,6 @@ fn initial_loading(_ctx: &InlineCtx) {
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
     }
-
-
 }
 
 #[skyline::main(name = "arcropolis")]
@@ -260,8 +206,6 @@ pub fn main() {
     if skyline_update::check_update(IpAddr::V4(CONFIG.updater.as_ref().unwrap().server_ip), "ARCropolis", env!("CARGO_PKG_VERSION"), CONFIG.updater.as_ref().unwrap().beta_updates) {
         skyline::nn::oe::RestartProgramNoArgs();
     }
-
-    // TODO: Future changelog stuff go here
 
     // Load hashes from rom:/skyline/hashes.txt if the file is present
     hashes::init();
