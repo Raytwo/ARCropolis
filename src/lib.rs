@@ -25,7 +25,6 @@ use offsets::TITLE_SCREEN_VERSION_OFFSET;
 
 use owo_colors::OwoColorize;
 
-//use smash::resource::{FileState, LoadedTables, ResServiceState, Table2Entry, CppVector, FileNX};
 mod runtime;
 use runtime::{LoadedTables, ResServiceState, FileState, Table2Entry};
 
@@ -173,6 +172,13 @@ fn state_change(_ctx: &InlineCtx) {
 
 #[hook(offset = 0x35c6470, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
+    logging::init(CONFIG.logger.as_ref().unwrap().logger_level.into()).unwrap();
+
+    // Check if an update is available
+    if skyline_update::check_update(IpAddr::V4(CONFIG.updater.as_ref().unwrap().server_ip), "ARCropolis", env!("CARGO_PKG_VERSION"), CONFIG.updater.as_ref().unwrap().beta_updates) {
+        skyline::nn::oe::RestartProgramNoArgs();
+    }
+    
     let changelog = if let Ok(mut file) = File::open("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.txt") {
         let mut content = String::new();
         file.read_to_string(&mut content).unwrap();
@@ -200,13 +206,6 @@ fn initial_loading(_ctx: &InlineCtx) {
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
-    logging::init(CONFIG.logger.as_ref().unwrap().logger_level.into()).unwrap();
-
-    // Check if an update is available
-    if skyline_update::check_update(IpAddr::V4(CONFIG.updater.as_ref().unwrap().server_ip), "ARCropolis", env!("CARGO_PKG_VERSION"), CONFIG.updater.as_ref().unwrap().beta_updates) {
-        skyline::nn::oe::RestartProgramNoArgs();
-    }
-
     // Load hashes from rom:/skyline/hashes.txt if the file is present
     hashes::init();
     // Look for the offset of the various functions to hook
