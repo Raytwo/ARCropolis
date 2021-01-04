@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, vec};
 use std::fs::File;
 use std::io::Write;
 use std::net::Ipv4Addr;
@@ -35,6 +35,7 @@ pub struct Infos {
 pub struct Paths {
     pub arc: String,
     pub umm: String,
+    pub extra_paths: Option<Vec<String>>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -102,6 +103,7 @@ impl Config {
             paths: Paths {
                 arc: "rom:/arc".to_string(),
                 umm: "sd:/ultimate/mods".to_string(),
+                extra_paths: Some(vec![]),
             },
             updater: Some(Updater::new()),
             logger: Some(Logger::new()),
@@ -127,7 +129,6 @@ impl Config {
                         Box::new(Config::new())
                     }
                 };
-
     
                 // Make sure the version matches with the current release
                 if Version::parse(&config.infos.version) < Version::parse(&env!("CARGO_PKG_VERSION").to_string()) {
@@ -163,6 +164,11 @@ impl Config {
     /// Should initialize missing fields in the struct when they get added
     fn update(&mut self) {
         self.infos.version = env!("CARGO_PKG_VERSION").to_string();
+
+        match &self.paths.extra_paths {
+            Some(_) => {},
+            None => self.paths.extra_paths = Some(vec![]),
+        }
 
         match &self.updater {
             Some(_) => {},

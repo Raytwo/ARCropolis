@@ -113,6 +113,12 @@ impl ArcFiles {
         let _ = instance.visit_dir(&PathBuf::from(&CONFIG.paths.arc), CONFIG.paths.arc.len());
         let _ = instance.visit_umm_dirs(&PathBuf::from(&CONFIG.paths.umm));
 
+        if let Some(extra_paths) = &CONFIG.paths.extra_paths {
+            for path in extra_paths {
+                let _ = instance.visit_umm_dirs(&PathBuf::from(path));
+            }
+        }
+
         instance
     }
 
