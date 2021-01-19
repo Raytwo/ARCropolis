@@ -11,7 +11,6 @@ use skyline::{
 
 use smash_arc::LoadedArc;
 use smash_arc::LoadedSearchSection;
-use smash_arc::HashToIndex;
 
 // 9.0.1 offsets
 pub static mut LOADED_TABLES_OFFSET: usize = 0x50567a0;
@@ -45,6 +44,7 @@ pub struct Table1Entry {
 }
 
 impl Table1Entry {
+    #[allow(dead_code)]
     pub fn get_t2_entry(&self) -> Result<&Table2Entry, LoadError> {
         LoadedTables::get_instance()
             .table_2()
@@ -104,7 +104,7 @@ pub struct LoadedTables {
     pub table1_count: u32,
     pub table2_count: u32,
     pub table1_list: CppVector<u32>,
-    pub loaded_directory_table: *const (),
+    pub loaded_directory_table: *const LoadedDirectory,
     pub loaded_directory_table_size: u32,
     pub unk2: u32,
     pub unk3: CppVector<u32>,
@@ -113,6 +113,16 @@ pub struct LoadedTables {
     pub addr: *const (),
     pub loaded_data: &'static mut LoadedData,
     pub version: u32,
+}
+
+#[repr(C)]
+pub struct LoadedDirectory {
+    pub directory_offset_index: u32,
+    pub dir_count: u32,
+    unk: u64,
+    pub child_files_indexes: CppVector<u32>,
+    pub child_folders: CppVector<LoadedDirectory>,
+    pub redirection_dir: *const LoadedDirectory,
 }
 
 #[repr(C)]
@@ -129,6 +139,7 @@ pub struct CppVector<T> {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 pub struct FsSearchBody {
     pub file_path_length: u32,
     pub idx_length: u32,
@@ -163,6 +174,11 @@ impl LoadedTables {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn get_loaded_directories(&self) -> &[LoadedDirectory] {
+        unsafe { std::slice::from_raw_parts(self.loaded_directory_table, self.loaded_directory_table_size as usize) }
+    }
+
     pub fn table_1(&self) -> &[Table1Entry] {
         unsafe { std::slice::from_raw_parts(self.table1, self.table1_len as usize) }
     }
@@ -179,12 +195,14 @@ impl LoadedTables {
         unsafe { std::slice::from_raw_parts_mut(self.table2, self.table2_len as usize) }
     }
 
+    #[allow(dead_code)]
     pub fn get_t1_mut(&mut self, t1_index: u32) -> Result<&mut Table1Entry, LoadError> {
         self.table_1_mut()
             .get_mut(t1_index as usize)
             .ok_or(LoadError::NoTable1)
     }
 
+    #[allow(dead_code)]
     pub fn get_t2(&self, t1_index: u32) -> Result<&Table2Entry, LoadError> {
         let t1 = self
             .table_1()
@@ -195,17 +213,18 @@ impl LoadedTables {
     }
 
     pub fn get_t2_mut(&mut self, t1_index: u32) -> Result<&mut Table2Entry, LoadError> {
-        let t1 = self
-            .table_1()
-            .get(t1_index as usize)
-            .ok_or(LoadError::NoTable1)?;
-        let t2_index = t1.table2_index as usize;
+        // let t1 = self
+        //     .table_1()
+        //     .get(t1_index as usize)
+        //     .ok_or(LoadError::NoTable1)?;
+        let t2_index = t1_index as usize;
         self.table_2_mut()
             .get_mut(t2_index)
             .ok_or(LoadError::NoTable2)
     }
 }
 
+#[allow(dead_code)]
 #[derive(Copy, Clone, Debug)]
 pub enum LoadError {
     NoTable1,
@@ -227,6 +246,7 @@ pub struct FileNX {
 }
 
 #[repr(u32)]
+#[allow(dead_code)]
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum LoadingType {
     Directory = 0,

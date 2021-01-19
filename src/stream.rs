@@ -11,13 +11,15 @@ use std::path::Path;
 use std::collections::HashMap;
 
 use skyline::hook;
-use skyline::libc::{c_char, c_void};
+use skyline::libc::c_char;
 
 use rand::Rng;
 use log::{ info, warn };
 
-use crate::get_from_hash;
 use crate::offsets::LOOKUP_STREAM_HASH_OFFSET;
+use crate::replacement_files::STREAM_FILES;
+
+use smash_arc::{ Hash40, LoadedArc };
 
 pub fn random_media_select(directory: &str) -> io::Result<String> {
     let mut rng = rand::thread_rng();
@@ -49,12 +51,13 @@ pub fn random_media_select(directory: &str) -> io::Result<String> {
 #[hook(offset = LOOKUP_STREAM_HASH_OFFSET)]
 fn lookup_by_stream_hash(
     out_path: *mut c_char,
-    loaded_arc: *const c_void,
+    loaded_arc: &LoadedArc,
     size_out: *mut u64,
     offset_out: *mut u64,
-    hash: u64,
+    hash: Hash40,
 ) {
-    if let Ok(file_ctx) = get_from_hash!(hash) {
+
+    if let Some(file_ctx) = STREAM_FILES.read().0.get(&hash.as_u64()) {
         let file;
         let metadata;
         let size;

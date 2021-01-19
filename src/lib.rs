@@ -4,13 +4,15 @@
 
 use std::fs::File;
 use std::io::prelude::*;
-//use std::io::Write;
 use std::ffi::CStr;
 use std::net::IpAddr;
-use std::sync::atomic::Ordering;
 
-use skyline::hooks::InlineCtx;
-use skyline::{nn, hook, install_hooks};
+use skyline::{
+    nn,
+    hook,
+    hooks::InlineCtx,
+    install_hooks
+};
 
 mod config;
 use config::CONFIG;
@@ -18,7 +20,7 @@ mod hashes;
 mod stream;
 
 mod replacement_files;
-use replacement_files::{ FileCtx, ARC_FILES, ARC_CALLBACKS, QUEUE_HANDLED, CB_QUEUE };
+use replacement_files::{ FileCtx, ARC_FILES, INCOMING };
 
 mod offsets;
 use offsets::TITLE_SCREEN_VERSION_OFFSET;
@@ -26,7 +28,7 @@ use offsets::TITLE_SCREEN_VERSION_OFFSET;
 use owo_colors::OwoColorize;
 
 mod runtime;
-use runtime::{LoadedTables, ResServiceState, FileState, Table2Entry};
+use runtime::{ LoadedTables, ResServiceState, Table2Entry };
 
 mod logging;
 use log::{ trace, info };
@@ -36,49 +38,196 @@ use smash_arc::{
     ArcLookup,
 };
 
-fn get_filectx_by_t1index<'a>(table1_idx: u32) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
+fn get_filectx_by_index<'a>(table2_idx: u32) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
     let loaded_tables = LoadedTables::get_instance();
-    let hash = unsafe { (*loaded_tables.get_arc().file_paths.offset(table1_idx as isize)).path.hash40() };
-    //let hash = loaded_tables.get_hash_from_t1_index(table1_idx).as_u64();
+    //let hash = unsafe { (*loaded_tables.get_arc().file_paths.offset(table2_idx as isize)).path.hash40() };
+    //let hash = loaded_tables.get_hash_from_t1_index(table2_idx).as_u64();
 
-    let table2entry = match loaded_tables.get_t2_mut(table1_idx) {
+    let table2entry = match loaded_tables.get_t2_mut(table2_idx) {
         Ok(entry) => entry,
         Err(_) => {
             return None;
         }
     };
 
-    trace!("[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}", table1_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow(), hash.as_u64().cyan(), table2entry.bright_magenta());
+    //trace!("[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}", table2_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow(), hash.as_u64().cyan(), table2entry.bright_magenta());
 
-    if QUEUE_HANDLED.swap(true, Ordering::SeqCst) {
-        for (hash, ctx) in CB_QUEUE.write().iter_mut() {
-            let found = match ARC_FILES.write().0.get_mut(&*hash) {
-                Some(context) => {
-                    if context.filesize < ctx.filesize {
-                        context.filesize = ctx.filesize;
-                        ctx.filesize_replacement();
-                    }
-                    true
-                },
-                None => false,
-            };
+    // if QUEUE_HANDLED.swap(true, Ordering::SeqCst) {
+    //     for (hash, ctx) in CB_QUEUE.write().iter_mut() {
+    //         let found = match ARC_FILES.write().0.get_mut(&*hash) {
+    //             Some(context) => {
+    //                 if context.filesize < ctx.filesize {
+    //                     context.filesize = ctx.filesize;
+    //                     ctx.filesize_replacement();
+    //                 }
+    //                 true
+    //             },
+    //             None => false,
+    //         };
 
-            if !found {
-                ctx.filesize_replacement();
-                ARC_FILES.write().0.insert(*hash, ctx.clone());
-            }
-        }
+    //         if !found {
+    //             ctx.filesize_replacement();
+    //             ARC_FILES.write().0.insert(*hash, ctx.clone());
+    //         }
+    //     }
 
-        CB_QUEUE.write().clear();
-    }
+    //     CB_QUEUE.write().clear();
+    // }
 
-    match get_from_hash!(hash) {
+    match get_from_info_index!(table2_idx) {
         Ok(file_ctx) => {
-            info!("[ARC::Loading | #{}] Hash matching for file: '{}'", table1_idx.green(), file_ctx.path.display().bright_yellow());
+            info!("[ARC::Loading | #{}] Hash matching for file: '{}'", table2_idx.green(), file_ctx.path.display().bright_yellow());
             Some((file_ctx, table2entry))
         }
         Err(_) => None,
     }
+}
+
+fn replace_file_by_index(table2_idx: u32) {
+    if let Some((file_ctx, table2entry)) = get_filectx_by_index(table2_idx) {
+        if table2entry.data == 0 as _ {
+            return;
+        }
+
+        if file_ctx.extension == Hash40::from("nutexb") {
+            replace_textures_by_index(&file_ctx, table2entry);
+            return;
+        }
+
+        let orig_size = file_ctx.get_subfile().decomp_size as usize;
+
+        let file_slice = file_ctx.get_file_content().into_boxed_slice();
+
+        info!("[ResInflateThread | #{}] Replacing '{}'", table2_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+
+        unsafe {
+            let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
+            data_slice.write(&file_slice).unwrap();
+        }
+    }
+}
+
+
+fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) {
+    let orig_size = file_ctx.orig_subfile.decomp_size as usize;
+
+    //let file = vec![0;file_ctx.filesize as _];
+    let file_slice = file_ctx.get_file_content().into_boxed_slice();
+
+    info!("[ResInflateThread | #{}] Replacing '{}'", file_ctx.index.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+
+    let mut data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size) };
+
+    if orig_size > file_slice.len() {
+        // Copy the content at the beginning
+        data_slice[0..file_slice.len() - 0xB0].copy_from_slice(&file_slice[0..file_slice.len() - 0xB0]);
+        // Copy our new footer at the end
+        data_slice[orig_size - 0xB0..orig_size].copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
+    } else {
+        data_slice.write(&file_slice).unwrap();
+    }
+}
+
+#[hook(offset = 0x33b71e8, inline)]
+fn inflate_incoming(ctx: &InlineCtx) {
+    unsafe {
+        let arc = LoadedTables::get_instance().get_arc();
+        let res_service = ResServiceState::get_instance();
+
+        // Replace all this mess by Smash-arc
+        let info_index= (res_service.processing_file_idx_start + *ctx.registers[27].x.as_ref() as u32) as usize;
+        let file_info = arc.get_file_infos()[info_index];
+
+        let path_idx = file_info.hash_index as usize;
+        let table2_idx = file_info.hash_index_2;
+
+        let hash = arc.get_file_paths()[path_idx].path.hash40();
+
+        info!("[ResInflateThread | #{}] Incoming '{}'", path_idx.bright_purple(), hashes::get(hash).unwrap_or(&"Unknown").bright_purple());
+
+        let mut incoming = INCOMING.write();
+
+        if let Ok(context) = get_from_info_index!(table2_idx) {
+            *incoming = Some(context.index);
+            info!("[ResInflateThread | #{}] Added index {} to the queue", path_idx.bright_purple(), context.index.cyan());
+        } else {
+            *incoming = None;
+        }
+    }
+}
+
+#[hook(offset = 0x33b6798, inline)]
+fn loading_incoming(ctx: &InlineCtx) {
+    unsafe {
+        let arc = LoadedTables::get_instance().get_arc();
+
+        let path_idx = *ctx.registers[25].x.as_ref() as u32;
+        let hash = arc.get_file_paths()[path_idx as usize].path.hash40();
+
+        info!("[ResLoadingThread | #{}] Incoming '{}'", path_idx.bright_yellow(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow());
+    }
+}
+
+/// For small uncompressed files
+#[hook(offset = 0x33b7d08, inline)]
+fn memcpy_uncompressed(_ctx: &InlineCtx) {
+    trace!("[ResInflateThread | Memcpy1] Entering function");
+
+    let incoming = INCOMING.read();
+
+    if let Some(index) = *incoming {
+        replace_file_by_index(index);
+    }
+}
+
+/// For uncompressed files a bit larger
+#[hook(offset = 0x33b78f8, inline)]
+fn memcpy_uncompressed_2(_ctx: &InlineCtx) {
+    trace!("[ResInflateThread | Memcpy2] Entering function");
+
+    let incoming = INCOMING.read();
+
+    if let Some(index) = *incoming {
+        replace_file_by_index(index);
+    }
+}
+
+/// For uncompressed files being read in multiple chunks
+#[hook(offset = 0x33b7988, inline)]
+fn memcpy_uncompressed_3(_ctx: &InlineCtx) {
+    trace!("[ResInflateThread | Memcpy3] Entering function");
+
+    let incoming = INCOMING.read();
+
+    if let Some(index) = *incoming {
+        replace_file_by_index(index);
+    }
+}
+
+#[repr(C)]
+pub struct InflateFile {
+    pub content: *const u8,
+    pub size: u64,
+}
+
+#[hook(offset = 0x3816230)]
+fn load_directory_hook(unk1: *const u64, out_data: &InflateFile, comp_data: &InflateFile) -> u64 {
+    trace!("[LoadFileFromDirectory] Incoming filesize: {:x}", out_data.size);
+
+    // Let the file be inflated
+    let result: u64 = original!()(unk1, out_data, comp_data);
+
+    let incoming = INCOMING.read();
+
+    if let Some(index) = *incoming {
+        if index == 0 {
+            return result;
+        }
+
+        replace_file_by_index(index);
+    }
+
+    result
 }
 
 #[hook(offset = TITLE_SCREEN_VERSION_OFFSET)]
@@ -97,77 +246,7 @@ fn change_version_string(arg1: u64, string: *const u8) {
             original!()(arg1, string)
         }
     }
-}
 
-fn handle_file_overwrite_test(table1_idx: u32) {
-    if let Some((file_ctx, table2entry)) = get_filectx_by_t1index(table1_idx) {
-        if table2entry.state == FileState::Loaded {
-            return;
-        }
-
-        let hash = file_ctx.hash;
-
-        let orig_size = file_ctx.filesize as usize;
-
-        let file = vec![0;orig_size];
-        let mut file_slice = file.into_boxed_slice();
-
-        let cb_result = match ARC_CALLBACKS.read().get(&hash) {
-            Some(cb) => {
-                cb(hash, file_slice.as_mut_ptr() as *mut skyline::libc::c_void, orig_size)
-            },
-            None => false,
-        };
-
-        if !cb_result {
-            if !file_ctx.virtual_file {
-                file_slice = file_ctx.get_file_content().into_boxed_slice();
-            } else {
-                // The file does not actually exist on the SD, so we abort here
-                return;
-            }
-        }
-
-        info!("[ResInflateThread | #{}] Replacing '{}'", table1_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
-
-        unsafe {
-            let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
-            data_slice.write(&file_slice).unwrap();
-        }
-    }
-}
-#[hook(offset = 0x33b71e8, inline)]
-fn inflate_incoming(ctx: &InlineCtx) {
-    unsafe {
-        let loaded_tables = LoadedTables::get_instance();
-        let res_service = ResServiceState::get_instance();
-        let arc = loaded_tables.get_arc();
-
-        // Replace all this mess by Smash-arc
-        let current_index = *ctx.registers[27].x.as_ref() as u32;
-        let file_info = arc.get_file_infos()[(res_service.processing_file_idx_start + current_index) as usize];
-        let t1_idx = file_info.hash_index;
-        let hash = (*arc.file_paths.offset(t1_idx as isize)).path.hash40().as_u64();
-
-        // Seems to be unused, store it here so the State_change hook can get it back
-        res_service.processing_file_idx_curr = t1_idx;
-
-        match ARC_FILES.write().0.get_mut(&Hash40(hash)) {
-            Some(context) => {
-                context.filesize_replacement();
-                println!("[ResInflateThread] Replaced FileData");
-            },
-            None => {},
-        }
-    }
-}
-
-#[hook(offset = 0x33b7fbc, inline)]
-fn state_change(_ctx: &InlineCtx) {
-        let res_service = ResServiceState::get_instance();
-        handle_file_overwrite_test(res_service.processing_file_idx_curr);
-        // Set it back to 0 just in case
-        res_service.processing_file_idx_curr = 0;
 }
 
 #[hook(offset = 0x35c6470, inline)]
@@ -179,6 +258,7 @@ fn initial_loading(_ctx: &InlineCtx) {
         skyline::nn::oe::RestartProgramNoArgs();
     }
     
+    // Lmao gross
     let changelog = if let Ok(mut file) = File::open("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.txt") {
         let mut content = String::new();
         file.read_to_string(&mut content).unwrap();
@@ -191,8 +271,6 @@ fn initial_loading(_ctx: &InlineCtx) {
         skyline_web::DialogOk::ok(text);
         std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.txt").unwrap();
     }
-
-    // TODO: Modpack selector menu here if a key is held
 
     // Discover files
     unsafe {
@@ -213,10 +291,14 @@ pub fn main() {
 
     install_hooks!(
         initial_loading,
-        stream::lookup_by_stream_hash,
         inflate_incoming,
-        state_change,
+        //loading_incoming,
+        memcpy_uncompressed,
+        memcpy_uncompressed_2,
+        memcpy_uncompressed_3,
+        load_directory_hook,
         change_version_string,
+        stream::lookup_by_stream_hash,
     );
 
     println!(

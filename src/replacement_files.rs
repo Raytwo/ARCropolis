@@ -22,8 +22,12 @@ type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> b
 
 lazy_static::lazy_static! {
     pub static ref ARC_FILES: parking_lot::RwLock<ArcFiles> = parking_lot::RwLock::new(ArcFiles::new());
+    pub static ref STREAM_FILES: parking_lot::RwLock<ArcFiles> = parking_lot::RwLock::new(ArcFiles { 0: HashMap::new() });
     pub static ref ARC_CALLBACKS: parking_lot::RwLock<HashMap<Hash40, ArcCallback>> = parking_lot::RwLock::new(HashMap::new());
     pub static ref CB_QUEUE: parking_lot::RwLock<HashMap<Hash40, FileCtx>> = parking_lot::RwLock::new(HashMap::new());
+
+    // For ResInflateThread
+    pub static ref INCOMING: parking_lot::RwLock<Option<u32>> = parking_lot::RwLock::new(None);
 }
 
 pub static QUEUE_HANDLED: AtomicBool = AtomicBool::new(false);
@@ -40,7 +44,7 @@ pub extern "C" fn subscribe_callback(hash: Hash40, extension: *const u8, extensi
         };
 
         if QUEUE_HANDLED.load(Ordering::SeqCst) == true {
-            ARC_FILES.write().0.insert(hash, file_ctx);
+            ARC_FILES.write().0.insert(0, file_ctx);
         } else {
             CB_QUEUE.write().insert(hash, file_ctx);
         }
@@ -62,7 +66,7 @@ pub extern "C" fn subscribe_callback_with_size(hash: Hash40, filesize: u32, exte
 
         if QUEUE_HANDLED.load(Ordering::SeqCst) == true {
             file_ctx.filesize_replacement();
-            ARC_FILES.write().0.insert(hash, file_ctx);
+            ARC_FILES.write().0.insert(0, file_ctx);
         } else {
             CB_QUEUE.write().insert(hash, file_ctx);
         }
@@ -85,23 +89,26 @@ pub extern "C" fn scan_path(path: *const u8, path_len: usize, umm: bool) {
     }
 }
 
-pub struct ArcFiles(pub HashMap<Hash40, FileCtx>);
+// FilePathIndex
+pub struct ArcFiles(pub HashMap<u64, FileCtx>);
 
 #[derive(Debug, Clone)]
 pub struct FileCtx {
     pub path: PathBuf,
     pub hash: Hash40,
     pub filesize: u32,
+    pub extension: Hash40,
     pub virtual_file: bool,
     pub orig_subfile: smash_arc::FileData,
+    pub index: u32,
 }
 
 #[macro_export]
-macro_rules! get_from_hash {
-    ($hash:expr) => {
+macro_rules! get_from_info_index {
+    ($index:expr) => {
         parking_lot::RwLockReadGuard::try_map(
             $crate::replacement_files::ARC_FILES.read(),
-            |x| x.get($hash)
+            |x| x.get($index)
         )
     };
 }
@@ -122,8 +129,8 @@ impl ArcFiles {
         instance
     }
 
-    pub fn get<H: Into<Hash40>>(&self, hash: H) -> Option<&FileCtx> {
-        self.0.get(&hash.into())
+    pub fn get(&self, file_path_index: u32) -> Option<&FileCtx> {
+        self.0.get(&(file_path_index as u64))
     }
 
     /// Visit Ultimate Mod Manager directories for backwards compatibility
@@ -158,7 +165,7 @@ impl ArcFiles {
                     if let Some(_) = path.extension() {
                         match self.visit_file(&entry, &path, arc_dir_len) {
                             Ok(file_ctx) => {
-                                self.0.insert(file_ctx.hash, file_ctx);
+                                self.0.insert(file_ctx.index as u64, file_ctx);
                                 return Ok(());
                             }
                             Err(err) => {
@@ -173,10 +180,10 @@ impl ArcFiles {
                 } else {
                     match self.visit_file(&entry, &path, arc_dir_len) {
                         Ok(file_ctx) => {
-                            if let Some(ctx) = self.0.get_mut(&file_ctx.hash) {
+                            if let Some(ctx) = self.0.get_mut(&(file_ctx.index as u64)) {
                                 ctx.filesize = file_ctx.filesize;
                             } else {
-                                self.0.insert(file_ctx.hash, file_ctx);
+                                self.0.insert(file_ctx.index as _, file_ctx);
                             }
                             return Ok(());
                         }
@@ -203,9 +210,13 @@ impl ArcFiles {
             return Err(format!("[ARC::Discovery] File '{}' starts with a period, skipping", full_path.display().bright_yellow()));
         }
 
+        let mut file_ctx = FileCtx::new();
+
         // Make sure the file has an extension to not cause issues with the code that follows
         match full_path.extension() {
-            Some(_) => {}
+            Some(ext) => {
+                file_ctx.extension = Hash40::from(ext.to_str().unwrap());
+            }
             None => return Err(format!("[ARC::Discovery] File '{}' does not have an extension, skipping", full_path.display().bright_yellow())),
         }
 
@@ -222,8 +233,7 @@ impl ArcFiles {
             Some(x) => game_path = format!("{}{}", x, "webm"),
             None => (),
         }
-
-        let mut file_ctx = FileCtx::new();
+    
 
         file_ctx.path = full_path.to_path_buf();
         file_ctx.hash = Hash40::from(game_path.as_str());
@@ -238,7 +248,13 @@ impl ArcFiles {
             return Err(format!("[ARC::Discovery] File '{}' does not have a matching region, skipping", file_ctx.path.display().bright_yellow()));
         }
 
-        //file_ctx.filesize_replacement();
+        if file_ctx.path.to_str().unwrap().contains("stream;") {
+            STREAM_FILES.write().0.insert(file_ctx.hash.as_u64(), file_ctx.clone());
+            return Err(format!("[Arc::Discovery] File '{}' placed in the STREAM table", file_ctx.path.display().bright_yellow()));
+        } else {
+            file_ctx.filesize_replacement();
+        }
+
         Ok(file_ctx)
     }
 }
@@ -250,12 +266,14 @@ impl FileCtx {
             hash: Hash40(0),
             filesize: 0,
             virtual_file: false,
+            extension: Hash40(0),
             orig_subfile: smash_arc::FileData {
                 offset_in_folder: 0,
                 comp_size: 0,
                 decomp_size: 0,
                 flags: smash_arc::FileDataFlags::new().with_compressed(false).with_use_zstd(false).with_unk(0),
             },
+            index: 0,
         }
     }
 
@@ -310,6 +328,9 @@ impl FileCtx {
 
     pub fn filesize_replacement(&mut self) {
         let loaded_tables = LoadedTables::get_instance();
+        let arc = loaded_tables.get_arc();
+
+
 
             match loaded_tables.get_arc().get_file_data_from_hash(self.hash) {
                 Ok(_) => {},
@@ -319,16 +340,21 @@ impl FileCtx {
                 },
             }
 
+            self.index = arc.get_file_info_from_hash(self.hash).unwrap().hash_index_2;
+
             // Backup the Subfile for when file watching is added
             self.orig_subfile = self.get_subfile().clone();
 
             let mut subfile = self.get_subfile();
+            //subfile.flags.set_compressed(false);
+            //subfile.flags.set_use_zstd(false);
+            //info!("[ARC::Patching] File '{}', decomp size: {:x}",self.path.display().bright_yellow(),subfile.decomp_size.cyan());
 
-        //info!("[ARC::Patching] File '{}', decomp size: {:x}",self.path.display().bright_yellow(),subfile.decomp_size.cyan());
-
-           if subfile.decomp_size < self.filesize {
-                 subfile.decomp_size = self.filesize;
-                info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decomp_size.bright_red());
-            }
+            //if subfile.flags.compressed() {
+                if subfile.decomp_size < self.filesize { 
+                    subfile.decomp_size = self.filesize;
+                    info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decomp_size.bright_red());
+                 }
+            //}
     }
 }
