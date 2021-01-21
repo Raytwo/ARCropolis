@@ -1,6 +1,6 @@
 [package]
 name = "arcropolis"
-version = "1.0.0"
+version = "1.0.0-beta"
 authors = ["Raytwo <raytwost@gmail.com>, jam1garner <jam1.mcleod@hotmail.com>"]
 edition = "2018"
 
@@ -18,8 +18,7 @@ lazy_static = "1.4"
 owo-colors = "1.0.3"
 parking_lot = "0.11.0"
 serde = { version = "1", features = ["derive"] }
-#rand = { git = "https://github.com/skyline-rs/rand" }
-rand = { path = "../rand" }
+rand = { git = "https://github.com/skyline-rs/rand" }
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
 skyline-update = { git = "https://github.com/skyline-rs/skyline-update" }
