@@ -57,7 +57,7 @@ fn lookup_by_stream_hash(
     hash: Hash40,
 ) {
 
-    if let Some(file_ctx) = STREAM_FILES.read().0.get(&hash.as_u64()) {
+    if let Some(file_ctx) = STREAM_FILES.read().0.get(&hash) {
         let file;
         let metadata;
         let size;

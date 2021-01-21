@@ -1,8 +1,7 @@
-use std::{fs, io, slice};
+use std::{fs, io};
 use std::fs::DirEntry;
 use std::path::PathBuf;
 use std::collections::HashMap;
-use std::sync::atomic::{ AtomicBool, Ordering };
 
 use crate::{config::CONFIG, runtime};
 
@@ -22,75 +21,28 @@ type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> b
 
 lazy_static::lazy_static! {
     pub static ref ARC_FILES: parking_lot::RwLock<ArcFiles> = parking_lot::RwLock::new(ArcFiles::new());
-    pub static ref STREAM_FILES: parking_lot::RwLock<ArcFiles> = parking_lot::RwLock::new(ArcFiles { 0: HashMap::new() });
-    pub static ref ARC_CALLBACKS: parking_lot::RwLock<HashMap<Hash40, ArcCallback>> = parking_lot::RwLock::new(HashMap::new());
-    pub static ref CB_QUEUE: parking_lot::RwLock<HashMap<Hash40, FileCtx>> = parking_lot::RwLock::new(HashMap::new());
+    pub static ref STREAM_FILES: parking_lot::RwLock<StreamFiles> = parking_lot::RwLock::new(StreamFiles::new());
 
     // For ResInflateThread
     pub static ref INCOMING: parking_lot::RwLock<Option<u32>> = parking_lot::RwLock::new(None);
 }
 
-pub static QUEUE_HANDLED: AtomicBool = AtomicBool::new(false);
-
 #[no_mangle]
-pub extern "C" fn subscribe_callback(hash: Hash40, extension: *const u8, extension_len: usize, callback: ArcCallback) {
-    unsafe {
-        let filepath = format!("rom:/virtual.{}", std::str::from_utf8(slice::from_raw_parts(extension, extension_len)).unwrap());
-        let path = std::path::Path::new(&filepath).to_path_buf();
-
-        let file_ctx = FileCtx {
-            hash, path, virtual_file:true,
-            .. FileCtx::new()
-        };
-
-        if QUEUE_HANDLED.load(Ordering::SeqCst) == true {
-            ARC_FILES.write().0.insert(0, file_ctx);
-        } else {
-            CB_QUEUE.write().insert(hash, file_ctx);
-        }
-    
-        ARC_CALLBACKS.write().insert(hash, callback);
-    }
+pub extern "C" fn subscribe_callback(_hash: Hash40, _extension: *const u8, _extension_len: usize, _callback: ArcCallback) {
+    // Deprecated
+    warn!("{}", "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red());
 }
 
 #[no_mangle]
-pub extern "C" fn subscribe_callback_with_size(hash: Hash40, filesize: u32, extension: *const u8, extension_len: usize, callback: ArcCallback) {
-    unsafe {
-        let filepath = format!("rom:/virtual.{}", std::str::from_utf8(slice::from_raw_parts(extension, extension_len)).unwrap());
-        let path = std::path::Path::new(&filepath).to_path_buf();
-
-        let mut file_ctx = FileCtx {
-            hash, filesize, path, virtual_file:true,
-            .. FileCtx::new()
-        };
-
-        if QUEUE_HANDLED.load(Ordering::SeqCst) == true {
-            file_ctx.filesize_replacement();
-            ARC_FILES.write().0.insert(0, file_ctx);
-        } else {
-            CB_QUEUE.write().insert(hash, file_ctx);
-        }
-    
-        ARC_CALLBACKS.write().insert(hash, callback);
-    }
+pub extern "C" fn subscribe_callback_with_size(_hash: Hash40, _filesize: u32, _extension: *const u8, _extension_len: usize, _callback: ArcCallback) {
+    // Deprecated
+    warn!("{}", "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red());
 }
 
-#[no_mangle]
-pub extern "C" fn scan_path(path: *const u8, path_len: usize, umm: bool) {
-    unsafe {
-        let path = std::str::from_utf8(slice::from_raw_parts(path, path_len)).unwrap();
-        let path = std::path::Path::new(&path).to_path_buf();
+// Table2Index
+pub struct ArcFiles(pub HashMap<u32, FileCtx>);
 
-        if umm {
-            ARC_FILES.write().visit_umm_dirs(&path).unwrap();
-        } else {
-            ARC_FILES.write().visit_dir(&path, path_len).unwrap();
-        }
-    }
-}
-
-// FilePathIndex
-pub struct ArcFiles(pub HashMap<u64, FileCtx>);
+pub struct StreamFiles(pub HashMap<Hash40, FileCtx>);
 
 #[derive(Debug, Clone)]
 pub struct FileCtx {
@@ -113,6 +65,12 @@ macro_rules! get_from_info_index {
     };
 }
 
+impl StreamFiles {
+    fn new() -> Self {
+        Self(HashMap::new())
+    }
+}
+
 impl ArcFiles {
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
@@ -130,7 +88,7 @@ impl ArcFiles {
     }
 
     pub fn get(&self, file_path_index: u32) -> Option<&FileCtx> {
-        self.0.get(&(file_path_index as u64))
+        self.0.get(&file_path_index)
     }
 
     /// Visit Ultimate Mod Manager directories for backwards compatibility
@@ -165,7 +123,7 @@ impl ArcFiles {
                     if let Some(_) = path.extension() {
                         match self.visit_file(&entry, &path, arc_dir_len) {
                             Ok(file_ctx) => {
-                                self.0.insert(file_ctx.index as u64, file_ctx);
+                                self.0.insert(file_ctx.index, file_ctx);
                                 return Ok(());
                             }
                             Err(err) => {
@@ -180,7 +138,7 @@ impl ArcFiles {
                 } else {
                     match self.visit_file(&entry, &path, arc_dir_len) {
                         Ok(file_ctx) => {
-                            if let Some(ctx) = self.0.get_mut(&(file_ctx.index as u64)) {
+                            if let Some(ctx) = self.0.get_mut(&file_ctx.index) {
                                 ctx.filesize = file_ctx.filesize;
                             } else {
                                 self.0.insert(file_ctx.index as _, file_ctx);
@@ -249,7 +207,7 @@ impl ArcFiles {
         }
 
         if file_ctx.path.to_str().unwrap().contains("stream;") {
-            STREAM_FILES.write().0.insert(file_ctx.hash.as_u64(), file_ctx.clone());
+            STREAM_FILES.write().0.insert(file_ctx.hash, file_ctx.clone());
             return Err(format!("[Arc::Discovery] File '{}' placed in the STREAM table", file_ctx.path.display().bright_yellow()));
         } else {
             file_ctx.filesize_replacement();
@@ -322,39 +280,33 @@ impl FileCtx {
     }
 
     pub fn get_file_content(&self) -> Vec<u8> {
-        // TODO: Add error handling in case the user deleted the file while running
+        // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did.
         fs::read(&self.path).unwrap()
     }
 
     pub fn filesize_replacement(&mut self) {
         let loaded_tables = LoadedTables::get_instance();
         let arc = loaded_tables.get_arc();
+        
+        match loaded_tables.get_arc().get_file_data_from_hash(self.hash) {
+            Ok(_) => {},
+            Err(_) => {
+                println!("[ARC::Patching] File '{}' does not have a hash found in FileData, skipping",self.path.display());
+                return;
+            },
+        }
+        
+        self.index = arc.get_file_info_from_hash(self.hash).unwrap().hash_index_2;
 
+        // Backup the Subfile for when file watching is added
+        self.orig_subfile = self.get_subfile().clone();
 
+        let mut subfile = self.get_subfile();
+        //info!("[ARC::Patching] File '{}', decomp size: {:x}", hashes::get(self.hash).unwrap_or(&"Unknown"),subfile.decomp_size.cyan());
 
-            match loaded_tables.get_arc().get_file_data_from_hash(self.hash) {
-                Ok(_) => {},
-                Err(_) => {
-                    println!("[ARC::Patching] File '{}' does not have a hash found in FileInfoPath, skipping",self.path.display());
-                    return;
-                },
-            }
-
-            self.index = arc.get_file_info_from_hash(self.hash).unwrap().hash_index_2;
-
-            // Backup the Subfile for when file watching is added
-            self.orig_subfile = self.get_subfile().clone();
-
-            let mut subfile = self.get_subfile();
-            //subfile.flags.set_compressed(false);
-            //subfile.flags.set_use_zstd(false);
-            //info!("[ARC::Patching] File '{}', decomp size: {:x}",self.path.display().bright_yellow(),subfile.decomp_size.cyan());
-
-            //if subfile.flags.compressed() {
-                if subfile.decomp_size < self.filesize { 
-                    subfile.decomp_size = self.filesize;
-                    info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decomp_size.bright_red());
-                 }
-            //}
+        if subfile.decomp_size < self.filesize { 
+            subfile.decomp_size = self.filesize;
+            info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decomp_size.bright_red());
+        }
     }
 }

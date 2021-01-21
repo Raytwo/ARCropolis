@@ -39,40 +39,14 @@ use smash_arc::{
 };
 
 fn get_filectx_by_index<'a>(table2_idx: u32) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
-    let loaded_tables = LoadedTables::get_instance();
-    //let hash = unsafe { (*loaded_tables.get_arc().file_paths.offset(table2_idx as isize)).path.hash40() };
-    //let hash = loaded_tables.get_hash_from_t1_index(table2_idx).as_u64();
+    let tables = LoadedTables::get_instance();
 
-    let table2entry = match loaded_tables.get_t2_mut(table2_idx) {
+    let table2entry = match tables.get_t2_mut(table2_idx) {
         Ok(entry) => entry,
         Err(_) => {
             return None;
         }
     };
-
-    //trace!("[ARC::Loading | #{}] File: {}, Hash: {}, Status: {}", table2_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow(), hash.as_u64().cyan(), table2entry.bright_magenta());
-
-    // if QUEUE_HANDLED.swap(true, Ordering::SeqCst) {
-    //     for (hash, ctx) in CB_QUEUE.write().iter_mut() {
-    //         let found = match ARC_FILES.write().0.get_mut(&*hash) {
-    //             Some(context) => {
-    //                 if context.filesize < ctx.filesize {
-    //                     context.filesize = ctx.filesize;
-    //                     ctx.filesize_replacement();
-    //                 }
-    //                 true
-    //             },
-    //             None => false,
-    //         };
-
-    //         if !found {
-    //             ctx.filesize_replacement();
-    //             ARC_FILES.write().0.insert(*hash, ctx.clone());
-    //         }
-    //     }
-
-    //     CB_QUEUE.write().clear();
-    // }
 
     match get_from_info_index!(table2_idx) {
         Ok(file_ctx) => {
@@ -111,13 +85,12 @@ fn replace_file_by_index(table2_idx: u32) {
 fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) {
     let orig_size = file_ctx.orig_subfile.decomp_size as usize;
 
-    //let file = vec![0;file_ctx.filesize as _];
     let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
     info!("[ResInflateThread | #{}] Replacing '{}'", file_ctx.index.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
     if orig_size > file_slice.len() {
-        let mut data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size) };
+        let data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size) };
         // Copy the content at the beginning
         data_slice[0..file_slice.len() - 0xB0].copy_from_slice(&file_slice[0..file_slice.len() - 0xB0]);
         // Copy our new footer at the end
@@ -143,13 +116,13 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
         let hash = arc.get_file_paths()[path_idx].path.hash40();
 
-        info!("[ResInflateThread | #{}] Incoming '{}'", path_idx.bright_purple(), hashes::get(hash).unwrap_or(&"Unknown").bright_purple());
+        info!("[ResInflateThread | #{}] Incoming '{}'", path_idx.cyan(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow());
 
         let mut incoming = INCOMING.write();
 
         if let Ok(context) = get_from_info_index!(table2_idx) {
             *incoming = Some(context.index);
-            info!("[ResInflateThread | #{}] Added index {} to the queue", path_idx.bright_purple(), context.index.cyan());
+            info!("[ResInflateThread | #{}] Added index {} to the queue", path_idx.cyan(), context.index.cyan());
         } else {
             *incoming = None;
         }
@@ -259,7 +232,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     }
     
     // Lmao gross
-    let changelog = if let Ok(mut file) = File::open("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.txt") {
+    let changelog = if let Ok(mut file) = File::open("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md") {
         let mut content = String::new();
         file.read_to_string(&mut content).unwrap();
         Some(format!("Changelog\n\n{}", &content))
@@ -269,7 +242,7 @@ fn initial_loading(_ctx: &InlineCtx) {
 
     if let Some(text) = changelog {
         skyline_web::DialogOk::ok(text);
-        std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.txt").unwrap();
+        std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md").unwrap();
     }
 
     // Discover files
