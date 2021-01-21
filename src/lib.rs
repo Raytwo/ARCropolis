@@ -7,12 +7,7 @@ use std::io::prelude::*;
 use std::ffi::CStr;
 use std::net::IpAddr;
 
-use skyline::{
-    nn,
-    hook,
-    hooks::InlineCtx,
-    install_hooks
-};
+use skyline::{hook, hooks::InlineCtx, install_hooks, logging::{hex_dump_ptr, hex_dump_str}, nn};
 
 mod config;
 use config::CONFIG;
@@ -29,6 +24,9 @@ use owo_colors::OwoColorize;
 
 mod runtime;
 use runtime::{ LoadedTables, ResServiceState, Table2Entry };
+
+mod selector;
+//use selector::workspace_selector;
 
 mod logging;
 use log::{ trace, info };
@@ -81,7 +79,6 @@ fn replace_file_by_index(table2_idx: u32) {
     }
 }
 
-
 fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) {
     let orig_size = file_ctx.orig_subfile.decomp_size as usize;
 
@@ -116,13 +113,13 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
         let hash = arc.get_file_paths()[path_idx].path.hash40();
 
-        info!("[ResInflateThread | #{}] Incoming '{}'", path_idx.cyan(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow());
+        info!("[ResInflateThread | #{}] Incoming '{}'", path_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow());
 
         let mut incoming = INCOMING.write();
 
         if let Ok(context) = get_from_info_index!(table2_idx) {
             *incoming = Some(context.index);
-            info!("[ResInflateThread | #{}] Added index {} to the queue", path_idx.cyan(), context.index.cyan());
+            info!("[ResInflateThread | #{}] Added index {} to the queue", path_idx.green(), context.index.green());
         } else {
             *incoming = None;
         }
@@ -205,21 +202,39 @@ fn load_directory_hook(unk1: *const u64, out_data: &InflateFile, comp_data: &Inf
 
 #[hook(offset = TITLE_SCREEN_VERSION_OFFSET)]
 fn change_version_string(arg1: u64, string: *const u8) {
-    unsafe {
-        let original_str = CStr::from_ptr(string as _).to_str().unwrap();
+    let original_str = unsafe { CStr::from_ptr(string as _).to_str().unwrap() };
 
-        if original_str.contains("Ver.") {
-            let new_str = format!(
-                "Smash {}\nARCropolis Ver. {}\0",
-                original_str,
-                env!("CARGO_PKG_VERSION").to_string()
-            );
-            original!()(arg1, skyline::c_str(&new_str))
-        } else {
-            original!()(arg1, string)
-        }
+    if original_str.contains("Ver.") {
+        let new_str = format!(
+            "Smash {}\nARCropolis Ver. {}\0",
+            original_str,
+            env!("CARGO_PKG_VERSION").to_string()
+        );
+
+        original!()(arg1, skyline::c_str(&new_str))
+    } else {
+        original!()(arg1, string)
     }
+}
 
+#[hook(offset = 0x35c93b0)]
+unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, unk4: u64) {
+    let original_page = CStr::from_ptr(page_path as _).to_str().unwrap();
+
+    let is_manual = if original_page.contains("contents.htdocs/help/html/") {
+        if original_page.ends_with("index.html") {
+            selector::workspace_selector();
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    if is_manual != true {
+        original!()(page_path, unk2, unk3, unk4)
+    }
 }
 
 #[hook(offset = 0x35c6470, inline)]
@@ -270,6 +285,7 @@ pub fn main() {
         memcpy_uncompressed_2,
         memcpy_uncompressed_3,
         load_directory_hook,
+        manual_hook,
         change_version_string,
         stream::lookup_by_stream_hash,
     );
