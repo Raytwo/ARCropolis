@@ -269,8 +269,9 @@ impl FileCtx {
     }
 
     pub fn get_subfile(&self) -> &mut FileData {
-        let mut loaded_arc = LoadedTables::get_instance().get_arc_mut();
-        &mut loaded_arc.get_file_datas_mut()[self.index as usize]
+        let loaded_arc = LoadedTables::get_instance().get_arc_mut();
+        let file_info = *loaded_arc.get_file_info_from_hash(self.hash).unwrap();
+        loaded_arc.get_file_data_mut(&file_info.to_owned(), smash_arc::Region::UsEnglish)
     }
 
     pub fn get_file_content(&self) -> Vec<u8> {
@@ -282,7 +283,7 @@ impl FileCtx {
         let loaded_tables = LoadedTables::get_instance();
         let arc = loaded_tables.get_arc();
         
-        match loaded_tables.get_arc().get_file_data_from_hash(self.hash) {
+        match loaded_tables.get_arc().get_file_data_from_hash(self.hash, smash_arc::Region::UsEnglish) {
             Ok(_) => {},
             Err(_) => {
                 println!("[ARC::Patching] File '{}' does not have a hash found in FileData, skipping",self.path.display());
