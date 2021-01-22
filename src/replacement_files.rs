@@ -245,23 +245,23 @@ impl FileCtx {
             let region = self.path.file_name().unwrap().to_str().unwrap().to_string();
             // Check if the filepath it contains a + symbol
             if let Some(region_marker) = region.find('+') {
-                match &region[region_marker + 1..region_marker + 6] {
-                    "jp_ja" => region_index = 0,
-                    "us_en" => region_index = 1,
-                    "us_fr" => region_index = 2,
-                    "us_es" => region_index = 3,
-                    "eu_en" => region_index = 4,
-                    "eu_fr" => region_index = 5,
-                    "eu_es" => region_index = 6,
-                    "eu_de" => region_index = 7,
-                    "eu_nl" => region_index = 8,
-                    "eu_it" => region_index = 9,
-                    "eu_ru" => region_index = 10,
-                    "kr_ko" => region_index = 11,
-                    "zh_cn" => region_index = 12,
-                    "zh_tw" => region_index = 13,
-                    _ => region_index = 1,
-                }
+                region_index = match &region[region_marker + 1..region_marker + 6] {
+                    "jp_ja" => 0,
+                    "us_en" => 1,
+                    "us_fr" => 2,
+                    "us_es" => 3,
+                    "eu_en" => 4,
+                    "eu_fr" => 5,
+                    "eu_es" => 6,
+                    "eu_de" => 7,
+                    "eu_nl" => 8,
+                    "eu_it" => 9,
+                    "eu_ru" => 10,
+                    "kr_ko" => 11,
+                    "zh_cn" => 12,
+                    "zh_tw" => 13,
+                    _ => 1,
+                };
             }
         }
 
