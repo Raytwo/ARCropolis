@@ -268,15 +268,9 @@ impl FileCtx {
         region_index
     }
 
-    pub fn get_subfile(&self) -> &mut smash_arc::FileData {
-        let loaded_arc = LoadedTables::get_instance().get_arc();
-
-        let file_info = loaded_arc.get_file_info_from_hash(self.hash).unwrap();
-
-        unsafe {
-            let file_data = (loaded_arc.get_file_data(file_info) as *const FileData) as *mut FileData;
-            &mut *file_data
-        }
+    pub fn get_subfile(&self) -> &mut FileData {
+        let mut loaded_arc = LoadedTables::get_instance().get_arc_mut();
+        &mut loaded_arc.get_file_datas_mut()[self.index as usize]
     }
 
     pub fn get_file_content(&self) -> Vec<u8> {
