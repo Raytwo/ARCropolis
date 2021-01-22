@@ -1,4 +1,11 @@
-use std::{fs::{File, create_dir_all, read_dir}, path::Path};
+use std::{
+    fs::{
+        create_dir_all,
+        read_dir
+    },
+    path::Path
+};
+
 use std::io::prelude::*;
 
 use log::info;
@@ -7,8 +14,6 @@ use skyline::nn::web::OfflineExitReason;
 use skyline_web::PageResult;
 
 use crate::config::Config;
-
-use crate::config::CONFIG;
 
 // Thanks jugeeya :^)
 pub fn get_arguments_from_url(s: &str) -> String{
@@ -54,7 +59,7 @@ fn get_workspaces() -> Vec<Workspace> {
 fn show_selector(workspaces: &Workspaces) -> PageResult {
     let mut file = std::fs::File::open("sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/arcropolis/selector/templates/index.html").unwrap();
     let mut page_content: String = String::new();
-    file.read_to_string(&mut page_content);
+    file.read_to_string(&mut page_content).unwrap();
 
     let tpl = ramhorns::Template::new(page_content).unwrap();
 
@@ -110,7 +115,7 @@ pub fn workspace_selector() {
         }
 
         if config_changed {
-            config.save();
+            config.save().unwrap();
             skyline_web::DialogOk::ok(
                 "Your changes have been applied.  
                         Consider rebooting the game to apply your changes.");

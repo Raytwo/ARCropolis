@@ -7,7 +7,7 @@ use std::io::prelude::*;
 use std::ffi::CStr;
 use std::net::IpAddr;
 
-use skyline::{hook, hooks::InlineCtx, install_hooks, logging::{hex_dump_ptr, hex_dump_str}, nn};
+use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
 
 mod config;
 use config::CONFIG;
@@ -18,7 +18,7 @@ mod replacement_files;
 use replacement_files::{ FileCtx, ARC_FILES, INCOMING };
 
 mod offsets;
-use offsets::TITLE_SCREEN_VERSION_OFFSET;
+use offsets::{ TITLE_SCREEN_VERSION_OFFSET, INFLATE_OFFSET, MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, INFLATE_DIR_FILE_OFFSET, MANUAL_OPEN_OFFSET, INITIAL_LOADING_OFFSET };
 
 use owo_colors::OwoColorize;
 
@@ -98,7 +98,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
     }
 }
 
-#[hook(offset = 0x33b71e8, inline)]
+#[hook(offset = INFLATE_OFFSET, inline)]
 fn inflate_incoming(ctx: &InlineCtx) {
     unsafe {
         let arc = LoadedTables::get_instance().get_arc();
@@ -139,7 +139,7 @@ fn loading_incoming(ctx: &InlineCtx) {
 }
 
 /// For small uncompressed files
-#[hook(offset = 0x33b7d08, inline)]
+#[hook(offset = MEMCPY_1_OFFSET, inline)]
 fn memcpy_uncompressed(_ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy1] Entering function");
 
@@ -151,7 +151,7 @@ fn memcpy_uncompressed(_ctx: &InlineCtx) {
 }
 
 /// For uncompressed files a bit larger
-#[hook(offset = 0x33b78f8, inline)]
+#[hook(offset = MEMCPY_2_OFFSET, inline)]
 fn memcpy_uncompressed_2(_ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy2] Entering function");
 
@@ -163,7 +163,7 @@ fn memcpy_uncompressed_2(_ctx: &InlineCtx) {
 }
 
 /// For uncompressed files being read in multiple chunks
-#[hook(offset = 0x33b7988, inline)]
+#[hook(offset = MEMCPY_3_OFFSET, inline)]
 fn memcpy_uncompressed_3(_ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy3] Entering function");
 
@@ -180,7 +180,7 @@ pub struct InflateFile {
     pub size: u64,
 }
 
-#[hook(offset = 0x3816230)]
+#[hook(offset = INFLATE_DIR_FILE_OFFSET)]
 fn load_directory_hook(unk1: *const u64, out_data: &InflateFile, comp_data: &InflateFile) -> u64 {
     trace!("[LoadFileFromDirectory] Incoming filesize: {:x}", out_data.size);
 
@@ -217,7 +217,7 @@ fn change_version_string(arg1: u64, string: *const u8) {
     }
 }
 
-#[hook(offset = 0x35c93b0)]
+#[hook(offset = MANUAL_OPEN_OFFSET)]
 unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, unk4: u64) {
     let original_page = CStr::from_ptr(page_path as _).to_str().unwrap();
 
@@ -237,7 +237,7 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
     }
 }
 
-#[hook(offset = 0x35c6470, inline)]
+#[hook(offset = INITIAL_LOADING_OFFSET, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     logging::init(CONFIG.logger.as_ref().unwrap().logger_level.into()).unwrap();
 
