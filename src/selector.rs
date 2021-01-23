@@ -89,36 +89,47 @@ pub fn workspace_selector() {
     // If the user picked a modpack
     if response.get_exit_reason() == OfflineExitReason::LastUrl {
         // If someone manages to have this many workspaces they honestly deserve the panic
-        let modpack_index = get_arguments_from_url(response.get_last_url().unwrap()).parse::<u8>().unwrap() as usize;
-
-        let mut selector_workspace = std::path::PathBuf::from("rom:/arcropolis/workspaces");
-        selector_workspace.push(workspaces.workspace[modpack_index].name.to_owned());
-
-        info!("[Menu | Workspace Selector] Selected workspace: '{}'", selector_workspace.display().red());
-
-        let path = selector_workspace.to_str().unwrap();
+        let result = get_arguments_from_url(response.get_last_url().unwrap());
 
         let mut config = Config::open().unwrap();
-
         let mut config_changed = false;
 
-        // Set Arc path in config
-        if Path::new(&format!("{}/{}", path, "arc")).exists() == true {
-            config.paths.arc = format!("{}/{}", path, "arc");
-            config_changed = true;
-        }
+        let mut workspace_name = String::from("Default");
 
-        // Set UMM path in config
-        if Path::new(&format!("{}/{}", path, "umm")).exists() == true {
-            config.paths.umm = format!("{}/{}", path, "umm");
+        if result == "reset" {
+            config.paths.arc = "rom:/arc".to_string();
+            config.paths.umm = "sd:/ultimate/mods".to_string();
             config_changed = true;
+        } else {
+            let modpack_index = result.parse::<u8>().unwrap() as usize;
+
+            let mut selector_workspace = std::path::PathBuf::from("rom:/arcropolis/workspaces");
+            selector_workspace.push(workspaces.workspace[modpack_index].name.to_owned());
+
+            info!("[Menu | Workspace Selector] Selected workspace: '{}'", selector_workspace.display().red());
+
+            workspace_name = String::from(selector_workspace.to_str().unwrap());
+
+            let path = selector_workspace.to_str().unwrap();            
+
+            // Set Arc path in config
+            if Path::new(&format!("{}/{}", path, "arc")).exists() == true {
+                config.paths.arc = format!("{}/{}", path, "arc");
+                config_changed = true;
+            }
+
+            // Set UMM path in config
+            if Path::new(&format!("{}/{}", path, "umm")).exists() == true {
+                config.paths.umm = format!("{}/{}", path, "umm");
+                config_changed = true;
+            }
         }
 
         if config_changed {
             config.save().unwrap();
-            skyline_web::DialogOk::ok(
-                "Your changes have been applied.  
-                        Consider rebooting the game to apply your changes.");
+            skyline_web::DialogOk::ok(format!(
+                "Workspace {} has been applied.  
+                Consider rebooting the game to apply your changes.", workspace_name));
         } else {
             skyline_web::DialogOk::ok("The workspace your selected does not contain either a /arc or /umm directory.");
         }
