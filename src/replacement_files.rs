@@ -202,7 +202,7 @@ impl ArcFiles {
         };
 
         // Don't bother if the region doesn't match
-        if file_ctx.get_region() != ResServiceState::get_instance().regular_region_idx {
+        if file_ctx.get_region() != ResServiceState::get_instance().game_region_idx {
             return Err(format!("[ARC::Discovery] File '{}' does not have a matching region, skipping", file_ctx.path.display().bright_yellow()));
         }
 
@@ -237,7 +237,7 @@ impl FileCtx {
 
     pub fn get_region(&self) -> u32 {
         // Default to the player's region index
-        let mut region_index = ResServiceState::get_instance().regular_region_idx;
+        let mut region_index = ResServiceState::get_instance().game_region_idx;
 
         // Make sure the file has an extension
         if let Some(_) = self.path.extension() {
@@ -271,7 +271,7 @@ impl FileCtx {
     pub fn get_subfile(&self) -> &mut FileData {
         let loaded_arc = LoadedTables::get_instance().get_arc_mut();
         let file_info = *loaded_arc.get_file_info_from_hash(self.hash).unwrap();
-        loaded_arc.get_file_data_mut(&file_info.to_owned(), smash_arc::Region::UsEnglish)
+        loaded_arc.get_file_data_mut(&file_info.to_owned(), smash_arc::Region::from(self.get_region() + 1))
     }
 
     pub fn get_file_content(&self) -> Vec<u8> {
@@ -283,7 +283,7 @@ impl FileCtx {
         let loaded_tables = LoadedTables::get_instance();
         let arc = loaded_tables.get_arc();
         
-        match loaded_tables.get_arc().get_file_data_from_hash(self.hash, smash_arc::Region::UsEnglish) {
+        match loaded_tables.get_arc().get_file_data_from_hash(self.hash, smash_arc::Region::from(self.get_region())) {
             Ok(_) => {},
             Err(_) => {
                 println!("[ARC::Patching] File '{}' does not have a hash found in FileData, skipping",self.path.display());

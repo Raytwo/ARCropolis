@@ -237,7 +237,7 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
     }
 }
 
-#[hook(offset = INITIAL_LOADING_OFFSET, inline)]
+#[hook(offset = 0x35b3f68, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     logging::init(CONFIG.logger.as_ref().unwrap().logger_level.into()).unwrap();
 

@@ -88,7 +88,6 @@ pub fn workspace_selector() {
 
     // If the user picked a modpack
     if response.get_exit_reason() == OfflineExitReason::LastUrl {
-        // If someone manages to have this many workspaces they honestly deserve the panic
         let result = get_arguments_from_url(response.get_last_url().unwrap());
 
         let mut config = Config::open().unwrap();
@@ -101,6 +100,7 @@ pub fn workspace_selector() {
             config.paths.umm = "sd:/ultimate/mods".to_string();
             config_changed = true;
         } else {
+            // If someone manages to have this many workspaces they honestly deserve the panic
             let modpack_index = result.parse::<u8>().unwrap() as usize;
 
             let mut selector_workspace = std::path::PathBuf::from("rom:/arcropolis/workspaces");
