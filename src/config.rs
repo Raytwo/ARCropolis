@@ -92,6 +92,7 @@ impl Logger {
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Miscellaneous {
     pub debug: bool,
+    pub region: Option<String>,
 }
 
 impl Config {
@@ -107,6 +108,10 @@ impl Config {
             },
             updater: Some(Updater::new()),
             logger: Some(Logger::new()),
+            misc: Miscellaneous {
+                debug: false,
+                region: Some(String::from("us_en")),
+            },
             .. Config::default()
         }
     }
@@ -142,7 +147,6 @@ impl Config {
 
                     Ok(config)
                 } else {
-                    // TODO: This is probably necessary for people who have tried 0.9.0 before 0.9.0-beta. Should probably removed in the next update
                     config.update();
                     config.save().unwrap();
                     Ok(config)
@@ -178,6 +182,11 @@ impl Config {
         match &self.logger {
             Some(_) => {},
             None => self.logger = Some(Logger::new()),
+        }
+
+        match &self.misc.region {
+            Some(_) => {},
+            None => self.misc.region = Some(String::from("us_en")),
         }
     }
 

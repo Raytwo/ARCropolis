@@ -202,7 +202,7 @@ impl ArcFiles {
         };
 
         // Don't bother if the region doesn't match
-        if file_ctx.get_region() != ResServiceState::get_instance().game_region_idx {
+        if file_ctx.get_region() != get_region_id(&CONFIG.misc.region.as_ref().unwrap()) {
             return Err(format!("[ARC::Discovery] File '{}' does not have a matching region, skipping", file_ctx.path.display().bright_yellow()));
         }
 
@@ -215,6 +215,26 @@ impl ArcFiles {
 
         Ok(file_ctx)
     }
+}
+
+pub fn get_region_id(region: &str) -> u32 {
+    match region {
+                "jp_ja" => 0,
+                "us_en" => 1,
+                "us_fr" => 2,
+                "us_es" => 3,
+                "eu_en" => 4,
+                "eu_fr" => 5,
+                "eu_es" => 6,
+                "eu_de" => 7,
+                "eu_nl" => 8,
+                "eu_it" => 9,
+                "eu_ru" => 10,
+                "kr_ko" => 11,
+                "zh_cn" => 12,
+                "zh_tw" => 13,
+                _ => ResServiceState::get_instance().game_region_idx,
+            }
 }
 
 impl FileCtx {
@@ -237,7 +257,7 @@ impl FileCtx {
 
     pub fn get_region(&self) -> u32 {
         // Default to the player's region index
-        let mut region_index = ResServiceState::get_instance().game_region_idx;
+        let mut region_index = get_region_id(&CONFIG.misc.region.as_ref().unwrap());
 
         // Make sure the file has an extension
         if let Some(_) = self.path.extension() {
