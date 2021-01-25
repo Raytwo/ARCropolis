@@ -13,7 +13,7 @@ use owo_colors::OwoColorize;
 use skyline::nn::web::OfflineExitReason;
 use skyline_web::PageResult;
 
-use crate::config::Config;
+use crate::config::CONFIG;
 
 // Thanks jugeeya :^)
 pub fn get_arguments_from_url(s: &str) -> String{
@@ -90,7 +90,7 @@ pub fn workspace_selector() {
     if response.get_exit_reason() == OfflineExitReason::LastUrl {
         let result = get_arguments_from_url(response.get_last_url().unwrap());
 
-        let mut config = Config::open().unwrap();
+        let mut config = CONFIG.write();
         let mut config_changed = false;
 
         let mut workspace_name = String::from("Default");
@@ -126,7 +126,6 @@ pub fn workspace_selector() {
         }
 
         if config_changed {
-            config.save().unwrap();
             skyline_web::DialogOk::ok(format!(
                 "Workspace {} has been applied.  
                 Consider rebooting the game to apply your changes.", workspace_name));

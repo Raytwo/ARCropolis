@@ -75,10 +75,10 @@ impl ArcFiles {
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
 
-        let _ = instance.visit_dir(&PathBuf::from(&CONFIG.paths.arc), CONFIG.paths.arc.len());
-        let _ = instance.visit_umm_dirs(&PathBuf::from(&CONFIG.paths.umm));
+        let _ = instance.visit_dir(&PathBuf::from(&CONFIG.read().paths.arc), CONFIG.read().paths.arc.len());
+        let _ = instance.visit_umm_dirs(&PathBuf::from(&CONFIG.read().paths.umm));
 
-        if let Some(extra_paths) = &CONFIG.paths.extra_paths {
+        if let Some(extra_paths) = &CONFIG.read().paths.extra_paths {
             for path in extra_paths {
                 let _ = instance.visit_umm_dirs(&PathBuf::from(path));
             }
@@ -202,7 +202,7 @@ impl ArcFiles {
         };
 
         // Don't bother if the region doesn't match
-        if file_ctx.get_region() != get_region_id(&CONFIG.misc.region.as_ref().unwrap()) {
+        if file_ctx.get_region() != get_region_id(&CONFIG.read().misc.region.as_ref().unwrap()) {
             return Err(format!("[ARC::Discovery] File '{}' does not have a matching region, skipping", file_ctx.path.display().bright_yellow()));
         }
 
@@ -257,7 +257,7 @@ impl FileCtx {
 
     pub fn get_region(&self) -> u32 {
         // Default to the player's region index
-        let mut region_index = get_region_id(&CONFIG.misc.region.as_ref().unwrap());
+        let mut region_index = get_region_id(&CONFIG.read().misc.region.as_ref().unwrap());
 
         // Make sure the file has an extension
         if let Some(_) = self.path.extension() {

@@ -11,10 +11,33 @@ use semver::Version;
 
 use serde::{Deserialize, Serialize};
 
+use parking_lot::RwLock;
+
+mod readable;
+mod writeable;
+use readable::*;
+use writeable::*;
+
 const CONFIG_PATH: &str = "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml";
 
 lazy_static::lazy_static! {
-    pub static ref CONFIG: Box<Config> = Config::open().unwrap();
+    pub static ref CONFIG: Configuration = Configuration::new();
+}
+
+pub struct Configuration(RwLock<Config>);
+
+impl<'rwlock> Configuration {
+    pub fn new() -> Self {
+        Self(RwLock::new(Config::open().unwrap()))
+    }
+
+    pub fn read(&self) -> ReadableConfig<'_> {
+        ReadableConfig::new(self.0.read())
+    }
+
+    pub fn write(&self) -> WriteableConfig<'_> {
+        WriteableConfig::new(self.0.write())
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -116,7 +139,7 @@ impl Config {
         }
     }
 
-    pub fn open() -> Result<Box<Config>, String> {
+    pub fn open() -> Result<Config, String> {
         match fs::read_to_string(CONFIG_PATH) {
             // File exists
             Ok(content) => {
@@ -124,14 +147,14 @@ impl Config {
                 let mut config = match toml::from_str(&content) {
                     // Deserialized properly
                     Ok(conf) => {
-                        Box::new(conf)
+                        conf
                     },
                     // Something happened when deserializing
                     Err(_) => {
                         println!("[ARC::Config] Configuration file could not be deserialized");
                         show_error(69, "Configuration file could not be deserialized", &format!("Your configuration file ({}) is either poorly manually edited, outdated, corrupted or in a format unfit for ARCropolis.\n\nA new configuration file will now be generated, but it might ignore your modpacks. Consider double checking.", CONFIG_PATH));
                         println!("[ARC::Config] Generating configuration file...");
-                        Box::new(Config::new())
+                        Config::new()
                     }
                 };
     
@@ -157,7 +180,7 @@ impl Config {
                 skyline_web::DialogOk::ok(format!("Thank you for installing ARCropolis!\n\nConfiguration file will now be generated"));
                 println!("[ARC::Config] Configuration file not found. Generating a new one...");
 
-                let config = Box::new(Config::new());
+                let config = Config::new();
                 config.save().unwrap();
 
                 Ok(config)
@@ -190,7 +213,8 @@ impl Config {
         }
     }
 
-    pub fn save(&self) -> Result<(), std::io::Error> {
+    /// Automatically called when the WriteableConfig gets out of scope
+    fn save(&self) -> Result<(), std::io::Error> {
         let config_txt = toml::to_vec(&self).unwrap();
 
         let mut file = match File::create(CONFIG_PATH) {

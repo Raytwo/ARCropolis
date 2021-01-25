@@ -9,8 +9,10 @@ use std::net::IpAddr;
 
 use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
 
+
 mod config;
 use config::CONFIG;
+
 mod hashes;
 mod stream;
 
@@ -239,10 +241,10 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
 
 #[hook(offset = 0x35b3f68, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
-    logging::init(CONFIG.logger.as_ref().unwrap().logger_level.into()).unwrap();
+    logging::init(CONFIG.read().logger.as_ref().unwrap().logger_level.into()).unwrap();
 
     // Check if an update is available
-    if skyline_update::check_update(IpAddr::V4(CONFIG.updater.as_ref().unwrap().server_ip), "ARCropolis", env!("CARGO_PKG_VERSION"), CONFIG.updater.as_ref().unwrap().beta_updates) {
+    if skyline_update::check_update(IpAddr::V4(CONFIG.read().updater.as_ref().unwrap().server_ip), "ARCropolis", env!("CARGO_PKG_VERSION"), CONFIG.read().updater.as_ref().unwrap().beta_updates) {
         skyline::nn::oe::RestartProgramNoArgs();
     }
     
