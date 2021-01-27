@@ -33,6 +33,8 @@ mod selector;
 mod logging;
 use log::{ trace, info };
 
+//mod visit;
+
 use smash_arc::{
     Hash40,
     ArcLookup,

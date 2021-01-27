@@ -75,6 +75,10 @@ impl ArcFiles {
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
 
+        /// Don't mind this for now, just a copy-paste from the forgotten rewrite
+        // let _ = crate::visit::directory(&PathBuf::from(&CONFIG.read().paths.arc));
+        // let _ = crate::visit::umm_directories(&PathBuf::from(&CONFIG.read().paths.umm));
+
         let _ = instance.visit_dir(&PathBuf::from(&CONFIG.read().paths.arc), CONFIG.read().paths.arc.len());
         let _ = instance.visit_umm_dirs(&PathBuf::from(&CONFIG.read().paths.umm));
 
