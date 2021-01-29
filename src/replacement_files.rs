@@ -123,6 +123,11 @@ impl ArcFiles {
                 let entry = entry?;
                 let path = PathBuf::from(&format!("{}/{}", dir.display(), entry.path().display()));
 
+                // Ignore directories with a period at the start of the filename
+                if path.file_name().unwrap().to_str().unwrap().starts_with(".") {
+                    return Ok(());
+                }
+
                 // Check if the entry is a directory or a file
                 if entry.file_type().unwrap().is_dir() {
                     // If it is one of the stream randomizer directories
