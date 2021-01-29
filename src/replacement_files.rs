@@ -75,16 +75,18 @@ impl ArcFiles {
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
 
-        /// Don't mind this for now, just a copy-paste from the forgotten rewrite
+        let config = CONFIG.read();
+
+        // Don't mind this for now, just a copy-paste from the forgotten rewrite
         // let _ = crate::visit::directory(&PathBuf::from(&CONFIG.read().paths.arc));
         // let _ = crate::visit::umm_directories(&PathBuf::from(&CONFIG.read().paths.umm));
 
-        let _ = instance.visit_dir(&PathBuf::from(&CONFIG.read().paths.arc), CONFIG.read().paths.arc.len());
-        let _ = instance.visit_umm_dirs(&PathBuf::from(&CONFIG.read().paths.umm));
+        let _ = instance.visit_dir(&config.paths.arc, config.paths.arc.to_str().unwrap().len());
+        let _ = instance.visit_umm_dirs(&config.paths.umm);
 
-        if let Some(extra_paths) = &CONFIG.read().paths.extra_paths {
+        if let Some(extra_paths) = &config.paths.extra_paths {
             for path in extra_paths {
-                let _ = instance.visit_umm_dirs(&PathBuf::from(path));
+                let _ = instance.visit_umm_dirs(&path);
             }
         }
 

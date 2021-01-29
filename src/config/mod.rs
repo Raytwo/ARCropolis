@@ -1,4 +1,5 @@
 use std::{fs, vec};
+use std::path::PathBuf;
 use std::fs::File;
 use std::io::Write;
 use std::net::Ipv4Addr;
@@ -56,9 +57,9 @@ pub struct Infos {
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Paths {
-    pub arc: String,
-    pub umm: String,
-    pub extra_paths: Option<Vec<String>>
+    pub arc: PathBuf,
+    pub umm: PathBuf,
+    pub extra_paths: Option<Vec<PathBuf>>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -125,8 +126,8 @@ impl Config {
                 version: env!("CARGO_PKG_VERSION").to_string(),
             },
             paths: Paths {
-                arc: "rom:/arc".to_string(),
-                umm: "sd:/ultimate/mods".to_string(),
+                arc: PathBuf::from("rom:/arc"),
+                umm: PathBuf::from("sd:/ultimate/mods"),
                 extra_paths: Some(vec![]),
             },
             updater: Some(Updater::new()),

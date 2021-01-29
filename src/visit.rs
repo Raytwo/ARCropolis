@@ -1,12 +1,11 @@
-use std::{fs, path::{Path, PathBuf}};
+use std::{fs, path::Path};
 
-use fs::metadata;
 use log::warn;
 use smash_arc::Hash40;
 
 use crate::CONFIG;
 
-use crate::{replacement_files::FileCtx, runtime::ResServiceState};
+use crate::replacement_files::FileCtx;
 
 enum OneOrMany<T> {
     One(T),
@@ -42,19 +41,8 @@ pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<FileCtx> {
     let paths: Vec<OneOrMany<FileCtx>> = fs::read_dir(path).unwrap().filter_map(|entry| {
         let entry = entry.unwrap();
 
-        // let metadata = match entry.metadata() {
-        //     Ok(metadata) => metadata,
-        //     Err(_) => return None,
-        // };
-
         let mut entry_path = path.to_path_buf();
         entry_path.push(entry.path());
-
-        println!("Path: {}", entry_path.display());
-
-        // if metadata.is_dir() {
-        //     return None;
-        // }
 
         if entry.file_type().unwrap().is_dir() {
             return Some(OneOrMany::Many(directory(&entry_path)));
@@ -85,7 +73,6 @@ pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<FileCtx> {
 
 pub fn file<P: AsRef<Path>>(path: &P) -> Result<FileCtx, String> {
     let path = path.as_ref();
-        println!("Path: {}", path.display());
 
         if path.is_dir() {
             return Err("[ARC::Discovery] Not a file".to_string());

@@ -1,10 +1,7 @@
-use std::{
-    fs::{
+use std::{fs::{
         create_dir_all,
         read_dir
-    },
-    path::Path
-};
+    }, path::{Path, PathBuf}};
 
 use std::io::prelude::*;
 
@@ -96,8 +93,8 @@ pub fn workspace_selector() {
         let mut workspace_name = String::from("Default");
 
         if result == "reset" {
-            config.paths.arc = "rom:/arc".to_string();
-            config.paths.umm = "sd:/ultimate/mods".to_string();
+            config.paths.arc = PathBuf::from("rom:/arc");
+            config.paths.umm = PathBuf::from("sd:/ultimate/mods");
             config_changed = true;
         } else {
             // If someone manages to have this many workspaces they honestly deserve the panic
@@ -114,13 +111,13 @@ pub fn workspace_selector() {
 
             // Set Arc path in config
             if Path::new(&format!("{}/{}", path, "arc")).exists() == true {
-                config.paths.arc = format!("{}/{}", path, "arc");
+                config.paths.arc = PathBuf::from(format!("{}/{}", path, "arc"));
                 config_changed = true;
             }
 
             // Set UMM path in config
             if Path::new(&format!("{}/{}", path, "umm")).exists() == true {
-                config.paths.umm = format!("{}/{}", path, "umm");
+                config.paths.umm = PathBuf::from(format!("{}/{}", path, "umm"));
                 config_changed = true;
             }
         }
