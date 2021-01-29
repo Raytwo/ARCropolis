@@ -1,7 +1,10 @@
-use std::{fs, path::Path};
+use std::{fs, path::{
+        Path,
+        PathBuf
+    }};
 
 use log::warn;
-use smash_arc::Hash40;
+use smash_arc::{Hash40, Region};
 
 use crate::CONFIG;
 
@@ -10,6 +13,83 @@ use crate::replacement_files::FileCtx;
 enum OneOrMany<T> {
     One(T),
     Many(Vec<T>),
+}
+
+pub struct ModPath(PathBuf);
+
+impl ModPath {
+    pub fn new<P: AsRef<Path>>(path: &P) -> Self {
+        Self(PathBuf::from(path.as_ref()))
+    }
+
+    pub fn as_smash_path(&self) -> PathBuf {
+        let mut arc_path = self.0.to_str().unwrap().to_string();
+
+        if let Some(_) = arc_path.find(";") {
+            arc_path = arc_path.replace(";", ":");
+        }
+
+        if let Some(regional_marker) = arc_path.find("+") {
+            arc_path.replace_range(regional_marker..arc_path.find(".").unwrap(), "");
+        }
+
+        if let Some(ext) = arc_path.strip_suffix("mp4") {
+            arc_path = format!("{}{}", ext, "webm");
+        }
+
+        PathBuf::from(arc_path)
+    }
+
+    pub fn hash40(&self) -> Result<Hash40, String> {
+        let smash_path = self.as_smash_path();
+
+        match smash_path.to_str() {
+            Some(path) => Ok(Hash40::from(path)),
+            // TODO: Replace this by a proper error. This-error or something else.
+            None => Err(String::from(format!("Couldn't convert {} to a &str", self.0.display()))),
+        }
+    }
+
+    pub fn is_stream(&self) -> bool {
+        self.0.starts_with("stream")
+    }
+
+    pub fn get_region(&self) -> Option<Region> {
+        match self.0.extension() {
+            Some(_) => {
+                // Split the region identifier from the filepath
+                let filename = self.0.file_name().unwrap().to_str().unwrap().to_string();
+                // Check if the filepath it contains a + symbol
+                let region = if let Some(region_marker) = filename.find('+') {
+                    let region = match &filename[region_marker + 1..region_marker + 6] {
+                        "jp_ja" => Region::Japanese,
+                        "us_en" => Region::UsEnglish,
+                        "us_fr" => Region::UsFrench,
+                        "us_es" => Region::UsSpanish,
+                        "eu_en" => Region::EuEnglish,
+                        "eu_fr" => Region::EuFrench,
+                        "eu_es" => Region::EuSpanish,
+                        "eu_de" => Region::EuGerman,
+                        "eu_nl" => Region::EuDutch,
+                        "eu_it" => Region::EuItalian,
+                        "eu_ru" => Region::EuRussian,
+                        "kr_ko" => Region::Korean,
+                        "zh_cn" => Region::ChinaChinese,
+                        "zh_tw" => Region::TaiwanChinese,
+                        // If the regional indicator makes no sense, default to us_en
+                        _ => Region::UsEnglish,
+                    };
+
+                    Some(region)
+                } else {
+                    None
+                };
+
+                region
+            },
+            None => None,
+        }
+    }
 }
 
 /// Visit Ultimate Mod Manager directories for backwards compatibility
@@ -38,11 +118,16 @@ pub fn umm_directories<P: AsRef<Path>>(path: &P) -> Vec<FileCtx> {
 pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<FileCtx> {
     let path = path.as_ref();
 
+    // TODO: Make sure the path exists before proceeding
     let paths: Vec<OneOrMany<FileCtx>> = fs::read_dir(path).unwrap().filter_map(|entry| {
         let entry = entry.unwrap();
 
         let mut entry_path = path.to_path_buf();
         entry_path.push(entry.path());
+
+        if entry_path.file_name().unwrap().to_str().unwrap().starts_with(".") {
+            return None;
+        }
 
         if entry.file_type().unwrap().is_dir() {
             return Some(OneOrMany::Many(directory(&entry_path)));
