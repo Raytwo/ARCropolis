@@ -275,7 +275,7 @@ fn initial_loading(_ctx: &InlineCtx) {
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
-    // Load hashes from rom:/skyline/hashes.txt if the file is present
+    // Load hashes from rom:/skyline/hashes.txt if th e file is present
     hashes::init();
     // Look for the offset of the various functions to hook
     offsets::search_offsets();

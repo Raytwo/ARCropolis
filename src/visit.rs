@@ -1,4 +1,4 @@
-use std::{fs, path::{
+use std::{default, fs, path::{
         Path,
         PathBuf
     }};
@@ -17,16 +17,21 @@ pub struct Mod {
     pub mods: Vec<ModPath>
 }
 
-#[derive(Debug)]
-pub struct ModPath(PathBuf);
+#[derive(Debug, Default)]
+pub struct ModPath {
+    pub path: PathBuf,
+    pub size: u64,
+}
 
 impl ModPath {
     pub fn new<P: AsRef<Path>>(path: &P) -> Self {
-        Self(PathBuf::from(path.as_ref()))
+        Self {
+            ..Default::default()
+        }
     }
 
     pub fn as_smash_path(&self) -> PathBuf {
-        let mut arc_path = self.0.to_str().unwrap().to_string();
+        let mut arc_path = self.path.to_str().unwrap().to_string();
 
         if let Some(_) = arc_path.find(";") {
             arc_path = arc_path.replace(";", ":");
@@ -49,19 +54,19 @@ impl ModPath {
         match smash_path.to_str() {
             Some(path) => Ok(Hash40::from(path)),
             // TODO: Replace this by a proper error. This-error or something else.
-            None => Err(String::from(format!("Couldn't convert {} to a &str", self.0.display()))),
+            None => Err(String::from(format!("Couldn't convert {} to a &str", self.path.display()))),
         }
     }
 
     pub fn is_stream(&self) -> bool {
-        self.0.starts_with("stream")
+        self.path.starts_with("stream")
     }
 
     pub fn get_region(&self) -> Option<Region> {
-        match self.0.extension() {
+        match self.path.extension() {
             Some(_) => {
                 // Split the region identifier from the filepath
-                let filename = self.0.file_name().unwrap().to_str().unwrap().to_string();
+                let filename = self.path.file_name().unwrap().to_str().unwrap().to_string();
                 // Check if the filepath it contains a + symbol
                 let region = if let Some(region_marker) = filename.find('+') {
                     let region = match &filename[region_marker + 1..region_marker + 6] {
@@ -95,6 +100,23 @@ impl ModPath {
     }
 }
 
+pub fn discover<P: AsRef<Path>>(path: &P, umm: bool) -> Vec<Mod> {
+    let mut mods = Vec::new();
+
+    if umm {
+        mods = umm_directories(&path);
+    } else {
+        let mut new_mod = Mod {
+            path: path.as_ref().to_path_buf(),
+            mods: directory(&path),
+        };
+
+        mods.push(new_mod);
+    }
+
+    mods
+}
+
 /// Visit Ultimate Mod Manager directories for backwards compatibility
 pub fn umm_directories<P: AsRef<Path>>(path: &P) -> Vec<Mod> {
     let mut mods = Vec::<Mod>::new();
@@ -114,34 +136,19 @@ pub fn umm_directories<P: AsRef<Path>>(path: &P) -> Vec<Mod> {
         let mut subdir_path = base_path.to_path_buf();
         subdir_path.push(entry.path());
 
-        let mut new_mod = discover(&subdir_path);
+        let mut new_mod = discover(&subdir_path, false);
 
-        mods.push(new_mod);
+        mods.append(&mut new_mod);
     }
 
     mods
 }
 
-pub fn discover<P: AsRef<Path>>(path: &P) -> Mod {
-    let mut new_mod = Mod {
-        path: path.as_ref().to_path_buf(),
-        mods: vec![],
-    };
-
-    let filepaths = directory(&path);
-
-    new_mod.mods = filepaths.iter().map(|filepath| {
-        ModPath(filepath.strip_prefix(&path).unwrap().to_path_buf())
-    }).collect();
-
-    new_mod
-}
-
-pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<PathBuf> {
+pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<ModPath> {
     let path = path.as_ref();
 
     // TODO: Make sure the path exists before proceeding
-    let paths: Vec<OneOrMany<PathBuf>> = fs::read_dir(path).unwrap().filter_map(|entry| {
+    let paths: Vec<OneOrMany<ModPath>> = fs::read_dir(path).unwrap().filter_map(|entry| {
         let entry = entry.unwrap();
 
         let mut entry_path = path.to_path_buf();
@@ -157,7 +164,12 @@ pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<PathBuf> {
         } else {
             match file(&entry_path) {
                 Ok(file_ctx) => {
-                    Some(OneOrMany::One(file_ctx))
+                    // TODO: Probably store the filesize while at it.
+                    let modpath = ModPath {
+                        path: file_ctx,
+                        size: entry.metadata().unwrap().len(),
+                    };
+                    Some(OneOrMany::One(modpath))
                 },
                 Err(err) => {
                     warn!("{}", err);
@@ -167,7 +179,7 @@ pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<PathBuf> {
         }
     }).collect();
 
-    let mut final_vec: Vec<PathBuf> = Vec::new();
+    let mut final_vec: Vec<ModPath> = Vec::new();
 
     for instance in paths {
         match instance {

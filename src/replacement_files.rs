@@ -3,7 +3,7 @@ use std::fs::DirEntry;
 use std::path::PathBuf;
 use std::collections::HashMap;
 
-use crate::{config::CONFIG, runtime};
+use crate::{config::CONFIG, runtime, visit::Mod};
 
 use owo_colors::OwoColorize;
 
@@ -77,16 +77,47 @@ impl ArcFiles {
 
         let config = CONFIG.read();
 
-        // Don't mind this for now, just a copy-paste from the forgotten rewrite
-        // let _ = crate::visit::discover(&PathBuf::from(&config.paths.arc));
-        // let _ = crate::visit::umm_directories(&PathBuf::from(&config.paths.umm));
+        // Unfinished, do not use yet
+        // TODO: Move this elsewhere
+        
+        // let mut mods: Vec<Mod> = vec![];
+
+        // // TODO: Build a cache using the timestamp of every Mod directory to confirm if something changed. If not, load everything and fill the tables without running a discovery
+
+        // if config.paths.arc.exists() {
+        //     mods.append(&mut crate::visit::discover(&config.paths.arc, false));
+        // }
+
+        // if config.paths.umm.exists() {
+        //     mods.append(&mut crate::visit::discover(&config.paths.umm, true));
+        // }
+
+        // if let Some(extra_paths) = &config.paths.extra_paths {
+        //     for path in extra_paths {
+        //         if path.exists() {
+        //             mods.append(&mut crate::visit::discover(&path, true));
+        //         }
+        //     }
+        // }
+
+        // TODO: Read the info.toml for every Mod instance if it exists, store the priority and then sort the vector
+
+        // TODO: Go through every ModPath, check if it is actually in the FilePath table, if not, discard it.
+
+        // TODO: Check if a file is regional. If it is, check if the Region of a file matches with the game's. If not, discard it.
+
+        // TODO: If a file shares a FileInfoIndices index we already have, discard it.
+
+        // Original code
 
         let _ = instance.visit_dir(&config.paths.arc, config.paths.arc.to_str().unwrap().len());
         let _ = instance.visit_umm_dirs(&config.paths.umm);
 
         if let Some(extra_paths) = &config.paths.extra_paths {
             for path in extra_paths {
-                let _ = instance.visit_umm_dirs(&path);
+                if path.exists() {
+                    let _ = instance.visit_umm_dirs(&path);
+                }
             }
         }
 
