@@ -3,7 +3,7 @@ use std::fs::DirEntry;
 use std::path::PathBuf;
 use std::collections::HashMap;
 
-use crate::{config::CONFIG, runtime, visit::Mod};
+use crate::{config::CONFIG, runtime, visit::{Mod, ModPath}};
 
 use owo_colors::OwoColorize;
 
@@ -77,48 +77,106 @@ impl ArcFiles {
 
         let config = CONFIG.read();
 
-        // Unfinished, do not use yet
         // TODO: Move this elsewhere
         
-        // let mut mods: Vec<Mod> = vec![];
+        let mut mods: Vec<Mod> = vec![];
 
-        // // TODO: Build a cache using the timestamp of every Mod directory to confirm if something changed. If not, load everything and fill the tables without running a discovery
+        // TODO: Build a cache using the timestamp of every Mod directory to confirm if something changed. If not, load everything and fill the tables without running a discovery
 
-        // if config.paths.arc.exists() {
-        //     mods.append(&mut crate::visit::discover(&config.paths.arc, false));
-        // }
+        if config.paths.arc.exists() {
+            mods.push(crate::visit::discover(&config.paths.arc));
+        }
 
-        // if config.paths.umm.exists() {
-        //     mods.append(&mut crate::visit::discover(&config.paths.umm, true));
-        // }
-
-        // if let Some(extra_paths) = &config.paths.extra_paths {
-        //     for path in extra_paths {
-        //         if path.exists() {
-        //             mods.append(&mut crate::visit::discover(&path, true));
-        //         }
-        //     }
-        // }
-
-        // TODO: Read the info.toml for every Mod instance if it exists, store the priority and then sort the vector
-
-        // TODO: Go through every ModPath, check if it is actually in the FilePath table, if not, discard it.
-
-        // TODO: Check if a file is regional. If it is, check if the Region of a file matches with the game's. If not, discard it.
-
-        // TODO: If a file shares a FileInfoIndices index we already have, discard it.
-
-        // Original code
-
-        let _ = instance.visit_dir(&config.paths.arc, config.paths.arc.to_str().unwrap().len());
-        let _ = instance.visit_umm_dirs(&config.paths.umm);
+        if config.paths.umm.exists() {
+            mods.append(&mut crate::visit::umm_directories(&config.paths.umm));
+        }
 
         if let Some(extra_paths) = &config.paths.extra_paths {
             for path in extra_paths {
                 if path.exists() {
-                    let _ = instance.visit_umm_dirs(&path);
+                    mods.append(&mut crate::visit::umm_directories(&path));
                 }
             }
+        }
+
+        // TODO: Read the info.toml for every Mod instance if it exists, store the priority and then sort the vector
+
+        let resource = ResServiceState::get_instance();
+        let arc = LoadedTables::get_instance().get_arc_mut();
+
+        let contexts: Vec<FileCtx> = mods.iter().map(|test| {
+            let base_path = test.path.to_owned();
+
+            let contexts: Vec<FileCtx> = test.mods.iter().filter_map(|modpath| {
+                // TODO: Handle this better
+                // If it's a stream file, ignore everything and add it to the STREAM list for now
+                if modpath.is_stream() {
+                    let mut filectx = FileCtx::new();
+                
+                    let mut full_path = base_path.to_owned();
+                    full_path.push(&modpath.path);
+
+                    filectx.path = full_path;
+                    filectx.hash = modpath.hash40().unwrap();
+                    filectx.extension = Hash40::from(modpath.path.extension().unwrap().to_str().unwrap());
+                    filectx.filesize = modpath.size as u32;
+
+                    STREAM_FILES.write().0.insert(filectx.hash, filectx.clone());
+                    warn!("File '{}' placed in the STREAM table", filectx.path.display().bright_yellow());
+                    return None;
+                }
+
+                // Does the file exist in the FilePath table? If not, discard it.
+                let file_index = match arc.get_file_path_index_from_hash(modpath.hash40().unwrap()) {
+                    Ok(index) => index,
+                    Err(err) => {
+                        warn!("Error: {}", err);
+                        warn!("File: {}", modpath.as_smash_path().display());
+                        return None;
+                    },
+                };
+
+                let file_info = arc.get_file_info_from_path_index(file_index);
+
+                // Check if a file is regional.
+                if file_info.flags.is_regional() {
+                    // Check if the file has a regional indicator
+                    let region = match modpath.get_region() {
+                        Some(region) => region,
+                        // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
+                        None => smash_arc::Region::from(resource.game_region_idx +1),
+                    };
+
+                    // Check if the Region of a file matches with the game's. If not, discard it.
+                    if region != smash_arc::Region::from(resource.game_region_idx + 1) {
+                        return None;
+                    }
+                }
+
+                // Use a FileCtx until the system is fully reworked
+                let mut filectx = FileCtx::new();
+                
+                let mut full_path = base_path.to_owned();
+                full_path.push(&modpath.path);
+
+                filectx.path = full_path;
+                filectx.hash = modpath.hash40().unwrap();
+                filectx.extension = Hash40::from(modpath.path.extension().unwrap().to_str().unwrap());
+                filectx.index = file_info.hash_index_2;
+                filectx.filesize = modpath.size as u32;
+
+                // TODO: Move this in the for loop below
+                filectx.filesize_replacement();
+                
+                Some(filectx)
+            }).collect();
+            
+            contexts
+        }).flatten().collect();
+
+        for context in contexts {
+            // TODO: If a file shares a FileInfoIndices index we already have, discard it.
+            instance.0.entry(context.index).or_insert(context);
         }
 
         instance

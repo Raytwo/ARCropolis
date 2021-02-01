@@ -45,6 +45,9 @@ impl ModPath {
             arc_path = format!("{}{}", ext, "webm");
         }
 
+        // Some mods forget that paths do not have capitals. This fixes that.
+        arc_path = arc_path.to_lowercase();
+
         PathBuf::from(arc_path)
     }
 
@@ -59,7 +62,8 @@ impl ModPath {
     }
 
     pub fn is_stream(&self) -> bool {
-        self.path.starts_with("stream")
+        self.path.starts_with("stream;")
+        // TODO: Probably an extra check for the extension too?
     }
 
     pub fn get_region(&self) -> Option<Region> {
@@ -100,21 +104,20 @@ impl ModPath {
     }
 }
 
-pub fn discover<P: AsRef<Path>>(path: &P, umm: bool) -> Vec<Mod> {
-    let mut mods = Vec::new();
+pub fn discover<P: AsRef<Path>>(path: &P) -> Mod {
+    let mut new_mod = Mod {
+        path: path.as_ref().to_path_buf(),
+        mods: vec![],
+    };
 
-    if umm {
-        mods = umm_directories(&path);
-    } else {
-        let mut new_mod = Mod {
-            path: path.as_ref().to_path_buf(),
-            mods: directory(&path),
-        };
+    new_mod.mods = directory(&path);
 
-        mods.push(new_mod);
-    }
+    new_mod.mods.iter_mut().for_each(|mut filepath| {
+        filepath.path = filepath.path.strip_prefix(&path).unwrap().to_path_buf();
+        //ModPath(filepath.path.strip_prefix(&path).unwrap().to_path_buf())
+    });
 
-    mods
+    new_mod
 }
 
 /// Visit Ultimate Mod Manager directories for backwards compatibility
@@ -132,13 +135,10 @@ pub fn umm_directories<P: AsRef<Path>>(path: &P) -> Vec<Mod> {
             continue;
         }
 
-
-        let mut subdir_path = base_path.to_path_buf();
+        let mut subdir_path = base_path.to_owned();
         subdir_path.push(entry.path());
 
-        let mut new_mod = discover(&subdir_path, false);
-
-        mods.append(&mut new_mod);
+        mods.push(discover(&subdir_path));
     }
 
     mods
@@ -164,7 +164,6 @@ pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<ModPath> {
         } else {
             match file(&entry_path) {
                 Ok(file_ctx) => {
-                    // TODO: Probably store the filesize while at it.
                     let modpath = ModPath {
                         path: file_ctx,
                         size: entry.metadata().unwrap().len(),
@@ -204,42 +203,4 @@ pub fn file<P: AsRef<Path>>(path: &P) -> Result<PathBuf, String> {
         }
 
         Ok(path.to_path_buf())
-
-        // let mut arc_path = path.to_str().unwrap().to_string();
-
-        // if let Some(_) = arc_path.find(";") {
-        //     arc_path = arc_path.replace(";", ":");
-        // }
-
-        // if let Some(regional_marker) = arc_path.find("+") {
-        //     // TODO: Return here if the region doesn't match the game's
-        //     arc_path.replace_range(regional_marker..arc_path.find(".").unwrap(), "");
-        // }
-
-        // // TODO: Move that stuff in a separate function that can handle more than one format
-        // // TODO: Have it just replace the extension to hash in FileCtx
-        // if let Some(ext) = arc_path.strip_suffix("mp4") {
-        //     arc_path = format!("{}{}", ext, "webm");
-        // }
-
-        // // TODO: Rework the following atrocity
-
-        // let mut file_ctx = FileCtx::new();
-
-        // file_ctx.path = path.to_path_buf();
-        // file_ctx.hash = Hash40::from(arc_path.as_str());
-        // let ext = Path::new(&arc_path).extension().unwrap().to_str().unwrap();
-        // file_ctx.extension = Hash40::from(ext);
-
-        // file_ctx.filesize = match path.metadata() {
-        //     Ok(meta) => meta.len() as u32,
-        //     Err(err) => panic!(err),
-        // };
-
-        // // TODO: Move this to the regional marker check
-        // if file_ctx.get_region() != crate::replacement_files::get_region_id(&CONFIG.read().misc.region.as_ref().unwrap()) {
-        //     return Err(format!("[ARC::Discovery] File '{}' does not have a matching region, skipping", file_ctx.path.display()));
-        // }
-
-        // Ok(file_ctx)
 }

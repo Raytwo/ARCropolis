@@ -9,7 +9,6 @@ use std::net::IpAddr;
 
 use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
 
-
 mod config;
 use config::CONFIG;
 
@@ -32,7 +31,7 @@ mod selector;
 mod logging;
 use log::{ trace, info };
 
-// mod visit;
+mod visit;
 
 use smash_arc::{
     Hash40,
@@ -258,6 +257,7 @@ fn initial_loading(_ctx: &InlineCtx) {
         None
     };
 
+    // TODO: Replace by a proper Smash-like menu someday
     if let Some(text) = changelog {
         skyline_web::DialogOk::ok(text);
         std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md").unwrap();
