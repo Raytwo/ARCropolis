@@ -81,6 +81,7 @@ fn replace_file_by_index(table2_idx: u32) {
     }
 }
 
+// TODO: Probably remove this once extension callbacks are a thing
 fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) {
     let orig_size = file_ctx.orig_subfile.decomp_size as usize;
 
@@ -106,7 +107,6 @@ fn inflate_incoming(ctx: &InlineCtx) {
         let arc = LoadedTables::get_instance().get_arc();
         let res_service = ResServiceState::get_instance();
 
-        // Replace all this mess by Smash-arc
         let info_index= (res_service.processing_file_idx_start + *ctx.registers[27].x.as_ref() as u32) as usize;
         let file_info = arc.get_file_infos()[info_index];
 
@@ -183,11 +183,11 @@ pub struct InflateFile {
 }
 
 #[hook(offset = INFLATE_DIR_FILE_OFFSET)]
-fn load_directory_hook(unk1: *const u64, out_data: &InflateFile, comp_data: &InflateFile) -> u64 {
-    trace!("[LoadFileFromDirectory] Incoming filesize: {:x}", out_data.size);
+fn load_directory_hook(unk1: *const u64, out_decomp_data: &InflateFile, comp_data: &InflateFile) -> u64 {
+    trace!("[LoadFileFromDirectory] Incoming decompressed filesize: {:x}", out_decomp_data.size);
 
     // Let the file be inflated
-    let result: u64 = original!()(unk1, out_data, comp_data);
+    let result: u64 = original!()(unk1, out_decomp_data, comp_data);
 
     let incoming = INCOMING.read();
 
@@ -275,7 +275,7 @@ fn initial_loading(_ctx: &InlineCtx) {
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
-    // Load hashes from rom:/skyline/hashes.txt if th e file is present
+    // Load hashes from rom:/skyline/hashes.txt if the file is present
     hashes::init();
     // Look for the offset of the various functions to hook
     offsets::search_offsets();
