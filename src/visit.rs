@@ -9,6 +9,8 @@ use std::{
 use log::warn;
 use smash_arc::{Hash40, Region};
 
+use crate::replacement_files::get_region_id;
+
 enum OneOrMany<T> {
     One(T),
     Many(Vec<T>),
@@ -76,26 +78,7 @@ impl ModPath {
                 let filename = self.path.file_name().unwrap().to_str().unwrap().to_string();
                 // Check if the filepath it contains a + symbol
                 let region = if let Some(region_marker) = filename.find('+') {
-                    let region = match &filename[region_marker + 1..region_marker + 6] {
-                        "jp_ja" => Region::Japanese,
-                        "us_en" => Region::UsEnglish,
-                        "us_fr" => Region::UsFrench,
-                        "us_es" => Region::UsSpanish,
-                        "eu_en" => Region::EuEnglish,
-                        "eu_fr" => Region::EuFrench,
-                        "eu_es" => Region::EuSpanish,
-                        "eu_de" => Region::EuGerman,
-                        "eu_nl" => Region::EuDutch,
-                        "eu_it" => Region::EuItalian,
-                        "eu_ru" => Region::EuRussian,
-                        "kr_ko" => Region::Korean,
-                        "zh_cn" => Region::ChinaChinese,
-                        "zh_tw" => Region::TaiwanChinese,
-                        // If the regional indicator makes no sense, default to us_en
-                        _ => Region::UsEnglish,
-                    };
-
-                    Some(region)
+                    Some(Region::from(get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(1)))
                 } else {
                     None
                 };
