@@ -39,17 +39,17 @@ fn get_workspaces() -> Vec<Workspace> {
     read_dir("rom:/arcropolis/workspaces").unwrap().enumerate().filter_map(|(index, entry)| {
         let entry = entry.unwrap();
 
-        if entry.file_type().unwrap().is_file() {
+        if entry.file_type()
+        .unwrap()
+        .is_file() {
             return None;
+        } else {
+            Some(Workspace {
+                index: index as u8,
+                name: String::from(entry.path().file_name().unwrap().to_str().unwrap()),
+                in_use: false,
+            })
         }
-
-        let workspace = Workspace {
-            index: index as u8,
-            name: String::from(entry.path().file_name().unwrap().to_str().unwrap()),
-            in_use: false,
-        };
-
-        Some(workspace)
     }).collect()
 }
 

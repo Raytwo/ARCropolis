@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use skyline::hook;
 use skyline::libc::c_char;
 
-use rand::Rng;
+use rand::seq::SliceRandom;
 use log::{ info, warn };
 
 use crate::offsets::LOOKUP_STREAM_HASH_OFFSET;
@@ -24,27 +24,23 @@ use smash_arc::{ Hash40, LoadedArc };
 pub fn random_media_select(directory: &str) -> io::Result<String> {
     let mut rng = rand::thread_rng();
 
-    let mut media_files = HashMap::new();
-
-    let mut media_count = 0;
-
-    for entry in fs::read_dir(Path::new(directory))? {
-        let entry = entry?;
+    let media_files: Vec<_> = fs::read_dir(Path::new(directory))?.filter_map(|entry| {
+        let entry = entry.unwrap();
         let filename = entry.path();
         let real_path = format!("{}/{}", directory, filename.display());
-        if !Path::new(&real_path).is_dir() {
-            media_files.insert(media_count, real_path);
-            media_count += 1;
-        }
-    }
 
-    if media_count <= 0 {
+        if !Path::new(&real_path).is_dir() {
+            Some(real_path)
+        } else {
+            None
+        }
+    }).collect();
+
+    if media_files.is_empty() {
         return Err(Error::new(ErrorKind::Other, "No Files Found!"));
     }
-
-    let random_result = rng.gen_range(0..media_count);
-
-    Ok(media_files.get(&random_result).unwrap().to_string())
+    
+    Ok(media_files.choose(&mut rng).unwrap().to_string())
 }
 
 // (char *out_path,void *loadedArc,undefined8 *size_out,undefined8 *offset_out, ulonglong hash)

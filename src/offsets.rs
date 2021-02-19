@@ -5,15 +5,15 @@ pub static mut LOADED_TABLES_ADRP_OFFSET: usize = 0x35bb1f8;
 pub static mut RES_SERVICE_ADRP_OFFSET: usize = 0x335a860;
 
 pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x335A7F0;
-pub static mut TITLE_SCREEN_VERSION_OFFSET:usize = 0x35BAE00;
+pub static mut TITLE_SCREEN_VERSION_OFFSET: usize = 0x35BAE00;
 
-pub static mut INFLATE_OFFSET:usize = 0x33b71e8;
-pub static mut MEMCPY_1_OFFSET:usize = 0x33b7d08;
-pub static mut MEMCPY_2_OFFSET:usize = 0x33b78f8;
-pub static mut MEMCPY_3_OFFSET:usize = 0x33b7988;
-pub static mut INFLATE_DIR_FILE_OFFSET:usize = 0x3816230;
-pub static mut MANUAL_OPEN_OFFSET:usize = 0x35c93b0;
-pub static mut INITIAL_LOADING_OFFSET:usize = 0x35c6474;
+pub static mut INFLATE_OFFSET: usize = 0x33b71e8;
+pub static mut MEMCPY_1_OFFSET: usize = 0x33b7d08;
+pub static mut MEMCPY_2_OFFSET: usize = 0x33b78f8;
+pub static mut MEMCPY_3_OFFSET: usize = 0x33b7988;
+pub static mut INFLATE_DIR_FILE_OFFSET: usize = 0x3816230;
+pub static mut MANUAL_OPEN_OFFSET: usize = 0x35c93b0;
+pub static mut INITIAL_LOADING_OFFSET: usize = 0x35c6474;
 
 static LOADED_TABLES_ADRP_SEARCH_CODE: &[u8] = &[
     0xf3, 0x03, 0x00, 0xaa, 0x1f, 0x01, 0x09, 0x6b, 0xe0, 0x04, 0x00, 0x54,

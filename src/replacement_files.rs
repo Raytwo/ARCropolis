@@ -35,6 +35,25 @@ pub extern "C" fn subscribe_callback_with_size(_hash: Hash40, _filesize: u32, _e
     warn!("{}", "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red());
 }
 
+const REGIONS: &[&str] = &[
+    "jp_ja",
+    "us_en",
+    "us_fr",
+    "us_es",
+    "eu_en",
+    "eu_fr",
+    "eu_es",
+    "eu_de",
+    "eu_nl",
+    "eu_it",
+    "eu_ru",
+    "kr_ko",
+    "zh_cn",
+    "zh_tw",
+];
+
+
+
 // Table2Index
 pub struct ArcFiles(pub HashMap<u32, FileCtx>);
 
@@ -184,24 +203,11 @@ impl ArcFiles {
     }
 }
 
-pub fn get_region_id(region: &str) -> u32 {
-    match region {
-                "jp_ja" => 0,
-                "us_en" => 1,
-                "us_fr" => 2,
-                "us_es" => 3,
-                "eu_en" => 4,
-                "eu_fr" => 5,
-                "eu_es" => 6,
-                "eu_de" => 7,
-                "eu_nl" => 8,
-                "eu_it" => 9,
-                "eu_ru" => 10,
-                "kr_ko" => 11,
-                "zh_cn" => 12,
-                "zh_tw" => 13,
-                _ => ResServiceState::get_instance().game_region_idx,
-            }
+pub fn get_region_id(region: &str) -> Option<u32> {
+    REGIONS
+        .iter()
+        .position(|x| x == &region)
+        .map(|x| x as u32)
 }
 
 impl FileCtx {
@@ -216,7 +222,10 @@ impl FileCtx {
                 offset_in_folder: 0,
                 comp_size: 0,
                 decomp_size: 0,
-                flags: smash_arc::FileDataFlags::new().with_compressed(false).with_use_zstd(false).with_unk(0),
+                flags: smash_arc::FileDataFlags::new()
+                .with_compressed(false)
+                .with_use_zstd(false)
+                .with_unk(0),
             },
             index: 0,
         }
@@ -224,7 +233,7 @@ impl FileCtx {
 
     pub fn get_region(&self) -> u32 {
         // Default to the player's region index
-        let mut region_index = get_region_id(&CONFIG.read().misc.region.as_ref().unwrap());
+        let mut region_index = get_region_id(&CONFIG.read().misc.region.as_ref().unwrap()).unwrap_or_else(|| ResServiceState::get_instance().game_region_idx);
 
         // Make sure the file has an extension
         if let Some(_) = self.path.extension() {
@@ -232,23 +241,7 @@ impl FileCtx {
             let region = self.path.file_name().unwrap().to_str().unwrap().to_string();
             // Check if the filepath it contains a + symbol
             if let Some(region_marker) = region.find('+') {
-                region_index = match &region[region_marker + 1..region_marker + 6] {
-                    "jp_ja" => 0,
-                    "us_en" => 1,
-                    "us_fr" => 2,
-                    "us_es" => 3,
-                    "eu_en" => 4,
-                    "eu_fr" => 5,
-                    "eu_es" => 6,
-                    "eu_de" => 7,
-                    "eu_nl" => 8,
-                    "eu_it" => 9,
-                    "eu_ru" => 10,
-                    "kr_ko" => 11,
-                    "zh_cn" => 12,
-                    "zh_tw" => 13,
-                    _ => 1,
-                };
+                region_index = get_region_id(&region[region_marker + 1..region_marker + 6]).unwrap_or(1);
             }
         }
 

@@ -1,7 +1,10 @@
-use std::{default, fs, path::{
+use std::{
+    fs,
+    path::{
         Path,
         PathBuf
-    }};
+    }
+};
 
 use log::warn;
 use smash_arc::{Hash40, Region};
