@@ -1,9 +1,14 @@
-use std::{fs, io};
-use std::fs::DirEntry;
-use std::path::PathBuf;
-use std::collections::HashMap;
+use std::{
+    fs,
+    path::PathBuf,
+    collections::HashMap,
+};
 
-use crate::{config::CONFIG, runtime, visit::{Mod, ModPath}};
+use crate::{
+    runtime,
+    visit::Mod,
+    config::CONFIG,
+};
 
 use owo_colors::OwoColorize;
 

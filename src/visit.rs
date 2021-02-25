@@ -29,12 +29,6 @@ pub struct ModPath {
 }
 
 impl ModPath {
-    pub fn new<P: AsRef<Path>>(path: &P) -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
     pub fn as_smash_path(&self) -> PathBuf {
         let mut arc_path = self.path.to_str().unwrap().to_string();
 

@@ -8,7 +8,6 @@ use std::{
     ptr
 };
 use std::path::Path;
-use std::collections::HashMap;
 
 use skyline::hook;
 use skyline::libc::c_char;

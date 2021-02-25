@@ -33,6 +33,8 @@ use log::{ trace, info };
 
 mod visit;
 
+mod fs;
+
 use smash_arc::{
     Hash40,
     ArcLookup,
