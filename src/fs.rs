@@ -21,7 +21,7 @@ pub struct DirInfoEntry(FileInfo);
 impl DirInfoEntry {
     pub fn path(&self) -> FilePath {
         let arc = LoadedTables::get_instance().get_arc();
-        arc.get_file_paths()[self.0.hash_index as usize].clone()
+        arc.get_file_paths()[usize::from(self.0.file_path_index)].clone()
     }
 
     pub fn metadata(&self) -> FileData {
@@ -50,7 +50,7 @@ impl Iterator for ReadDirInfo {
 
 pub fn read_dir_info(index: u32) -> Result<ReadDirInfo, String> {
     let arc = LoadedTables::get_instance().get_arc();
-    let dir_info = &arc.get_loaded_dir_infos()[index as usize];
+    let dir_info = &arc.get_dir_infos()[index as usize];
 
     let start = dir_info.file_info_start_index as usize;
     let end = start + dir_info.file_info_count as usize;
