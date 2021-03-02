@@ -25,7 +25,7 @@ lazy_static::lazy_static! {
     pub static ref STREAM_FILES: parking_lot::RwLock<StreamFiles> = parking_lot::RwLock::new(StreamFiles::new());
 
     // For ResInflateThread
-    pub static ref INCOMING: parking_lot::RwLock<Option<FileInfoIndiceIdx>> = parking_lot::RwLock::new(None);
+    pub static ref INCOMING: parking_lot::RwLock<Option<FileIndex>> = parking_lot::RwLock::new(None);
 }
 
 #[no_mangle]
@@ -57,8 +57,14 @@ const REGIONS: &[&str] = &[
     "zh_tw",
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum FileIndex {
+    Regular(FileInfoIndiceIdx),
+    Stream(Hash40),
+}
+
 // Table2Index
-pub struct ArcFiles(pub HashMap<FileInfoIndiceIdx, FileCtx>);
+pub struct ArcFiles(pub HashMap<FileIndex, FileCtx>);
 
 pub struct StreamFiles(pub HashMap<Hash40, FileCtx>);
 
@@ -73,13 +79,12 @@ pub struct FileCtx {
     pub index: FileInfoIndiceIdx,
 }
 
-// TODO: Either rename this or stop using it altogether, considering there is literally one use of it AFAIK.
 #[macro_export]
 macro_rules! get_from_file_info_indice_index {
     ($index:expr) => {
         parking_lot::RwLockReadGuard::try_map(
             $crate::replacement_files::ARC_FILES.read(),
-            |x| x.get($index)
+            |x| x.get(FileIndex::Regular($index))
         )
     };
 }
@@ -195,14 +200,14 @@ impl ArcFiles {
 
         for context in contexts {
             // TODO: If a file shares a FileInfoIndices index we already have, discard it.
-            instance.0.entry(context.index).or_insert(context);
+            instance.0.entry(FileIndex::Regular(context.index)).or_insert(context);
         }
 
         instance
     }
 
-    pub fn get(&self, file_path_index: FileInfoIndiceIdx) -> Option<&FileCtx> {
-        self.0.get(&file_path_index)
+    pub fn get(&self, file_index: FileIndex) -> Option<&FileCtx> {
+        self.0.get(&file_index)
     }
 }
 
@@ -260,7 +265,7 @@ impl FileCtx {
     }
 
     pub fn get_file_content(&self) -> Vec<u8> {
-        // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did.
+        // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
         fs::read(&self.path).unwrap()
     }
 

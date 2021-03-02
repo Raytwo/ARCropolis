@@ -16,7 +16,7 @@ mod hashes;
 mod stream;
 
 mod replacement_files;
-use replacement_files::{ FileCtx, ARC_FILES, INCOMING };
+use replacement_files::{ARC_FILES, FileCtx, FileIndex, INCOMING};
 
 mod offsets;
 use offsets::{ TITLE_SCREEN_VERSION_OFFSET, INFLATE_OFFSET, MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, INFLATE_DIR_FILE_OFFSET, MANUAL_OPEN_OFFSET, INITIAL_LOADING_OFFSET };
@@ -41,26 +41,31 @@ use smash_arc::{
     FileInfoIndiceIdx
 };
 
-fn get_filectx_by_index<'a>(table2_idx: FileInfoIndiceIdx) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
-    let tables = LoadedTables::get_instance();
+fn get_filectx_by_index<'a>(file_index: FileIndex) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
+    match file_index {
+        FileIndex::Regular(table2_idx) => {
+            let tables = LoadedTables::get_instance();
 
-    let table2entry = match tables.get_t2_mut(table2_idx) {
-        Ok(entry) => entry,
-        Err(_) => {
-            return None;
+            let table2entry = match tables.get_t2_mut(table2_idx) {
+                Ok(entry) => entry,
+                Err(_) => {
+                    return None;
+                }
+            };
+        
+            match get_from_file_info_indice_index!(table2_idx) {
+                Ok(file_ctx) => {
+                    info!("[ARC::Loading | #{:?}] Hash matching for file: '{:?}'", table2_idx.green(), file_ctx.path.display().bright_yellow());
+                    Some((file_ctx, table2entry))
+                }
+                Err(_) => None,
+            }
         }
-    };
-
-    match get_from_file_info_indice_index!(table2_idx) {
-        Ok(file_ctx) => {
-            info!("[ARC::Loading | #{:?}] Hash matching for file: '{:?}'", table2_idx.green(), file_ctx.path.display().bright_yellow());
-            Some((file_ctx, table2entry))
-        }
-        Err(_) => None,
+        _ => None,
     }
 }
 
-fn replace_file_by_index(table2_idx: FileInfoIndiceIdx) {
+fn replace_file_by_index(table2_idx: FileIndex) {
     if let Some((file_ctx, table2entry)) = get_filectx_by_index(table2_idx) {
         if table2entry.data == 0 as _ {
             return;
@@ -123,7 +128,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
         let mut incoming = INCOMING.write();
 
         if let Ok(context) = get_from_file_info_indice_index!(table2_idx) {
-            *incoming = Some(context.index);
+            *incoming = Some(FileIndex::Regular(context.index));
             info!("[ResInflateThread | #{}] Added index {:?} to the queue", path_idx.green(), context.index.green());
         } else {
             *incoming = None;
@@ -195,7 +200,7 @@ fn load_directory_hook(unk1: *const u64, out_decomp_data: &InflateFile, comp_dat
     let incoming = INCOMING.read();
 
     if let Some(index) = *incoming {
-        if index == FileInfoIndiceIdx(0) {
+        if index == FileIndex::Regular(FileInfoIndiceIdx(0)) {
             return result;
         }
 
