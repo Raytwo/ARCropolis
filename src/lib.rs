@@ -38,9 +38,10 @@ mod fs;
 use smash_arc::{
     Hash40,
     ArcLookup,
+    FileInfoIndiceIdx
 };
 
-fn get_filectx_by_index<'a>(table2_idx: u32) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
+fn get_filectx_by_index<'a>(table2_idx: FileInfoIndiceIdx) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
     let tables = LoadedTables::get_instance();
 
     let table2entry = match tables.get_t2_mut(table2_idx) {
@@ -50,16 +51,16 @@ fn get_filectx_by_index<'a>(table2_idx: u32) -> Option<(parking_lot::MappedRwLoc
         }
     };
 
-    match get_from_info_index!(table2_idx) {
+    match get_from_file_info_indice_index!(table2_idx) {
         Ok(file_ctx) => {
-            info!("[ARC::Loading | #{}] Hash matching for file: '{}'", table2_idx.green(), file_ctx.path.display().bright_yellow());
+            info!("[ARC::Loading | #{:?}] Hash matching for file: '{:?}'", table2_idx.green(), file_ctx.path.display().bright_yellow());
             Some((file_ctx, table2entry))
         }
         Err(_) => None,
     }
 }
 
-fn replace_file_by_index(table2_idx: u32) {
+fn replace_file_by_index(table2_idx: FileInfoIndiceIdx) {
     if let Some((file_ctx, table2entry)) = get_filectx_by_index(table2_idx) {
         if table2entry.data == 0 as _ {
             return;
@@ -74,7 +75,7 @@ fn replace_file_by_index(table2_idx: u32) {
 
         let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
-        info!("[ResInflateThread | #{}] Replacing '{}'", table2_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+        info!("[ResInflateThread | #{:?}] Replacing '{}'", table2_idx.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
         unsafe {
             let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
@@ -89,7 +90,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
 
     let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
-    info!("[ResInflateThread | #{}] Replacing '{}'", file_ctx.index.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+    info!("[ResInflateThread | #{:?}] Replacing '{}'", file_ctx.index.green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
     if orig_size > file_slice.len() {
         let data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size) };
@@ -112,8 +113,8 @@ fn inflate_incoming(ctx: &InlineCtx) {
         let info_index= (res_service.processing_file_idx_start + *ctx.registers[27].x.as_ref() as u32) as usize;
         let file_info = arc.get_file_infos()[info_index];
 
-        let path_idx = file_info.hash_index as usize;
-        let table2_idx = file_info.hash_index_2;
+        let path_idx = usize::from(file_info.file_path_index);
+        let table2_idx = file_info.file_info_indice_index;
 
         let hash = arc.get_file_paths()[path_idx].path.hash40();
 
@@ -121,9 +122,9 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
         let mut incoming = INCOMING.write();
 
-        if let Ok(context) = get_from_info_index!(table2_idx) {
+        if let Ok(context) = get_from_file_info_indice_index!(table2_idx) {
             *incoming = Some(context.index);
-            info!("[ResInflateThread | #{}] Added index {} to the queue", path_idx.green(), context.index.green());
+            info!("[ResInflateThread | #{}] Added index {:?} to the queue", path_idx.green(), context.index.green());
         } else {
             *incoming = None;
         }
@@ -194,7 +195,7 @@ fn load_directory_hook(unk1: *const u64, out_decomp_data: &InflateFile, comp_dat
     let incoming = INCOMING.read();
 
     if let Some(index) = *incoming {
-        if index == 0 {
+        if index == FileInfoIndiceIdx(0) {
             return result;
         }
 

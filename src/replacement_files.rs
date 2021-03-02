@@ -12,7 +12,7 @@ use crate::{
 
 use owo_colors::OwoColorize;
 
-use smash_arc::{ArcLookup, FileData, FileInfo, Hash40};
+use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoIndiceIdx, Hash40};
 
 use runtime::{ LoadedTables, ResServiceState };
 
@@ -25,7 +25,7 @@ lazy_static::lazy_static! {
     pub static ref STREAM_FILES: parking_lot::RwLock<StreamFiles> = parking_lot::RwLock::new(StreamFiles::new());
 
     // For ResInflateThread
-    pub static ref INCOMING: parking_lot::RwLock<Option<u32>> = parking_lot::RwLock::new(None);
+    pub static ref INCOMING: parking_lot::RwLock<Option<FileInfoIndiceIdx>> = parking_lot::RwLock::new(None);
 }
 
 #[no_mangle]
@@ -57,10 +57,8 @@ const REGIONS: &[&str] = &[
     "zh_tw",
 ];
 
-
-
 // Table2Index
-pub struct ArcFiles(pub HashMap<u32, FileCtx>);
+pub struct ArcFiles(pub HashMap<FileInfoIndiceIdx, FileCtx>);
 
 pub struct StreamFiles(pub HashMap<Hash40, FileCtx>);
 
@@ -72,12 +70,12 @@ pub struct FileCtx {
     pub extension: Hash40,
     pub virtual_file: bool,
     pub orig_subfile: smash_arc::FileData,
-    pub index: u32,
+    pub index: FileInfoIndiceIdx,
 }
 
 // TODO: Either rename this or stop using it altogether, considering there is literally one use of it AFAIK.
 #[macro_export]
-macro_rules! get_from_info_index {
+macro_rules! get_from_file_info_indice_index {
     ($index:expr) => {
         parking_lot::RwLockReadGuard::try_map(
             $crate::replacement_files::ARC_FILES.read(),
@@ -183,7 +181,7 @@ impl ArcFiles {
                 filectx.path = full_path;
                 filectx.hash = modpath.hash40().unwrap();
                 filectx.extension = Hash40::from(modpath.path.extension().unwrap().to_str().unwrap());
-                filectx.index = file_info.hash_index_2;
+                filectx.index = file_info.file_info_indice_index;
                 filectx.filesize = modpath.size as u32;
 
                 // TODO: Move this in the for loop below
@@ -203,7 +201,7 @@ impl ArcFiles {
         instance
     }
 
-    pub fn get(&self, file_path_index: u32) -> Option<&FileCtx> {
+    pub fn get(&self, file_path_index: FileInfoIndiceIdx) -> Option<&FileCtx> {
         self.0.get(&file_path_index)
     }
 }
@@ -232,7 +230,7 @@ impl FileCtx {
                 .with_use_zstd(false)
                 .with_unk(0),
             },
-            index: 0,
+            index: FileInfoIndiceIdx(0),
         }
     }
 
@@ -274,12 +272,12 @@ impl FileCtx {
         self.orig_subfile = self.get_subfile().clone();
 
         let file_path_index = arc.get_file_path_index_from_hash(self.hash).unwrap();
-        let file_path = arc.get_file_paths()[file_path_index as usize];
+        let file_path = arc.get_file_paths()[usize::from(file_path_index)];
 
         let t2_indexes: Vec<FileInfo> = arc.get_file_infos()
                 .iter()
                 .filter_map(|entry| {
-                    if entry.hash_index_2 == file_path.path.index() {
+                    if entry.file_info_indice_index == FileInfoIndiceIdx(file_path.path.index()) {
                         Some(*entry)
                     } else {
                         None
