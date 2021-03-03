@@ -15,8 +15,8 @@ use skyline::libc::c_char;
 use rand::seq::SliceRandom;
 use log::{ info, warn };
 
-use crate::offsets::LOOKUP_STREAM_HASH_OFFSET;
-use crate::replacement_files::STREAM_FILES;
+use crate::{offsets::LOOKUP_STREAM_HASH_OFFSET, replacement_files::FileIndex};
+use crate::replacement_files::ARC_FILES;
 
 use smash_arc::{ Hash40, LoadedArc };
 
@@ -52,7 +52,7 @@ fn lookup_by_stream_hash(
     hash: Hash40,
 ) {
 
-    if let Some(file_ctx) = STREAM_FILES.read().0.get(&hash) {
+    if let Some(file_ctx) = ARC_FILES.read().0.get(&FileIndex::Stream(hash)) {
         let file;
         let metadata;
         let size;

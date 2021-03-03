@@ -22,7 +22,6 @@ type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> b
 
 lazy_static::lazy_static! {
     pub static ref ARC_FILES: parking_lot::RwLock<ArcFiles> = parking_lot::RwLock::new(ArcFiles::new());
-    pub static ref STREAM_FILES: parking_lot::RwLock<StreamFiles> = parking_lot::RwLock::new(StreamFiles::new());
 
     // For ResInflateThread
     pub static ref INCOMING: parking_lot::RwLock<Option<FileIndex>> = parking_lot::RwLock::new(None);
@@ -128,79 +127,78 @@ impl ArcFiles {
         let resource = ResServiceState::get_instance();
         let arc = LoadedTables::get_instance().get_arc_mut();
 
-        let contexts: Vec<FileCtx> = mods.iter().map(|test| {
+        let contexts: Vec<(FileIndex, FileCtx)> = mods.iter().map(|test| {
             let base_path = test.path.to_owned();
 
-            let contexts: Vec<FileCtx> = test.mods.iter().filter_map(|modpath| {
-                // TODO: Handle this better
-                // If it's a stream file, ignore everything and add it to the STREAM list for now
-                if modpath.is_stream() {
-                    let mut filectx = FileCtx::new();
-                
-                    let mut full_path = base_path.to_owned();
-                    full_path.push(&modpath.path);
+            let contexts: Vec<(FileIndex, FileCtx)> = test.mods.iter().filter_map(|modpath| {
+                match modpath.is_stream() {
+                    true => {
+                        let mut filectx = FileCtx::new();
 
-                    filectx.path = full_path;
-                    filectx.hash = modpath.hash40().unwrap();
-                    filectx.extension = Hash40::from(modpath.path.extension().unwrap().to_str().unwrap());
-                    filectx.filesize = modpath.size as u32;
+                        let mut full_path = base_path.to_owned();
+                        full_path.push(&modpath.path);
 
-                    STREAM_FILES.write().0.insert(filectx.hash, filectx.clone());
-                    warn!("File '{}' placed in the STREAM table", filectx.path.display().bright_yellow());
-                    return None;
-                }
+                        filectx.path = full_path;
+                        filectx.hash = modpath.hash40().unwrap();
+                        filectx.extension = Hash40::from(modpath.path.extension().unwrap().to_str().unwrap());
+                        filectx.filesize = modpath.size as u32;
 
-                // Does the file exist in the FilePath table? If not, discard it.
-                let file_index = match arc.get_file_path_index_from_hash(modpath.hash40().unwrap()) {
-                    Ok(index) => index,
-                    Err(err) => {
-                        warn!("Error: {}", err);
-                        warn!("File: {}", modpath.as_smash_path().display());
-                        return None;
-                    },
-                };
-
-                let file_info = arc.get_file_info_from_path_index(file_index);
-
-                // Check if a file is regional.
-                if file_info.flags.is_regional() {
-                    // Check if the file has a regional indicator
-                    let region = match modpath.get_region() {
-                        Some(region) => region,
-                        // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
-                        None => smash_arc::Region::from(resource.game_region_idx +1),
-                    };
-
-                    // Check if the Region of a file matches with the game's. If not, discard it.
-                    if region != smash_arc::Region::from(resource.game_region_idx + 1) {
-                        return None;
+                        warn!("[ARC::Patching] File '{}' added as a Stream", filectx.path.display().bright_yellow());
+                        Some((FileIndex::Stream(filectx.hash), filectx))
+                    }
+                    false => {
+                        // Does the file exist in the FilePath table? If not, discard it.
+                        let file_index = match arc.get_file_path_index_from_hash(modpath.hash40().unwrap()) {
+                            Ok(index) => index,
+                            Err(_) => {
+                                warn!("[ARC::Patching] File '{}' was not found in data.arc", modpath.as_smash_path().display().bright_yellow());
+                                return None;
+                            },
+                        };
+        
+                        let file_info = arc.get_file_info_from_path_index(file_index);
+        
+                        // Check if a file is regional.
+                        if file_info.flags.is_regional() {
+                            // Check if the file has a regional indicator
+                            let region = match modpath.get_region() {
+                                Some(region) => region,
+                                // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
+                                None => smash_arc::Region::from(resource.game_region_idx +1),
+                            };
+        
+                            // Check if the Region of a file matches with the game's. If not, discard it.
+                            if region != smash_arc::Region::from(resource.game_region_idx + 1) {
+                                return None;
+                            }
+                        }
+        
+                        // Use a FileCtx until the system is fully reworked
+                        let mut filectx = FileCtx::new();
+                        
+                        let mut full_path = base_path.to_owned();
+                        full_path.push(&modpath.path);
+        
+                        filectx.path = full_path;
+                        filectx.hash = modpath.hash40().unwrap();
+                        filectx.extension = Hash40::from(modpath.path.extension().unwrap().to_str().unwrap());
+                        filectx.index = file_info.file_info_indice_index;
+                        filectx.filesize = modpath.size as u32;
+        
+                        // TODO: Move this in the for loop below
+                        filectx.filesize_replacement();
+                        
+                        Some((FileIndex::Regular(filectx.index), filectx))
                     }
                 }
-
-                // Use a FileCtx until the system is fully reworked
-                let mut filectx = FileCtx::new();
-                
-                let mut full_path = base_path.to_owned();
-                full_path.push(&modpath.path);
-
-                filectx.path = full_path;
-                filectx.hash = modpath.hash40().unwrap();
-                filectx.extension = Hash40::from(modpath.path.extension().unwrap().to_str().unwrap());
-                filectx.index = file_info.file_info_indice_index;
-                filectx.filesize = modpath.size as u32;
-
-                // TODO: Move this in the for loop below
-                filectx.filesize_replacement();
-                
-                Some(filectx)
             }).collect();
             
             contexts
         }).flatten().collect();
 
-        for context in contexts {
+        for (index, context) in contexts {
             // TODO: If a file shares a FileInfoIndices index we already have, discard it.
-            instance.0.entry(FileIndex::Regular(context.index)).or_insert(context);
+            instance.0.entry(index).or_insert(context);
         }
 
         instance
