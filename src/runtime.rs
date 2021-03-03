@@ -337,6 +337,10 @@ pub struct ResServiceState {
 }
 
 impl ResServiceState {
+    pub fn get_region_id() -> u32 {
+        ResServiceState::get_instance().game_region_idx
+    }
+
     pub fn get_instance() -> &'static mut Self {
         unsafe {
             let instance_ptr: *mut &'static mut Self =

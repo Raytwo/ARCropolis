@@ -228,7 +228,7 @@ impl FileCtx {
 
     pub fn get_region(&self) -> u32 {
         // Default to the player's region index
-        let mut region_index = get_region_id(&CONFIG.read().misc.region.as_ref().unwrap()).unwrap_or_else(|| ResServiceState::get_instance().game_region_idx);
+        let mut region_index = get_region_id(&CONFIG.read().misc.region.as_ref().unwrap()).unwrap_or_else(|| ResServiceState::get_region_id());
 
         // Make sure the file has an extension
         if let Some(_) = self.path.extension() {
