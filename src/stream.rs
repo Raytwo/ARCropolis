@@ -58,7 +58,7 @@ fn lookup_by_stream_hash(
         let size;
         let random_selection;
 
-        let directory = file_ctx.path.display().to_string();
+        let directory = file_ctx.file.path().display().to_string();
 
         if Path::new(&directory).is_dir() {
             match random_media_select(&directory) {
@@ -75,7 +75,8 @@ fn lookup_by_stream_hash(
             size = metadata.len() as u64;
         } else {
             random_selection = file_ctx
-                .path
+                .file
+                .path()
                 .to_str()
                 .expect("Paths must be valid unicode")
                 .to_string();

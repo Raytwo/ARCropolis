@@ -16,19 +16,34 @@ enum OneOrMany<T> {
     Many(Vec<T>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Mod {
     pub path: PathBuf,
-    pub mods: Vec<ModPath>
+    pub files: Vec<ModFile>
 }
 
-#[derive(Debug, Default)]
-pub struct ModPath {
-    pub path: PathBuf,
-    pub size: u64,
+#[derive(Debug, Default, Clone)]
+pub struct ModFile {
+    path: PathBuf,
+    size: u32,
 }
 
-impl ModPath {
+impl ModFile {
+    pub fn new() -> Self {
+        Self {
+            path: PathBuf::new(),
+            size: 0,
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn set_path<P: AsRef<Path>>(&mut self, new_path: P) {
+        self.path = new_path.as_ref().to_path_buf();
+    }
+
     pub fn as_smash_path(&self) -> PathBuf {
         let mut arc_path = self.path.to_str().unwrap().to_string();
 
@@ -60,6 +75,10 @@ impl ModPath {
         }
     }
 
+    pub fn len(&self) -> u32 {
+        self.size
+    }
+
     pub fn is_stream(&self) -> bool {
         self.path.starts_with("stream;")
     }
@@ -86,12 +105,12 @@ impl ModPath {
 pub fn discover<P: AsRef<Path>>(path: &P) -> Mod {
     let mut new_mod = Mod {
         path: path.as_ref().to_path_buf(),
-        mods: vec![],
+        files: vec![],
     };
 
-    new_mod.mods = directory(&path);
+    new_mod.files = directory(&path);
 
-    new_mod.mods.iter_mut().for_each(|mut filepath| {
+    new_mod.files.iter_mut().for_each(|mut filepath| {
         filepath.path = filepath.path.strip_prefix(&path).unwrap().to_path_buf();
         //ModPath(filepath.path.strip_prefix(&path).unwrap().to_path_buf())
     });
@@ -123,11 +142,11 @@ pub fn umm_directories<P: AsRef<Path>>(path: &P) -> Vec<Mod> {
     mods
 }
 
-pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<ModPath> {
+pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<ModFile> {
     let path = path.as_ref();
 
     // TODO: Make sure the path exists before proceeding
-    let paths: Vec<OneOrMany<ModPath>> = fs::read_dir(path).unwrap().filter_map(|entry| {
+    let paths: Vec<OneOrMany<ModFile>> = fs::read_dir(path).unwrap().filter_map(|entry| {
         let entry = entry.unwrap();
 
         let mut entry_path = path.to_path_buf();
@@ -143,9 +162,9 @@ pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<ModPath> {
         } else {
             match file(&entry_path) {
                 Ok(file_ctx) => {
-                    let modpath = ModPath {
+                    let modpath = ModFile {
                         path: file_ctx,
-                        size: entry.metadata().unwrap().len(),
+                        size: entry.metadata().unwrap().len() as u32,
                     };
                     Some(OneOrMany::One(modpath))
                 },
@@ -157,7 +176,7 @@ pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<ModPath> {
         }
     }).collect();
 
-    let mut final_vec: Vec<ModPath> = Vec::new();
+    let mut final_vec: Vec<ModFile> = Vec::new();
 
     for instance in paths {
         match instance {

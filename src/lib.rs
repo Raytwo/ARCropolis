@@ -63,7 +63,7 @@ fn get_filectx_by_index<'a>(file_index: FileIndex) -> Option<(parking_lot::Mappe
         
             match get_from_file_info_indice_index!(table2_idx) {
                 Ok(file_ctx) => {
-                    info!("[ARC::Loading | #{}] Hash matching for file: '{:?}'", usize::from(table2_idx).green(), file_ctx.path.display().bright_yellow());
+                    info!("[ARC::Loading | #{}] Hash matching for file: '{:?}'", usize::from(table2_idx).green(), file_ctx.file.path().display().bright_yellow());
                     Some((file_ctx, table2entry))
                 }
                 Err(_) => None,
@@ -88,7 +88,7 @@ fn replace_file_by_index(table2_idx: FileIndex) {
 
         let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
-        info!("[ResInflateThread | #{}] Replacing '{}'", usize::from(file_ctx.index).green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+        info!("[ResInflateThread | #{}] Replacing '{}'", usize::from(file_ctx.index).green(), hashes::get(file_ctx.file.hash40().unwrap()).unwrap_or(&"Unknown").bright_yellow());
 
         unsafe {
             let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
@@ -103,7 +103,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
 
     let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
-    info!("[ResInflateThread | #{}] Replacing '{}'", usize::from(file_ctx.index).green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+    info!("[ResInflateThread | #{}] Replacing '{}'", usize::from(file_ctx.index).green(), hashes::get(file_ctx.file.hash40().unwrap()).unwrap_or(&"Unknown").bright_yellow());
 
     if orig_size > file_slice.len() {
         let data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size) };
@@ -112,7 +112,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
         // Copy our new footer at the end
         data_slice[orig_size - 0xB0..orig_size].copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
     } else {
-        let mut data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.filesize as _) };
+        let mut data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.file.len() as _) };
         data_slice.write(&file_slice).unwrap();
     }
 }

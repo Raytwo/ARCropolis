@@ -249,9 +249,9 @@ impl LoadedArcEx for LoadedArc {
         shared_fileinfos.iter().for_each(|info| {
             let mut filedata = self.get_file_data_mut(info, smash_arc::Region::from(context.get_region() + 1));
     
-            if filedata.decomp_size < context.filesize { 
-                filedata.decomp_size = context.filesize;
-                info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}", context.path.display().bright_yellow(), filedata.decomp_size.bright_red());
+            if filedata.decomp_size < context.file.len() { 
+                filedata.decomp_size = context.file.len();
+                info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}", context.file.path().display().bright_yellow(), filedata.decomp_size.bright_red());
             }
         });
     }

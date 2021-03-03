@@ -1,10 +1,9 @@
 use std::{
     fs,
-    path::PathBuf,
     collections::HashMap,
 };
 
-use crate::{config::CONFIG, fs::Metadata, runtime, visit::Mod};
+use crate::{config::CONFIG, fs::Metadata, runtime, visit::{Mod, ModFile}};
 
 use owo_colors::OwoColorize;
 
@@ -66,9 +65,8 @@ pub struct ArcFiles(pub HashMap<FileIndex, FileCtx>);
 
 #[derive(Debug, Clone)]
 pub struct FileCtx {
-    pub path: PathBuf,
+    pub file: ModFile,
     pub hash: Hash40,
-    pub filesize: u32,
     pub extension: Hash40,
     pub orig_subfile: FileData,
     pub index: FileInfoIndiceIdx,
@@ -120,20 +118,21 @@ impl ArcFiles {
         let contexts: Vec<(FileIndex, FileCtx)> = mods.iter().map(|test| {
             let base_path = test.path.to_owned();
 
-            let contexts: Vec<(FileIndex, FileCtx)> = test.mods.iter().filter_map(|modpath| {
+            let contexts: Vec<(FileIndex, FileCtx)> = test.files.iter().filter_map(|modpath| {
+                let mut full_path = base_path.to_owned();
+                full_path.push(&modpath.path());
+
+                // Use a FileCtx until the system is fully reworked
+                let mut filectx = FileCtx::new();
+
                 match modpath.is_stream() {
                     true => {
-                        let mut filectx = FileCtx::new();
-
-                        let mut full_path = base_path.to_owned();
-                        full_path.push(&modpath.path);
-
-                        filectx.path = full_path;
+                        filectx.file = modpath.clone();
+                        filectx.file.set_path(full_path);
                         filectx.hash = modpath.hash40().unwrap();
-                        filectx.extension = Hash40::from(modpath.path.extension().unwrap().to_str().unwrap());
-                        filectx.filesize = modpath.size as u32;
+                        filectx.extension = Hash40::from(modpath.path().extension().unwrap().to_str().unwrap());
 
-                        warn!("[ARC::Patching] File '{}' added as a Stream", filectx.path.display().bright_yellow());
+                        warn!("[ARC::Patching] File '{}' added as a Stream", filectx.file.path().display().bright_yellow());
                         Some((FileIndex::Stream(filectx.hash), filectx))
                     }
                     false => {
@@ -162,18 +161,12 @@ impl ArcFiles {
                                 return None;
                             }
                         }
-        
-                        // Use a FileCtx until the system is fully reworked
-                        let mut filectx = FileCtx::new();
-                        
-                        let mut full_path = base_path.to_owned();
-                        full_path.push(&modpath.path);
-        
-                        filectx.path = full_path;
+
+                        filectx.file = modpath.clone();
+                        filectx.file.set_path(full_path);
                         filectx.hash = modpath.hash40().unwrap();
-                        filectx.extension = Hash40::from(modpath.path.extension().unwrap().to_str().unwrap());
+                        filectx.extension = Hash40::from(modpath.path().extension().unwrap().to_str().unwrap());
                         filectx.index = file_info.file_info_indice_index;
-                        filectx.filesize = modpath.size as u32;
         
                         // TODO: Move this in the for loop below
                         arc.patch_filedata(&filectx);
@@ -209,9 +202,8 @@ pub fn get_region_id(region: &str) -> Option<u32> {
 impl FileCtx {
     pub fn new() -> Self {
         FileCtx {
-            path: PathBuf::new(),
+            file: ModFile::new(),
             hash: Hash40(0),
-            filesize: 0,
             extension: Hash40(0),
             orig_subfile: FileData {
                 offset_in_folder: 0,
@@ -231,9 +223,9 @@ impl FileCtx {
         let mut region_index = get_region_id(&CONFIG.read().misc.region.as_ref().unwrap()).unwrap_or_else(|| ResServiceState::get_region_id());
 
         // Make sure the file has an extension
-        if let Some(_) = self.path.extension() {
+        if let Some(_) = self.file.path().extension() {
             // Split the region identifier from the filepath
-            let region = self.path.file_name().unwrap().to_str().unwrap().to_string();
+            let region = self.file.path().file_name().unwrap().to_str().unwrap().to_string();
             // Check if the filepath it contains a + symbol
             if let Some(region_marker) = region.find('+') {
                 region_index = get_region_id(&region[region_marker + 1..region_marker + 6]).unwrap_or(1);
@@ -249,6 +241,6 @@ impl FileCtx {
 
     pub fn get_file_content(&self) -> Vec<u8> {
         // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
-        fs::read(&self.path).unwrap()
+        fs::read(&self.file.path()).unwrap()
     }
 }
