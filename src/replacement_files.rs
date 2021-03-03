@@ -67,7 +67,6 @@ pub struct ArcFiles(pub HashMap<FileIndex, FileCtx>);
 pub struct FileCtx {
     pub file: ModFile,
     pub hash: Hash40,
-    pub extension: Hash40,
     pub orig_subfile: FileData,
     pub index: FileInfoIndiceIdx,
 }
@@ -130,7 +129,6 @@ impl ArcFiles {
                         filectx.file = modpath.clone();
                         filectx.file.set_path(full_path);
                         filectx.hash = modpath.hash40().unwrap();
-                        filectx.extension = Hash40::from(modpath.path().extension().unwrap().to_str().unwrap());
 
                         warn!("[ARC::Patching] File '{}' added as a Stream", filectx.file.path().display().bright_yellow());
                         Some((FileIndex::Stream(filectx.hash), filectx))
@@ -165,7 +163,6 @@ impl ArcFiles {
                         filectx.file = modpath.clone();
                         filectx.file.set_path(full_path);
                         filectx.hash = modpath.hash40().unwrap();
-                        filectx.extension = Hash40::from(modpath.path().extension().unwrap().to_str().unwrap());
                         filectx.index = file_info.file_info_indice_index;
         
                         // TODO: Move this in the for loop below
@@ -204,7 +201,6 @@ impl FileCtx {
         FileCtx {
             file: ModFile::new(),
             hash: Hash40(0),
-            extension: Hash40(0),
             orig_subfile: FileData {
                 offset_in_folder: 0,
                 comp_size: 0,

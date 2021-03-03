@@ -79,7 +79,7 @@ fn replace_file_by_index(table2_idx: FileIndex) {
             return;
         }
 
-        if file_ctx.extension == Hash40::from("nutexb") {
+        if file_ctx.file.extension() == Hash40::from("nutexb") {
             replace_textures_by_index(&file_ctx, table2entry);
             return;
         }

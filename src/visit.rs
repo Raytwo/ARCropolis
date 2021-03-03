@@ -65,6 +65,10 @@ impl ModFile {
         PathBuf::from(arc_path)
     }
 
+    pub fn extension(&self) -> Hash40 {
+        Hash40::from(self.path().extension().unwrap().to_str().unwrap())
+    }
+
     pub fn hash40(&self) -> Result<Hash40, String> {
         let smash_path = self.as_smash_path();
 
