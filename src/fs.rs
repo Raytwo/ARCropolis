@@ -9,24 +9,31 @@ use crate::runtime::LoadedTables;
 pub struct Metadata(Hash40);
 
 pub fn metadata<H: Into<Hash40>>(hash: H) -> Result<Metadata, String> {
-    Ok(Metadata(hash.into()))
+    let hash = hash.into();
+    match LoadedTables::get_arc().get_file_path_index_from_hash(hash) {
+        Ok(_) => Ok(Metadata(hash)),
+        Err(_) => Err("No FilePath found for this hash".to_string())
+    }
 }
 
 impl Metadata {
-
+    pub fn file_data(&self) -> &FileData {
+        // Assume it exists because you can't instantiate a Metadata if the hash does not exist to begin with
+        LoadedTables::get_arc().get_file_data_from_hash(self.0, Region::UsEnglish).unwrap()
+    }
 }
 
 pub struct DirInfoEntry(FileInfo);
 
 impl DirInfoEntry {
     pub fn path(&self) -> FilePath {
-        let arc = LoadedTables::get_instance().get_arc();
+        let arc = LoadedTables::get_arc();
         arc.get_file_paths()[usize::from(self.0.file_path_index)].clone()
     }
 
-    pub fn metadata(&self) -> FileData {
-        let arc = LoadedTables::get_instance().get_arc();
-        arc.get_file_data(&self.0, Region::UsEnglish).clone()
+    pub fn metadata(&self) -> &FileData {
+        let arc = LoadedTables::get_arc();
+        arc.get_file_data(&self.0, Region::UsEnglish)
     }
 
     pub fn flags(&self) -> FileInfoFlags {
@@ -49,7 +56,7 @@ impl Iterator for ReadDirInfo {
 }
 
 pub fn read_dir_info(index: u32) -> Result<ReadDirInfo, String> {
-    let arc = LoadedTables::get_instance().get_arc();
+    let arc = LoadedTables::get_arc();
     let dir_info = &arc.get_dir_infos()[index as usize];
 
     let start = dir_info.file_info_start_index as usize;

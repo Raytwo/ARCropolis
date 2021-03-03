@@ -62,7 +62,6 @@ impl ModPath {
 
     pub fn is_stream(&self) -> bool {
         self.path.starts_with("stream;")
-        // TODO: Probably an extra check for the extension too?
     }
 
     pub fn get_region(&self) -> Option<Region> {

@@ -4,19 +4,19 @@ use std::{
     collections::HashMap,
 };
 
-use crate::{
-    runtime,
-    visit::Mod,
-    config::CONFIG,
-};
+use crate::{config::CONFIG, fs::Metadata, runtime, visit::Mod};
 
 use owo_colors::OwoColorize;
 
-use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoIndiceIdx, Hash40};
+use smash_arc::{ArcLookup, FileData, FileDataFlags, FileInfoIndiceIdx, Hash40};
 
-use runtime::{ LoadedTables, ResServiceState };
+use runtime::{
+    LoadedArcEx,
+    LoadedTables,
+    ResServiceState
+};
 
-use log::{ info, warn };
+use log::warn;
 
 type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> bool;
 
@@ -62,10 +62,7 @@ pub enum FileIndex {
     Stream(Hash40),
 }
 
-// Table2Index
 pub struct ArcFiles(pub HashMap<FileIndex, FileCtx>);
-
-pub struct StreamFiles(pub HashMap<Hash40, FileCtx>);
 
 #[derive(Debug, Clone)]
 pub struct FileCtx {
@@ -73,8 +70,7 @@ pub struct FileCtx {
     pub hash: Hash40,
     pub filesize: u32,
     pub extension: Hash40,
-    pub virtual_file: bool,
-    pub orig_subfile: smash_arc::FileData,
+    pub orig_subfile: FileData,
     pub index: FileInfoIndiceIdx,
 }
 
@@ -86,12 +82,6 @@ macro_rules! get_from_file_info_indice_index {
             |x| x.get(FileIndex::Regular($index))
         )
     };
-}
-
-impl StreamFiles {
-    fn new() -> Self {
-        Self(HashMap::new())
-    }
 }
 
 impl ArcFiles {
@@ -125,7 +115,7 @@ impl ArcFiles {
         // TODO: Read the info.toml for every Mod instance if it exists, store the priority and then sort the vector
 
         let resource = ResServiceState::get_instance();
-        let arc = LoadedTables::get_instance().get_arc_mut();
+        let arc = LoadedTables::get_arc_mut();
 
         let contexts: Vec<(FileIndex, FileCtx)> = mods.iter().map(|test| {
             let base_path = test.path.to_owned();
@@ -186,7 +176,7 @@ impl ArcFiles {
                         filectx.filesize = modpath.size as u32;
         
                         // TODO: Move this in the for loop below
-                        filectx.filesize_replacement();
+                        arc.patch_filedata(&filectx);
                         
                         Some((FileIndex::Regular(filectx.index), filectx))
                     }
@@ -222,13 +212,12 @@ impl FileCtx {
             path: PathBuf::new(),
             hash: Hash40(0),
             filesize: 0,
-            virtual_file: false,
             extension: Hash40(0),
-            orig_subfile: smash_arc::FileData {
+            orig_subfile: FileData {
                 offset_in_folder: 0,
                 comp_size: 0,
                 decomp_size: 0,
-                flags: smash_arc::FileDataFlags::new()
+                flags: FileDataFlags::new()
                 .with_compressed(false)
                 .with_use_zstd(false)
                 .with_unk(0),
@@ -254,46 +243,12 @@ impl FileCtx {
         region_index
     }
 
-    // TODO: Should probably replace this, considering the new findings related to shared files
-    // Refer to "filesize_replacement"
-    pub fn get_subfile(&self) -> &mut FileData {
-        let loaded_arc = LoadedTables::get_instance().get_arc_mut();
-        let file_info = *loaded_arc.get_file_info_from_hash(self.hash).unwrap();
-        loaded_arc.get_file_data_mut(&file_info.to_owned(), smash_arc::Region::from(self.get_region() + 1))
+    pub fn metadata(&self) -> Result<Metadata, String> {
+        crate::fs::metadata(self.hash)
     }
 
     pub fn get_file_content(&self) -> Vec<u8> {
         // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
         fs::read(&self.path).unwrap()
-    }
-
-    pub fn filesize_replacement(&mut self) {
-        let loaded_tables = LoadedTables::get_instance();
-        let arc = loaded_tables.get_arc_mut();
-
-        // Backup the Subfile for when file watching is added
-        self.orig_subfile = self.get_subfile().clone();
-
-        let file_path_index = arc.get_file_path_index_from_hash(self.hash).unwrap();
-        let file_path = arc.get_file_paths()[usize::from(file_path_index)];
-
-        let t2_indexes: Vec<FileInfo> = arc.get_file_infos()
-                .iter()
-                .filter_map(|entry| {
-                    if entry.file_info_indice_index == FileInfoIndiceIdx(file_path.path.index()) {
-                        Some(*entry)
-                    } else {
-                        None
-                    }
-                }).collect();
-
-        t2_indexes.iter().for_each(|info| {
-            let mut subfile = arc.get_file_data_mut(info, smash_arc::Region::from(self.get_region() + 1));
-
-            if subfile.decomp_size < self.filesize { 
-                subfile.decomp_size = self.filesize;
-                info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",self.path.display().bright_yellow(),subfile.decomp_size.bright_red());
-            }
-        });
     }
 }

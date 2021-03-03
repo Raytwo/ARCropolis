@@ -26,8 +26,6 @@ use replacement_files::{ARC_FILES, FileCtx, FileIndex, INCOMING};
 mod offsets;
 use offsets::{ TITLE_SCREEN_VERSION_OFFSET, INFLATE_OFFSET, MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, INFLATE_DIR_FILE_OFFSET, MANUAL_OPEN_OFFSET, INITIAL_LOADING_OFFSET };
 
-use owo_colors::OwoColorize;
-
 mod runtime;
 use runtime::{
     LoadedTables,
@@ -47,11 +45,9 @@ mod fs;
 mod mod_files;
 pub use mod_files::ModFile;
 
-use smash_arc::{
-    Hash40,
-    ArcLookup,
-    FileInfoIndiceIdx
-};
+use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
+
+use owo_colors::OwoColorize;
 
 fn get_filectx_by_index<'a>(file_index: FileIndex) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
     match file_index {
@@ -88,7 +84,7 @@ fn replace_file_by_index(table2_idx: FileIndex) {
             return;
         }
 
-        let orig_size = file_ctx.get_subfile().decomp_size as usize;
+        let orig_size = file_ctx.metadata().unwrap().file_data().decomp_size as usize;
 
         let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
@@ -124,7 +120,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
 #[hook(offset = INFLATE_OFFSET, inline)]
 fn inflate_incoming(ctx: &InlineCtx) {
     unsafe {
-        let arc = LoadedTables::get_instance().get_arc();
+        let arc = LoadedTables::get_arc();
         let res_service = ResServiceState::get_instance();
 
         let info_index= (res_service.processing_file_idx_start + *ctx.registers[27].x.as_ref() as u32) as usize;
@@ -151,7 +147,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
 #[hook(offset = 0x33b6798, inline)]
 fn loading_incoming(ctx: &InlineCtx) {
     unsafe {
-        let arc = LoadedTables::get_instance().get_arc();
+        let arc = LoadedTables::get_arc();
 
         let path_idx = *ctx.registers[25].x.as_ref() as u32;
         let hash = arc.get_file_paths()[path_idx as usize].path.hash40();

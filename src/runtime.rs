@@ -9,13 +9,14 @@ use skyline::{
     },
 };
 
-use smash_arc::{
-    LoadedArc, 
-    FileInfoIndiceIdx, 
-    FilePathIdx
-};
+use smash_arc::{ArcLookup, FileInfo, FileInfoIndiceIdx, FilePathIdx, LoadedArc};
 
 use smash_arc::LoadedSearchSection;
+
+use crate::replacement_files::FileCtx;
+
+use log::info;
+use owo_colors::OwoColorize;
 
 // 9.0.1 offsets
 pub static mut LOADED_TABLES_OFFSET: usize = 0x50567a0;
@@ -152,23 +153,23 @@ pub struct FsSearchBody {
 }
 
 impl LoadedTables {
-    pub fn get_arc(&self) -> &LoadedArc {
-        &self.loaded_data.arc
+    pub fn get_arc() -> &'static LoadedArc {
+        LoadedTables::get_instance().loaded_data.arc
     }
 
     #[allow(dead_code)]
-    pub fn get_search(&self) -> &LoadedSearchSection {
-        self.loaded_data.search
+    pub fn get_search() -> &'static LoadedSearchSection {
+        LoadedTables::get_instance().loaded_data.search
     }
 
     #[allow(dead_code)]
-    pub fn get_arc_mut(&mut self) -> &mut LoadedArc {
-        &mut self.loaded_data.arc
+    pub fn get_arc_mut() -> &'static mut LoadedArc {
+        &mut LoadedTables::get_instance().loaded_data.arc
     }
 
     #[allow(dead_code)]
-    pub fn get_search_mut(&mut self) -> &LoadedSearchSection {
-        &mut self.loaded_data.search
+    pub fn get_search_mut() -> &'static LoadedSearchSection {
+        &mut LoadedTables::get_instance().loaded_data.search
     }
 
     pub fn get_instance() -> &'static mut Self {
@@ -221,6 +222,38 @@ impl LoadedTables {
         self.table_2_mut()
             .get_mut(usize::from(t2_index))
             .ok_or(LoadError::NoTable2)
+    }
+}
+
+/// Set of functions to extend and patch the various tables at runtime
+pub trait LoadedArcEx {
+    fn patch_filedata(&mut self, context: &FileCtx);
+}
+
+impl LoadedArcEx for LoadedArc {
+    fn patch_filedata(&mut self, context: &FileCtx) {
+        let file_path_index = self.get_file_path_index_from_hash(context.hash).unwrap();
+        let file_path = self.get_file_paths()[usize::from(file_path_index)];
+
+        // Get every FileInfo that shares the same FileInfoIndice index
+        let shared_fileinfos : Vec<FileInfo> = self.get_file_infos()
+            .iter()
+            .filter_map(|entry| {
+                if entry.file_info_indice_index == FileInfoIndiceIdx(file_path.path.index()) {
+                    Some(*entry)
+                } else {
+                    None
+                }
+            }).collect();
+        
+        shared_fileinfos.iter().for_each(|info| {
+            let mut filedata = self.get_file_data_mut(info, smash_arc::Region::from(context.get_region() + 1));
+    
+            if filedata.decomp_size < context.filesize { 
+                filedata.decomp_size = context.filesize;
+                info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}", context.path.display().bright_yellow(), filedata.decomp_size.bright_red());
+            }
+        });
     }
 }
 
