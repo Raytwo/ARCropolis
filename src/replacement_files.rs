@@ -20,10 +20,10 @@ use log::warn;
 type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> bool;
 
 lazy_static::lazy_static! {
-    pub static ref ARC_FILES: parking_lot::RwLock<ArcFiles> = parking_lot::RwLock::new(ArcFiles::new());
+    pub static ref MOD_FILES: parking_lot::RwLock<ModFiles> = parking_lot::RwLock::new(ModFiles::new());
 
     // For ResInflateThread
-    pub static ref INCOMING: parking_lot::RwLock<Option<FileIndex>> = parking_lot::RwLock::new(None);
+    pub static ref INCOMING_IDX: parking_lot::RwLock<Option<FileIndex>> = parking_lot::RwLock::new(None);
 }
 
 #[no_mangle]
@@ -61,7 +61,7 @@ pub enum FileIndex {
     Stream(Hash40),
 }
 
-pub struct ArcFiles(pub HashMap<FileIndex, FileCtx>);
+pub struct ModFiles(pub HashMap<FileIndex, FileCtx>);
 
 #[derive(Debug, Clone)]
 pub struct FileCtx {
@@ -75,13 +75,13 @@ pub struct FileCtx {
 macro_rules! get_from_file_info_indice_index {
     ($index:expr) => {
         parking_lot::RwLockReadGuard::try_map(
-            $crate::replacement_files::ARC_FILES.read(),
+            $crate::replacement_files::MOD_FILES.read(),
             |x| x.get(FileIndex::Regular($index))
         )
     };
 }
 
-impl ArcFiles {
+impl ModFiles {
     fn new() -> Self {
         let mut instance = Self(HashMap::new());
 
@@ -107,7 +107,7 @@ impl ArcFiles {
             }
         }
 
-        let contexts = ArcFiles::process_mods(&mods);
+        let contexts = ModFiles::process_mods(&mods);
 
         for (index, context) in contexts {
             // TODO: If a file shares a FileInfoIndices index we already have, discard it.
@@ -124,13 +124,13 @@ impl ArcFiles {
         modpacks.iter().map(|modpack| {
             let mods = modpack.flatten();
 
-            let contexts: Vec<(FileIndex, FileCtx)> = mods.iter().filter_map(|(hash, modpath)| {
+            let contexts: Vec<(FileIndex, FileCtx)> = mods.iter().filter_map(|(hash, modfile)| {
                 // Use a FileCtx until the system is fully reworked
                 let mut filectx = FileCtx::new();
 
-                match modpath.is_stream() {
+                match modfile.is_stream() {
                     true => {
-                        filectx.file = modpath.to_owned();
+                        filectx.file = modfile.to_owned();
                         filectx.hash = hash.to_owned();
 
                         warn!("[ARC::Patching] File '{}' added as a Stream", filectx.file.path().display().bright_yellow());
@@ -141,7 +141,7 @@ impl ArcFiles {
                         let file_index = match arc.get_file_path_index_from_hash(*hash) {
                             Ok(index) => index,
                             Err(_) => {
-                                warn!("[ARC::Patching] File '{}' was not found in data.arc", modpath.as_smash_path().display().bright_yellow());
+                                warn!("[ARC::Patching] File '{}' was not found in data.arc", modfile.as_smash_path().display().bright_yellow());
                                 return None;
                             },
                         };
@@ -151,7 +151,7 @@ impl ArcFiles {
                         // Check if a file is regional.
                         if file_info.flags.is_regional() {
                             // Check if the file has a regional indicator
-                            let region = match modpath.get_region() {
+                            let region = match modfile.get_region() {
                                 Some(region) => region,
                                 // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
                                 None => smash_arc::Region::from(ResServiceState::get_region_id() + 1),
@@ -163,7 +163,7 @@ impl ArcFiles {
                             }
                         }
 
-                        filectx.file = modpath.to_owned();
+                        filectx.file = modfile.to_owned();
                         filectx.hash = hash.to_owned();
                         filectx.index = file_info.file_info_indice_index;
         
@@ -174,64 +174,6 @@ impl ArcFiles {
                     }
                 }
             }).collect();
-
-            //let base_path = test.path.to_owned();
-
-            // let contexts: Vec<(FileIndex, FileCtx)> = test.files.iter().filter_map(|modpath| {
-            //     let mut full_path = base_path.to_owned();
-            //     full_path.push(&modpath.path());
-
-            //     // Use a FileCtx until the system is fully reworked
-            //     let mut filectx = FileCtx::new();
-
-            //     match modpath.is_stream() {
-            //         true => {
-            //             filectx.file = modpath.clone();
-            //             filectx.file.set_path(full_path);
-            //             filectx.hash = modpath.hash40().unwrap();
-
-            //             warn!("[ARC::Patching] File '{}' added as a Stream", filectx.file.path().display().bright_yellow());
-            //             Some((FileIndex::Stream(filectx.hash), filectx))
-            //         }
-            //         false => {
-            //             // Does the file exist in the FilePath table? If not, discard it.
-            //             let file_index = match arc.get_file_path_index_from_hash(modpath.hash40().unwrap()) {
-            //                 Ok(index) => index,
-            //                 Err(_) => {
-            //                     warn!("[ARC::Patching] File '{}' was not found in data.arc", modpath.as_smash_path().display().bright_yellow());
-            //                     return None;
-            //                 },
-            //             };
-        
-            //             let file_info = arc.get_file_info_from_path_index(file_index);
-        
-            //             // Check if a file is regional.
-            //             if file_info.flags.is_regional() {
-            //                 // Check if the file has a regional indicator
-            //                 let region = match modpath.get_region() {
-            //                     Some(region) => region,
-            //                     // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
-            //                     None => smash_arc::Region::from(ResServiceState::get_region_id() + 1),
-            //                 };
-        
-            //                 // Check if the Region of a file matches with the game's. If not, discard it.
-            //                 if region != smash_arc::Region::from(ResServiceState::get_region_id() + 1) {
-            //                     return None;
-            //                 }
-            //             }
-
-            //             filectx.file = modpath.clone();
-            //             filectx.file.set_path(full_path);
-            //             filectx.hash = modpath.hash40().unwrap();
-            //             filectx.index = file_info.file_info_indice_index;
-        
-            //             // TODO: Move this in the for loop below
-            //             arc.patch_filedata(&filectx);
-                        
-            //             Some((FileIndex::Regular(filectx.index), filectx))
-            //         }
-            //     }
-            // }).collect();
             
             contexts
         }).flatten().collect()

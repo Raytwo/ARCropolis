@@ -19,12 +19,12 @@ enum OneOrMany<T> {
 #[derive(Debug, Clone)]
 pub struct Modpack {
     pub path: PathBuf,
-    pub files: Vec<ModFile>
+    pub mods: Vec<ModFile>
 }
 
 impl Modpack {
     pub fn flatten(&self) -> Vec<(Hash40, ModFile)> {
-        self.files.iter().filter_map(|file| {
+        self.mods.iter().filter_map(|file| {
             let mut full_path = self.path.to_owned();
             full_path.push(&file.path());
 
@@ -122,19 +122,18 @@ impl ModFile {
 }
 
 pub fn discover<P: AsRef<Path>>(path: &P) -> Modpack {
-    let mut new_mod = Modpack {
+    let mut modpack = Modpack {
         path: path.as_ref().to_path_buf(),
-        files: vec![],
+        mods: vec![],
     };
 
-    new_mod.files = directory(&path);
+    modpack.mods = directory(&path);
 
-    new_mod.files.iter_mut().for_each(|mut filepath| {
+    modpack.mods.iter_mut().for_each(|mut filepath| {
         filepath.path = filepath.path.strip_prefix(&path).unwrap().to_path_buf();
-        //ModPath(filepath.path.strip_prefix(&path).unwrap().to_path_buf())
     });
 
-    new_mod
+    modpack
 }
 
 /// Visit Ultimate Mod Manager directories for backwards compatibility

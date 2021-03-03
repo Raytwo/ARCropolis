@@ -1,8 +1,8 @@
 use std::vec;
 
-// TODO: Should probably go in its own arc::fs module with other things. Eventually move this to arcropolis-common
+// Eventually move this to arcropolis-common
 // Add a dependency to this-error and make custom error types?
-use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FilePath, Hash40, Region};
+use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FilePath, Hash40, LookupError, Region};
 
 use crate::runtime::LoadedTables;
 
@@ -17,9 +17,9 @@ pub fn metadata<H: Into<Hash40>>(hash: H) -> Result<Metadata, String> {
 }
 
 impl Metadata {
-    pub fn file_data(&self) -> &FileData {
+    pub fn file_data(&self) -> Result<&FileData, LookupError> {
         // Assume it exists because you can't instantiate a Metadata if the hash does not exist to begin with
-        LoadedTables::get_arc().get_file_data_from_hash(self.0, Region::UsEnglish).unwrap()
+        LoadedTables::get_arc().get_file_data_from_hash(self.0, Region::UsEnglish)
     }
 }
 
@@ -46,7 +46,7 @@ pub struct ReadDirInfo {
 }
 
 impl Iterator for ReadDirInfo {
-    type Item = Result<DirInfoEntry, String>;
+    type Item = Result<DirInfoEntry, ()>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let val = self.inner_iter.next()?;
@@ -55,7 +55,7 @@ impl Iterator for ReadDirInfo {
     }
 }
 
-pub fn read_dir_info(index: u32) -> Result<ReadDirInfo, String> {
+pub fn read_dir_info(index: u32) -> Result<ReadDirInfo, ()> {
     let arc = LoadedTables::get_arc();
     let dir_info = &arc.get_dir_infos()[index as usize];
 

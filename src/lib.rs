@@ -21,7 +21,7 @@ mod hashes;
 mod stream;
 
 mod replacement_files;
-use replacement_files::{ARC_FILES, FileCtx, FileIndex, INCOMING};
+use replacement_files::{MOD_FILES, FileCtx, FileIndex, INCOMING_IDX};
 
 mod offsets;
 use offsets::{ TITLE_SCREEN_VERSION_OFFSET, INFLATE_OFFSET, MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, INFLATE_DIR_FILE_OFFSET, MANUAL_OPEN_OFFSET, INITIAL_LOADING_OFFSET };
@@ -51,19 +51,19 @@ use owo_colors::OwoColorize;
 
 fn get_filectx_by_index<'a>(file_index: FileIndex) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
     match file_index {
-        FileIndex::Regular(table2_idx) => {
+        FileIndex::Regular(info_indice_index) => {
             let tables = LoadedTables::get_instance();
 
-            let table2entry = match tables.get_t2_mut(table2_idx) {
+            let table2entry = match tables.get_t2_mut(info_indice_index) {
                 Ok(entry) => entry,
                 Err(_) => {
                     return None;
                 }
             };
         
-            match get_from_file_info_indice_index!(table2_idx) {
+            match get_from_file_info_indice_index!(info_indice_index) {
                 Ok(file_ctx) => {
-                    info!("[ARC::Loading | #{}] Hash matching for file: '{:?}'", usize::from(table2_idx).green(), file_ctx.file.path().display().bright_yellow());
+                    info!("[ARC::Loading | #{}] Hash matching for file: '{:?}'", usize::from(info_indice_index).green(), file_ctx.file.path().display().bright_yellow());
                     Some((file_ctx, table2entry))
                 }
                 Err(_) => None,
@@ -73,8 +73,8 @@ fn get_filectx_by_index<'a>(file_index: FileIndex) -> Option<(parking_lot::Mappe
     }
 }
 
-fn replace_file_by_index(table2_idx: FileIndex) {
-    if let Some((file_ctx, table2entry)) = get_filectx_by_index(table2_idx) {
+fn replace_file_by_index(file_index: FileIndex) {
+    if let Some((file_ctx, table2entry)) = get_filectx_by_index(file_index) {
         if table2entry.data == 0 as _ {
             return;
         }
@@ -125,15 +125,15 @@ fn inflate_incoming(ctx: &InlineCtx) {
         let file_info = arc.get_file_infos()[info_index];
 
         let path_idx = usize::from(file_info.file_path_index);
-        let table2_idx = file_info.file_info_indice_index;
+        let info_indice_index = file_info.file_info_indice_index;
 
         let hash = arc.get_file_paths()[path_idx].path.hash40();
 
         info!("[ResInflateThread | #{}] Incoming '{}'", path_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow());
 
-        let mut incoming = INCOMING.write();
+        let mut incoming = INCOMING_IDX.write();
 
-        if let Ok(context) = get_from_file_info_indice_index!(table2_idx) {
+        if let Ok(context) = get_from_file_info_indice_index!(info_indice_index) {
             *incoming = Some(FileIndex::Regular(context.index));
             info!("[ResInflateThread | #{}] Added index {} to the queue", path_idx.green(), usize::from(context.index).green());
         } else {
@@ -158,32 +158,25 @@ fn loading_incoming(ctx: &InlineCtx) {
 #[hook(offset = MEMCPY_1_OFFSET, inline)]
 fn memcpy_uncompressed(_ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy1] Entering function");
-
-    let incoming = INCOMING.read();
-
-    if let Some(index) = *incoming {
-        replace_file_by_index(index);
-    }
+    memcpy_impl();
 }
 
 /// For uncompressed files a bit larger
 #[hook(offset = MEMCPY_2_OFFSET, inline)]
 fn memcpy_uncompressed_2(_ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy2] Entering function");
-
-    let incoming = INCOMING.read();
-
-    if let Some(index) = *incoming {
-        replace_file_by_index(index);
-    }
+    memcpy_impl();
 }
 
 /// For uncompressed files being read in multiple chunks
 #[hook(offset = MEMCPY_3_OFFSET, inline)]
 fn memcpy_uncompressed_3(_ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy3] Entering function");
+    memcpy_impl();    
+}
 
-    let incoming = INCOMING.read();
+fn memcpy_impl() {
+    let incoming = INCOMING_IDX.read();
 
     if let Some(index) = *incoming {
         replace_file_by_index(index);
@@ -203,7 +196,7 @@ fn load_directory_hook(unk1: *const u64, out_decomp_data: &InflateFile, comp_dat
     // Let the file be inflated
     let result: u64 = original!()(unk1, out_decomp_data, comp_data);
 
-    let incoming = INCOMING.read();
+    let incoming = INCOMING_IDX.read();
 
     if let Some(index) = *incoming {
         if index == FileIndex::Regular(FileInfoIndiceIdx(0)) {
@@ -281,7 +274,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
 
-        lazy_static::initialize(&ARC_FILES);
+        lazy_static::initialize(&MOD_FILES);
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
     }
