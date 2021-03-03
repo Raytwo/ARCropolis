@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
+  <meta name="focus-ring-visibility" content="hidden" />
+  <link rel="stylesheet" href="./help/css/common.css" />
+  <link rel="stylesheet" href="./help/css/abstract.css" />
+  <link rel="stylesheet" href="./help/css/thema/outgame.css" />
+  <link id="font-stylesheet" rel="stylesheet" href="./help/css/font.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <script src="./help/js/jquery-3.3.1.min.js"></script>
+  <script src="./help/../common/js/wsnd.min.js"></script>
+  <script src="./help/../common/js/keyhelp.js"></script>
+  <script src="./help/js/common.js"></script>
+  <script src="./help/js/two-column-switch.js"></script>
+  <script src="jquery.textfill.min.js"></script>
+  <script src="index.js"></script>
+  <div id="bg" class="l-bg bg-abstract"></div>
+  <div class="l-header">
+    <span class="background-clip"></span>
+    <div class="header">
+      <a id="ret-button" tabindex="-1" class="header-decoration" href="javascript:goBack()" nx-se-disabled="">
+        <div class="ret-icon-wrapper">
+          <img class="ret-icon-shadow" ref="./help/img/icon/m_retnormal.svg" />
+          <img class="ret-icon" ref="./help/img/icon/m_retnormal.svg" />
+        </div>
+      </a>
+      <div class="breadcrumb-list f-u-bold">
+        <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
+          color: #02A7D4;
+          -webkit-text-stroke-width: 2px;
+          -webkit-text-stroke-color: black;
+          z-index: 1;">Mods</span></p>
+        <span data-msgid="textbox_id-2" style="
+        color: #797979;
+        -webkit-text-stroke-width: 2px;
+        -webkit-text-stroke-color: black;">▶</span>
+        <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
+          color: white;
+          -webkit-text-stroke-width: 2px;
+          -webkit-text-stroke-color: black;
+          z-index: 1;" id="workspace">{workspace}</span></p>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <tr>
+      <td>
+        <br>
+        <div id="category_mover">
+          <span style="text-align: left;">&#xe0e4;</span>
+          <span style="text-align: center;" id="current_category">All</span>
+          <span style="text-align: right">&#xe0e5;</span>
+        </div>
+        <div class="scrollbar" id="left-stick-home">
+          <div class="l-sidebar">
+            <div class="l-sidebar-content" id="holder">
+              {{ for listing in holder.mods }}
+              <button id="btn-mods-{listing.id}" tabindex="0" class="flex-button abstract-button All {listing.category}"
+                onfocus="focusMenu(this); updateCurrentDesc();" onclick="toggleMod(this.id);" nx-se-disabled="">
+                <div class="abstract-icon-back-decoration"></div>
+                <div class="abstract-button-border">
+                  <div class="abstract-button-inner">
+                    <div class="abstract-icon-wrapper">
+                      <div id="img-{listing.id}" {{ if not listing.is_enabled }} class="hidden" {{ endif }}>
+                        <img class="abstract-icon is-appear" src="./arcropolis/selector/img/check.svg" />
+                      </div>
+                    </div>
+                    <div class="abstract-button-text f-u-bold mod-name" style="margin-bottom: 5px; display: block;">
+                      <span data-msgid="textbox_id-4-1">{listing.display_name}</span>
+                    </div>
+                  </div>
+                </div>
+              </button>
+              {{ endfor }}
+            </div>
+          </div>
+        </div>
+      </td>
+      <td>
+
+        <br>
+
+        <div class="l-main">
+          {{ for listing in holder.mods }}
+          <div id="about-mods-{listing.id}" class="l-main-content is-hidden">
+            <div class="l-screen-shot-wrapper">
+              <div class="screen-shot-wrapper">
+                <img width="280" height="127" class="screen-shot video" ref="{listing.id}"
+                  onerror='this.src = "missing.webp"' />
+              </div>
+            </div>
+            <div class="l-version">
+              <div class="f-b-bold">
+                <p class="sentence"><span data-msgid="textbox_id-5">Version: {listing.version}</span></p>
+              </div>
+            </div>
+            <div class="l-description scrollbar-desc">
+              <div class="f-b-bold">
+                <p class="sentence p-desc">{listing.description | unescaped}</p>
+              </div>
+            </div>
+          </div>
+          {{ endfor }}
+          <div id="r-stick-desc-icon">
+            <span>&#xE102</span>
+          </div>
+        </div>
+
+
+        <div class="l-to-detail">
+          <a id="link-save" tabindex="-1" class="to-detail-button hidden" href="javascript:submitMods()"
+            nx-se-disabled="">
+            <div class="to-detail-button-shadow">
+              <div class="to-detail-button-outer">
+                <div class="to-detail-button-icon-wrapper">
+                  <div class="f-u-bold to-detail-button-icon" id="submit_icon"></div>
+                </div>
+                <div class="to-detail-button-text-wrapper">
+                  <div class="to-detail-button-text f-u-bold"><span data-msgcom="true"
+                      data-msgid="textbox_id-10003">Save</span></div>
+                </div>
+              </div>
+            </div>
+          </a>
+        </div>
+
+
+      </td>
+    </tr>
+  </table>
+</body>
+
+</html>

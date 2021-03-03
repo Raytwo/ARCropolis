@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="arcropolis/selector/css/selector.css" />
+	<script src="js/selector.js"></script>
+    <title>Document</title>
+	<!-- <link rel="stylesheet" href="style.css"> -->
+	
+</head>
+<body>
+	<div class="TopBar">
+		<div class="TopBarText">
+			<div class="TopBarReturnButton">
+				<img class="TopBarReturnImage" src="arcropolis/selector/img/back.svg" />
+			</div>
+			<span class="CenterText">Workspace Selection</span>
+		</div>
+	</div>
+
+    <div class="WorkspaceList">
+		{{#workspace}}
+		<div class="WorkspaceListItem">
+			<a href="http://localhost/{{index}}">
+				<div class="Border">
+					<div class="ItemContainer">
+						<div class="IconContainer">
+							<img class="Icon{{#in_use}}Checked{{/in_use}}" src="arcropolis/selector/img/check.svg">
+						</div>
+						<div class="WorkspaceText">
+							<span class="CenterText">{{name}}</span>
+						</div>
+					</div>
+				</div>
+			</a>
+		</div>
+		{{/workspace}}
+    </div>
+</body>
+</html>

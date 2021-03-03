@@ -1,7 +1,7 @@
 use std::{fs::{
-        create_dir_all,
-        read_dir
-    }, path::{Path, PathBuf}};
+    create_dir_all,
+    read_dir
+}, path::{Path, PathBuf}};
 
 use std::io::prelude::*;
 
@@ -14,10 +14,10 @@ use crate::config::CONFIG;
 
 // Thanks jugeeya :^)
 pub fn get_arguments_from_url(s: &str) -> String{
-    let base_url_len = "http://localhost/".len();
-    let total_len = s.len();
+let base_url_len = "http://localhost/".len();
+let total_len = s.len();
 
-    s.chars().skip(base_url_len).take(total_len - base_url_len).collect()
+s.chars().skip(base_url_len).take(total_len - base_url_len).collect()
 }
 
 #[derive(ramhorns::Content)]
@@ -40,9 +40,10 @@ fn get_workspaces() -> Vec<Workspace> {
         let entry = entry.unwrap();
 
         if entry.file_type()
-        .unwrap()
-        .is_file() {
-            return None;
+            .unwrap()
+            .is_file()
+        {
+            None
         } else {
             Some(Workspace {
                 index: index as u8,
@@ -73,25 +74,25 @@ pub fn workspace_selector() {
     let mut workspaces = Workspaces {
         workspace: vec![],
     };
-
+    
     workspaces.workspace = get_workspaces();
-
+    
     if workspaces.workspace.len() == 0 {
         skyline_web::DialogOk::ok("Your directory does not contain any modpack.");
         return;
     }
-
+    
     let response = show_selector(&workspaces);
-
+    
     // If the user picked a modpack
     if response.get_exit_reason() == OfflineExitReason::LastUrl {
         let result = get_arguments_from_url(response.get_last_url().unwrap());
-
+    
         let mut config = CONFIG.write();
         let mut config_changed = false;
-
+    
         let mut workspace_name = String::from("Default");
-
+    
         if result == "reset" {
             config.paths.arc = PathBuf::from("rom:/arc");
             config.paths.umm = PathBuf::from("sd:/ultimate/mods");
@@ -99,29 +100,29 @@ pub fn workspace_selector() {
         } else {
             // If someone manages to have this many workspaces they honestly deserve the panic
             let modpack_index = result.parse::<u8>().unwrap() as usize;
-
+    
             let mut selector_workspace = std::path::PathBuf::from("rom:/arcropolis/workspaces");
             selector_workspace.push(workspaces.workspace[modpack_index].name.to_owned());
-
+    
             info!("[Menu | Workspace Selector] Selected workspace: '{}'", selector_workspace.display().red());
-
+    
             workspace_name = String::from(selector_workspace.to_str().unwrap());
-
+    
             let path = selector_workspace.to_str().unwrap();            
-
+    
             // Set Arc path in config
             if Path::new(&format!("{}/{}", path, "arc")).exists() == true {
                 config.paths.arc = PathBuf::from(format!("{}/{}", path, "arc"));
                 config_changed = true;
             }
-
+    
             // Set UMM path in config
             if Path::new(&format!("{}/{}", path, "umm")).exists() == true {
                 config.paths.umm = PathBuf::from(format!("{}/{}", path, "umm"));
                 config_changed = true;
             }
         }
-
+    
         if config_changed {
             skyline_web::DialogOk::ok(format!(
                 "Workspace {} has been applied.  

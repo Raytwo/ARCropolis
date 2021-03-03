@@ -33,7 +33,7 @@ use runtime::{
     Table2Entry
 };
 
-mod selector;
+mod menus;
 
 mod logging;
 use log::{ trace, info };
@@ -232,7 +232,14 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
 
     let is_manual = if original_page.contains("contents.htdocs/help/html/") {
         if original_page.ends_with("index.html") {
-            selector::workspace_selector();
+            menus::workspace_selector();
+            true
+        } else {
+            false
+        }
+    } else if original_page.contains("contents.htdocs/howto/html/") {
+        if original_page.ends_with("index.html") {
+            menus::show_arcadia();
             true
         } else {
             false
