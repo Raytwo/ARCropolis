@@ -84,14 +84,12 @@ fn replace_file_by_index(table2_idx: FileIndex) {
             return;
         }
 
-        let orig_size = file_ctx.metadata().unwrap().file_data().decomp_size as usize;
-
         let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
         info!("[ResInflateThread | #{}] Replacing '{}'", usize::from(file_ctx.index).green(), hashes::get(file_ctx.file.hash40().unwrap()).unwrap_or(&"Unknown").bright_yellow());
 
         unsafe {
-            let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size);
+            let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
             data_slice.write(&file_slice).unwrap();
         }
     }

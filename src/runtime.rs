@@ -9,7 +9,7 @@ use skyline::{
     },
 };
 
-use smash_arc::{ArcLookup, FileInfo, FileInfoIndiceIdx, FilePathIdx, LoadedArc};
+use smash_arc::{ArcLookup, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, LoadedArc};
 
 use smash_arc::LoadedSearchSection;
 
@@ -227,16 +227,14 @@ impl LoadedTables {
 
 /// Set of functions to extend and patch the various tables at runtime
 pub trait LoadedArcEx {
+    /// Provides every FileInfo that refers to the FilePath
+    fn get_shared_fileinfos(&self, file_path: &FilePath) -> Vec<FileInfo>;
     fn patch_filedata(&mut self, context: &FileCtx);
 }
 
 impl LoadedArcEx for LoadedArc {
-    fn patch_filedata(&mut self, context: &FileCtx) {
-        let file_path_index = self.get_file_path_index_from_hash(context.hash).unwrap();
-        let file_path = self.get_file_paths()[usize::from(file_path_index)];
-
-        // Get every FileInfo that shares the same FileInfoIndice index
-        let shared_fileinfos : Vec<FileInfo> = self.get_file_infos()
+    fn get_shared_fileinfos(&self, file_path: &FilePath) -> Vec<FileInfo> {
+        self.get_file_infos()
             .iter()
             .filter_map(|entry| {
                 if entry.file_info_indice_index == FileInfoIndiceIdx(file_path.path.index()) {
@@ -244,7 +242,15 @@ impl LoadedArcEx for LoadedArc {
                 } else {
                     None
                 }
-            }).collect();
+            }).collect()
+    }
+
+    fn patch_filedata(&mut self, context: &FileCtx) {
+        let file_path_index = self.get_file_path_index_from_hash(context.hash).unwrap();
+        let file_path = self.get_file_paths()[usize::from(file_path_index)];
+
+        // Get every FileInfo that shares the same FileInfoIndice index
+        let shared_fileinfos = self.get_shared_fileinfos(&file_path);
         
         shared_fileinfos.iter().for_each(|info| {
             let mut filedata = self.get_file_data_mut(info, smash_arc::Region::from(context.get_region() + 1));

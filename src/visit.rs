@@ -17,12 +17,27 @@ enum OneOrMany<T> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Mod {
+pub struct Modpack {
     pub path: PathBuf,
     pub files: Vec<ModFile>
 }
 
-#[derive(Debug, Default, Clone)]
+impl Modpack {
+    pub fn flatten(&self) -> Vec<(Hash40, ModFile)> {
+        self.files.iter().filter_map(|file| {
+            let mut full_path = self.path.to_owned();
+            full_path.push(&file.path());
+
+            let hash = file.hash40().unwrap();
+            let mut new_file = file.to_owned();
+            new_file.set_path(full_path);
+            
+            Some((hash, new_file))
+        }).collect()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct ModFile {
     path: PathBuf,
     size: u32,
@@ -106,8 +121,8 @@ impl ModFile {
     }
 }
 
-pub fn discover<P: AsRef<Path>>(path: &P) -> Mod {
-    let mut new_mod = Mod {
+pub fn discover<P: AsRef<Path>>(path: &P) -> Modpack {
+    let mut new_mod = Modpack {
         path: path.as_ref().to_path_buf(),
         files: vec![],
     };
@@ -123,8 +138,8 @@ pub fn discover<P: AsRef<Path>>(path: &P) -> Mod {
 }
 
 /// Visit Ultimate Mod Manager directories for backwards compatibility
-pub fn umm_directories<P: AsRef<Path>>(path: &P) -> Vec<Mod> {
-    let mut mods = Vec::<Mod>::new();
+pub fn umm_directories<P: AsRef<Path>>(path: &P) -> Vec<Modpack> {
+    let mut mods = Vec::<Modpack>::new();
 
     let base_path = path.as_ref();
 
