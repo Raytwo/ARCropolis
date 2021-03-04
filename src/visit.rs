@@ -99,7 +99,8 @@ impl ModFile {
     }
 
     pub fn is_stream(&self) -> bool {
-        self.path.starts_with("stream;")
+        //self.path.starts_with("stream")
+        self.path.to_str().unwrap().contains("stream")
     }
 
     pub fn get_region(&self) -> Option<Region> {
