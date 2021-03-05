@@ -110,7 +110,7 @@ impl ModFile {
                 let filename = self.path.file_name().unwrap().to_str().unwrap().to_string();
                 // Check if the filepath it contains a + symbol
                 let region = if let Some(region_marker) = filename.find('+') {
-                    Some(Region::from(get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(1)))
+                    Some(Region::from(get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0) + 1))
                 } else {
                     None
                 };

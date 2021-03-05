@@ -13,7 +13,9 @@ use smash_arc::{ArcLookup, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, L
 
 use smash_arc::LoadedSearchSection;
 
-use crate::replacement_files::FileCtx;
+use crate::replacement_files::{FileCtx, get_region_id};
+
+use crate::config::CONFIG;
 
 use log::info;
 use owo_colors::OwoColorize;
@@ -229,7 +231,7 @@ impl LoadedTables {
 pub trait LoadedArcEx {
     /// Provides every FileInfo that refers to the FilePath
     fn get_shared_fileinfos(&self, file_path: &FilePath) -> Vec<FileInfo>;
-    fn patch_filedata(&mut self, context: &FileCtx);
+    fn patch_filedata(&mut self, context: &mut FileCtx);
 }
 
 impl LoadedArcEx for LoadedArc {
@@ -245,7 +247,7 @@ impl LoadedArcEx for LoadedArc {
             }).collect()
     }
 
-    fn patch_filedata(&mut self, context: &FileCtx) {
+    fn patch_filedata(&mut self, context: &mut FileCtx) {
         let file_path_index = self.get_file_path_index_from_hash(context.hash).unwrap();
         let file_path = self.get_file_paths()[usize::from(file_path_index)];
 
@@ -253,7 +255,16 @@ impl LoadedArcEx for LoadedArc {
         let shared_fileinfos = self.get_shared_fileinfos(&file_path);
         
         shared_fileinfos.iter().for_each(|info| {
-            let mut filedata = self.get_file_data_mut(info, smash_arc::Region::from(context.get_region() + 1));
+            let region = if info.flags.is_regional() {
+                let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+                context.file.get_region().unwrap_or(user_region) 
+            } else {
+                smash_arc::Region::None
+            };
+
+            let mut filedata = self.get_file_data_mut(info, region);
+
+            context.orig_subfile = filedata.clone();
     
             if filedata.decomp_size < context.file.len() { 
                 filedata.decomp_size = context.file.len();

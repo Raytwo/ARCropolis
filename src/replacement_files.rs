@@ -119,6 +119,7 @@ impl ModFiles {
 
     fn process_mods(modpacks: &Vec<Modpack>) -> Vec<(FileIndex, FileCtx)> {
         let arc = LoadedTables::get_arc_mut();
+        let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
 
         // TODO: Read the info.toml for every Mod instance if it exists, store the priority and then sort the vector
         modpacks.iter().map(|modpack| {
@@ -154,11 +155,11 @@ impl ModFiles {
                             let region = match modfile.get_region() {
                                 Some(region) => region,
                                 // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
-                                None => smash_arc::Region::from(ResServiceState::get_region_id() + 1),
+                                None => user_region,
                             };
         
                             // Check if the Region of a file matches with the game's. If not, discard it.
-                            if region != smash_arc::Region::from(ResServiceState::get_region_id() + 1) {
+                            if region != user_region {
                                 return None;
                             }
                         }
@@ -168,7 +169,7 @@ impl ModFiles {
                         filectx.index = file_info.file_info_indice_index;
         
                         // TODO: Move this in the for loop below
-                        arc.patch_filedata(&filectx);
+                        arc.patch_filedata(&mut filectx);
                         
                         Some((FileIndex::Regular(filectx.index), filectx))
                     }
@@ -207,23 +208,6 @@ impl FileCtx {
             },
             index: FileInfoIndiceIdx(0),
         }
-    }
-
-    pub fn get_region(&self) -> u32 {
-        // Default to the player's region index
-        let mut region_index = get_region_id(&CONFIG.read().misc.region.as_ref().unwrap()).unwrap_or_else(|| ResServiceState::get_region_id());
-
-        // Make sure the file has an extension
-        if let Some(_) = self.file.path().extension() {
-            // Split the region identifier from the filepath
-            let region = self.file.path().file_name().unwrap().to_str().unwrap().to_string();
-            // Check if the filepath it contains a + symbol
-            if let Some(region_marker) = region.find('+') {
-                region_index = get_region_id(&region[region_marker + 1..region_marker + 6]).unwrap_or(1);
-            }
-        }
-
-        region_index
     }
 
     pub fn metadata(&self) -> Result<Metadata, String> {

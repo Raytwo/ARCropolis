@@ -79,6 +79,7 @@ fn replace_file_by_index(file_index: FileIndex) {
             return;
         }
 
+        // Call extension callbacks from here
         if file_ctx.file.extension() == Hash40::from("nutexb") {
             replace_textures_by_index(&file_ctx, table2entry);
             return;
@@ -121,11 +122,11 @@ fn inflate_incoming(ctx: &InlineCtx) {
         let arc = LoadedTables::get_arc();
         let res_service = ResServiceState::get_instance();
 
-        let info_index= (res_service.processing_file_idx_start + *ctx.registers[27].x.as_ref() as u32) as usize;
+        let info_index = (res_service.processing_file_idx_start + *ctx.registers[27].x.as_ref() as u32) as usize;
         let file_info = arc.get_file_infos()[info_index];
+        let info_indice_index = file_info.file_info_indice_index;
 
         let path_idx = usize::from(file_info.file_path_index);
-        let info_indice_index = file_info.file_info_indice_index;
 
         let hash = arc.get_file_paths()[path_idx].path.hash40();
 
@@ -255,6 +256,7 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
 
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
+    //menus::show_arcadia();
     logging::init(CONFIG.read().logger.as_ref().unwrap().logger_level.into()).unwrap();
 
     // Check if an update is available
