@@ -134,8 +134,17 @@ impl ModFiles {
                         filectx.file = modfile.to_owned();
                         filectx.hash = hash.to_owned();
 
-                        warn!("[ARC::Patching] File '{}' added as a Stream", filectx.file.path().display().bright_yellow());
-                        Some((FileIndex::Stream(filectx.hash), filectx))
+                        // Make sure the stream actually exists in the table
+                        match arc.get_stream_data(*hash) {
+                            Ok(_) => {
+                                warn!("[ARC::Patching] File '{}' added as a Stream", filectx.file.path().display().bright_yellow());
+                                Some((FileIndex::Stream(filectx.hash), filectx))
+                            }
+                            Err(_) => {
+                                warn!("[ARC::Patching] File '{}' was not found in the stream table", filectx.file.path().display().bright_yellow());
+                                None
+                            }
+                        }
                     }
                     false => {
                         // Does the file exist in the FilePath table? If not, discard it.
