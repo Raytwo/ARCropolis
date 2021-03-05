@@ -1,4 +1,4 @@
-#![feature(proc_macro_hygiene)]
+// #![feature(proc_macro_hygiene)]
 
 use crate::config::CONFIG;
 use percent_encoding::percent_decode_str;

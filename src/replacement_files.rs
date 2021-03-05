@@ -116,7 +116,13 @@ impl ModFiles {
             match instance.0.get(&index) {
                 Some(_) => continue,
                 None => {
-                    arc.patch_filedata(&mut context);
+                    match index {
+                        FileIndex::Regular(_) => {
+                            arc.patch_filedata(&mut context);
+                        }
+                        _ => {},
+                    }
+
                     instance.0.insert(index, context);
                 }
             }

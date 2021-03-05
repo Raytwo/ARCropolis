@@ -240,8 +240,8 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
         }
     } else if original_page.contains("contents.htdocs/howto/html/") {
         if original_page.ends_with("index.html") {
-            menus::show_arcadia();
-            true
+            //menus::show_arcadia();
+            false
         } else {
             false
         }
