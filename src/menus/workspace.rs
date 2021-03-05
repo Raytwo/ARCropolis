@@ -55,7 +55,7 @@ fn get_workspaces() -> Vec<Workspace> {
 }
 
 fn show_selector(workspaces: &Workspaces) -> PageResult {
-    let mut file = std::fs::File::open("sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/arcropolis/selector/templates/index.html").unwrap();
+    let mut file = std::fs::File::open("sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/arcropolis/resources/templates/index.html").unwrap();
     let mut page_content: String = String::new();
     file.read_to_string(&mut page_content).unwrap();
 

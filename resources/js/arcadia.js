@@ -28,7 +28,7 @@ function toggleMod(e) {
     document.getElementById(e.replace("btn-mods-", "img-")).classList.toggle("hidden");
 
     // :)
-    window.navigator.vibrate([255, 255, 255]);
+    window.navigator.vibrate([0, 50, 0]);
     
     // Remove the hidden class on the Save button
     if (document.getElementById("link-save").classList.contains("hidden")) {
@@ -44,23 +44,21 @@ function submitMods() {
     // Wait for 700ms before running the following code (to let the Save Button animation play out)
     setTimeout(function (e) {
         // Create a new array that will be sent back to the Rust code
-        var resultArr = [];
+        var result = "";
         try {
             // Select all mods
             mods = document.querySelectorAll("#holder>button");
             // Create a i variable that's going to be used for ID
             var i = 0;
-            // Loop through the selected mods and add them to the resultsArr
+            // Loop through the selected mods and add them to the result          
+            result += `is_disabled=[`;
             [].forEach.call(mods, function (a) {
-                var newItem = {
-                    "id": i,
-                    "is_enabled": !$(`#${a.id.replace("btn-mods-", "img-")}`).hasClass("hidden"), // Inverts the result (so if the checkmark is hidden, that means it's disabled)
-                };
-                resultArr.push(newItem);
-                i++;
+                result += `${$(`#${a.id.replace("btn-mods-", "img-")}`).hasClass("hidden")}, `;
             });
+            result += `]`;
+
             // Redirect back to localhost with the resultsArr converted to a string
-            window.location.href = "http://localhost/" + JSON.stringify(resultArr);
+            window.location.href = "http://localhost/" + result;
         }
         catch (throw_error) {
             // If there's an error, then display it to the user so that they can report back

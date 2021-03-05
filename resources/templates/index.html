@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link rel="stylesheet" href="arcropolis/selector/css/selector.css" />
+	<link rel="stylesheet" href="arcropolis/resources/css/selector.css" />
 	<script src="js/selector.js"></script>
     <title>Document</title>
 	<!-- <link rel="stylesheet" href="style.css"> -->
@@ -13,20 +13,34 @@
 	<div class="TopBar">
 		<div class="TopBarText">
 			<div class="TopBarReturnButton">
-				<img class="TopBarReturnImage" src="arcropolis/selector/img/back.svg" />
+				<img class="TopBarReturnImage" src="arcropolis/resources/img/back.svg" />
 			</div>
 			<span class="CenterText">Workspace Selection</span>
 		</div>
 	</div>
 
     <div class="WorkspaceList">
+    	<div class="WorkspaceListItem">
+			<a href="http://localhost/reset">
+				<div class="Border">
+					<div class="ItemContainer">
+						<div class="IconContainer">
+							<img class="Icon" src="arcropolis/resources/img/check.svg">
+						</div>
+						<div class="WorkspaceText">
+							<span class="CenterText">Restore default workspaces</span>
+						</div>
+					</div>
+				</div>
+			</a>
+		</div>
 		{{#workspace}}
 		<div class="WorkspaceListItem">
 			<a href="http://localhost/{{index}}">
 				<div class="Border">
 					<div class="ItemContainer">
 						<div class="IconContainer">
-							<img class="Icon{{#in_use}}Checked{{/in_use}}" src="arcropolis/selector/img/check.svg">
+							<img class="Icon{{#in_use}}Checked{{/in_use}}" src="arcropolis/resources/img/check.svg">
 						</div>
 						<div class="WorkspaceText">
 							<span class="CenterText">{{name}}</span>

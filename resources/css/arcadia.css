@@ -46,7 +46,7 @@ td{
 }
 
 .bg-abstract {
-    background: url('./help/img/bg_detail_palette.webp');
+    background: url('../../../help/img/bg_detail_palette.webp');
     background-color: white;
     background-size: 125%;
     background-position-y: center;
