@@ -109,9 +109,17 @@ impl ModFiles {
 
         let contexts = ModFiles::process_mods(&mods);
 
-        for (index, context) in contexts {
-            // TODO: If a file shares a FileInfoIndices index we already have, discard it.
-            instance.0.entry(index).or_insert(context);
+        let arc = LoadedTables::get_arc_mut();
+
+        for (index, mut context) in contexts {
+            // Check if it's already inserted so we don't try patching the file multiple times
+            match instance.0.get(&index) {
+                Some(_) => continue,
+                None => {
+                    arc.patch_filedata(&mut context);
+                    instance.0.insert(index, context);
+                }
+            }
         }
 
         instance
@@ -176,9 +184,6 @@ impl ModFiles {
                         filectx.file = modfile.to_owned();
                         filectx.hash = hash.to_owned();
                         filectx.index = file_info.file_info_indice_index;
-        
-                        // TODO: Move this in the for loop below
-                        arc.patch_filedata(&mut filectx);
                         
                         Some((FileIndex::Regular(filectx.index), filectx))
                     }
