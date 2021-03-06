@@ -143,10 +143,14 @@ pub fn umm_directories<P: AsRef<Path>>(path: &P) -> Vec<Modpack> {
 
     let base_path = path.as_ref();
 
-    // TODO: Careful here, sometimes a /umm path does not exist.
     for entry in fs::read_dir(path).unwrap() {
         let entry = entry.unwrap();
 
+        // Make sure this is a directory we're dealing with
+        if !entry.file_type().unwrap().is_dir() {
+            continue;
+        }
+        
         // Skip any directory starting with a period
         if entry.file_name().to_str().unwrap().starts_with(".") {
             continue;
