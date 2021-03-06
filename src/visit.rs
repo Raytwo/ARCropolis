@@ -67,7 +67,7 @@ impl ModFile {
         }
 
         if let Some(regional_marker) = arc_path.find("+") {
-            arc_path.replace_range(regional_marker + 1..regional_marker + 6, "");
+            arc_path.replace_range(regional_marker..regional_marker + 6, "");
         }
 
         if let Some(ext) = arc_path.strip_suffix("mp4") {
@@ -164,36 +164,43 @@ pub fn umm_directories<P: AsRef<Path>>(path: &P) -> Vec<Modpack> {
 pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<ModFile> {
     let path = path.as_ref();
 
-    // TODO: Make sure the path exists before proceeding
-    let paths: Vec<OneOrMany<ModFile>> = fs::read_dir(path).unwrap().filter_map(|entry| {
-        let entry = entry.unwrap();
-
-        let mut entry_path = path.to_path_buf();
-        entry_path.push(entry.path());
-
-        // Ignore anything that starts with a period
-        if entry_path.file_name().unwrap().to_str().unwrap().starts_with(".") {
-            return None;
-        }
-
-        if entry.file_type().unwrap().is_dir() {
-            Some(OneOrMany::Many(directory(&entry_path)))
-        } else {
-            match file(&entry_path) {
-                Ok(file_ctx) => {
-                    let modpath = ModFile {
-                        path: file_ctx,
-                        size: entry.metadata().unwrap().len() as u32,
-                    };
-                    Some(OneOrMany::One(modpath))
-                },
-                Err(err) => {
-                    warn!("{}", err);
-                    None
+    let paths: Vec<OneOrMany<ModFile>> = match fs::read_dir(path) {
+        Ok(res) => {
+            res.filter_map(|entry| {
+                let entry = entry.unwrap();
+        
+                let mut entry_path = path.to_path_buf();
+                entry_path.push(entry.path());
+        
+                // Ignore anything that starts with a period
+                if entry_path.file_name().unwrap().to_str().unwrap().starts_with(".") {
+                    return None;
                 }
-            }
+       
+                if entry.file_type().unwrap().is_dir() {
+                    Some(OneOrMany::Many(directory(&entry_path).to_vec()))
+                } else {
+                    match file(&entry_path) {
+                        Ok(file_ctx) => {
+                            let modpath = ModFile {
+                                path: file_ctx,
+                                size: entry.metadata().unwrap().len() as u32,
+                            };
+                            Some(OneOrMany::One(modpath))
+                        },
+                        Err(err) => {
+                            warn!("{}", err);
+                            None
+                        }
+                    }
+                }
+            }).collect()
+        },
+        Err(err) => {
+            warn!("{}", err);
+            vec![]
         }
-    }).collect();
+    };
 
     let mut final_vec: Vec<ModFile> = Vec::new();
 
