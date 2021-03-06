@@ -67,7 +67,7 @@ impl ModFile {
         }
 
         if let Some(regional_marker) = arc_path.find("+") {
-            arc_path.replace_range(regional_marker..arc_path.find(".").unwrap(), "");
+            arc_path.replace_range(regional_marker + 1..regional_marker + 6, "");
         }
 
         if let Some(ext) = arc_path.strip_suffix("mp4") {
