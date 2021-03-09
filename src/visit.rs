@@ -31,7 +31,7 @@ impl Modpack {
             let hash = file.hash40().unwrap();
             let mut new_file = file.to_owned();
             new_file.set_path(full_path);
-            
+
             Some((hash, new_file))
         }).collect()
     }
@@ -150,7 +150,7 @@ pub fn umm_directories<P: AsRef<Path>>(path: &P) -> Vec<Modpack> {
         if !entry.file_type().unwrap().is_dir() {
             continue;
         }
-        
+
         // Skip any directory starting with a period
         if entry.file_name().to_str().unwrap().starts_with(".") {
             continue;
@@ -172,18 +172,25 @@ pub fn directory<P: AsRef<Path>>(path: &P) -> Vec<ModFile> {
         Ok(res) => {
             res.filter_map(|entry| {
                 let entry = entry.unwrap();
-        
+
                 let mut entry_path = path.to_path_buf();
                 entry_path.push(entry.path());
-        
+
                 // Ignore anything that starts with a period
                 if entry_path.file_name().unwrap().to_str().unwrap().starts_with(".") {
                     return None;
                 }
-       
-                if entry.file_type().unwrap().is_dir() {
-                    Some(OneOrMany::Many(directory(&entry_path).to_vec()))
-                } else {
+
+                if entry.file_type().unwrap().is_dir(){
+                    if entry_path.file_name().unwrap().to_str().unwrap().contains(".") {
+                        let modpath = ModFile {
+                            path: entry_path,
+                            size: 0,
+                        };
+                        Some(OneOrMany::One(modpath))
+                    } else {
+                        Some(OneOrMany::Many(directory(&entry_path).to_vec()))
+                    } } else {
                     match file(&entry_path) {
                         Ok(file_ctx) => {
                             let modpath = ModFile {
