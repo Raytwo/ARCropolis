@@ -61,6 +61,7 @@ pub enum FileIndex {
     Stream(Hash40),
 }
 
+#[repr(transparent)]
 pub struct ModFiles(pub HashMap<FileIndex, FileCtx>);
 
 #[derive(Debug, Clone)]
@@ -107,14 +108,80 @@ impl ModFiles {
             }
         }
 
-        let contexts = ModFiles::process_mods(&mods);
+        println!("Moving to process_mods");
 
-        let arc = LoadedTables::get_arc_mut();
+        ModFiles::process_mods(&mods);
 
-        for (index, mut context) in contexts {
+        instance
+    }
+
+    fn process_mods(modpacks: &Vec<Modpack>) {
+        let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+
+        // TODO: Read the info.toml for every Mod instance if it exists, store the priority and then sort the vector
+        println!("Starting to iterate");
+
+        modpacks.iter().map(|modpack| {
+            modpack.mods.iter().filter_map(|modpath| {
+                // Use a FileCtx until the system is fully reworked
+                let mut filectx = FileCtx::new();
+                let hash = modpath.hash40().unwrap();
+                let modfile = ModFile::new(modpack.path().join(modpath.path()));
+
+                match modpath.is_stream() {
+                    true => {
+                        filectx.file = modfile;
+                        filectx.hash = hash;
+
+                        warn!("[ARC::Patching] File '{}' added as a Stream", filectx.file.path().display().bright_yellow());
+                        Some((FileIndex::Stream(filectx.hash), filectx))
+                    }
+                    false => {
+                        let arc = LoadedTables::get_arc_mut();
+
+                        // Does the file exist in the FilePath table? If not, discard it.
+                        match arc.get_file_path_index_from_hash(hash) {
+                            Ok(index) => {
+                                let file_info = arc.get_file_info_from_path_index(index);
+
+                                // Check if a file is regional.
+                                if file_info.flags.is_regional() {
+                                    // Check if the file has a regional indicator
+                                    let region = match modfile.get_region() {
+                                        Some(region) => {
+                                            region
+                                        }
+                                        // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
+                                        None => user_region,
+                                    };
+                
+                                    // Check if the Region of a file matches with the game's. If not, discard it.
+                                    if region != user_region {
+                                        return None;
+                                    }
+                                }
+
+                                filectx.file = modfile;
+                                filectx.hash = hash;
+                                filectx.index = file_info.file_info_indice_index;
+                        
+                                Some((FileIndex::Regular(filectx.index), filectx))
+                            },
+                            Err(_) => {
+                                warn!("[ARC::Patching] File '{}' was not found in data.arc", modpath.as_smash_path().display().bright_yellow());
+                                None
+                            },
+                        }
+                    }
+                }
+            }).collect::<Vec<(FileIndex, FileCtx)>>()
+        }).flatten().for_each(|(index, mut context)| {
+            let arc = LoadedTables::get_arc_mut();
+            let mut mod_files = MOD_FILES.write();
+
             // Check if it's already inserted so we don't try patching the file multiple times
-            match instance.0.get(&index) {
-                Some(_) => continue,
+            match mod_files.0.get(&index) {
+                Some(_) => return,
                 None => {
                     match index {
                         FileIndex::Regular(_) => {
@@ -123,72 +190,10 @@ impl ModFiles {
                         _ => {},
                     }
 
-                    instance.0.insert(index, context);
+                    mod_files.0.insert(index, context);
                 }
             }
-        }
-
-        instance
-    }
-
-    fn process_mods(modpacks: &Vec<Modpack>) -> Vec<(FileIndex, FileCtx)> {
-        let arc = LoadedTables::get_arc_mut();
-        let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
-
-        // TODO: Read the info.toml for every Mod instance if it exists, store the priority and then sort the vector
-        modpacks.iter().map(|modpack| {
-            let mods = modpack.flatten();
-
-            let contexts: Vec<(FileIndex, FileCtx)> = mods.iter().filter_map(|(hash, modfile)| {
-                // Use a FileCtx until the system is fully reworked
-                let mut filectx = FileCtx::new();
-
-                match modfile.is_stream() {
-                    true => {
-                        filectx.file = modfile.to_owned();
-                        filectx.hash = hash.to_owned();
-
-                        warn!("[ARC::Patching] File '{}' added as a Stream", filectx.file.path().display().bright_yellow());
-                        Some((FileIndex::Stream(filectx.hash), filectx))
-                    }
-                    false => {
-                        // Does the file exist in the FilePath table? If not, discard it.
-                        let file_index = match arc.get_file_path_index_from_hash(*hash) {
-                            Ok(index) => index,
-                            Err(_) => {
-                                warn!("[ARC::Patching] File '{}' was not found in data.arc", modfile.as_smash_path().display().bright_yellow());
-                                return None;
-                            },
-                        };
-        
-                        let file_info = arc.get_file_info_from_path_index(file_index);
-        
-                        // Check if a file is regional.
-                        if file_info.flags.is_regional() {
-                            // Check if the file has a regional indicator
-                            let region = match modfile.get_region() {
-                                Some(region) => region,
-                                // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
-                                None => user_region,
-                            };
-        
-                            // Check if the Region of a file matches with the game's. If not, discard it.
-                            if region != user_region {
-                                return None;
-                            }
-                        }
-
-                        filectx.file = modfile.to_owned();
-                        filectx.hash = hash.to_owned();
-                        filectx.index = file_info.file_info_indice_index;
-                        
-                        Some((FileIndex::Regular(filectx.index), filectx))
-                    }
-                }
-            }).collect();
-            
-            contexts
-        }).flatten().collect()
+        });
     }
 
     pub fn get(&self, file_index: FileIndex) -> Option<&FileCtx> {
@@ -206,7 +211,7 @@ pub fn get_region_id(region: &str) -> Option<u32> {
 impl FileCtx {
     pub fn new() -> Self {
         FileCtx {
-            file: ModFile::new(),
+            file: ModFile::new(""),
             hash: Hash40(0),
             orig_subfile: FileData {
                 offset_in_folder: 0,

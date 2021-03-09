@@ -42,9 +42,6 @@ mod visit;
 
 mod fs;
 
-mod mod_files;
-pub use mod_files::ModFile;
-
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
 
 use owo_colors::OwoColorize;
@@ -87,7 +84,7 @@ fn replace_file_by_index(file_index: FileIndex) {
 
         let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
-        info!("[ResInflateThread | #{}] Replacing '{}'", usize::from(file_ctx.index).green(), hashes::get(file_ctx.file.hash40().unwrap()).unwrap_or(&"Unknown").bright_yellow());
+        info!("[ResInflateThread | #{}] Replacing '{}'", usize::from(file_ctx.index).green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
         unsafe {
             let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
@@ -102,7 +99,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
 
     let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
-    info!("[ResInflateThread | #{}] Replacing '{}'", usize::from(file_ctx.index).green(), hashes::get(file_ctx.file.hash40().unwrap()).unwrap_or(&"Unknown").bright_yellow());
+    info!("[ResInflateThread | #{}] Replacing '{}'", usize::from(file_ctx.index).green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
 
     if orig_size > file_slice.len() {
         let data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size) };
