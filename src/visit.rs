@@ -6,7 +6,7 @@ use std::{fs, io, path::{
 use fs::metadata;
 use smash_arc::{Hash40, Region};
 
-use crate::replacement_files::get_region_id;
+use crate::replacement_files::{ModFiles, get_region_id};
 
 #[derive(Debug, Clone)]
 pub struct Modpack {
@@ -98,8 +98,8 @@ impl From<Modpath> for ModFile {
 }
 
 impl Modpath {
-    pub fn path(&self) -> PathBuf {
-        self.0.to_owned()
+    pub fn path(&self) -> &Path {
+        &self.0
     }
 
     pub fn hash40(&self) -> Result<Hash40, String> {
@@ -134,8 +134,7 @@ impl Modpath {
     }
 
     pub fn is_stream(&self) -> bool {
-        //self.path.starts_with("stream")
-        self.0.starts_with("stream")
+        self.0.to_str().unwrap().contains("stream")
     }
 }
 
@@ -145,12 +144,15 @@ impl Modpath {
 pub struct ModFile(PathBuf);
 
 impl ModFile {
-    pub fn new<P: AsRef<Path>>(path: P) -> Self {
+    pub fn new() -> Self {
+        Self(PathBuf::new())
+    }
+    pub fn from<P: AsRef<Path>>(path: P) -> Self {
         Self(path.as_ref().to_path_buf())
     }
 
-    pub fn path(&self) -> PathBuf {
-        self.0.to_owned()
+    pub fn path(&self) -> &Path {
+        &self.0
     }
 
     pub fn set_path<P: AsRef<Path>>(&mut self, new_path: P) {
@@ -208,57 +210,4 @@ impl ModFile {
             None => None,
         }
     }
-}
-
-pub fn discover(path: &Path) -> Modpack {
-    let mut modpack = Modpack::new(path);
-    modpack.append(directory(&path).unwrap());
-    modpack
-}
-
-/// Visit Ultimate Mod Manager directories for backwards compatibility
-pub fn umm_directories<P: AsRef<Path>>(path: &P) -> Vec<Modpack> {
-    let mut mods = Vec::<Modpack>::new();
-
-    let base_path = path.as_ref();
-
-    for entry in fs::read_dir(path).unwrap() {
-        let entry = entry.unwrap();
-
-        // Make sure this is a directory we're dealing with
-        if !entry.file_type().unwrap().is_dir() {
-            continue;
-        }
-        
-        // Skip any directory starting with a period
-        if entry.file_name().to_str().unwrap().starts_with(".") {
-            continue;
-        }
-
-        let subdir_path = base_path.to_owned().join(entry.path());
-
-        mods.push(discover(&subdir_path));
-    }
-
-    mods
-}
-
-pub fn directory<P: AsRef<Path>>(path: &P) -> io::Result<Vec<Modpath>> {
-    let path = path.as_ref();
-
-    let paths: Vec<Modpath> = fs::read_dir(path)?.filter_map(|entry| {
-        let entry = entry.unwrap();
-        let entry_path = path.to_owned().join(entry.path());
-
-        if entry.file_type().unwrap().is_dir() {
-            match directory(&entry_path) {
-                Ok(paths) => Some(paths.into()),
-                Err(err) => panic!(err)
-            }
-        } else {
-            Some(vec![entry_path.into()])
-        }
-    }).flatten().collect();
-
-    Ok(paths)
 }

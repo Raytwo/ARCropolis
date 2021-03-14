@@ -1,9 +1,6 @@
-use std::{
-    fs,
-    collections::HashMap,
-};
+use std::{collections::HashMap, fs, io, path::PathBuf};
 
-use crate::{config::CONFIG, fs::Metadata, runtime, visit::{Modpack, ModFile}};
+use crate::{config::CONFIG, fs::Metadata, runtime, visit::{ModFile, Modpack, Modpath}};
 
 use owo_colors::OwoColorize;
 
@@ -88,112 +85,180 @@ impl ModFiles {
 
         let config = CONFIG.read();
         
-        let mut mods: Vec<Modpack> = vec![];
+        // let mut mods: Vec<Modpack> = vec![];
 
-        // TODO: Build a cache using the timestamp of every Mod directory to confirm if something changed. If not, load everything and fill the tables without running a discovery
+        // // TODO: Build a cache using the timestamp of every Mod directory to confirm if something changed. If not, load everything and fill the tables without running a discovery
 
-        if config.paths.arc.exists() {
-            mods.push(crate::visit::discover(&config.paths.arc));
-        }
+        // if config.paths.arc.exists() {
+        //     //mods.push(crate::visit::discover(&config.paths.arc));
+        //     ModFiles::process_mods(crate::visit::discover(&config.paths.arc))
+        // }
 
-        if config.paths.umm.exists() {
-            mods.append(&mut crate::visit::umm_directories(&config.paths.umm));
-        }
+        // if config.paths.umm.exists() {
+        //     for modpack in crate::visit::umm_directories(&config.paths.umm) {
+        //         ModFiles::process_mods(modpack);
+        //     }
+        //     //mods.append(&mut crate::visit::umm_directories(&config.paths.umm));
+        // }
+
+        // if let Some(extra_paths) = &config.paths.extra_paths {
+        //     for path in extra_paths {
+        //         if path.exists() {
+        //             mods.append(&mut crate::visit::umm_directories(&path));
+        //         }
+        //     }
+        // }
+
+        //println!("Moving to process_mods");
+
+        //ModFiles::process_mods(mods);
+        let _ = instance.visit_dir(&PathBuf::from(&config.paths.arc), config.paths.arc.to_str().unwrap().len());
+        let _ = instance.visit_umm_dirs(&PathBuf::from(&config.paths.umm));
 
         if let Some(extra_paths) = &config.paths.extra_paths {
             for path in extra_paths {
-                if path.exists() {
-                    mods.append(&mut crate::visit::umm_directories(&path));
-                }
+                let _ = instance.visit_umm_dirs(&PathBuf::from(path));
             }
         }
-
-        println!("Moving to process_mods");
-
-        ModFiles::process_mods(&mods);
 
         instance
     }
 
-    fn process_mods(modpacks: &Vec<Modpack>) {
+    /// Visit Ultimate Mod Manager directories for backwards compatibility
+    fn visit_umm_dirs(&mut self, dir: &PathBuf) -> io::Result<()> {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+
+            // Skip any directory starting with a period
+            if entry.file_name().to_str().unwrap().starts_with(".") {
+                continue;
+            }
+
+            let path = PathBuf::from(&format!("{}/{}", dir.display(), entry.path().display()));
+
+            if path.is_dir() {
+                self.visit_dir(&path, path.to_str().unwrap().len())?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn visit_dir(&mut self, dir: &PathBuf, arc_dir_len: usize) -> io::Result<()> {
+        fs::read_dir(dir)?
+            .map(|entry| {
+                let entry = entry?;
+                let path = PathBuf::from(&format!("{}/{}", dir.display(), entry.path().display()));
+
+                // Check if the entry is a directory or a file
+                if entry.file_type().unwrap().is_dir() {
+                    // If it is one of the stream randomizer directories
+                    if let Some(_) = path.extension() {
+                        match self.visit_file(&path, arc_dir_len) {
+                            Ok((index, file_ctx)) => {
+                                self.0.insert(index, file_ctx);
+                                return Ok(());
+                            }
+                            Err(err) => {
+                                warn!("{}", err);
+                                return Ok(());
+                            }
+                        }
+                    }
+
+                    // If not, treat it as a regular directory
+                    self.visit_dir(&path, arc_dir_len).unwrap();
+                } else {
+                    match self.visit_file(&path, arc_dir_len) {
+                        Ok((index, context)) => {
+                            if let Some(ctx) = self.0.get_mut(&index) {
+                                
+                            } else {
+                                self.0.insert(index as _, context);
+                            }
+                            return Ok(());
+                        }
+                        Err(err) => {
+                            warn!("{}", err);
+                            return Ok(());
+                        }
+                    }
+                }
+
+                Ok(())
+            })
+            .collect()
+    }
+
+    fn visit_file(
+        &self,
+        full_path: &PathBuf,
+        arc_dir_len: usize,
+    ) -> Result<(FileIndex, FileCtx), String> {
+        // Skip any file starting with a period, to avoid any error related to path.extension()
+        if full_path.file_name().unwrap().to_str().unwrap().starts_with(".") {
+            return Err(format!("[ARC::Discovery] File '{}' starts with a period, skipping", full_path.display().bright_yellow()));
+        }
+
+        // Make sure the file has an extension to not cause issues with the code that follows
+        match full_path.extension() {
+            Some(_) => {
+                //file_ctx.extension = Hash40::from(ext.to_str().unwrap());
+            }
+            None => return Err(format!("[ARC::Discovery] File '{}' does not have an extension, skipping", full_path.display().bright_yellow())),
+        }
+
+        
+        let mut game_path = Modpath::from(PathBuf::from(&full_path.to_str().unwrap()[arc_dir_len + 1..]));
+        let mut file_ctx = FileCtx::new();
+
+        file_ctx.file = ModFile::from(full_path);
+        file_ctx.hash = game_path.hash40().unwrap();
+
         let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
 
-        // TODO: Read the info.toml for every Mod instance if it exists, store the priority and then sort the vector
-        println!("Starting to iterate");
+        match file_ctx.file.is_stream() {
+            true => {
+                //STREAM_FILES.write().0.insert(file_ctx.hash, file_ctx.clone());
+                warn!("[Arc::Discovery] File '{}' placed in the STREAM table", file_ctx.file.path().display().bright_yellow());
+                Ok((FileIndex::Stream(file_ctx.hash), file_ctx))
+            }
+            false => {
+                let arc = LoadedTables::get_arc_mut();
 
-        modpacks.iter().map(|modpack| {
-            modpack.mods.iter().filter_map(|modpath| {
-                // Use a FileCtx until the system is fully reworked
-                let mut filectx = FileCtx::new();
-                let hash = modpath.hash40().unwrap();
-                let modfile = ModFile::new(modpack.path().join(modpath.path()));
-
-                match modpath.is_stream() {
-                    true => {
-                        filectx.file = modfile;
-                        filectx.hash = hash;
-
-                        warn!("[ARC::Patching] File '{}' added as a Stream", filectx.file.path().display().bright_yellow());
-                        Some((FileIndex::Stream(filectx.hash), filectx))
-                    }
-                    false => {
-                        let arc = LoadedTables::get_arc_mut();
-
-                        // Does the file exist in the FilePath table? If not, discard it.
-                        match arc.get_file_path_index_from_hash(hash) {
-                            Ok(index) => {
-                                let file_info = arc.get_file_info_from_path_index(index);
-
-                                // Check if a file is regional.
-                                if file_info.flags.is_regional() {
-                                    // Check if the file has a regional indicator
-                                    let region = match modfile.get_region() {
-                                        Some(region) => {
-                                            region
-                                        }
-                                        // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
-                                        None => user_region,
-                                    };
-                
-                                    // Check if the Region of a file matches with the game's. If not, discard it.
-                                    if region != user_region {
-                                        return None;
-                                    }
+                match arc.get_file_path_index_from_hash(file_ctx.hash) {
+                    Ok(index) => {
+                        let file_info = arc.get_file_info_from_path_index(index).clone();
+    
+                        // Check if a file is regional.
+                        if file_info.flags.is_regional() {
+                            // Check if the file has a regional indicator
+                            let region = match file_ctx.file.get_region() {
+                                Some(region) => {
+                                    region
                                 }
-
-                                filectx.file = modfile;
-                                filectx.hash = hash;
-                                filectx.index = file_info.file_info_indice_index;
-                        
-                                Some((FileIndex::Regular(filectx.index), filectx))
-                            },
-                            Err(_) => {
-                                warn!("[ARC::Patching] File '{}' was not found in data.arc", modpath.as_smash_path().display().bright_yellow());
-                                None
-                            },
+                                // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
+                                None => user_region,
+                            };
+        
+                            // Check if the Region of a file matches with the game's. If not, discard it.
+                            if region != user_region {
+                                return Err("File's region does not match".to_string());
+                            }
                         }
-                    }
-                }
-            }).collect::<Vec<(FileIndex, FileCtx)>>()
-        }).flatten().for_each(|(index, mut context)| {
-            let arc = LoadedTables::get_arc_mut();
-            let mut mod_files = MOD_FILES.write();
-
-            // Check if it's already inserted so we don't try patching the file multiple times
-            match mod_files.0.get(&index) {
-                Some(_) => return,
-                None => {
-                    match index {
-                        FileIndex::Regular(_) => {
-                            arc.patch_filedata(&mut context);
-                        }
-                        _ => {},
-                    }
-
-                    mod_files.0.insert(index, context);
+    
+                        file_ctx.index = file_info.file_info_indice_index;
+    
+                        arc.patch_filedata(&file_info, file_ctx.file.len());
+                
+                        Ok((FileIndex::Regular(file_ctx.index), file_ctx))
+                    },
+                    Err(_) => {
+                        Err(format!("[ARC::Patching] File '{}' was not found in data.arc", full_path.display().bright_yellow()))
+                    },
                 }
             }
-        });
+        }
     }
 
     pub fn get(&self, file_index: FileIndex) -> Option<&FileCtx> {
@@ -211,7 +276,7 @@ pub fn get_region_id(region: &str) -> Option<u32> {
 impl FileCtx {
     pub fn new() -> Self {
         FileCtx {
-            file: ModFile::new(""),
+            file: PathBuf::new().into(),
             hash: Hash40(0),
             orig_subfile: FileData {
                 offset_in_folder: 0,

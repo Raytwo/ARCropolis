@@ -21,7 +21,7 @@ mod hashes;
 mod stream;
 
 mod replacement_files;
-use replacement_files::{MOD_FILES, FileCtx, FileIndex, INCOMING_IDX};
+use replacement_files::{FileCtx, FileIndex, INCOMING_IDX, MOD_FILES, ModFiles};
 
 mod offsets;
 use offsets::{ TITLE_SCREEN_VERSION_OFFSET, INFLATE_OFFSET, MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, INFLATE_DIR_FILE_OFFSET, MANUAL_OPEN_OFFSET, INITIAL_LOADING_OFFSET };

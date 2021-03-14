@@ -9,7 +9,7 @@ use skyline::{
     },
 };
 
-use smash_arc::{ArcLookup, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, LoadedArc};
+use smash_arc::{ArcLookup, FileData, FileDataFlags, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, LoadedArc};
 
 use smash_arc::LoadedSearchSection;
 
@@ -231,7 +231,7 @@ impl LoadedTables {
 pub trait LoadedArcEx {
     /// Provides every FileInfo that refers to the FilePath
     fn get_shared_fileinfos(&self, file_path: &FilePath) -> Vec<FileInfo>;
-    fn patch_filedata(&mut self, context: &mut FileCtx);
+    fn patch_filedata(&mut self, fileinfo: &FileInfo, size: u32) -> FileData;
 }
 
 impl LoadedArcEx for LoadedArc {
@@ -247,30 +247,44 @@ impl LoadedArcEx for LoadedArc {
             }).collect()
     }
 
-    fn patch_filedata(&mut self, context: &mut FileCtx) {
-        let file_path_index = self.get_file_path_index_from_hash(context.hash).unwrap();
-        let file_path = self.get_file_paths()[usize::from(file_path_index)];
+    fn patch_filedata(&mut self, fileinfo: &FileInfo, size: u32 ) -> FileData {
+        let file_path = self.get_file_paths()[usize::from(fileinfo.file_path_index)];
 
-        // Get every FileInfo that shares the same FileInfoIndice index
-        let shared_fileinfos = self.get_shared_fileinfos(&file_path);
+        let region = if fileinfo.flags.is_regional() {
+            let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+            //context.file.get_region().unwrap_or(user_region) 
+            user_region
+        } else {
+            smash_arc::Region::None
+        };
+
+        // To check if the file is shared)
+        let folder_offset = self.get_folder_offset(fileinfo, region);
+        let mut orig_filedata = self.get_file_data_mut(fileinfo, region).clone();
+        let offset = folder_offset + self.get_file_section_offset() + ((orig_filedata.offset_in_folder as u64) <<  2);
+
+        if self.get_shared_section_offset() < offset {
+            // Get every FileInfo that shares the same FileInfoIndice index
+            let shared_fileinfos = self.get_shared_fileinfos(&file_path);
+
+            shared_fileinfos.iter().for_each(|info| {
+                let mut filedata = self.get_file_data_mut(info, region);
         
-        shared_fileinfos.iter().for_each(|info| {
-            let region = if info.flags.is_regional() {
-                let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
-                context.file.get_region().unwrap_or(user_region) 
-            } else {
-                smash_arc::Region::None
-            };
-
-            let mut filedata = self.get_file_data_mut(info, region);
-
-            context.orig_subfile = filedata.clone();
-    
-            if filedata.decomp_size < context.file.len() { 
-                filedata.decomp_size = context.file.len();
-                info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}", context.file.path().display().bright_yellow(), filedata.decomp_size.bright_red());
+                if filedata.decomp_size < size { 
+                    filedata.decomp_size = size;
+                    info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}", "temp", filedata.decomp_size.bright_red());
+                }
+            });
+        } else {
+            let mut filedata = self.get_file_data_mut(fileinfo, region);
+            
+            if filedata.decomp_size < size { 
+                filedata.decomp_size = size;
+                info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}", "temp", filedata.decomp_size.bright_red());
             }
-        });
+        }
+
+        orig_filedata
     }
 }
 
