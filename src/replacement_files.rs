@@ -249,7 +249,7 @@ impl ModFiles {
     
                         file_ctx.index = file_info.file_info_indice_index;
     
-                        arc.patch_filedata(&file_info, file_ctx.file.len());
+                        file_ctx.orig_subfile = arc.patch_filedata(&file_info, file_ctx.file.len());
                 
                         Ok((FileIndex::Regular(file_ctx.index), file_ctx))
                     },
