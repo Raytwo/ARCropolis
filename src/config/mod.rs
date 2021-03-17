@@ -1,10 +1,10 @@
-use std::{fs, vec};
-use std::path::PathBuf;
+use log::LevelFilter;
+use std::convert::From;
 use std::fs::File;
 use std::io::Write;
 use std::net::Ipv4Addr;
-use std::convert::From;
-use log::LevelFilter;
+use std::path::PathBuf;
+use std::{fs, vec};
 
 use skyline::error::show_error;
 
@@ -59,7 +59,7 @@ pub struct Infos {
 pub struct Paths {
     pub arc: PathBuf,
     pub umm: PathBuf,
-    pub extra_paths: Option<Vec<PathBuf>>
+    pub extra_paths: Option<Vec<PathBuf>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -146,9 +146,7 @@ impl Config {
                 // Try deserializing
                 let mut config = match toml::from_str(&content) {
                     // Deserialized properly
-                    Ok(conf) => {
-                        conf
-                    },
+                    Ok(conf) => conf,
                     // Something happened when deserializing
                     Err(_) => {
                         println!("[ARC::Config] Configuration file could not be deserialized");
@@ -157,9 +155,11 @@ impl Config {
                         Config::new()
                     }
                 };
-    
+
                 // Make sure the version matches with the current release
-                if Version::parse(&config.infos.version) < Version::parse(&env!("CARGO_PKG_VERSION").to_string()) {
+                if Version::parse(&config.infos.version)
+                    < Version::parse(&env!("CARGO_PKG_VERSION").to_string())
+                {
                     println!("[ARC::Config] Configuration file version mismatch");
                     skyline_web::DialogOk::ok("Updating configuration file to latest format");
                     println!("[ARC::Config] Changing version number...");
@@ -193,22 +193,22 @@ impl Config {
         self.infos.version = env!("CARGO_PKG_VERSION").to_string();
 
         match &self.paths.extra_paths {
-            Some(_) => {},
+            Some(_) => {}
             None => self.paths.extra_paths = Some(vec![]),
         }
 
         match &self.updater {
-            Some(_) => {},
+            Some(_) => {}
             None => self.updater = Some(Updater::new()),
         }
 
         match &self.logger {
-            Some(_) => {},
+            Some(_) => {}
             None => self.logger = Some(Logger::new()),
         }
 
         match &self.misc.region {
-            Some(_) => {},
+            Some(_) => {}
             None => self.misc.region = Some(String::from("us_en")),
         }
     }
@@ -223,7 +223,7 @@ impl Config {
         };
 
         match file.write_all(&config_txt) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(err) => return Err(err),
         }
 

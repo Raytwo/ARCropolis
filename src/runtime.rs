@@ -2,14 +2,13 @@ use std::fmt;
 use std::sync::atomic::AtomicU32;
 
 use skyline::{
+    hooks::{getRegionAddress, Region},
     nn,
-    hooks::{
-        Region,
-        getRegionAddress,
-    },
 };
 
-use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, LoadedArc};
+use smash_arc::{
+    ArcLookup, FileData, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, LoadedArc,
+};
 
 use smash_arc::LoadedSearchSection;
 
@@ -184,7 +183,12 @@ impl LoadedTables {
 
     #[allow(dead_code)]
     pub fn get_loaded_directories(&self) -> &[LoadedDirectory] {
-        unsafe { std::slice::from_raw_parts(self.loaded_directory_table, self.loaded_directory_table_size as usize) }
+        unsafe {
+            std::slice::from_raw_parts(
+                self.loaded_directory_table,
+                self.loaded_directory_table_size as usize,
+            )
+        }
     }
 
     pub fn table_1(&self) -> &[Table1Entry] {
@@ -220,7 +224,10 @@ impl LoadedTables {
         self.table_2().get(t2_index).ok_or(LoadError::NoTable2)
     }
 
-    pub fn get_t2_mut(&mut self, t2_index: FileInfoIndiceIdx) -> Result<&mut Table2Entry, LoadError> {
+    pub fn get_t2_mut(
+        &mut self,
+        t2_index: FileInfoIndiceIdx,
+    ) -> Result<&mut Table2Entry, LoadError> {
         self.table_2_mut()
             .get_mut(usize::from(t2_index))
             .ok_or(LoadError::NoTable2)
@@ -244,14 +251,17 @@ impl LoadedArcEx for LoadedArc {
                 } else {
                     None
                 }
-            }).collect()
+            })
+            .collect()
     }
 
-    fn patch_filedata(&mut self, fileinfo: &FileInfo, size: u32 ) -> FileData {
+    fn patch_filedata(&mut self, fileinfo: &FileInfo, size: u32) -> FileData {
         let file_path = self.get_file_paths()[usize::from(fileinfo.file_path_index)];
 
         let region = if fileinfo.flags.is_regional() {
-            smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1)
+            smash_arc::Region::from(
+                get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
+            )
         } else {
             smash_arc::Region::None
         };
@@ -259,7 +269,9 @@ impl LoadedArcEx for LoadedArc {
         // To check if the file is shared
         let folder_offset = self.get_folder_offset(fileinfo, region);
         let orig_filedata = self.get_file_data_mut(fileinfo, region).clone();
-        let offset = folder_offset + self.get_file_section_offset() + ((orig_filedata.offset_in_folder as u64) <<  2);
+        let offset = folder_offset
+            + self.get_file_section_offset()
+            + ((orig_filedata.offset_in_folder as u64) << 2);
 
         if self.get_shared_section_offset() < offset {
             // Get every FileInfo that shares the same FileInfoIndice index
@@ -267,18 +279,26 @@ impl LoadedArcEx for LoadedArc {
 
             shared_fileinfos.iter().for_each(|info| {
                 let mut filedata = self.get_file_data_mut(info, region);
-        
-                if filedata.decomp_size < size { 
+
+                if filedata.decomp_size < size {
                     filedata.decomp_size = size;
-                    info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}", "temp", filedata.decomp_size.bright_red());
+                    info!(
+                        "[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",
+                        "temp",
+                        filedata.decomp_size.bright_red()
+                    );
                 }
             });
         } else {
             let mut filedata = self.get_file_data_mut(fileinfo, region);
-            
-            if filedata.decomp_size < size { 
+
+            if filedata.decomp_size < size {
                 filedata.decomp_size = size;
-                info!("[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}", "temp", filedata.decomp_size.bright_red());
+                info!(
+                    "[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",
+                    "temp",
+                    filedata.decomp_size.bright_red()
+                );
             }
         }
 

@@ -1,44 +1,42 @@
-use std::{
-    fs,
-    io,
-    io::{
-        Error,
-        ErrorKind,
-    },
-    ptr
-};
 use std::path::Path;
+use std::{
+    fs, io,
+    io::{Error, ErrorKind},
+    ptr,
+};
 
 use skyline::hook;
 use skyline::libc::c_char;
 
+use log::{info, warn};
 use rand::seq::SliceRandom;
-use log::{ info, warn };
 
-use crate::{offsets::LOOKUP_STREAM_HASH_OFFSET, replacement_files::FileIndex};
 use crate::replacement_files::MOD_FILES;
+use crate::{offsets::LOOKUP_STREAM_HASH_OFFSET, replacement_files::FileIndex};
 
-use smash_arc::{ Hash40, LoadedArc };
+use smash_arc::{Hash40, LoadedArc};
 
 pub fn random_media_select(directory: &str) -> io::Result<String> {
     let mut rng = rand::thread_rng();
 
-    let media_files: Vec<_> = fs::read_dir(Path::new(directory))?.filter_map(|entry| {
-        let entry = entry.unwrap();
-        let filename = entry.path();
-        let real_path = format!("{}/{}", directory, filename.display());
+    let media_files: Vec<_> = fs::read_dir(Path::new(directory))?
+        .filter_map(|entry| {
+            let entry = entry.unwrap();
+            let filename = entry.path();
+            let real_path = format!("{}/{}", directory, filename.display());
 
-        if !Path::new(&real_path).is_dir() {
-            Some(real_path)
-        } else {
-            None
-        }
-    }).collect();
+            if !Path::new(&real_path).is_dir() {
+                Some(real_path)
+            } else {
+                None
+            }
+        })
+        .collect();
 
     if media_files.is_empty() {
         return Err(Error::new(ErrorKind::Other, "No Files Found!"));
     }
-    
+
     Ok(media_files.choose(&mut rng).unwrap().to_string())
 }
 
@@ -51,7 +49,6 @@ fn lookup_by_stream_hash(
     offset_out: *mut u64,
     hash: Hash40,
 ) {
-
     if let Some(file_ctx) = MOD_FILES.read().0.get(&FileIndex::Stream(hash)) {
         let file;
         let metadata;

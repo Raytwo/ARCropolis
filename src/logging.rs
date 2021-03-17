@@ -1,4 +1,4 @@
-use log::{Record, Metadata, SetLoggerError, LevelFilter};
+use log::{LevelFilter, Metadata, Record, SetLoggerError};
 
 struct ArcLogger;
 

@@ -2,7 +2,9 @@ use std::vec;
 
 // Eventually move this to arcropolis-common
 // Add a dependency to this-error and make custom error types?
-use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FilePath, Hash40, LookupError, Region};
+use smash_arc::{
+    ArcLookup, FileData, FileInfo, FileInfoFlags, FilePath, Hash40, LookupError, Region,
+};
 
 use crate::runtime::LoadedTables;
 
@@ -12,7 +14,7 @@ pub fn metadata<H: Into<Hash40>>(hash: H) -> Result<Metadata, String> {
     let hash = hash.into();
     match LoadedTables::get_arc().get_file_path_index_from_hash(hash) {
         Ok(_) => Ok(Metadata(hash)),
-        Err(_) => Err("No FilePath found for this hash".to_string())
+        Err(_) => Err("No FilePath found for this hash".to_string()),
     }
 }
 
@@ -42,7 +44,7 @@ impl DirInfoEntry {
 }
 
 pub struct ReadDirInfo {
-    inner_iter: vec::IntoIter<FileInfo>
+    inner_iter: vec::IntoIter<FileInfo>,
 }
 
 impl Iterator for ReadDirInfo {
@@ -61,10 +63,10 @@ pub fn read_dir_info(index: u32) -> Result<ReadDirInfo, ()> {
 
     let start = dir_info.file_info_start_index as usize;
     let end = start + dir_info.file_info_count as usize;
-    
+
     let infos = &arc.get_file_infos()[start..end];
 
     Ok(ReadDirInfo {
-        inner_iter: infos.to_vec().into_iter()
+        inner_iter: infos.to_vec().into_iter(),
     })
 }

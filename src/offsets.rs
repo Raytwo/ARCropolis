@@ -67,7 +67,6 @@ static INITIAL_LOADING_SEARCH_CODE: &[u8] = &[
     0x08, 0x5d, 0x00, 0x12,
 ];
 
-
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
         .windows(needle.len())
@@ -151,7 +150,10 @@ pub fn search_offsets() {
 
         find_offsets!(
             (LOOKUP_STREAM_HASH_OFFSET, LOOKUP_STREAM_HASH_SEARCH_CODE),
-            (TITLE_SCREEN_VERSION_OFFSET, TITLE_SCREEN_VERSION_SEARCH_CODE),
+            (
+                TITLE_SCREEN_VERSION_OFFSET,
+                TITLE_SCREEN_VERSION_SEARCH_CODE
+            ),
             (INFLATE_OFFSET, INFLATE_SEARCH_CODE),
             (MEMCPY_1_OFFSET, MEMCPY_1_SEARCH_CODE),
             (MEMCPY_2_OFFSET, MEMCPY_2_SEARCH_CODE),

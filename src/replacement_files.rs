@@ -1,15 +1,17 @@
 use std::{collections::HashMap, fs, io, path::PathBuf};
 
-use crate::{config::CONFIG, fs::Metadata, runtime, visit::{ModFile, Modpath}};
+use crate::{
+    config::CONFIG,
+    fs::Metadata,
+    runtime,
+    visit::{ModFile, Modpath},
+};
 
 use owo_colors::OwoColorize;
 
 use smash_arc::{ArcLookup, FileData, FileDataFlags, FileInfoIndiceIdx, Hash40};
 
-use runtime::{
-    LoadedArcEx,
-    LoadedTables,
-};
+use runtime::{LoadedArcEx, LoadedTables};
 
 use log::warn;
 
@@ -23,32 +25,37 @@ lazy_static::lazy_static! {
 }
 
 #[no_mangle]
-pub extern "C" fn subscribe_callback(_hash: Hash40, _extension: *const u8, _extension_len: usize, _callback: ArcCallback) {
+pub extern "C" fn subscribe_callback(
+    _hash: Hash40,
+    _extension: *const u8,
+    _extension_len: usize,
+    _callback: ArcCallback,
+) {
     // Deprecated
-    warn!("{}", "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red());
+    warn!(
+        "{}",
+        "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red()
+    );
 }
 
 #[no_mangle]
-pub extern "C" fn subscribe_callback_with_size(_hash: Hash40, _filesize: u32, _extension: *const u8, _extension_len: usize, _callback: ArcCallback) {
+pub extern "C" fn subscribe_callback_with_size(
+    _hash: Hash40,
+    _filesize: u32,
+    _extension: *const u8,
+    _extension_len: usize,
+    _callback: ArcCallback,
+) {
     // Deprecated
-    warn!("{}", "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red());
+    warn!(
+        "{}",
+        "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red()
+    );
 }
 
 const REGIONS: &[&str] = &[
-    "jp_ja",
-    "us_en",
-    "us_fr",
-    "us_es",
-    "eu_en",
-    "eu_fr",
-    "eu_es",
-    "eu_de",
-    "eu_nl",
-    "eu_it",
-    "eu_ru",
-    "kr_ko",
-    "zh_cn",
-    "zh_tw",
+    "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
+    "eu_ru", "kr_ko", "zh_cn", "zh_tw",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -71,10 +78,9 @@ pub struct FileCtx {
 #[macro_export]
 macro_rules! get_from_file_info_indice_index {
     ($index:expr) => {
-        parking_lot::RwLockReadGuard::try_map(
-            $crate::replacement_files::MOD_FILES.read(),
-            |x| x.get(FileIndex::Regular($index))
-        )
+        parking_lot::RwLockReadGuard::try_map($crate::replacement_files::MOD_FILES.read(), |x| {
+            x.get(FileIndex::Regular($index))
+        })
     };
 }
 
@@ -83,7 +89,7 @@ impl ModFiles {
         let mut instance = Self(HashMap::new());
 
         let config = CONFIG.read();
-        
+
         // let mut mods: Vec<Modpack> = vec![];
 
         // // TODO: Build a cache using the timestamp of every Mod directory to confirm if something changed. If not, load everything and fill the tables without running a discovery
@@ -111,7 +117,10 @@ impl ModFiles {
         //println!("Moving to process_mods");
 
         //ModFiles::process_mods(mods);
-        let _ = instance.visit_dir(&PathBuf::from(&config.paths.arc), config.paths.arc.to_str().unwrap().len());
+        let _ = instance.visit_dir(
+            &PathBuf::from(&config.paths.arc),
+            config.paths.arc.to_str().unwrap().len(),
+        );
         let _ = instance.visit_umm_dirs(&PathBuf::from(&config.paths.umm));
 
         if let Some(extra_paths) = &config.paths.extra_paths {
@@ -193,8 +202,17 @@ impl ModFiles {
         arc_dir_len: usize,
     ) -> Result<(FileIndex, FileCtx), String> {
         // Skip any file starting with a period, to avoid any error related to path.extension()
-        if full_path.file_name().unwrap().to_str().unwrap().starts_with(".") {
-            return Err(format!("[ARC::Discovery] File '{}' starts with a period, skipping", full_path.display().bright_yellow()));
+        if full_path
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .starts_with(".")
+        {
+            return Err(format!(
+                "[ARC::Discovery] File '{}' starts with a period, skipping",
+                full_path.display().bright_yellow()
+            ));
         }
 
         // Make sure the file has an extension to not cause issues with the code that follows
@@ -202,22 +220,33 @@ impl ModFiles {
             Some(_) => {
                 //file_ctx.extension = Hash40::from(ext.to_str().unwrap());
             }
-            None => return Err(format!("[ARC::Discovery] File '{}' does not have an extension, skipping", full_path.display().bright_yellow())),
+            None => {
+                return Err(format!(
+                    "[ARC::Discovery] File '{}' does not have an extension, skipping",
+                    full_path.display().bright_yellow()
+                ))
+            }
         }
 
-        
-        let game_path = Modpath::from(PathBuf::from(&full_path.to_str().unwrap()[arc_dir_len + 1..]));
+        let game_path = Modpath::from(PathBuf::from(
+            &full_path.to_str().unwrap()[arc_dir_len + 1..],
+        ));
         let mut file_ctx = FileCtx::new();
 
         file_ctx.file = ModFile::from(full_path);
         file_ctx.hash = game_path.hash40().unwrap();
 
-        let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+        let user_region = smash_arc::Region::from(
+            get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
+        );
 
         match file_ctx.file.is_stream() {
             true => {
                 //STREAM_FILES.write().0.insert(file_ctx.hash, file_ctx.clone());
-                warn!("[Arc::Discovery] File '{}' placed in the STREAM table", file_ctx.file.path().display().bright_yellow());
+                warn!(
+                    "[Arc::Discovery] File '{}' placed in the STREAM table",
+                    file_ctx.file.path().display().bright_yellow()
+                );
                 Ok((FileIndex::Stream(file_ctx.hash), file_ctx))
             }
             false => {
@@ -226,33 +255,32 @@ impl ModFiles {
                 match arc.get_file_path_index_from_hash(file_ctx.hash) {
                     Ok(index) => {
                         let file_info = arc.get_file_info_from_path_index(index).clone();
-    
+
                         // Check if a file is regional.
                         if file_info.flags.is_regional() {
                             // Check if the file has a regional indicator
                             let region = match file_ctx.file.get_region() {
-                                Some(region) => {
-                                    region
-                                }
+                                Some(region) => region,
                                 // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
                                 None => user_region,
                             };
-        
+
                             // Check if the Region of a file matches with the game's. If not, discard it.
                             if region != user_region {
                                 return Err("File's region does not match".to_string());
                             }
                         }
-    
+
                         file_ctx.index = file_info.file_info_indice_index;
-    
+
                         file_ctx.orig_subfile = arc.patch_filedata(&file_info, file_ctx.file.len());
-                
+
                         Ok((FileIndex::Regular(file_ctx.index), file_ctx))
-                    },
-                    Err(_) => {
-                        Err(format!("[ARC::Patching] File '{}' was not found in data.arc", full_path.display().bright_yellow()))
-                    },
+                    }
+                    Err(_) => Err(format!(
+                        "[ARC::Patching] File '{}' was not found in data.arc",
+                        full_path.display().bright_yellow()
+                    )),
                 }
             }
         }
@@ -264,10 +292,7 @@ impl ModFiles {
 }
 
 pub fn get_region_id(region: &str) -> Option<u32> {
-    REGIONS
-        .iter()
-        .position(|x| x == &region)
-        .map(|x| x as u32)
+    REGIONS.iter().position(|x| x == &region).map(|x| x as u32)
 }
 
 impl FileCtx {
@@ -280,9 +305,9 @@ impl FileCtx {
                 comp_size: 0,
                 decomp_size: 0,
                 flags: FileDataFlags::new()
-                .with_compressed(false)
-                .with_use_zstd(false)
-                .with_unk(0),
+                    .with_compressed(false)
+                    .with_use_zstd(false)
+                    .with_unk(0),
             },
             index: FileInfoIndiceIdx(0),
         }

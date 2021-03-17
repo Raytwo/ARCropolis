@@ -5,8 +5,8 @@ use percent_encoding::percent_decode_str;
 use serde::Deserialize;
 use skyline::nn;
 use skyline_web::Webpage;
-use std::io::prelude::*;
 use std::ffi::CString;
+use std::io::prelude::*;
 use std::path::Path;
 
 use log::info;
@@ -152,9 +152,10 @@ pub fn show_arcadia() {
         };
     }
 
-    let img_cache = "sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/img";
+    let img_cache =
+        "sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/img";
 
-    if std::fs::metadata(&img_cache).is_ok(){
+    if std::fs::metadata(&img_cache).is_ok() {
         std::fs::remove_dir_all(&img_cache).unwrap();
     };
 
@@ -182,9 +183,9 @@ pub fn show_arcadia() {
         "http://localhost/" => (),
         url => {
             let res = percent_decode_str(&url[LOCALHOST.len()..])
-                    .decode_utf8_lossy()
-                    .into_owned()
-                    .replace("BREAKTHISLINE", "\n");
+                .decode_utf8_lossy()
+                .into_owned()
+                .replace("BREAKTHISLINE", "\n");
 
             let webpage_res: ModStatues = toml::from_str(&res).unwrap();
 
@@ -202,14 +203,17 @@ pub fn show_arcadia() {
                 if disabled {
                     if std::fs::metadata(&enabled_path).is_ok() {
                         info!("[menus::show_arcadia] Disabling {}", folder_name);
-                        info!("[menus::show_arcadia] RenameFolder Result: {:?}", rename_folder(&enabled_path, &disabled_path));
-                    }
-                } else if std::fs::metadata(&disabled_path).is_ok() {
-                        info!("[menus::show_arcadia] Enabling {}", folder_name);
                         info!(
                             "[menus::show_arcadia] RenameFolder Result: {:?}",
-                            rename_folder(&disabled_path, &enabled_path)
+                            rename_folder(&enabled_path, &disabled_path)
                         );
+                    }
+                } else if std::fs::metadata(&disabled_path).is_ok() {
+                    info!("[menus::show_arcadia] Enabling {}", folder_name);
+                    info!(
+                        "[menus::show_arcadia] RenameFolder Result: {:?}",
+                        rename_folder(&disabled_path, &enabled_path)
+                    );
                 }
 
                 info!("[menus::show_arcadia] ---------------------------");

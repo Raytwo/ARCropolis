@@ -2,17 +2,12 @@
 #![feature(str_strip)]
 #![feature(asm)]
 
+use std::ffi::CStr;
 use std::fs::File;
 use std::io::prelude::*;
-use std::ffi::CStr;
 use std::net::IpAddr;
 
-use skyline::{
-    nn,
-    hook,
-    hooks::InlineCtx,
-    install_hooks,
-};
+use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
 
 mod config;
 use config::CONFIG;
@@ -21,22 +16,21 @@ mod hashes;
 mod stream;
 
 mod replacement_files;
-use replacement_files::{FileCtx, FileIndex, INCOMING_IDX, MOD_FILES };
+use replacement_files::{FileCtx, FileIndex, INCOMING_IDX, MOD_FILES};
 
 mod offsets;
-use offsets::{ TITLE_SCREEN_VERSION_OFFSET, INFLATE_OFFSET, MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, INFLATE_DIR_FILE_OFFSET, MANUAL_OPEN_OFFSET, INITIAL_LOADING_OFFSET };
+use offsets::{
+    INFLATE_DIR_FILE_OFFSET, INFLATE_OFFSET, INITIAL_LOADING_OFFSET, MANUAL_OPEN_OFFSET,
+    MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, TITLE_SCREEN_VERSION_OFFSET,
+};
 
 mod runtime;
-use runtime::{
-    LoadedTables,
-    ResServiceState,
-    Table2Entry
-};
+use runtime::{LoadedTables, ResServiceState, Table2Entry};
 
 mod menus;
 
 mod logging;
-use log::{ trace, info };
+use log::{info, trace};
 
 mod visit;
 
@@ -46,7 +40,12 @@ use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
 
 use owo_colors::OwoColorize;
 
-fn get_filectx_by_index<'a>(file_index: FileIndex) -> Option<(parking_lot::MappedRwLockReadGuard<'a, FileCtx>, &'a mut Table2Entry)> {
+fn get_filectx_by_index<'a>(
+    file_index: FileIndex,
+) -> Option<(
+    parking_lot::MappedRwLockReadGuard<'a, FileCtx>,
+    &'a mut Table2Entry,
+)> {
     match file_index {
         FileIndex::Regular(info_indice_index) => {
             let tables = LoadedTables::get_instance();
@@ -57,10 +56,14 @@ fn get_filectx_by_index<'a>(file_index: FileIndex) -> Option<(parking_lot::Mappe
                     return None;
                 }
             };
-        
+
             match get_from_file_info_indice_index!(info_indice_index) {
                 Ok(file_ctx) => {
-                    info!("[ARC::Loading | #{}] Hash matching for file: '{:?}'", usize::from(info_indice_index).green(), file_ctx.file.path().display().bright_yellow());
+                    info!(
+                        "[ARC::Loading | #{}] Hash matching for file: '{:?}'",
+                        usize::from(info_indice_index).green(),
+                        file_ctx.file.path().display().bright_yellow()
+                    );
                     Some((file_ctx, table2entry))
                 }
                 Err(_) => None,
@@ -84,10 +87,17 @@ fn replace_file_by_index(file_index: FileIndex) {
 
         let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
-        info!("[ResInflateThread | #{}] Replacing '{}'", usize::from(file_ctx.index).green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+        info!(
+            "[ResInflateThread | #{}] Replacing '{}'",
+            usize::from(file_ctx.index).green(),
+            hashes::get(file_ctx.hash)
+                .unwrap_or(&"Unknown")
+                .bright_yellow()
+        );
 
         unsafe {
-            let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
+            let mut data_slice =
+                std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
             data_slice.write_all(&file_slice).unwrap();
         }
     }
@@ -99,16 +109,27 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
 
     let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
-    info!("[ResInflateThread | #{}] Replacing '{}'", usize::from(file_ctx.index).green(), hashes::get(file_ctx.hash).unwrap_or(&"Unknown").bright_yellow());
+    info!(
+        "[ResInflateThread | #{}] Replacing '{}'",
+        usize::from(file_ctx.index).green(),
+        hashes::get(file_ctx.hash)
+            .unwrap_or(&"Unknown")
+            .bright_yellow()
+    );
 
     if orig_size > file_slice.len() {
-        let data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size) };
+        let data_slice =
+            unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size) };
         // Copy the content at the beginning
-        data_slice[0..file_slice.len() - 0xB0].copy_from_slice(&file_slice[0..file_slice.len() - 0xB0]);
+        data_slice[0..file_slice.len() - 0xB0]
+            .copy_from_slice(&file_slice[0..file_slice.len() - 0xB0]);
         // Copy our new footer at the end
-        data_slice[orig_size - 0xB0..orig_size].copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
+        data_slice[orig_size - 0xB0..orig_size]
+            .copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
     } else {
-        let mut data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.file.len() as _) };
+        let mut data_slice = unsafe {
+            std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.file.len() as _)
+        };
         data_slice.write_all(&file_slice).unwrap();
     }
 }
@@ -119,7 +140,8 @@ fn inflate_incoming(ctx: &InlineCtx) {
         let arc = LoadedTables::get_arc();
         let res_service = ResServiceState::get_instance();
 
-        let info_index = (res_service.processing_file_idx_start + *ctx.registers[27].x.as_ref() as u32) as usize;
+        let info_index =
+            (res_service.processing_file_idx_start + *ctx.registers[27].x.as_ref() as u32) as usize;
         let file_info = arc.get_file_infos()[info_index];
         let info_indice_index = file_info.file_info_indice_index;
 
@@ -127,13 +149,21 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
         let hash = arc.get_file_paths()[path_idx].path.hash40();
 
-        info!("[ResInflateThread | #{}] Incoming '{}'", path_idx.green(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow());
+        info!(
+            "[ResInflateThread | #{}] Incoming '{}'",
+            path_idx.green(),
+            hashes::get(hash).unwrap_or(&"Unknown").bright_yellow()
+        );
 
         let mut incoming = INCOMING_IDX.write();
 
         if let Ok(context) = get_from_file_info_indice_index!(info_indice_index) {
             *incoming = Some(FileIndex::Regular(context.index));
-            info!("[ResInflateThread | #{}] Added index {} to the queue", path_idx.green(), usize::from(context.index).green());
+            info!(
+                "[ResInflateThread | #{}] Added index {} to the queue",
+                path_idx.green(),
+                usize::from(context.index).green()
+            );
         } else {
             *incoming = None;
         }
@@ -148,7 +178,11 @@ fn loading_incoming(ctx: &InlineCtx) {
         let path_idx = *ctx.registers[25].x.as_ref() as u32;
         let hash = arc.get_file_paths()[path_idx as usize].path.hash40();
 
-        info!("[ResLoadingThread | #{}] Incoming '{}'", path_idx.bright_yellow(), hashes::get(hash).unwrap_or(&"Unknown").bright_yellow());
+        info!(
+            "[ResLoadingThread | #{}] Incoming '{}'",
+            path_idx.bright_yellow(),
+            hashes::get(hash).unwrap_or(&"Unknown").bright_yellow()
+        );
     }
 }
 
@@ -170,7 +204,7 @@ fn memcpy_uncompressed_2(_ctx: &InlineCtx) {
 #[hook(offset = MEMCPY_3_OFFSET, inline)]
 fn memcpy_uncompressed_3(_ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy3] Entering function");
-    memcpy_impl();    
+    memcpy_impl();
 }
 
 fn memcpy_impl() {
@@ -188,8 +222,15 @@ pub struct InflateFile {
 }
 
 #[hook(offset = INFLATE_DIR_FILE_OFFSET)]
-fn load_directory_hook(unk1: *const u64, out_decomp_data: &InflateFile, comp_data: &InflateFile) -> u64 {
-    trace!("[LoadFileFromDirectory] Incoming decompressed filesize: {:x}", out_decomp_data.size);
+fn load_directory_hook(
+    unk1: *const u64,
+    out_decomp_data: &InflateFile,
+    comp_data: &InflateFile,
+) -> u64 {
+    trace!(
+        "[LoadFileFromDirectory] Incoming decompressed filesize: {:x}",
+        out_decomp_data.size
+    );
 
     // Let the file be inflated
     let result: u64 = original!()(unk1, out_decomp_data, comp_data);
@@ -257,12 +298,19 @@ fn initial_loading(_ctx: &InlineCtx) {
     logging::init(CONFIG.read().logger.as_ref().unwrap().logger_level.into()).unwrap();
 
     // Check if an update is available
-    if skyline_update::check_update(IpAddr::V4(CONFIG.read().updater.as_ref().unwrap().server_ip), "ARCropolis", env!("CARGO_PKG_VERSION"), CONFIG.read().updater.as_ref().unwrap().beta_updates) {
+    if skyline_update::check_update(
+        IpAddr::V4(CONFIG.read().updater.as_ref().unwrap().server_ip),
+        "ARCropolis",
+        env!("CARGO_PKG_VERSION"),
+        CONFIG.read().updater.as_ref().unwrap().beta_updates,
+    ) {
         skyline::nn::oe::RestartProgramNoArgs();
     }
-    
+
     // Lmao gross
-    let changelog = if let Ok(mut file) = File::open("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md") {
+    let changelog = if let Ok(mut file) =
+        File::open("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md")
+    {
         let mut content = String::new();
         file.read_to_string(&mut content).unwrap();
         Some(format!("Changelog\n\n{}", &content))
@@ -273,7 +321,8 @@ fn initial_loading(_ctx: &InlineCtx) {
     // TODO: Replace by a proper Smash-like menu someday
     if let Some(text) = changelog {
         skyline_web::DialogOk::ok(text);
-        std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md").unwrap();
+        std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md")
+            .unwrap();
     }
 
     // Discover files

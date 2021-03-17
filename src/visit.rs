@@ -1,7 +1,7 @@
-use std::{fs, path::{
-        Path,
-        PathBuf
-    }};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use fs::metadata;
 use smash_arc::{Hash40, Region};
@@ -11,14 +11,14 @@ use crate::replacement_files::get_region_id;
 #[derive(Debug, Clone)]
 pub struct Modpack {
     path: PathBuf,
-    pub mods: Vec<Modpath>
+    pub mods: Vec<Modpath>,
 }
 
 impl Modpack {
     pub fn new<P: AsRef<Path>>(path: P) -> Self {
         Self {
             path: path.as_ref().to_owned(),
-            mods: vec![]
+            mods: vec![],
         }
     }
 
@@ -28,36 +28,35 @@ impl Modpack {
 
     pub fn append(&mut self, modpaths: Vec<Modpath>) {
         self.mods = modpaths
-        .iter()
-        .map(|filepath| {
-            filepath.0.strip_prefix(&self.path).unwrap().to_owned()
-        })
-        .filter(|path|{
-            if path.starts_with(".") { false } else {
+            .iter()
+            .map(|filepath| filepath.0.strip_prefix(&self.path).unwrap().to_owned())
+            .filter(|path| {
+                if path.starts_with(".") {
+                    false
+                } else {
                     // Make sure the file has an extension, because if not we might get a panic later on
                     match path.extension() {
-                        Some(_) => {
-                            true
-                        }
-                        None => false
+                        Some(_) => true,
+                        None => false,
                     }
-            }
-        })
-        .map(|path| {
-            path.into()
-        })
-        .collect();
+                }
+            })
+            .map(|path| path.into())
+            .collect();
     }
 
     // TODO: Rework this to be a iterator like DirEntry but with Modpaths/Modfile
     pub fn merge(&self) -> Vec<(Hash40, ModFile)> {
-        self.mods.iter().map(|modpath| {
-            let full_path= self.path.to_owned().join(&modpath.path()).into();
+        self.mods
+            .iter()
+            .map(|modpath| {
+                let full_path = self.path.to_owned().join(&modpath.path()).into();
 
-            let hash = modpath.hash40().unwrap();
-            
-            (hash, full_path)
-        }).collect()
+                let hash = modpath.hash40().unwrap();
+
+                (hash, full_path)
+            })
+            .collect()
     }
 }
 #[repr(transparent)]
@@ -105,7 +104,10 @@ impl Modpath {
         match smash_path.to_str() {
             Some(path) => Ok(Hash40::from(path)),
             // TODO: Replace this by a proper error. This-error or something else.
-            None => Err(format!("Couldn't convert {} to a &str", self.path().display())),
+            None => Err(format!(
+                "Couldn't convert {} to a &str",
+                self.path().display()
+            )),
         }
     }
 
@@ -194,14 +196,23 @@ impl ModFile {
         match self.path().extension() {
             Some(_) => {
                 // Split the region identifier from the filepath
-                let filename = self.path().file_name().unwrap().to_str().unwrap().to_string();
+                let filename = self
+                    .path()
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string();
                 // Check if the filepath it contains a + symbol
                 if let Some(region_marker) = filename.find('+') {
-                    Some(Region::from(get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0) + 1))
+                    Some(Region::from(
+                        get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0)
+                            + 1,
+                    ))
                 } else {
                     None
                 }
-            },
+            }
             None => None,
         }
     }

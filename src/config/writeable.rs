@@ -1,7 +1,4 @@
-use std::ops::{
-    Deref,
-    DerefMut
-};
+use std::ops::{Deref, DerefMut};
 
 use parking_lot::RwLockWriteGuard;
 
