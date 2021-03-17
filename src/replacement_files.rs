@@ -90,33 +90,6 @@ impl ModFiles {
 
         let config = CONFIG.read();
 
-        // let mut mods: Vec<Modpack> = vec![];
-
-        // // TODO: Build a cache using the timestamp of every Mod directory to confirm if something changed. If not, load everything and fill the tables without running a discovery
-
-        // if config.paths.arc.exists() {
-        //     //mods.push(crate::visit::discover(&config.paths.arc));
-        //     ModFiles::process_mods(crate::visit::discover(&config.paths.arc))
-        // }
-
-        // if config.paths.umm.exists() {
-        //     for modpack in crate::visit::umm_directories(&config.paths.umm) {
-        //         ModFiles::process_mods(modpack);
-        //     }
-        //     //mods.append(&mut crate::visit::umm_directories(&config.paths.umm));
-        // }
-
-        // if let Some(extra_paths) = &config.paths.extra_paths {
-        //     for path in extra_paths {
-        //         if path.exists() {
-        //             mods.append(&mut crate::visit::umm_directories(&path));
-        //         }
-        //     }
-        // }
-
-        //println!("Moving to process_mods");
-
-        //ModFiles::process_mods(mods);
         let _ = instance.visit_dir(
             &PathBuf::from(&config.paths.arc),
             config.paths.arc.to_str().unwrap().len(),
