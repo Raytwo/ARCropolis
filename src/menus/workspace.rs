@@ -79,7 +79,7 @@ pub fn workspace_selector() {
 
     workspaces.workspace = get_workspaces();
 
-    if workspaces.workspace.len() == 0 {
+    if workspaces.workspace.is_empty() {
         skyline_web::DialogOk::ok("Your directory does not contain any modpack.");
         return;
     }
@@ -116,13 +116,13 @@ pub fn workspace_selector() {
             let path = selector_workspace.to_str().unwrap();
 
             // Set Arc path in config
-            if Path::new(&format!("{}/{}", path, "arc")).exists() == true {
+            if Path::new(&format!("{}/{}", path, "arc")).exists() {
                 config.paths.arc = PathBuf::from(format!("{}/{}", path, "arc"));
                 config_changed = true;
             }
 
             // Set UMM path in config
-            if Path::new(&format!("{}/{}", path, "umm")).exists() == true {
+            if Path::new(&format!("{}/{}", path, "umm")).exists() {
                 config.paths.umm = PathBuf::from(format!("{}/{}", path, "umm"));
                 config_changed = true;
             }

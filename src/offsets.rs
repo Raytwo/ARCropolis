@@ -94,7 +94,7 @@ fn offset_from_ldr(ldr_offset: usize) -> usize {
 }
 
 pub fn offset_to_addr(offset: usize) -> *const () {
-    unsafe { (getRegionAddress(Region::Text) as *const u8).offset(offset as isize) as _ }
+    unsafe { (getRegionAddress(Region::Text) as *const u8).add(offset) as _ }
 }
 
 macro_rules! find_offsets {

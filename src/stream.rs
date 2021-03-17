@@ -89,7 +89,7 @@ fn lookup_by_stream_hash(
             info!("Loading '{}'...", string);
             let bytes = string.as_bytes();
             ptr::copy_nonoverlapping(bytes.as_ptr(), out_path, bytes.len());
-            *out_path.offset(bytes.len() as _) = 0u8;
+            *out_path.add(bytes.len()) = 0u8;
         }
     } else {
         original!()(out_path, loaded_arc, size_out, offset_out, hash);

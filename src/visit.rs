@@ -35,10 +35,7 @@ impl Modpack {
                     false
                 } else {
                     // Make sure the file has an extension, because if not we might get a panic later on
-                    match path.extension() {
-                        Some(_) => true,
-                        None => false,
-                    }
+                    path.extension().is_some()
                 }
             })
             .map(|path| path.into())

@@ -111,7 +111,7 @@ impl ModFiles {
             let entry = entry?;
 
             // Skip any directory starting with a period
-            if entry.file_name().to_str().unwrap().starts_with(".") {
+            if entry.file_name().to_str().unwrap().starts_with('.') {
                 continue;
             }
 
@@ -134,7 +134,7 @@ impl ModFiles {
                 // Check if the entry is a directory or a file
                 if entry.file_type().unwrap().is_dir() {
                     // If it is one of the stream randomizer directories
-                    if let Some(_) = path.extension() {
+                    if path.extension().is_some() {
                         match self.visit_file(&path, arc_dir_len) {
                             Ok((index, file_ctx)) => {
                                 self.0.insert(index, file_ctx);
@@ -180,7 +180,7 @@ impl ModFiles {
             .unwrap()
             .to_str()
             .unwrap()
-            .starts_with(".")
+            .starts_with('.')
         {
             return Err(format!(
                 "[ARC::Discovery] File '{}' starts with a period, skipping",
@@ -213,8 +213,7 @@ impl ModFiles {
             get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
         );
 
-        match file_ctx.file.is_stream() {
-            true => {
+        if file_ctx.file.is_stream() {
                 //STREAM_FILES.write().0.insert(file_ctx.hash, file_ctx.clone());
                 warn!(
                     "[Arc::Discovery] File '{}' placed in the STREAM table",
@@ -222,12 +221,12 @@ impl ModFiles {
                 );
                 Ok((FileIndex::Stream(file_ctx.hash), file_ctx))
             }
-            false => {
+            else {
                 let arc = LoadedTables::get_arc_mut();
 
                 match arc.get_file_path_index_from_hash(file_ctx.hash) {
                     Ok(index) => {
-                        let file_info = arc.get_file_info_from_path_index(index).clone();
+                        let file_info = *arc.get_file_info_from_path_index(index);
 
                         // Check if a file is regional.
                         if file_info.flags.is_regional() {
@@ -256,7 +255,6 @@ impl ModFiles {
                     )),
                 }
             }
-        }
     }
 
     pub fn get(&self, file_index: FileIndex) -> Option<&FileCtx> {

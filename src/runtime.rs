@@ -268,7 +268,7 @@ impl LoadedArcEx for LoadedArc {
 
         // To check if the file is shared
         let folder_offset = self.get_folder_offset(fileinfo, region);
-        let orig_filedata = self.get_file_data_mut(fileinfo, region).clone();
+        let orig_filedata = *self.get_file_data_mut(fileinfo, region);
         let offset = folder_offset
             + self.get_file_section_offset()
             + ((orig_filedata.offset_in_folder as u64) << 2);
