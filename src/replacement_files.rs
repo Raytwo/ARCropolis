@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, io, path::PathBuf};
 
-use crate::{config::CONFIG, fs::Metadata, runtime, visit::{ModFile, Modpack, Modpath}};
+use crate::{config::CONFIG, fs::Metadata, runtime, visit::{ModFile, Modpath}};
 
 use owo_colors::OwoColorize;
 
@@ -9,7 +9,6 @@ use smash_arc::{ArcLookup, FileData, FileDataFlags, FileInfoIndiceIdx, Hash40};
 use runtime::{
     LoadedArcEx,
     LoadedTables,
-    ResServiceState
 };
 
 use log::warn;
@@ -171,9 +170,7 @@ impl ModFiles {
                 } else {
                     match self.visit_file(&path, arc_dir_len) {
                         Ok((index, context)) => {
-                            if let Some(ctx) = self.0.get_mut(&index) {
-                                
-                            } else {
+                            if self.0.get_mut(&index).is_none() {
                                 self.0.insert(index as _, context);
                             }
                             return Ok(());
@@ -209,7 +206,7 @@ impl ModFiles {
         }
 
         
-        let mut game_path = Modpath::from(PathBuf::from(&full_path.to_str().unwrap()[arc_dir_len + 1..]));
+        let game_path = Modpath::from(PathBuf::from(&full_path.to_str().unwrap()[arc_dir_len + 1..]));
         let mut file_ctx = FileCtx::new();
 
         file_ctx.file = ModFile::from(full_path);

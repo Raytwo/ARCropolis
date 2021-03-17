@@ -9,11 +9,11 @@ use skyline::{
     },
 };
 
-use smash_arc::{ArcLookup, FileData, FileDataFlags, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, LoadedArc};
+use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, LoadedArc};
 
 use smash_arc::LoadedSearchSection;
 
-use crate::replacement_files::{FileCtx, get_region_id};
+use crate::replacement_files::get_region_id;
 
 use crate::config::CONFIG;
 
@@ -251,16 +251,14 @@ impl LoadedArcEx for LoadedArc {
         let file_path = self.get_file_paths()[usize::from(fileinfo.file_path_index)];
 
         let region = if fileinfo.flags.is_regional() {
-            let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
-            //context.file.get_region().unwrap_or(user_region) 
-            user_region
+            smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1)
         } else {
             smash_arc::Region::None
         };
 
-        // To check if the file is shared)
+        // To check if the file is shared
         let folder_offset = self.get_folder_offset(fileinfo, region);
-        let mut orig_filedata = self.get_file_data_mut(fileinfo, region).clone();
+        let orig_filedata = self.get_file_data_mut(fileinfo, region).clone();
         let offset = folder_offset + self.get_file_section_offset() + ((orig_filedata.offset_in_folder as u64) <<  2);
 
         if self.get_shared_section_offset() < offset {

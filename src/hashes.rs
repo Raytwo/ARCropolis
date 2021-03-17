@@ -21,7 +21,7 @@ lazy_static::lazy_static! {
             hashes.insert(Hash40::from(hs), hs);
         }
 
-        return hashes;
+        hashes
     };
 }
 

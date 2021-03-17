@@ -28,7 +28,7 @@ pub struct DirInfoEntry(FileInfo);
 impl DirInfoEntry {
     pub fn path(&self) -> FilePath {
         let arc = LoadedTables::get_arc();
-        arc.get_file_paths()[usize::from(self.0.file_path_index)].clone()
+        arc.get_file_paths()[usize::from(self.0.file_path_index)]
     }
 
     pub fn metadata(&self) -> &FileData {

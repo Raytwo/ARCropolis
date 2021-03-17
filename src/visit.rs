@@ -1,4 +1,4 @@
-use std::{fs, io, path::{
+use std::{fs, path::{
         Path,
         PathBuf
     }};
@@ -6,7 +6,7 @@ use std::{fs, io, path::{
 use fs::metadata;
 use smash_arc::{Hash40, Region};
 
-use crate::replacement_files::{ModFiles, get_region_id};
+use crate::replacement_files::get_region_id;
 
 #[derive(Debug, Clone)]
 pub struct Modpack {
@@ -33,9 +33,7 @@ impl Modpack {
             filepath.0.strip_prefix(&self.path).unwrap().to_owned()
         })
         .filter(|path|{
-            match path.starts_with(".") {
-                true => false,
-                false => {
+            if path.starts_with(".") { false } else {
                     // Make sure the file has an extension, because if not we might get a panic later on
                     match path.extension() {
                         Some(_) => {
@@ -43,7 +41,6 @@ impl Modpack {
                         }
                         None => false
                     }
-                }
             }
         })
         .map(|path| {
@@ -108,18 +105,18 @@ impl Modpath {
         match smash_path.to_str() {
             Some(path) => Ok(Hash40::from(path)),
             // TODO: Replace this by a proper error. This-error or something else.
-            None => Err(String::from(format!("Couldn't convert {} to a &str", self.path().display()))),
+            None => Err(format!("Couldn't convert {} to a &str", self.path().display())),
         }
     }
 
     pub fn as_smash_path(&self) -> PathBuf {
         let mut arc_path = self.0.to_str().unwrap().to_string();
 
-        if let Some(_) = arc_path.find(";") {
+        if arc_path.find(';').is_some() {
             arc_path = arc_path.replace(";", ":");
         }
 
-        if let Some(regional_marker) = arc_path.find("+") {
+        if let Some(regional_marker) = arc_path.find('+') {
             arc_path.replace_range(regional_marker..regional_marker + 6, "");
         }
 
@@ -162,11 +159,11 @@ impl ModFile {
     pub fn as_smash_path(&self) -> PathBuf {
         let mut arc_path = self.path().to_str().unwrap().to_string();
 
-        if let Some(_) = arc_path.find(";") {
+        if arc_path.find(';').is_some() {
             arc_path = arc_path.replace(";", ":");
         }
 
-        if let Some(regional_marker) = arc_path.find("+") {
+        if let Some(regional_marker) = arc_path.find('+') {
             arc_path.replace_range(regional_marker..regional_marker + 6, "");
         }
 
@@ -199,13 +196,11 @@ impl ModFile {
                 // Split the region identifier from the filepath
                 let filename = self.path().file_name().unwrap().to_str().unwrap().to_string();
                 // Check if the filepath it contains a + symbol
-                let region = if let Some(region_marker) = filename.find('+') {
+                if let Some(region_marker) = filename.find('+') {
                     Some(Region::from(get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0) + 1))
                 } else {
                     None
-                };
-
-                region
+                }
             },
             None => None,
         }
