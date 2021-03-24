@@ -153,7 +153,327 @@ pub struct FsSearchBody {
     pub path_group_length: u32,
 }
 
+pub struct TableGuard {
+    tables: &'static mut LoadedTables
+}
+
+impl std::ops::Deref for TableGuard {
+    type Target = LoadedTables;
+
+    fn deref(&self) -> &LoadedTables {
+        self.tables
+    }
+}
+
+impl std::ops::DerefMut for TableGuard {
+    fn deref_mut(&mut self) -> &mut LoadedTables {
+        self.tables
+    }
+}
+
+impl TableGuard {
+    pub fn new() -> Self {
+        let instance: &'static mut LoadedTables = LoadedTables::get_instance();
+        instance.lock();
+        Self {
+            tables: instance
+        }
+    }
+}
+
+impl Drop for TableGuard {
+    fn drop(&mut self) {
+        self.tables.unlock();
+    }
+}
+
+use smash_arc::*;
+#[derive(Debug)]
+pub struct ArrayLengths {
+    pub dir_infos: u32,
+    pub file_paths: u32,
+    pub file_info_indices: u32,
+    pub file_infos: u32,
+    pub file_info_to_datas: u32,
+    pub file_datas: u32,
+    pub folder_offsets: u32
+}
+
+impl ArrayLengths {
+    pub fn new() -> Self {
+        let arc = LoadedTables::get_arc();
+        let fs = unsafe { *arc.fs_header };
+        Self {
+            dir_infos: fs.folder_count,
+            file_paths: fs.file_info_path_count,
+            file_info_indices: fs.file_info_index_count,
+            file_infos: fs.file_info_count + fs.file_data_count_2 + fs.extra_count,
+            file_info_to_datas: fs.file_info_sub_index_count + fs.file_data_count_2 + fs.extra_count_2,
+            file_datas: fs.file_data_count + fs.file_data_count_2 + fs.extra_count,
+            folder_offsets: fs.folder_offset_count_1 + fs.folder_offset_count_2 + fs.extra_folder
+        }
+    }
+}
+
 impl LoadedTables {
+
+    #[inline]
+    pub fn lock(&mut self) {
+        unsafe { nn::os::LockMutex(self.mutex); }
+    }
+
+    #[inline]
+    pub fn unlock(&mut self) {
+        unsafe { nn::os::UnlockMutex(self.mutex); }
+    }
+
+    unsafe fn recreate_array<T: Sized>(start: *const T, length: usize, new_entries: &Vec<T>) -> *mut T {
+        let arr_layout = std::alloc::Layout::from_size_align((length + new_entries.len()) * std::mem::size_of::<T>(), 0x10).unwrap();
+        let new_ptr = std::alloc::alloc(arr_layout) as *mut T;
+        std::ptr::copy_nonoverlapping(start, new_ptr, length);
+        std::ptr::copy_nonoverlapping(new_entries.as_ptr(), new_ptr.offset(length as isize), new_entries.len());
+        new_ptr
+    }
+
+    unsafe fn extend_table<T: Sized>(start: *const T, length: usize, new_entries: usize) -> *mut T {
+        let arr_layout = std::alloc::Layout::from_size_align((length + new_entries) * std::mem::size_of::<T>(), 0x10).unwrap();
+        let new_ptr = std::alloc::alloc(arr_layout) as *mut T;
+        std::ptr::copy_nonoverlapping(start, new_ptr, length);
+        new_ptr
+    }
+
+
+    // pub unsafe fn deduplicate_super_group<Hash: Into<Hash40> + Clone>(path: Hash) {
+    //     let path: Hash40 = path.clone().into();
+    //     let instance = Self::acquire_instance();
+    //     let arc = Self::get_arc_mut();
+    //     let fs: &'static mut FileSystemHeader = std::mem::transmute(arc.fs_header);
+    //     let len = fs.folder_offset_count_1 + fs.folder_offset_count_2 + fs.extra_folder;
+    //     let folder_offsets = std::slice::from_raw_parts_mut(arc.folder_offsets as *mut DirectoryOffset, (fs.folder_offset_count_1 + fs.folder_offset_count_2 + fs.extra_folder) as usize);
+    //     let file_infos = std::slice::from_raw_parts(arc.file_infos, (fs.file_info_count + fs.file_data_count_2 + fs.extra_count) as usize);
+
+    //     let dir_info = arc.get_dir_info_from_hash(path).unwrap();
+    //     let buffer_folder = &mut folder_offsets[(dir_info.dir_offset_index >> 8) as usize];
+    //     let original_shared_idx = buffer_folder.resource_index;
+    //     buffer_folder.resource_index = len;
+    //     let mut deduplicated_folder = folder_offsets[original_shared_idx as usize].clone();
+    //     arc.folder_offsets = Self::recreate_array(arc.folder_offsets, folder_offsets.len(), 1);
+    //     arc.file_infos = Self::recreate_array(arc.file_infos, file_infos.len(), (deduplicated_folder.file_info_count * 3) as usize);
+    //     fs.folder_offset_count_1 += 1;
+    //     fs.file_info_count += deduplicated_folder.file_info_count * 3;
+
+    //     let folder_offsets = std::slice::from_raw_parts_mut(arc.folder_offsets as *mut DirectoryOffset, (fs.folder_offset_count_1 + fs.folder_offset_count_2 + fs.extra_folder) as usize);
+    //     std::ptr::copy_nonoverlapping(arc.file_infos.offset(deduplicated_folder.file_info_start_index as isize), arc.file_infos.offset(file_infos.len() as isize), deduplicated_folder.file_info_count as usize);
+
+    //     deduplicated_folder.file_info_start_index = file_infos.len() as u32;
+    //     *folder_offsets.last_mut().unwrap() = deduplicated_folder.clone();
+    // }
+
+    pub unsafe fn deduplicate_mass_loading_group<Hash: Into<Hash40> + Clone>(path: Hash) -> Result<(), LookupError> {
+        use std::collections::HashMap;
+        // get initial values
+        let path: Hash40 = path.clone().into();
+        let mut instance = Self::acquire_instance();
+        let arc = Self::get_arc_mut();
+        let fs: &'static mut FileSystemHeader = std::mem::transmute(arc.fs_header);
+        let lengths = ArrayLengths::new();
+
+        // get the arc tables
+        let dir_infos: &[LoadedDirInfo]                   = std::slice::from_raw_parts(arc.dir_infos, lengths.dir_infos as usize);
+        let folder_offsets: &mut [DirectoryOffset]        = std::slice::from_raw_parts_mut(arc.folder_offsets as *mut DirectoryOffset, lengths.folder_offsets as usize);
+        let file_paths: &mut [FilePath]                   = std::slice::from_raw_parts_mut(arc.file_paths as *mut FilePath, lengths.file_paths as usize);
+        let file_info_indices: &mut [FileInfoIndex]       = std::slice::from_raw_parts_mut(arc.file_info_indices as *mut FileInfoIndex, lengths.file_info_indices as usize);
+        let file_infos: &mut [FileInfo]                   = std::slice::from_raw_parts_mut(arc.file_infos, lengths.file_infos as usize);
+        let file_info_to_datas: &mut [FileInfoToFileData] = std::slice::from_raw_parts_mut(arc.file_info_to_datas, lengths.file_info_to_datas as usize);
+        let file_datas: &mut [FileData]                   = std::slice::from_raw_parts_mut(arc.file_datas, lengths.file_datas as usize);
+
+        // our new entries
+        let mut new_info_indices: Vec<FileInfoIndex>       = Vec::new();
+        let mut new_infos: Vec<FileInfo>                   = Vec::new();
+        let mut new_info_to_datas: Vec<FileInfoToFileData> = Vec::new();
+        let mut new_datas: Vec<FileData>                   = Vec::new();
+
+        // originally I was checking based off of the FileInfoIndex's dir_offset_index, but that doesn't work
+        // since sometimes a file in this MassLoadData could be pointing to a more commonly shared file,
+        // a common example of this is model.xmb, which is shared by basically every fighter
+        let mass_load_group = arc.get_dir_info_from_hash(path)?;
+        let intermediate_load_data = &mut folder_offsets[(mass_load_group.dir_offset_index >> 8) as usize];
+        let old_resource_index = intermediate_load_data.resource_index;
+        intermediate_load_data.resource_index = lengths.folder_offsets;
+        drop(intermediate_load_data);
+        let shared_load_data = &folder_offsets[old_resource_index as usize];
+        let mass_load_group_infos = std::slice::from_raw_parts_mut(arc.file_infos.offset(mass_load_group.file_info_start_index as isize), mass_load_group.file_info_count as usize);
+        let shared_load_data_infos = std::slice::from_raw_parts_mut(arc.file_infos.offset(shared_load_data.file_info_start_index as isize), shared_load_data.file_info_count as usize);
+        // pretty fast way of figuring out which group hash corresponds to the data hash
+        // i.e., "fighter/roy/model/body/c07/model.numshb" will return "fighter/roy/model/body/c00/model.numshb"
+        // this also works for further shared files, like the model.xmb
+        let mut index_to_data_hash_map = HashMap::new();
+        for info in shared_load_data_infos.iter() {
+            let hash = file_paths[info.file_path_index.0 as usize].path.hash40();
+            let path_idx = file_infos[file_info_indices[info.file_info_indice_index.0 as usize].file_info_index.0 as usize].file_path_index.0;
+            index_to_data_hash_map.insert(path_idx, hash);
+        }
+        let mut data_to_group_hash_map = HashMap::new();
+        let mut group_to_index_hash_map = HashMap::new();
+        let mut cur_idx: u32 = 0;
+        for info in mass_load_group_infos.iter() {
+            let path_idx = file_infos[file_info_indices[info.file_info_indice_index.0 as usize].file_info_index.0 as usize].file_path_index.0;
+            if let Some(data_hash) = index_to_data_hash_map.get(&path_idx) {
+                let group_hash = file_paths[info.file_path_index.0 as usize].path.hash40();
+                if *data_hash == group_hash {
+                    return Err(LookupError::Missing); // not really missing but /shrug
+                }
+                data_to_group_hash_map.insert(*data_hash, group_hash);
+                group_to_index_hash_map.insert(group_hash, cur_idx);
+            }
+            cur_idx += 1;
+        }
+        drop(index_to_data_hash_map);
+
+        // place holder val since FileInfo doesn't impl Default
+        let default_info = file_infos[0];
+
+        // so we can ensure all of our deduplicated load data is bunched contiguous
+        new_infos.resize_with(shared_load_data_infos.len(), || default_info);
+        
+        // reserve basic amount of mem first
+        new_info_indices.reserve(shared_load_data_infos.len());
+        new_info_to_datas.reserve(shared_load_data_infos.len());
+        new_datas.reserve(shared_load_data_infos.len());
+
+        let mut cur_idx = 0;
+        for info in shared_load_data_infos.iter() {
+            let source_info_hash = file_paths[info.file_path_index.0 as usize].path.hash40();
+            let data = file_datas[file_info_to_datas[info.info_to_data_index.0 as usize].file_data_index.0 as usize];
+            let new_info_hash = data_to_group_hash_map.get(&source_info_hash).expect(&format!("Could not find new hash for source hash {:X}", source_info_hash.0));
+            let info_idx = group_to_index_hash_map.get(&new_info_hash).expect(&format!("Could not find info index for new hash {:X}", new_info_hash.0));
+            mass_load_group_infos[*info_idx as usize].file_info_indice_index = FileInfoIndiceIdx(lengths.file_info_indices + new_info_indices.len() as u32);
+            // POTENTIAL_BUG
+            // The original game has this FileInfo point to a unique InfoToData, although that "unique" info to data contains the same information and indices
+            // as the one that derives from the filepath.
+            mass_load_group_infos[*info_idx as usize].info_to_data_index = InfoToDataIdx(lengths.file_info_to_datas + new_info_to_datas.len() as u32);
+            let new_path_idx = mass_load_group_infos[*info_idx as usize].file_path_index;
+
+            // fill in the new deduplicated FileInfo for this spot in the shared load data
+            let new_contiguous_info = FileInfo {
+                file_info_indice_index: FileInfoIndiceIdx(lengths.file_info_indices + new_info_indices.len() as u32),
+                file_path_index: new_path_idx,
+                info_to_data_index: info.info_to_data_index,// InfoToDataIdx(lengths.file_info_to_datas + new_info_to_datas.len() as u32),
+                flags: info.flags
+            };
+            new_infos[cur_idx] = new_contiguous_info;
+
+            // append the file redirection chain to the end of the vectors.
+            // afaict, this redirect chain has to have the same file hash, terminating with an info that either has
+            // the flag `is_redirect` or has a different filepath index
+            let mut redirect_info_idx = shared_load_data.file_info_start_index + cur_idx as u32;
+            let mut redirect_info = info;
+            let mut redirect_info_to_data = &file_info_to_datas[info.info_to_data_index.0 as usize];
+            // we have to at least go through a redirection once, otherwise redirected files (like model.xmb) won't work correctly and will cause
+            // the redirection loop to terminate early
+            let shared_path_idx = file_infos[file_info_indices[info.file_info_indice_index.0 as usize].file_info_index.0 as usize].file_path_index;
+            // the first info is in the contiguous data section, and since it could also be the end of the redirection chain (see model.numshb)
+            // we have to skip adding it to the vector
+            let next_info_idx = redirect_info_to_data.file_info_index_and_flag & 0xFFFFFF;
+            if next_info_idx == redirect_info_idx && !redirect_info.flags.is_redirect() && redirect_info.file_path_index == shared_path_idx {
+                panic!("Self recursion in redirect chain.");
+            }
+            let (is_chain, idx_and_flag) = if redirect_info.flags.is_redirect() || redirect_info.file_path_index != shared_path_idx { // redirection chain never starts, only one FileInfoToFileData
+                // POTENTIAL_BUG
+                // using the original `file_info_index_and_flag` of the end of the redirect chain should be sufficient but I'm not 100% sure
+                (false, redirect_info_to_data.file_info_index_and_flag)
+            } else {
+                let flag = redirect_info_to_data.file_info_index_and_flag & 0xFF000000;
+                let info_idx = lengths.file_infos + new_infos.len() as u32;
+                (true, flag | info_idx)
+            };
+            let new_info_to_data = FileInfoToFileData {
+                folder_offset_index: lengths.folder_offsets,
+                file_data_index: FileDataIdx(lengths.file_datas + new_datas.len() as u32),
+                file_info_index_and_flag: idx_and_flag
+            };
+            new_info_to_datas.push(new_info_to_data);
+            if is_chain {
+                redirect_info = &file_infos[next_info_idx as usize];
+                redirect_info_idx = next_info_idx;
+                loop {
+                    // at this point we know that the next info is a valid one to append, since we either don't enter the loop or break when it's not
+                    let new_info = FileInfo {
+                        file_info_indice_index: FileInfoIndiceIdx(lengths.file_info_indices + new_info_indices.len() as u32),
+                        file_path_index: new_path_idx,
+                        info_to_data_index: InfoToDataIdx(lengths.file_info_to_datas + new_info_to_datas.len() as u32),
+                        flags: redirect_info.flags
+                    };
+                    new_infos.push(new_info);
+                    redirect_info_to_data = &file_info_to_datas[redirect_info.info_to_data_index.0 as usize];
+                    let new_info_idx = redirect_info_to_data.file_info_index_and_flag & 0xFFFFFF;
+                    redirect_info = &file_infos[new_info_idx as usize];
+                    if next_info_idx == redirect_info_idx && !redirect_info.flags.is_redirect() && redirect_info.file_path_index == shared_path_idx {
+                        panic!("Self recursion in redirect chain.");
+                    }
+                    let (is_chain, idx_and_flag) = if redirect_info.flags.is_redirect() || redirect_info.file_path_index != shared_path_idx { // redirection chain never starts, only one FileInfoToFileData
+                        // POTENTIAL_BUG
+                        // using the original `file_info_index_and_flag` of the end of the redirect chain should be sufficient but I'm not 100% sure
+                        (false, redirect_info_to_data.file_info_index_and_flag)
+                    } else {
+                        let flag = redirect_info_to_data.file_info_index_and_flag & 0xFF000000;
+                        let info_idx = lengths.file_infos + new_infos.len() as u32;
+                        (true, flag | info_idx)
+                    };
+                    let new_info_to_data = FileInfoToFileData {
+                        folder_offset_index: lengths.folder_offsets,
+                        file_data_index: FileDataIdx(lengths.file_datas + new_datas.len() as u32),
+                        // file_data_index: FileDataIdx(0xFFFFFF),
+                        file_info_index_and_flag: idx_and_flag
+                    };
+                    new_info_to_datas.push(new_info_to_data);
+                    if !is_chain { break; }
+                }
+            }
+
+            let path = &mut file_paths[new_path_idx.0 as usize];
+            // println!("{:#x?}", path);
+            path.path.set_index(lengths.file_info_indices + new_info_indices.len() as u32);
+            // println!("{:#x?}", path);
+
+            let new_info_index = FileInfoIndex {
+                dir_offset_index: lengths.folder_offsets,
+                file_info_index: file_info_indices[info.file_info_indice_index.0 as usize].file_info_index, //FileInfoIdx(lengths.file_infos + cur_idx as u32)
+            };
+            new_info_indices.push(new_info_index);
+            new_datas.push(data.clone());
+            cur_idx += 1;
+        }
+        let deduplicated_load_data = DirectoryOffset {
+            offset: shared_load_data.offset,
+            decomp_size: shared_load_data.decomp_size,
+            size: shared_load_data.size,
+            file_info_start_index: lengths.file_infos,
+            file_info_count: shared_load_data.file_info_count,
+            resource_index: lengths.folder_offsets
+        };
+        arc.file_info_indices = Self::recreate_array(arc.file_info_indices, lengths.file_info_indices as usize, &new_info_indices);
+        instance.table2 = Self::extend_table(instance.table2, instance.table2_len as usize, new_info_indices.len());
+        arc.file_infos = Self::recreate_array(arc.file_infos, lengths.file_infos as usize, &new_infos);
+        arc.file_info_to_datas = Self::recreate_array(arc.file_info_to_datas, lengths.file_info_to_datas as usize, &new_info_to_datas);
+        arc.file_datas = Self::recreate_array(arc.file_datas, lengths.file_datas as usize, &new_datas);
+        arc.folder_offsets = Self::recreate_array(arc.folder_offsets, lengths.folder_offsets as usize, &vec![deduplicated_load_data.clone()]);
+        
+        fs.file_info_index_count += new_info_indices.len() as u32;
+        instance.table2_len += new_info_indices.len() as u32;
+        fs.file_info_count += new_infos.len() as u32;
+        fs.file_info_sub_index_count += new_info_to_datas.len() as u32;
+        fs.file_data_count += new_datas.len() as u32;
+        fs.folder_offset_count_1 += 1;
+        Ok(())
+    }
+
+
+
+    pub fn acquire_instance() -> TableGuard {
+        TableGuard::new()
+    }
+
     pub fn get_arc() -> &'static LoadedArc {
         LoadedTables::get_instance().loaded_data.arc
     }

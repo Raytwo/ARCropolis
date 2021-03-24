@@ -328,7 +328,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Discover files
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
-
+        LoadedTables::deduplicate_mass_loading_group("fighter/roy/c00").unwrap();
         lazy_static::initialize(&MOD_FILES);
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
