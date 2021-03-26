@@ -1,6 +1,7 @@
 #![feature(proc_macro_hygiene)]
 #![feature(str_strip)]
 #![feature(asm)]
+#![feature(ptr_offset_from)]
 
 use std::ffi::CStr;
 use std::fs::File;
@@ -8,6 +9,8 @@ use std::io::prelude::*;
 use std::net::IpAddr;
 
 use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
+
+mod cpp_vector;
 
 mod config;
 use config::CONFIG;
@@ -328,7 +331,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Discover files
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
-        LoadedTables::deduplicate_mass_loading_group("fighter/roy/c00").unwrap();
+        LoadedTables::unshare_mass_loading_groups(&vec!["fighter/roy/c00", "fighter/ken/c02"]).unwrap();
         lazy_static::initialize(&MOD_FILES);
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
