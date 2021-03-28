@@ -393,6 +393,11 @@ impl LoadedTables {
     // }
 
     pub fn unshare_mass_loading_groups<Hash: Into<Hash40> + Clone>(paths: &Vec<Hash>) -> Result<(), LookupError> {
+        lazy_static::lazy_static! {
+            static ref BANNED_FILENAMES: Vec<Hash40> = vec![
+                Hash40::from("model.xmb")
+            ];
+        }
         use std::collections::HashMap;
         let paths: Vec<Hash40> = paths.iter().map(|x| {
             x.clone().into()
@@ -402,6 +407,7 @@ impl LoadedTables {
             let mut instance = Self::acquire_instance(); // acquiring will lock the mutex and unlock on drop
             let arc = Self::get_arc_mut();
             let fs: &'static mut FileSystemHeader = std::mem::transmute(arc.fs_header);
+            let uncompressed_fs: &'static mut FileSystemHeader = std::mem::transmute(arc.uncompressed_fs);
             let lengths = ArrayLengths::new(); // get array lengths as u32 values, simplifies making the indices
 
             let folder_offsets = std::slice::from_raw_parts_mut(arc.folder_offsets as *mut DirectoryOffset, lengths.folder_offsets as usize);
@@ -486,8 +492,8 @@ impl LoadedTables {
                     // get the data this pointed to
                     let idx_ = child_info.file_info_indice_index;
                     let idx_ = file_info_indices[usize::from(idx_)].file_info_index;
-                    let idx_ = file_infos[usize::from(idx_)].info_to_data_index;
-                    let idx_ = file_info_to_datas[usize::from(idx_)].file_data_index;
+                    let info_to_data_idx = file_infos[usize::from(idx_)].info_to_data_index;
+                    let idx_ = file_info_to_datas[usize::from(info_to_data_idx)].file_data_index;
                     let original_data = file_datas[usize::from(idx_)];
 
                     // Create our indices for repeated use
@@ -499,18 +505,22 @@ impl LoadedTables {
 
                     // get the FilePathIdx for the group file
                     let group_path_idx = child_info.file_path_index;
+                    let file_name = file_paths[usize::from(group_path_idx)].file_name.hash40();
+                    let is_banned = BANNED_FILENAMES.contains(&file_name);
 
                     // change the fields of the info that the MassLoadGroup points to
-                    child_info.file_info_indice_index = new_info_indice_index; // points to a yet to be created FileInfoIndex
-                    child_info.info_to_data_index = new_info_to_data_index_start; // yet to be created file data
+                    if !is_banned {
+                        child_info.file_info_indice_index = new_info_indice_index; // points to a yet to be created FileInfoIndex
+                        child_info.info_to_data_index = new_info_to_data_index_start; // yet to be created file data
+                    }
 
                     // manufacture the index which goes into the contiguous data section
-                    new_infos[current_mld_offset + offset] = FileInfo {
-                        file_info_indice_index: new_info_indice_index,
-                        file_path_index: group_path_idx,
-                        info_to_data_index: new_info_to_data_index_start,
-                        flags: info.flags
-                    };
+                    new_infos[current_mld_offset + offset] = info.clone();
+                    if !is_banned {
+                        new_infos[current_mld_offset + offset].file_info_indice_index = new_info_indice_index;
+                        new_infos[current_mld_offset + offset].file_path_index = group_path_idx;
+                        new_infos[current_mld_offset + offset].info_to_data_index = new_info_to_data_index_start;
+                    }
 
                     // This is the worst fucking part about this code, I am
                     //  1. Really not that proud of this, I feel like there might be a more idomatic way to do it without fucking everything up
@@ -552,7 +562,9 @@ impl LoadedTables {
                         new_info_to_datas.push(new_info_to_data);
                         if !is_chain { break; }
                     }
-                    file_paths[usize::from(group_path_idx)].path.set_index(new_info_indice_index.0);
+                    if !is_banned {
+                        file_paths[usize::from(group_path_idx)].path.set_index(new_info_indice_index.0);
+                    }
                     new_datas.push(original_data);
                     let new_info_index = FileInfoIndex {
                         dir_offset_index: new_mass_load_data_index,
@@ -569,7 +581,6 @@ impl LoadedTables {
                     resource_index: lengths.folder_offsets + new_mass_load_datas.len() as u32
                 };
                 new_mass_load_datas.push(new_mass_load_data);
-                // panic!("looping");
             }
             
             arc.folder_offsets = Self::recreate_array(arc.folder_offsets, lengths.folder_offsets as usize, &new_mass_load_datas);
@@ -577,13 +588,22 @@ impl LoadedTables {
             arc.file_infos = Self::recreate_array(arc.file_infos, lengths.file_infos as usize, &new_infos);
             arc.file_info_to_datas = Self::recreate_array(arc.file_info_to_datas, lengths.file_info_to_datas as usize, &new_info_to_datas);
             arc.file_datas = Self::recreate_array(arc.file_datas, lengths.file_datas as usize, &new_datas);
+            instance.table1 = Self::extend_table(instance.table1, instance.table1_len as usize, new_info_indices.len());
             instance.table2 = Self::extend_table(instance.table2, instance.table2_len as usize, new_info_indices.len());
             instance.loaded_directory_table = Self::extend_table(instance.loaded_directory_table, instance.loaded_directory_table_size as usize, new_mass_load_datas.len());
             fs.folder_offset_count_1 += new_mass_load_datas.len() as u32;
             fs.file_info_index_count += new_info_indices.len() as u32;
             fs.file_info_sub_index_count += new_info_to_datas.len() as u32;
+            fs.file_data_count_2 += new_info_to_datas.len() as u32;
             fs.file_info_count += new_infos.len() as u32;
             fs.file_data_count += new_datas.len() as u32;
+            uncompressed_fs.folder_offset_count_1 += new_mass_load_datas.len() as u32;
+            uncompressed_fs.file_info_index_count += new_info_indices.len() as u32;
+            uncompressed_fs.file_info_sub_index_count += new_info_to_datas.len() as u32;
+            uncompressed_fs.file_data_count_2 += new_info_to_datas.len() as u32;
+            uncompressed_fs.file_info_count += new_infos.len() as u32;
+            uncompressed_fs.file_data_count += new_datas.len() as u32;
+            instance.table1_len += new_info_indices.len() as u32;
             instance.table2_len += new_info_indices.len() as u32;
             instance.loaded_directory_table_size += new_mass_load_datas.len() as u32;
         }
@@ -681,6 +701,7 @@ pub trait LoadedArcEx {
     /// Provides every FileInfo that refers to the FilePath
     fn get_shared_fileinfos(&self, file_path: &FilePath) -> Vec<FileInfo>;
     fn patch_filedata(&mut self, fileinfo: &FileInfo, size: u32) -> FileData;
+    fn unshare_mass_loading_groups<Hash: Into<Hash40> + Clone>(paths: &Vec<Hash>) -> Result<(), LookupError>;
 }
 
 impl LoadedArcEx for LoadedArc {

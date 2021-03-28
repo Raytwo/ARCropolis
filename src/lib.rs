@@ -153,8 +153,11 @@ fn inflate_incoming(ctx: &InlineCtx) {
         let hash = arc.get_file_paths()[path_idx].path.hash40();
 
         info!(
-            "[ResInflateThread | #{}] Incoming '{}'",
+            "[ResInflateThread | #{} | Type: {} | {} / {}] Incoming '{}'",
             path_idx.green(),
+            (*ctx.registers[21].w.as_ref()).green(),
+            (*ctx.registers[27].x.as_ref()).yellow(),
+            res_service.processing_file_idx_count.yellow(),
             hashes::get(hash).unwrap_or(&"Unknown").bright_yellow()
         );
 
@@ -234,6 +237,11 @@ fn load_directory_hook(
         "[LoadFileFromDirectory] Incoming decompressed filesize: {:x}",
         out_decomp_data.size
     );
+    // if out_decomp_data.size == 0 {
+    //     println!("Detected bad file size, crashing.");
+    //     std::thread::sleep(std::time::Duration::from_millis(500));
+    //     unsafe { *(0 as *mut u8) = 0x69; }
+    // }
 
     // Let the file be inflated
     let result: u64 = original!()(unk1, out_decomp_data, comp_data);
@@ -331,7 +339,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Discover files
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
-        LoadedTables::unshare_mass_loading_groups(&vec!["fighter/roy/c00", "fighter/ken/c02"]).unwrap();
+        LoadedTables::unshare_mass_loading_groups(&vec!["fighter/roy/c00", "fighter/ken/c02", "fighter/ganon/c01", "fighter/ganon/c07"]).unwrap();
         lazy_static::initialize(&MOD_FILES);
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
@@ -357,6 +365,10 @@ pub fn main() {
         change_version_string,
         stream::lookup_by_stream_hash,
     );
+
+    unsafe {
+        skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x34636c4, &0x14000002);
+    }
 
     println!(
         "ARCropolis v{} - File replacement plugin is now installed",

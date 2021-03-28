@@ -6,20 +6,8 @@ pub struct CppVector<T> {
     eos: *mut T
 }
 
+// No reason to impl a `new` function, since we should only be analzying these when the game uses them.
 impl<T> CppVector<T> {
-    pub fn new(len: usize, cap: usize) -> Self {
-        unsafe {
-            assert!(cap >= len);
-            let alloc_layout = std::alloc::Layout::from_size_align(cap * std::mem::size_of::<T>(), 1).unwrap();
-            let start = std::alloc::alloc(alloc_layout) as *mut T;
-            Self {
-                start: start,
-                end: start.offset(len as isize),
-                eos: start.offset(cap as isize)
-            }
-        }
-    }
-
     pub fn iter(&self) -> CppVectorIterator<T> {
         self.into_iter()
     }
