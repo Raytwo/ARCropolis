@@ -594,15 +594,8 @@ impl LoadedTables {
             fs.folder_offset_count_1 += new_mass_load_datas.len() as u32;
             fs.file_info_index_count += new_info_indices.len() as u32;
             fs.file_info_sub_index_count += new_info_to_datas.len() as u32;
-            fs.file_data_count_2 += new_info_to_datas.len() as u32;
             fs.file_info_count += new_infos.len() as u32;
             fs.file_data_count += new_datas.len() as u32;
-            uncompressed_fs.folder_offset_count_1 += new_mass_load_datas.len() as u32;
-            uncompressed_fs.file_info_index_count += new_info_indices.len() as u32;
-            uncompressed_fs.file_info_sub_index_count += new_info_to_datas.len() as u32;
-            uncompressed_fs.file_data_count_2 += new_info_to_datas.len() as u32;
-            uncompressed_fs.file_info_count += new_infos.len() as u32;
-            uncompressed_fs.file_data_count += new_datas.len() as u32;
             instance.table1_len += new_info_indices.len() as u32;
             instance.table2_len += new_info_indices.len() as u32;
             instance.loaded_directory_table_size += new_mass_load_datas.len() as u32;
