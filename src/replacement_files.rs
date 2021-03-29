@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, io, path::PathBuf};
+use std::{collections::HashMap, fs, io, path::PathBuf, vec};
 
 use crate::{config::CONFIG, fs::Metadata, runtime, visit::{ModFile, Modpack, Modpath}};
 
@@ -97,11 +97,19 @@ impl ModFiles {
         //     }
         // }
 
-        let arc_modpack = ModFiles::discovery(&config.paths.arc);
-        for (hash, path) in arc_modpack {
-            println!("Path: {}", path.path().display());
+        let mut modfiles: HashMap<Hash40, ModFile> = HashMap::new();
+
+        // ARC mods
+        modfiles.extend(ModFiles::discovery(&config.paths.arc));
+        // UMM mods
+        modfiles.extend(ModFiles::umm_discovery(&config.paths.umm));
+
+        if let Some(extra_paths) = &config.paths.extra_paths {
+            for path in extra_paths {
+                // Extra UMM mods
+                modfiles.extend(ModFiles::umm_discovery(path));
+            }
         }
-        let umm_modpack = ModFiles::umm_discovery(&config.paths.umm);
 
         instance
     }
@@ -110,21 +118,24 @@ impl ModFiles {
         WalkDir::new(dir).into_iter().filter_entry(|entry| {
             // If it starts with a period
             !entry.file_name().to_str().unwrap().starts_with('.')
-        }).flat_map(|entry| {
+        }).filter_map(|entry| {
             let entry = entry.unwrap();
 
-            if entry.file_type().is_dir() {
-                return Err(())
+            // Only process files
+            if entry.file_type().is_file() {
+                // Make sure the file has an extension
+                if entry.path().extension().is_some() {
+                    let hash = Hash40::from(entry.path().strip_prefix(dir).unwrap().to_str().unwrap());
+                    Some((hash, entry.path().to_path_buf().into()))
+                } else {
+                    println!("File has no extension, aborting");
+                    None
+                }
+            } else {
+                None
             }
 
-            // Make sure the file has an extension
-            if entry.path().extension().is_none() {
-                println!("File has no extension, aborting");
-                return Err(())
-            }
-
-            let hash = Hash40::from(entry.path().strip_prefix(dir).unwrap().to_str().unwrap());
-            Ok((hash, entry.path().to_path_buf().into()))
+            
         }).collect()
     }
 
