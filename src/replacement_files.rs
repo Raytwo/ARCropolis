@@ -85,16 +85,6 @@ impl ModFiles {
     fn new() -> Self {
         let config = CONFIG.read();
 
-        // let _ = instance.visit_dir(&config.paths.arc, config.paths.arc.to_str().unwrap().len(),
-        // );
-        // let _ = instance.visit_umm_dirs(&PathBuf::from(&config.paths.umm));
-
-        // if let Some(extra_paths) = &config.paths.extra_paths {
-        //     for path in extra_paths {
-        //         let _ = instance.visit_umm_dirs(&PathBuf::from(path));
-        //     }
-        // }
-
         let mut modfiles: HashMap<Hash40, ModFile> = HashMap::new();
 
         // ARC mods
@@ -123,7 +113,7 @@ impl ModFiles {
             if entry.file_type().is_file() {
                 // Make sure the file has an extension
                 if entry.path().extension().is_some() {
-                    let hash = Hash40::from(entry.path().strip_prefix(dir).unwrap().to_str().unwrap());
+                    let hash = Modpath(entry.path().strip_prefix(dir).unwrap().to_path_buf()).hash40().unwrap();
                     Some((hash, entry.path().to_path_buf().into()))
                 } else {
                     println!("File has no extension, aborting");
@@ -137,6 +127,7 @@ impl ModFiles {
         }).collect()
     }
 
+    /// Visit Ultimate Mod Manager directories for backwards compatibility
     fn umm_discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
         WalkDir::new(dir).min_depth(1).max_depth(1).into_iter().filter_entry(|entry| {
             !entry.file_name().to_str().unwrap().starts_with('.')
@@ -209,160 +200,6 @@ impl ModFiles {
 
             (*index, ctx.clone())
         }).collect()
-    }
-
-    /// Visit Ultimate Mod Manager directories for backwards compatibility
-    fn visit_umm_dirs(&mut self, dir: &PathBuf) -> io::Result<()> {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-
-            // Skip any directory starting with a period
-            if entry.file_name().to_str().unwrap().starts_with('.') {
-                continue;
-            }
-
-            let path = PathBuf::from(&format!("{}/{}", dir.display(), entry.path().display()));
-
-            if path.is_dir() {
-                self.visit_dir(&path, path.to_str().unwrap().len())?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn visit_dir(&mut self, dir: &PathBuf, arc_dir_len: usize) -> io::Result<()> {
-        fs::read_dir(dir)?
-            .map(|entry| {
-                let entry = entry?;
-                let path = entry.path();
-                
-                // Check if the entry is a directory or a file
-                if entry.file_type().unwrap().is_dir() {
-                    // If it is one of the stream randomizer directories
-                    if path.extension().is_some() {
-                        match self.visit_file(&path, arc_dir_len) {
-                            Ok((index, file_ctx)) => {
-                                self.0.insert(index, file_ctx);
-                                return Ok(());
-                            }
-                            Err(err) => {
-                                warn!("{}", err);
-                                return Ok(());
-                            }
-                        }
-                    }
-
-                    println!("{}", path.display());
-                    // If not, treat it as a regular directory
-                    self.visit_dir(&path, arc_dir_len).unwrap();
-                } else {
-                    match self.visit_file(&path, arc_dir_len) {
-                        Ok((index, context)) => {
-                            if self.0.get_mut(&index).is_none() {
-                                self.0.insert(index as _, context);
-                            }
-                            return Ok(());
-                        }
-                        Err(err) => {
-                            warn!("{}", err);
-                            return Ok(());
-                        }
-                    }
-                }
-
-                Ok(())
-            })
-            .collect()
-    }
-
-    fn visit_file(
-        &self,
-        full_path: &PathBuf,
-        arc_dir_len: usize,
-    ) -> Result<(FileIndex, FileCtx), String> {
-        // Skip any file starting with a period, to avoid any error related to path.extension()
-        println!("{}", full_path.display());
-        if full_path
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .starts_with('.')
-        {
-            return Err(format!(
-                "[ARC::Discovery] File '{}' starts with a period, skipping",
-                full_path.display().bright_yellow()
-            ));
-        }
-
-        // Make sure the file has an extension to not cause issues with the code that follows
-        match full_path.extension() {
-            Some(_) => {
-                //file_ctx.extension = Hash40::from(ext.to_str().unwrap());
-            }
-            None => {
-                return Err(format!(
-                    "[ARC::Discovery] File '{}' does not have an extension, skipping",
-                    full_path.display().bright_yellow()
-                ))
-            }
-        }
-
-        let game_path = Modpath::from(PathBuf::from(
-            &full_path.to_str().unwrap()[arc_dir_len + 1..],
-        ));
-        let mut file_ctx = FileCtx::new();
-
-        file_ctx.file = ModFile::from(full_path);
-        file_ctx.hash = game_path.hash40().unwrap();
-
-        let user_region = smash_arc::Region::from(
-            get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
-        );
-
-        if file_ctx.file.is_stream() {
-                //STREAM_FILES.write().0.insert(file_ctx.hash, file_ctx.clone());
-                warn!(
-                    "[Arc::Discovery] File '{}' placed in the STREAM table",
-                    file_ctx.file.path().display().bright_yellow()
-                );
-                Ok((FileIndex::Stream(file_ctx.hash), file_ctx))
-            }
-            else {
-                let arc = LoadedTables::get_arc_mut();
-
-                match arc.get_file_path_index_from_hash(file_ctx.hash) {
-                    Ok(index) => {
-                        let file_info = *arc.get_file_info_from_path_index(index);
-
-                        // Check if a file is regional.
-                        if file_info.flags.is_regional() {
-                            // Check if the file has a regional indicator
-                            let region = match file_ctx.file.get_region() {
-                                Some(region) => region,
-                                // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
-                                None => user_region,
-                            };
-
-                            // Check if the Region of a file matches with the game's. If not, discard it.
-                            if region != user_region {
-                                return Err("File's region does not match".to_string());
-                            }
-                        }
-
-                        file_ctx.index = file_info.file_info_indice_index;
-
-                        file_ctx.orig_subfile = arc.patch_filedata(&file_info, file_ctx.file.len());
-
-                        Ok((FileIndex::Regular(file_ctx.index), file_ctx))
-                    }
-                    Err(_) => Err(format!(
-                        "[ARC::Patching] File '{}' was not found in data.arc",
-                        full_path.display().bright_yellow()
-                    )),
-                }
-            }
     }
 
     pub fn get(&self, file_index: FileIndex) -> Option<&FileCtx> {

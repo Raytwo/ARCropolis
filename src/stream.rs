@@ -77,9 +77,7 @@ fn lookup_by_stream_hash(
                 .to_str()
                 .expect("Paths must be valid unicode")
                 .to_string();
-            file = fs::File::open(&random_selection).unwrap();
-            metadata = file.metadata().unwrap();
-            size = metadata.len() as u64;
+            size = file_ctx.file.len() as u64;
         }
 
         unsafe {
