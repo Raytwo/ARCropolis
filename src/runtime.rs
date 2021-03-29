@@ -407,18 +407,19 @@ impl LoadedTables {
         loop {
             if is_first { is_first = false }
             else {
-                let new_info = FileInfo {
+                let mut new_info = FileInfo {
                     file_info_indice_index: new_info_indice_idx,
                     file_path_index: new_file_path_idx,
                     info_to_data_index: InfoToDataIdx(lengths.file_info_to_datas + info_to_datas.len() as u32),
                     flags: redirect_info.flags
                 };
+                new_info.flags.set_is_regional(false);
                 infos.push(new_info);
             }
             redirect_info_to_data = &file_info_to_datas[usize::from(redirect_info.info_to_data_index)];
             let new_info_idx = redirect_info_to_data.file_info_index_and_flag & 0xFFFFFF;
             redirect_info = &file_infos[new_info_idx as usize];
-            let (is_chain, idx_and_flag) = if redirect_info.file_path_index != shared_path_idx {
+            let (is_chain, idx_and_flag) = if redirect_info.flags.unknown1() {
                 (false, redirect_info_to_data.file_info_index_and_flag)
             } else {
                 let flag = redirect_info_to_data.file_info_index_and_flag & 0xFF000000;
@@ -440,6 +441,9 @@ impl LoadedTables {
             static ref BANNED_FILENAMES: Vec<Hash40> = vec![
                 Hash40::from("model.xmb")
             ];
+            static ref BANNED_EXTENSIONS: Vec<Hash40> = vec![
+                Hash40::from("nuanmb")
+            ];
         }
         use std::collections::HashMap;
         let paths: Vec<Hash40> = paths.iter().map(|x| {
@@ -452,7 +456,6 @@ impl LoadedTables {
             let fs: &'static mut FileSystemHeader = std::mem::transmute(arc.fs_header);
             let uncompressed_fs: &'static mut FileSystemHeader = std::mem::transmute(arc.uncompressed_fs);
             let lengths = ArrayLengths::new(); // get array lengths as u32 values, simplifies making the indices
-            println!("{:?}", lengths);
 
             let folder_offsets = std::slice::from_raw_parts_mut(arc.folder_offsets as *mut DirectoryOffset, lengths.folder_offsets as usize);
             let file_paths = std::slice::from_raw_parts_mut(arc.file_paths as *mut FilePath, lengths.file_paths as usize);
@@ -532,7 +535,17 @@ impl LoadedTables {
                 for (offset, info) in shared_load_data_infos.iter().enumerate() {
                     // get the shared hash
                     let source_info_hash = file_paths[usize::from(info.file_path_index)].path.hash40();
-                    let new_info_hash = data_to_group_hash_map.get(&source_info_hash).expect(&format!("Could not find new hash for source {:#x?}", source_info_hash));
+                    let new_info_hash = match data_to_group_hash_map.get(&source_info_hash) {
+                        Some(hash) => *hash,
+                        None => {
+                            log::warn!(
+                                "[ARC::Unsharing] Unable to find new hash for source hash '{}'", 
+                                crate::hashes::get(source_info_hash).unwrap_or(&"Unknown").bright_yellow()
+                            );
+                            new_infos[current_mld_offset + offset] = info.clone();
+                            continue;
+                        }
+                    };
                     // extract the MassLoadGroup's child info for this
                     let child_info_offset = group_to_index_hash_map.get(&new_info_hash).expect(&format!("Could not find info index for new hash {:#x?}", new_info_hash));
                     let child_info = &mut mass_load_group_infos[*child_info_offset];
@@ -600,7 +613,9 @@ impl LoadedTables {
                 // unshare the rest of the chads
                 // still WIP
                 for (offset, info) in mass_load_group_infos.iter_mut().enumerate() {
-                    if BANNED_FILENAMES.contains(&file_paths[usize::from(info.file_path_index)].file_name.hash40()) { 
+                    if BANNED_FILENAMES.contains(&file_paths[usize::from(info.file_path_index)].file_name.hash40()) 
+                        || BANNED_EXTENSIONS.contains(&file_paths[usize::from(info.file_path_index)].ext.hash40())
+                        || (*crate::hashes::get(file_paths[info.file_path_index.0 as usize].path.hash40()).unwrap()).contains("motion/") { 
                         continue;
                     }
                     if let Some((info_indice_idx, info_to_data_idx)) = path_idx_to_info_indice.get(&info.file_path_index) {
@@ -615,6 +630,7 @@ impl LoadedTables {
                         let idx = file_infos[usize::from(idx)].file_path_index;
                         let other_hash = file_paths[usize::from(idx)].path.hash40();
                         if current_hash == other_hash || folder_offsets[original_folder_offset_idx as usize].resource_index == 0xFFFFFF { continue; }
+                        if offset >= 50 { continue; }
                         println!("{}", crate::hashes::get(file_paths[info.file_path_index.0 as usize].path.hash40()).unwrap_or(&"Unknown"));
                         let idx = file_info_indices[usize::from(info.file_info_indice_index)].file_info_index;
                         let idx = file_infos[usize::from(idx)].info_to_data_index;
@@ -644,9 +660,21 @@ impl LoadedTables {
                             &lengths
                         );
 
+                        let original_info_to_data = file_info_to_datas[usize::from(info.info_to_data_index)];
+                        let mut new_info_to_data = original_info_to_data.clone();
+                        new_info_to_data.file_data_index = new_data_index;
+                        new_info_to_data.folder_offset_index = mass_load_group.dir_offset_index >> 8;
+                        new_info_to_data.file_info_index_and_flag &= 0xFF000000;
+                        if info.flags.unknown1() {
+                            new_info_to_data.file_info_index_and_flag |= original_info_to_data.file_info_index_and_flag & 0xFFFFFF;
+                        } else {
+                            new_info_to_data.file_info_index_and_flag |= new_info_index_start.0 + 1;
+                        }
+                        
                         file_paths[usize::from(info.file_path_index)].path.set_index(new_info_indice_index.0);
                         info.file_info_indice_index = new_info_indice_index;
-                        info.info_to_data_index = new_info_to_data_index_start;
+                        // info.info_to_data_index = InfoToDataIdx(lengths.file_info_to_datas + new_info_to_datas.len() as u32);
+                        new_info_to_datas.push(new_info_to_data);
                         new_datas.push(original_data);
                         let new_info_index = FileInfoIndex {
                             dir_offset_index: mass_load_group.dir_offset_index >> 8,
@@ -673,7 +701,6 @@ impl LoadedTables {
             instance.table1_len += new_info_indices.len() as u32;
             instance.table2_len += new_info_indices.len() as u32;
             instance.loaded_directory_table_size += new_mass_load_datas.len() as u32;
-            // println!("{:#x} {:#x}", arc.get_file_paths()[usize::from(arc.get_file_path_index_from_hash(Hash40::from("fighter/ganon/model/sword/c01/model.numdlb")).unwrap())].path.index(), arc.get_file_paths()[usize::from(arc.get_file_path_index_from_hash(Hash40::from("fighter/ganon/model/sword/c00/model.numdlb")).unwrap())].path.index());
         }
         Ok(())
     }
