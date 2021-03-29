@@ -27,6 +27,7 @@ skyline-update = { git = "https://github.com/skyline-rs/skyline-update" }
 smash-arc = { path = "../smash-arc", features = [ "smash-runtime", "nozstd" ] }
 ramhorns = "0.9.4"
 percent-encoding = "2.1.0"
+walkdir = "2"
 
 [profile.dev]
 panic = "abort"

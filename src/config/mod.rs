@@ -41,7 +41,7 @@ impl<'rwlock> Configuration {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub infos: Infos,
     pub paths: Paths,
@@ -50,19 +50,19 @@ pub struct Config {
     pub misc: Miscellaneous,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Infos {
     pub version: String,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Paths {
     pub arc: PathBuf,
     pub umm: PathBuf,
     pub extra_paths: Option<Vec<PathBuf>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Updater {
     pub server_ip: Ipv4Addr,
     pub beta_updates: bool,
@@ -100,7 +100,7 @@ impl From<LoggerLevel> for LevelFilter {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Logger {
     pub logger_level: LoggerLevel,
 }
@@ -113,7 +113,7 @@ impl Logger {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Miscellaneous {
     pub debug: bool,
     pub region: Option<String>,

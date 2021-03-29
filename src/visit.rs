@@ -58,7 +58,7 @@ impl Modpack {
 }
 #[repr(transparent)]
 #[derive(Debug, Clone)]
-pub struct Modpath(PathBuf);
+pub struct Modpath(pub PathBuf);
 
 impl From<Modpath> for PathBuf {
     fn from(modpath: Modpath) -> Self {

@@ -2,7 +2,7 @@
 #![feature(str_strip)]
 #![feature(asm)]
 
-use std::ffi::CStr;
+use std::{ffi::CStr, path::PathBuf};
 use std::fs::File;
 use std::io::prelude::*;
 use std::net::IpAddr;
@@ -279,7 +279,7 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
     } else if original_page.contains("contents.htdocs/howto/html/") {
         if original_page.ends_with("index.html") {
             menus::show_arcadia();
-            false
+            true
         } else {
             false
         }
@@ -294,19 +294,23 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
 
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
-    //menus::show_arcadia();
-    logging::init(CONFIG.read().logger.as_ref().unwrap().logger_level.into()).unwrap();
+    let config = CONFIG.read();
+    
+    if logging::init(config.logger.unwrap().logger_level.into()).is_err() {
+        println!("ARCropolis logger could not be initialized.")
+    }
 
     // Check if an update is available
     if skyline_update::check_update(
-        IpAddr::V4(CONFIG.read().updater.as_ref().unwrap().server_ip),
+        IpAddr::V4(config.updater.unwrap().server_ip),
         "ARCropolis",
         env!("CARGO_PKG_VERSION"),
-        CONFIG.read().updater.as_ref().unwrap().beta_updates,
+        config.updater.unwrap().beta_updates,
     ) {
         skyline::nn::oe::RestartProgramNoArgs();
     }
 
+    // TODO: Replace by a proper Smash-like menu someday
     // Lmao gross
     let changelog = if let Ok(mut file) =
         File::open("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md")
@@ -318,11 +322,9 @@ fn initial_loading(_ctx: &InlineCtx) {
         None
     };
 
-    // TODO: Replace by a proper Smash-like menu someday
     if let Some(text) = changelog {
         skyline_web::DialogOk::ok(text);
-        std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md")
-            .unwrap();
+        std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md").unwrap();
     }
 
     // Discover files
@@ -333,6 +335,21 @@ fn initial_loading(_ctx: &InlineCtx) {
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
     }
+}
+
+pub struct pingas {
+
+}
+
+pub struct shop {
+    unk1: [u8;0x108],
+    pub unk2: bool,
+}
+
+#[hook(offset = 0x321b730)]
+fn shop(class: &mut shop) {
+    println!("{}", class.unk2);
+    return;
 }
 
 #[skyline::main(name = "arcropolis")]
@@ -353,6 +370,7 @@ pub fn main() {
         manual_hook,
         change_version_string,
         stream::lookup_by_stream_hash,
+        shop,
     );
 
     println!(

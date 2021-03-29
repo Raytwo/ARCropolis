@@ -1,11 +1,6 @@
 use std::{collections::HashMap, fs, io, path::PathBuf};
 
-use crate::{
-    config::CONFIG,
-    fs::Metadata,
-    runtime,
-    visit::{ModFile, Modpath},
-};
+use crate::{config::CONFIG, fs::Metadata, runtime, visit::{ModFile, Modpack, Modpath}};
 
 use owo_colors::OwoColorize;
 
@@ -14,6 +9,8 @@ use smash_arc::{ArcLookup, FileData, FileDataFlags, FileInfoIndiceIdx, Hash40};
 use runtime::{LoadedArcEx, LoadedTables};
 
 use log::warn;
+
+use walkdir::WalkDir;
 
 type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> bool;
 
@@ -90,19 +87,59 @@ impl ModFiles {
 
         let config = CONFIG.read();
 
-        let _ = instance.visit_dir(
-            &PathBuf::from(&config.paths.arc),
-            config.paths.arc.to_str().unwrap().len(),
-        );
-        let _ = instance.visit_umm_dirs(&PathBuf::from(&config.paths.umm));
+        // let _ = instance.visit_dir(&config.paths.arc, config.paths.arc.to_str().unwrap().len(),
+        // );
+        // let _ = instance.visit_umm_dirs(&PathBuf::from(&config.paths.umm));
 
-        if let Some(extra_paths) = &config.paths.extra_paths {
-            for path in extra_paths {
-                let _ = instance.visit_umm_dirs(&PathBuf::from(path));
-            }
+        // if let Some(extra_paths) = &config.paths.extra_paths {
+        //     for path in extra_paths {
+        //         let _ = instance.visit_umm_dirs(&PathBuf::from(path));
+        //     }
+        // }
+
+        let arc_modpack = ModFiles::discovery(&config.paths.arc);
+        for (hash, path) in arc_modpack {
+            println!("Path: {}", path.path().display());
         }
+        let umm_modpack = ModFiles::umm_discovery(&config.paths.umm);
 
         instance
+    }
+
+    fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
+        WalkDir::new(dir).into_iter().filter_entry(|entry| {
+            // If it starts with a period
+            !entry.file_name().to_str().unwrap().starts_with('.')
+        }).flat_map(|entry| {
+            let entry = entry.unwrap();
+
+            if entry.file_type().is_dir() {
+                return Err(())
+            }
+
+            // Make sure the file has an extension
+            if entry.path().extension().is_none() {
+                println!("File has no extension, aborting");
+                return Err(())
+            }
+
+            let hash = Hash40::from(entry.path().strip_prefix(dir).unwrap().to_str().unwrap());
+            Ok((hash, entry.path().to_path_buf().into()))
+        }).collect()
+    }
+
+    fn umm_discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
+        WalkDir::new(dir).min_depth(1).max_depth(1).into_iter().filter_entry(|entry| {
+            !entry.file_name().to_str().unwrap().starts_with('.')
+        }).flat_map(|entry| {
+            let entry = entry.unwrap();
+
+            if !entry.file_type().is_dir() {
+                return Err(());
+            }
+
+            Ok(ModFiles::discovery(&entry.into_path()))
+        }).flatten().collect()
     }
 
     /// Visit Ultimate Mod Manager directories for backwards compatibility
@@ -129,8 +166,8 @@ impl ModFiles {
         fs::read_dir(dir)?
             .map(|entry| {
                 let entry = entry?;
-                let path = PathBuf::from(&format!("{}/{}", dir.display(), entry.path().display()));
-
+                let path = entry.path();
+                
                 // Check if the entry is a directory or a file
                 if entry.file_type().unwrap().is_dir() {
                     // If it is one of the stream randomizer directories
@@ -147,6 +184,7 @@ impl ModFiles {
                         }
                     }
 
+                    println!("{}", path.display());
                     // If not, treat it as a regular directory
                     self.visit_dir(&path, arc_dir_len).unwrap();
                 } else {
@@ -175,6 +213,7 @@ impl ModFiles {
         arc_dir_len: usize,
     ) -> Result<(FileIndex, FileCtx), String> {
         // Skip any file starting with a period, to avoid any error related to path.extension()
+        println!("{}", full_path.display());
         if full_path
             .file_name()
             .unwrap()
