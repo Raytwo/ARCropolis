@@ -392,6 +392,49 @@ impl LoadedTables {
     //     Ok(())
     // }
 
+    fn duplicate_file_structure(new_file_path_idx: FilePathIdx, new_info_indice_idx: FileInfoIndiceIdx, start_info_idx: FileInfoIdx, new_data_index: FileDataIdx, new_mass_load_data_index: u32, start_info: &FileInfo, info_to_datas: &mut Vec<FileInfoToFileData>, infos: &mut Vec<FileInfo>, lengths: &ArrayLengths) {
+        let arc = Self::get_arc();
+        let file_info_indices = arc.get_file_info_indices();
+        let file_infos = arc.get_file_infos();
+        let file_info_to_datas = arc.get_file_info_to_datas();
+
+        let mut redirect_info_idx = start_info_idx;
+        let mut redirect_info = start_info;
+        let mut redirect_info_to_data = &file_info_to_datas[usize::from(redirect_info.info_to_data_index)];
+        let idx = file_info_indices[usize::from(redirect_info.file_info_indice_index)].file_info_index;
+        let shared_path_idx = file_infos[usize::from(idx)].file_path_index;
+        let mut is_first = true;
+        loop {
+            if is_first { is_first = false }
+            else {
+                let new_info = FileInfo {
+                    file_info_indice_index: new_info_indice_idx,
+                    file_path_index: new_file_path_idx,
+                    info_to_data_index: InfoToDataIdx(lengths.file_info_to_datas + info_to_datas.len() as u32),
+                    flags: redirect_info.flags
+                };
+                infos.push(new_info);
+            }
+            redirect_info_to_data = &file_info_to_datas[usize::from(redirect_info.info_to_data_index)];
+            let new_info_idx = redirect_info_to_data.file_info_index_and_flag & 0xFFFFFF;
+            redirect_info = &file_infos[new_info_idx as usize];
+            let (is_chain, idx_and_flag) = if redirect_info.file_path_index != shared_path_idx {
+                (false, redirect_info_to_data.file_info_index_and_flag)
+            } else {
+                let flag = redirect_info_to_data.file_info_index_and_flag & 0xFF000000;
+                let info_idx = lengths.file_infos + infos.len() as u32;
+                (true, flag | info_idx)
+            };
+            let new_info_to_data = FileInfoToFileData {
+                file_info_index_and_flag: idx_and_flag,
+                file_data_index: new_data_index,
+                folder_offset_index: new_mass_load_data_index
+            };
+            info_to_datas.push(new_info_to_data);
+            if !is_chain { break; }
+        }
+    }
+
     pub fn unshare_mass_loading_groups<Hash: Into<Hash40> + Clone>(paths: &Vec<Hash>) -> Result<(), LookupError> {
         lazy_static::lazy_static! {
             static ref BANNED_FILENAMES: Vec<Hash40> = vec![
@@ -409,6 +452,7 @@ impl LoadedTables {
             let fs: &'static mut FileSystemHeader = std::mem::transmute(arc.fs_header);
             let uncompressed_fs: &'static mut FileSystemHeader = std::mem::transmute(arc.uncompressed_fs);
             let lengths = ArrayLengths::new(); // get array lengths as u32 values, simplifies making the indices
+            println!("{:?}", lengths);
 
             let folder_offsets = std::slice::from_raw_parts_mut(arc.folder_offsets as *mut DirectoryOffset, lengths.folder_offsets as usize);
             let file_paths = std::slice::from_raw_parts_mut(arc.file_paths as *mut FilePath, lengths.file_paths as usize);
@@ -479,6 +523,8 @@ impl LoadedTables {
                 }
                 drop(index_to_data_hash_map);
 
+                let mut path_idx_to_info_indice = HashMap::new();
+
                 // since we also have to include our redirection chain, we have to make sure we get contigious FileInfos
                 // for our new MassLoadData
                 let current_mld_offset = new_infos.len();
@@ -509,64 +555,30 @@ impl LoadedTables {
                     let file_name = file_paths[usize::from(group_path_idx)].file_name.hash40();
                     let is_banned = BANNED_FILENAMES.contains(&file_name);
 
-                    // change the fields of the info that the MassLoadGroup points to
-                    if !is_banned {
-                        child_info.file_info_indice_index = new_info_indice_index; // points to a yet to be created FileInfoIndex
-                        child_info.info_to_data_index = new_info_to_data_index_start; // yet to be created file data
-                    }
-
                     // manufacture the index which goes into the contiguous data section
                     new_infos[current_mld_offset + offset] = info.clone();
                     if !is_banned {
+                        child_info.file_info_indice_index = new_info_indice_index; // points to a yet to be created FileInfoIndex
+                        child_info.info_to_data_index = new_info_to_data_index_start; // yet to be created file data
                         new_infos[current_mld_offset + offset].file_info_indice_index = new_info_indice_index;
                         new_infos[current_mld_offset + offset].file_path_index = group_path_idx;
                         new_infos[current_mld_offset + offset].info_to_data_index = new_info_to_data_index_start;
-                    }
 
-                    // This is the worst fucking part about this code, I am
-                    //  1. Really not that proud of this, I feel like there might be a more idomatic way to do it without fucking everything up
-                    //  2. Really not even sure it's necessary.
-                    // As of now it works and I am not going to remove it to test
-
-                    let mut redirect_info_idx = shared_load_data.file_info_start_index + offset as u32;
-                    let mut redirect_info = info;
-                    let mut redirect_info_to_data = &file_info_to_datas[usize::from(redirect_info.info_to_data_index)];
-                    let idx_ = file_info_indices[usize::from(redirect_info.file_info_indice_index)].file_info_index;
-                    let shared_path_idx = file_infos[usize::from(idx_)].file_path_index;
-                    let mut is_first = true;
-                    loop {
-                        if is_first { is_first = false; }
-                        else {
-                            let new_info = FileInfo {
-                                file_info_indice_index: new_info_indice_index,
-                                file_path_index: group_path_idx,
-                                info_to_data_index: InfoToDataIdx(lengths.file_info_to_datas + new_info_to_datas.len() as u32),
-                                flags: redirect_info.flags
-                            };
-                            new_infos.push(new_info);
-                        }
-                        redirect_info_to_data = &file_info_to_datas[usize::from(redirect_info.info_to_data_index)];
-                        let new_info_idx = redirect_info_to_data.file_info_index_and_flag & 0xFFFFFF; // gross, jam plz fix
-                        redirect_info = &file_infos[new_info_idx as usize];
-                        let (is_chain, idx_and_flag) = if redirect_info.file_path_index != shared_path_idx {
-                            (false, redirect_info_to_data.file_info_index_and_flag)
-                        } else {
-                            let flag = redirect_info_to_data.file_info_index_and_flag & 0xFF000000;
-                            let info_idx = lengths.file_infos + new_infos.len() as u32;
-                            (true, flag | info_idx)
-                        };
-                        let new_info_to_data = FileInfoToFileData {
-                            file_info_index_and_flag: idx_and_flag,
-                            file_data_index: new_data_index,
-                            folder_offset_index: new_mass_load_data_index
-                        };
-                        new_info_to_datas.push(new_info_to_data);
-                        if !is_chain { break; }
-                    }
-                    if !is_banned {
+                        Self::duplicate_file_structure(
+                            group_path_idx,
+                            new_info_indice_index,
+                            FileInfoIdx(shared_load_data.file_info_start_index + offset as u32),
+                            new_data_index,
+                            new_mass_load_data_index,
+                            info,
+                            &mut new_info_to_datas,
+                            &mut new_infos,
+                            &lengths
+                        );
                         file_paths[usize::from(group_path_idx)].path.set_index(new_info_indice_index.0);
+                        path_idx_to_info_indice.insert(group_path_idx, (new_info_indice_index, new_info_to_data_index_start));
+                        new_datas.push(original_data);
                     }
-                    new_datas.push(original_data);
                     let new_info_index = FileInfoIndex {
                         dir_offset_index: new_mass_load_data_index,
                         file_info_index: new_info_index_start
@@ -582,6 +594,67 @@ impl LoadedTables {
                     resource_index: lengths.folder_offsets + new_mass_load_datas.len() as u32
                 };
                 new_mass_load_datas.push(new_mass_load_data);
+
+                continue;
+
+                // unshare the rest of the chads
+                // still WIP
+                for (offset, info) in mass_load_group_infos.iter_mut().enumerate() {
+                    if BANNED_FILENAMES.contains(&file_paths[usize::from(info.file_path_index)].file_name.hash40()) { 
+                        continue;
+                    }
+                    if let Some((info_indice_idx, info_to_data_idx)) = path_idx_to_info_indice.get(&info.file_path_index) {
+                        info.file_info_indice_index = *info_indice_idx;
+                        info.info_to_data_index = *info_to_data_idx;
+                    } else {
+                        let child_info_index = mass_load_group.file_info_start_index + offset as u32;
+                        let current_hash = file_paths[usize::from(info.file_path_index)].path.hash40();
+                        let original_folder_offset_idx = file_info_to_datas[usize::from(info.info_to_data_index)].folder_offset_index;
+                        let idx = info.file_info_indice_index;
+                        let idx = file_info_indices[usize::from(idx)].file_info_index;
+                        let idx = file_infos[usize::from(idx)].file_path_index;
+                        let other_hash = file_paths[usize::from(idx)].path.hash40();
+                        if current_hash == other_hash || folder_offsets[original_folder_offset_idx as usize].resource_index == 0xFFFFFF { continue; }
+                        println!("{}", crate::hashes::get(file_paths[info.file_path_index.0 as usize].path.hash40()).unwrap_or(&"Unknown"));
+                        let idx = file_info_indices[usize::from(info.file_info_indice_index)].file_info_index;
+                        let idx = file_infos[usize::from(idx)].info_to_data_index;
+                        let idx = file_info_to_datas[usize::from(idx)].file_data_index;
+                        let original_data = file_datas[usize::from(idx)];
+
+                        let new_info_indice_index = FileInfoIndiceIdx(lengths.file_info_indices + new_info_indices.len() as u32);
+                        let new_info_index_start = FileInfoIdx(lengths.file_infos + new_infos.len() as u32);
+                        let new_info_to_data_index_start = InfoToDataIdx(lengths.file_info_to_datas + new_info_to_datas.len() as u32);
+                        let new_data_index = FileDataIdx(lengths.file_datas + new_datas.len() as u32);
+
+                        let mut new_info = info.clone();
+                        new_info.file_info_indice_index = new_info_indice_index;
+                        new_info.file_path_index = info.file_path_index;
+                        new_info.info_to_data_index = new_info_to_data_index_start;
+                        new_infos.push(new_info);
+
+                        Self::duplicate_file_structure(
+                            info.file_path_index,
+                            new_info_indice_index,
+                            FileInfoIdx(child_info_index),
+                            new_data_index,
+                            mass_load_group.dir_offset_index >> 8,
+                            info,
+                            &mut new_info_to_datas,
+                            &mut new_infos,
+                            &lengths
+                        );
+
+                        file_paths[usize::from(info.file_path_index)].path.set_index(new_info_indice_index.0);
+                        info.file_info_indice_index = new_info_indice_index;
+                        info.info_to_data_index = new_info_to_data_index_start;
+                        new_datas.push(original_data);
+                        let new_info_index = FileInfoIndex {
+                            dir_offset_index: mass_load_group.dir_offset_index >> 8,
+                            file_info_index: new_info_index_start
+                        };
+                        new_info_indices.push(new_info_index);
+                    }
+                }
             }
             
             arc.folder_offsets = Self::recreate_array(arc.folder_offsets, lengths.folder_offsets as usize, &new_mass_load_datas);
@@ -600,6 +673,7 @@ impl LoadedTables {
             instance.table1_len += new_info_indices.len() as u32;
             instance.table2_len += new_info_indices.len() as u32;
             instance.loaded_directory_table_size += new_mass_load_datas.len() as u32;
+            // println!("{:#x} {:#x}", arc.get_file_paths()[usize::from(arc.get_file_path_index_from_hash(Hash40::from("fighter/ganon/model/sword/c01/model.numdlb")).unwrap())].path.index(), arc.get_file_paths()[usize::from(arc.get_file_path_index_from_hash(Hash40::from("fighter/ganon/model/sword/c00/model.numdlb")).unwrap())].path.index());
         }
         Ok(())
     }
