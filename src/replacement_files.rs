@@ -83,8 +83,6 @@ macro_rules! get_from_file_info_indice_index {
 
 impl ModFiles {
     fn new() -> Self {
-        let mut instance = Self(HashMap::new());
-
         let config = CONFIG.read();
 
         // let _ = instance.visit_dir(&config.paths.arc, config.paths.arc.to_str().unwrap().len(),
@@ -111,7 +109,7 @@ impl ModFiles {
             }
         }
 
-        instance
+        Self(ModFiles::process_mods(&modfiles))
     }
 
     fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
@@ -151,6 +149,66 @@ impl ModFiles {
 
             Ok(ModFiles::discovery(&entry.into_path()))
         }).flatten().collect()
+    }
+
+    fn process_mods(modfiles: &HashMap<Hash40, ModFile>) -> HashMap<FileIndex, FileCtx> {
+        let arc = LoadedTables::get_arc_mut();
+        let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+
+        modfiles.iter().filter_map(|(hash, modfile)| {
+            let mut filectx = FileCtx::new();
+
+            filectx.file = modfile.clone();
+            filectx.hash = *hash;
+
+            if modfile.is_stream() {
+                warn!("[ARC::Patching] File '{}' added as a Stream", filectx.file.path().display().bright_yellow());
+                Some((FileIndex::Stream(filectx.hash), filectx))
+            } else {
+                match arc.get_file_path_index_from_hash(*hash) {
+                    Ok(index) => {
+                        let file_info = arc.get_file_info_from_path_index(index);
+
+                        // Check if a file is regional.
+                        if file_info.flags.is_regional() {
+                            // Check if the file has a regional indicator
+                            let region = match modfile.get_region() {
+                                Some(region) => {
+                                    region
+                                }
+                                // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
+                                None => user_region,
+                            };
+        
+                            // Check if the Region of a file matches with the game's. If not, discard it.
+                            if region != user_region {
+                                return None;
+                            }
+                        }
+
+                        filectx.index = file_info.file_info_indice_index;
+
+                        Some((FileIndex::Regular(filectx.index), filectx))
+                    }
+                    Err(_) => {
+                        warn!("[ARC::Patching] File '{}' was not found in data.arc", modfile.as_smash_path().display().bright_yellow());
+                        None
+                    }
+                }
+            }
+        }).collect::<HashMap<FileIndex, FileCtx>>().iter_mut().map(|(index, ctx)| {
+            match index {
+                FileIndex::Regular(info_index) => {
+                    let info_index = arc.get_file_info_indices()[usize::from(*info_index)].file_info_index;
+                    let file_info = arc.get_file_infos()[usize::from(info_index)];
+
+                    ctx.orig_subfile = arc.patch_filedata(&file_info, ctx.file.len())
+                }
+                _ => {},
+            }
+
+            (*index, ctx.clone())
+        }).collect()
     }
 
     /// Visit Ultimate Mod Manager directories for backwards compatibility

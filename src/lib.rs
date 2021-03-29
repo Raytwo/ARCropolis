@@ -337,21 +337,6 @@ fn initial_loading(_ctx: &InlineCtx) {
     }
 }
 
-pub struct pingas {
-
-}
-
-pub struct shop {
-    unk1: [u8;0x108],
-    pub unk2: bool,
-}
-
-#[hook(offset = 0x321b730)]
-fn shop(class: &mut shop) {
-    println!("{}", class.unk2);
-    return;
-}
-
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Load hashes from rom:/skyline/hashes.txt if the file is present
@@ -370,7 +355,6 @@ pub fn main() {
         manual_hook,
         change_version_string,
         stream::lookup_by_stream_hash,
-        shop,
     );
 
     println!(
