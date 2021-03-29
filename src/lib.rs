@@ -339,8 +339,10 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Discover files
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
-        LoadedTables::unshare_mass_loading_groups(&vec!["fighter/roy/c00", "fighter/ken/c02", "fighter/ganon/c01", "fighter/ganon/c07"]).unwrap();
+        let mod_map = replacement_files::ModFileMap::new();
+        mod_map.unshare().unwrap();
         lazy_static::initialize(&MOD_FILES);
+        *MOD_FILES.write() = mod_map.to_mod_files();
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
     }

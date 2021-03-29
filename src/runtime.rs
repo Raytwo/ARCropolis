@@ -451,6 +451,7 @@ impl LoadedTables {
                 // However, it goes deeper than this, as some files are shared even further. For example,
                 // "fighter/roy/model/body/c00/model.xmb" redirects to "fighter/roy/model/body/c07/model.xmb"
                 // which further redirects to fox's model.xmb.
+                // ^^ lol this doesn't work
                 // In order to unshare these files we have to go two redirections deep to be 100% sure we map the right hashes together
                 let mut index_to_data_hash_map = HashMap::new();
                 for info in shared_load_data_infos.iter() {
@@ -694,7 +695,8 @@ pub trait LoadedArcEx {
     /// Provides every FileInfo that refers to the FilePath
     fn get_shared_fileinfos(&self, file_path: &FilePath) -> Vec<FileInfo>;
     fn patch_filedata(&mut self, fileinfo: &FileInfo, size: u32) -> FileData;
-    fn unshare_mass_loading_groups<Hash: Into<Hash40> + Clone>(paths: &Vec<Hash>) -> Result<(), LookupError>;
+    fn is_unshareable_group(&self, group_hash: Hash40) -> bool;
+    fn get_mass_load_group_hash_from_file_hash(&self, file_hash: Hash40) -> Result<Hash40, LookupError>;
 }
 
 impl LoadedArcEx for LoadedArc {
@@ -759,6 +761,47 @@ impl LoadedArcEx for LoadedArc {
         }
 
         orig_filedata
+    }
+
+    fn is_unshareable_group(&self, group_hash: Hash40) -> bool {
+        let group_info = match self.get_dir_info_from_hash(group_hash) {
+            Ok(info) => info,
+            _ => {
+                return false;
+            }
+        };
+        let folder_offsets = self.get_folder_offsets();
+        let file_infos = self.get_file_infos();
+        let file_paths = self.get_file_paths();
+        let intermediate_idx = group_info.dir_offset_index >> 8;
+        if intermediate_idx == 0xFFFFFF { return false; }
+        let shared_idx = folder_offsets[intermediate_idx as usize].resource_index;
+        if shared_idx == 0xFFFFFF { return false; }
+        let shared_data = &folder_offsets[shared_idx as usize];
+        // this can probably (?) be optimized, but basically we get the first info and check it's hash
+        // against the hash of every file in the group. If we get one match, then we return false
+        let test_info = file_infos[shared_data.file_info_start_index as usize];
+        let test_path_hash = file_paths[usize::from(test_info.file_path_index)].path.hash40();
+        let group_infos = file_infos.iter().skip(group_info.file_info_start_index as usize).take(group_info.file_info_count as usize);
+        for info in group_infos {
+            if file_paths[usize::from(info.file_path_index)].path.hash40() == test_path_hash { return false; }
+        }
+        true
+    }
+
+    fn get_mass_load_group_hash_from_file_hash(&self, file_hash: Hash40) -> Result<Hash40, LookupError> {
+        let dir_infos = self.get_dir_infos();
+        let file_infos = self.get_file_infos();
+        let path_idx = self.get_file_path_index_from_hash(file_hash)?;
+        for dir_info in dir_infos.iter() {
+            let child_infos = file_infos.iter().skip(dir_info.file_info_start_index as usize).take(dir_info.file_info_count as usize);
+            for child_info in child_infos {
+                if child_info.file_path_index == path_idx {
+                    return Ok(Hash40((dir_info.path_hash as u64) | (((dir_info.dir_offset_index & 0xFF) as u64) << 32)));
+                }
+            }
+        }
+        Err(LookupError::Missing)
     }
 }
 
