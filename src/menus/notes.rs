@@ -17,7 +17,7 @@ pub struct MainEntry{
 
 static HTML_TEXT: &str = include_str!("../../resources/templates/notes.html");
 // Change this for different pictures
-static IMAGE_BYTES: &[u8] = include_bytes!("../../resources/img/kirby.gif");
+static IMAGE_BYTES: &[u8] = include_bytes!("../../resources/img/note_thumbnail.png");
 
 pub fn display_update_page(info: &MainEntry){
     let tpl = ramhorns::Template::new(HTML_TEXT).unwrap();

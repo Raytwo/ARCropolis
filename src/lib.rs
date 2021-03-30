@@ -30,7 +30,7 @@ use runtime::{LoadedTables, ResServiceState, Table2Entry};
 mod menus;
 
 mod logging;
-use log::{info, trace};
+use log::{info, trace, warn};
 
 mod visit;
 
@@ -310,21 +310,17 @@ fn initial_loading(_ctx: &InlineCtx) {
         skyline::nn::oe::RestartProgramNoArgs();
     }
 
-    // TODO: Replace by a proper Smash-like menu someday
-    // Lmao gross
-    let changelog = if let Ok(mut file) =
-        File::open("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md")
+    if let Ok(changelog) = std::fs::read_to_string("sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis/changelog.toml") 
     {
-        let mut content = String::new();
-        file.read_to_string(&mut content).unwrap();
-        Some(format!("Changelog\n\n{}", &content))
-    } else {
-        None
-    };
-
-    if let Some(text) = changelog {
-        skyline_web::DialogOk::ok(text);
-        std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md").unwrap();
+        match toml::from_str(&changelog) {
+            Ok(changelog) => {
+                menus::display_update_page(&changelog);
+                std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis/changelog.toml").unwrap();
+            },
+            Err(_) => {
+                warn!("Changelog could not be parsed. Is the file malformed?");
+            }
+        }
     }
 
     // Discover files
