@@ -36,6 +36,8 @@ pub struct ModStatues {
 
 static HTML_TEXT: &str = include_str!("../../resources/templates/arcadia.html");
 static CSS_TEXT: &str = include_str!("../../resources/css/arcadia.css");
+static ARCADIA_JAVASCRIPT_TEXT: &str = include_str!("../../resources/js/arcadia.js");
+static JQUERY_LIB_JAVASCRIPT_TEXT: &str = include_str!("../../resources/js/jquery.textfill.min.js");
 static MISSING_ICON: &[u8] = include_bytes!("../../resources/img/missing.webp");
 static CHECK_ICON: &[u8] = include_bytes!("../../resources/img/check.svg");
 
@@ -181,6 +183,8 @@ pub fn show_arcadia() {
         .htdocs_dir("contents")
         .file("index.html", &render)
         .file("arcadia.css", CSS_TEXT)
+        .file("arcadia.js", ARCADIA_JAVASCRIPT_TEXT)
+        .file("jquery.textfill.min.js", JQUERY_LIB_JAVASCRIPT_TEXT)
         .file("missing.webp", MISSING_ICON)
         .file("check.svg", CHECK_ICON)
         .files(&images)
@@ -204,7 +208,6 @@ pub fn show_arcadia() {
                 let enabled_path = Path::new(&workspace).join(&folder_name);
                 let disabled_path = Path::new(&workspace).join(&format!(".{}", &folder_name));
 
-                info!("Enabled Path: {:?}\nDisabled Path: {:?}\n", enabled_path, disabled_path);
                 if disabled {
                     if std::fs::metadata(&enabled_path).is_ok() {
                         info!("[menus::show_arcadia] Disabling {}", folder_name);
