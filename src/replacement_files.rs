@@ -109,6 +109,8 @@ impl ModFiles {
     }
 
     fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
+        let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+
         WalkDir::new(dir).into_iter().filter_entry(|entry| {
             // If it starts with a period
             !entry.file_name().to_str().unwrap().starts_with('.')
@@ -119,6 +121,17 @@ impl ModFiles {
             if entry.file_type().is_file() {
                 // Make sure the file has an extension
                 if entry.path().extension().is_some() {
+                    let path: ModFile = ModFile::from(entry.path().strip_prefix(dir).unwrap().to_path_buf());
+
+                    match path.get_region() {
+                        Some(region) => {
+                            if region != user_region {
+                                return None;
+                            }
+                        }
+                        None => ()
+                    }
+
                     let hash = Modpath(entry.path().strip_prefix(dir).unwrap().to_path_buf()).hash40().unwrap();
                     Some((hash, entry.path().to_path_buf().into()))
                 } else {
@@ -165,23 +178,6 @@ impl ModFiles {
                 match arc.get_file_path_index_from_hash(*hash) {
                     Ok(index) => {
                         let file_info = arc.get_file_info_from_path_index(index);
-
-                        // Check if a file is regional.
-                        if file_info.flags.is_regional() {
-                            // Check if the file has a regional indicator
-                            let region = match modfile.get_region() {
-                                Some(region) => {
-                                    region
-                                }
-                                // No regional indicator, use the system's region as default (Why? Because by this point, it isn't storing the game's region yet)
-                                None => user_region,
-                            };
-        
-                            // Check if the Region of a file matches with the game's. If not, discard it.
-                            if region != user_region {
-                                return None;
-                            }
-                        }
 
                         filectx.index = file_info.file_info_indice_index;
 
