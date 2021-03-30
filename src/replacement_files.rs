@@ -29,10 +29,7 @@ pub extern "C" fn subscribe_callback(
     _callback: ArcCallback,
 ) {
     // Deprecated
-    warn!(
-        "{}",
-        "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red()
-    );
+    warn!("{}", "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red());
 }
 
 #[no_mangle]
@@ -44,10 +41,7 @@ pub extern "C" fn subscribe_callback_with_size(
     _callback: ArcCallback,
 ) {
     // Deprecated
-    warn!(
-        "{}",
-        "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red()
-    );
+    warn!("{}", "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red());
 }
 
 const REGIONS: &[&str] = &[
