@@ -88,14 +88,20 @@ impl ModFiles {
         let mut modfiles: HashMap<Hash40, ModFile> = HashMap::new();
 
         // ARC mods
-        modfiles.extend(ModFiles::discovery(&config.paths.arc));
+        if &config.paths.arc.exists() {
+            modfiles.extend(ModFiles::discovery(&config.paths.arc));
+        }
         // UMM mods
-        modfiles.extend(ModFiles::umm_discovery(&config.paths.umm));
+        if &config.paths.umm.exists() {
+            modfiles.extend(ModFiles::umm_discovery(&config.paths.umm));
+        }
 
         if let Some(extra_paths) = &config.paths.extra_paths {
             for path in extra_paths {
                 // Extra UMM mods
-                modfiles.extend(ModFiles::umm_discovery(path));
+                if path.exists() {
+                    modfiles.extend(ModFiles::umm_discovery(path));
+                }
             }
         }
 
