@@ -1,13 +1,13 @@
 use skyline::nn;
 use skyline_web::Webpage;
 
-#[derive(ramhorns::Content, serde::Deserialize, serde::Serialize)]
+#[derive(ramhorns::Content, serde::Deserialize)]
 pub struct NotesEntry{
     pub section_title: String,
     pub contents: String
 }
 
-#[derive(ramhorns::Content, serde::Deserialize, serde::Serialize)]
+#[derive(ramhorns::Content, serde::Deserialize)]
 pub struct MainEntry{
     pub title: String,
     pub date: String,
@@ -33,6 +33,3 @@ pub fn display_update_page(info: &MainEntry){
         .open()
         .unwrap();
 }
-
-
-
