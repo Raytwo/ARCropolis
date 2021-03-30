@@ -436,7 +436,7 @@ impl LoadedTables {
         }
     }
 
-    pub fn unshare_mass_loading_groups<Hash: Into<Hash40> + Clone>(paths: &Vec<Hash>) -> Result<(), LookupError> {
+    pub fn unshare_mass_loading_groups<Hash: Into<Hash40> + Clone>(paths: &Vec<Hash>) -> Result<(), String> {
         lazy_static::lazy_static! {
             static ref BANNED_FILENAMES: Vec<Hash40> = vec![
                 Hash40::from("model.xmb")
@@ -476,7 +476,10 @@ impl LoadedTables {
             let mut mass_load_data_start_offset = 0;
             for path in paths.iter() {
                 // start by changing the index of the load data
-                let mass_load_group = arc.get_dir_info_from_hash(*path)?;
+                let mass_load_group = match arc.get_dir_info_from_hash(*path) {
+                    Ok(info) => Ok(info),
+                    Err(error) => Err(format!("Lookup error ({:?}) when getting directory information for hash {:#x}", error, path.0))
+                }?;
                 if (mass_load_group.dir_offset_index >> 8) == 0xFFFFFF { continue; }
                 let intermediate_load_data = &mut folder_offsets[(mass_load_group.dir_offset_index >> 8) as usize]; // ideally change this in smash-arc
                 let old_res_idx = intermediate_load_data.resource_index;
@@ -514,18 +517,22 @@ impl LoadedTables {
                 // to the original filepaths
                 let mut data_to_group_hash_map = HashMap::new();
                 let mut group_to_index_hash_map = HashMap::new();
+                let mut skip_this_group = false;
                 for (offset, info) in mass_load_group_infos.iter().enumerate() {
                     let idx = file_info_indices[usize::from(info.file_info_indice_index)].file_info_index;
                     let idx = file_infos[usize::from(idx)].file_path_index;
                     if let Some(data_hash) = index_to_data_hash_map.get(&idx) {
                         let group_hash = file_paths[usize::from(info.file_path_index)].path.hash40();
                         if *data_hash == group_hash {
-                            return Err(LookupError::Missing); // TODO: Change this to a better error code or smthn
+                            log::warn!("[ARC::Unsharing] Attempting to unshare source slot for file '{}' ({:#x}). Skipping.", crate::hashes::get(*data_hash).unwrap_or(&"Unknown").bright_yellow(), data_hash.0.red());
+                            skip_this_group = true;
+                            break;
                         }
                         data_to_group_hash_map.insert(*data_hash, group_hash);
                         group_to_index_hash_map.insert(group_hash, offset);
                     }
                 }
+                if skip_this_group { continue; }
                 drop(index_to_data_hash_map);
 
                 let mut path_idx_to_info_indice = HashMap::new();
@@ -549,7 +556,10 @@ impl LoadedTables {
                         }
                     };
                     // extract the MassLoadGroup's child info for this
-                    let child_info_offset = group_to_index_hash_map.get(&new_info_hash).expect(&format!("Could not find info index for new hash {:#x?}", new_info_hash));
+                    let child_info_offset = match group_to_index_hash_map.get(&new_info_hash) {
+                        Some(offset) => Ok(offset),
+                        None => Err(format!("Could not find info index for new hash {:#x}", new_info_hash.0))
+                    }?;
                     let child_info = &mut mass_load_group_infos[*child_info_offset];
                     // get the data this pointed to
                     let idx_ = child_info.file_info_indice_index;
