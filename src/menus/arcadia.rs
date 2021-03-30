@@ -34,6 +34,11 @@ pub struct ModStatues {
     is_disabled: Vec<bool>,
 }
 
+static HTML_TEXT: &str = include_str!("../../resources/templates/arcadia.html");
+static CSS_TEXT: &str = include_str!("../../resources/css/arcadia.css");
+static MISSING_ICON: &[u8] = include_bytes!("../../resources/img/missing.webp");
+static CHECK_ICON: &[u8] = include_bytes!("../../resources/img/check.svg");
+
 const LOCALHOST: &str = "http://localhost/";
 
 pub fn rename_folder(src: &Path, dest: &Path) -> u32 {
@@ -164,17 +169,20 @@ pub fn show_arcadia() {
     std::fs::create_dir_all(&img_cache).unwrap();
     //endregion
 
-    let mut file = std::fs::File::open("sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/arcropolis/resources/templates/arcadia.html").unwrap();
-    let mut page_content: String = String::new();
-    file.read_to_string(&mut page_content).unwrap();
+    // let mut file = std::fs::File::open("sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/arcropolis/resources/templates/arcadia.html").unwrap();
+    // let mut page_content: String = String::new();
+    // file.read_to_string(&mut page_content).unwrap();
 
-    let tpl = ramhorns::Template::new(page_content).unwrap();
+    let tpl = ramhorns::Template::new(HTML_TEXT).unwrap();
 
     let render = tpl.render(&mods);
 
     let response = Webpage::new()
         .htdocs_dir("contents")
         .file("index.html", &render)
+        .file("arcadia.css", CSS_TEXT)
+        .file("missing.webp", MISSING_ICON)
+        .file("check.svg", CHECK_ICON)
         .files(&images)
         .background(skyline_web::Background::Default)
         .boot_display(skyline_web::BootDisplay::Default)
