@@ -22,6 +22,7 @@ var activeDescHeight = 0; // The height for the current active description so it
 // Both used to make sure that players can't rapidly switch between categories
 var LButtonHeld = [false, false, false, false];
 var RButtonHeld = [false, false, false, false];
+var AButtonHeld = [false, false, false, false];
 
 function toggleMod(e) {
     // Toggle the checkmark (disabled -> enabled and vice versa)
@@ -29,7 +30,7 @@ function toggleMod(e) {
 
     // :)
     window.navigator.vibrate([0, 50, 0]);
-    
+
     // Remove the hidden class on the Save button
     if (document.getElementById("link-save").classList.contains("hidden")) {
         document.getElementById("link-save").classList.remove("hidden");
@@ -68,19 +69,18 @@ function submitMods() {
 }
 
 // yoinked from here https://stackoverflow.com/questions/143815/determine-if-an-html-elements-content-overflows
-function checkOverflow(el)
-{
-   var curOverflow = el.style.overflow;
+function checkOverflow(el) {
+    var curOverflow = el.style.overflow;
 
-   if ( !curOverflow || curOverflow === "visible" )
-      el.style.overflow = "hidden";
+    if (!curOverflow || curOverflow === "visible")
+        el.style.overflow = "hidden";
 
-   var isOverflowing = el.clientWidth < el.scrollWidth 
-      || el.clientHeight < el.scrollHeight;
+    var isOverflowing = el.clientWidth < el.scrollWidth
+        || el.clientHeight < el.scrollHeight;
 
-   el.style.overflow = curOverflow;
+    el.style.overflow = curOverflow;
 
-   return isOverflowing;
+    return isOverflowing;
 }
 
 
@@ -112,34 +112,115 @@ function updateCategory() {
             return false;
         }
     });
+
+    checkMissingImage();
 }
 
 function updateCurrentDesc() {
     // Reset current description height
     currentDescHeight = 0;
 
-    // Loop through all description stuff and look for the one without the hidden class.
-    $('.l-main-content').each(function () {
-        if (!$(this).hasClass("is-hidden")) {
-            // Once found, assign the description element to the global active description variable for use later
-            currentActiveDescription = $(this).find(".l-description").eq(0);
-            // Subtract 146 from the description scroll height to match the paragarph overflow
-            activeDescHeight = currentActiveDescription[0].scrollHeight - 146;
-            // Stop the loop
-            return false;
-        }
-    });
+    // Assign the currently active description element to the global active description variable for use later
+    currentActiveDescription = $('.l-main-content:not(.is-hidden)').eq(0).find(".l-description").eq(0);
+    // Subtract 146 from the description scroll height to match the paragarph overflow
+    activeDescHeight = currentActiveDescription[0].scrollHeight - 146;
 
     // Check to see if overflow occured and if so, enable the R-Stick Icon
-    if(checkOverflow(currentActiveDescription[0])){
+    if (checkOverflow(currentActiveDescription[0])) {
         document.getElementById("r-stick-desc-icon").style.visibility = "visible";
-    }else{
+    } else {
         document.getElementById("r-stick-desc-icon").style.visibility = "hidden";
     }
 }
 
 // Check the gamepad input for saving, switching categories, and scrolling the description
 function checkGamepad(index, gamepad) {
+    //#region UI Input Check
+
+    var axisX = gamepad.axes[0];
+    var axisY = gamepad.axes[1];
+
+    // Check A button
+    if(gamepad.buttons[1].pressed){
+        if(!AButtonHeld[index]){
+            AButtonHeld[index] = true;
+            $(".is-focused").last().click();
+        }
+    }else{
+        AButtonHeld[index] = false;
+    }
+    
+    // Check if D-pad Left pressed or Left Stick X Axis less than -0.7
+    if(gamepad.buttons[14].pressed || axisX < -0.7){
+        // Go up by 6 elements
+        var slice_index = 6;
+        var target = $(".is-focused").prevAll(":visible").slice(0, slice_index).last();
+        
+        while (target.length <= 0 && slice_index != 0) {
+            slice_index -= 1;
+            target = $(".is-focused").prevAll(":visible").slice(0, slice_index).last();
+        }
+        
+        // If that doesn't exist, then dip
+        if (target.length <= 0) {
+            return;
+        }
+        
+        scroll(target, modsContainer.scrollTop() + target.position().top - 50);
+    }
+    // Check if D-pad Up pressed or Y-Axis
+    else if(gamepad.buttons[12].pressed || axisY < -0.7){
+        // Get the mod above the current focused one
+        var target = $(".is-focused").prev();
+
+        while (target.length > 0 && target.is(':hidden')) {
+            target = target.prev();
+        }
+        
+        // If that doesn't exist, then dip
+        if (target.length <= 0) {
+            return;
+        }
+        
+        scroll(target, modsContainer.scrollTop() + target.position().top - 50);
+    }
+    // Check if D-pad Right pressed or X Axis > 0.7
+    else if(gamepad.buttons[15].pressed || axisX > 0.7){
+        // Go up down 6 elements
+        var slice_index = 6;
+        var target = $(".is-focused").nextAll(":visible").slice(0, slice_index).last();
+        
+        while (target.length <= 0 && slice_index != 0) {
+            slice_index -= 1;
+            target = $(".is-focused").nextAll(":visible").slice(0, slice_index).last();
+        }
+        
+        // If that doesn't exist, then dip
+        if (target.length <= 0) {
+            return;
+        }
+        
+        scroll(target, (modsContainer.scrollTop()) + (target.height() * 2));
+    }
+    // Check if D-pad Down pressed or Y Axis > 0.7
+    else if(gamepad.buttons[13].pressed || axisY > 0.7){
+        // Get the next mod that will be focused on
+        var target = $(".is-focused").next();
+
+        while (target.length > 0 && target.is(':hidden')) {
+            target = target.next();
+        }
+        
+        // If there is none after that, then just return
+        if (target.length <= 0) {
+            return;
+        }
+        
+        scroll(target, (modsContainer.scrollTop()) + (target.height() * 2));
+    };
+    //#endregion
+
+
     //#region + Button Pressed Check (Save)
     if (gamepad.buttons[9].pressed) {
         if (!document.getElementById("link-save").classList.contains("hidden")) {
@@ -204,11 +285,46 @@ function checkInView(elem, partial) {
     return isTotal || isPart;
 }
 
+function checkMissingImage() {
+    var id = $(".is-focused").attr("id").replace("btn-mods-", "about-img-");
+    var active_img = $(`#${id}`).eq(0).find(".screen-shot").eq(0);
+    
+    if (active_img.attr("data-img-loaded") == "false") {
+        $(`#${id}`).css('display', 'none');
+        $("#missing_image").css('display', 'block');
+    } else {
+        $(`#${id}`).css('display', 'block');
+        $("#missing_image").css('display', 'none');
+    }
+}
+
+function scroll(target, offset) {
+    // Check to see if mod is completely in view
+    var fully = checkInView(target) == undefined ? false : true;
+
+    // If so, then just focus and dip
+    if (fully) {
+        target.focus();
+    } else {
+        // Remove focus from currently focused one
+        $(".is-focused").focusout();
+        // Stop any animation going on in the container
+        modsContainer.stop();
+        // Animate the mod container scrolling with a speed of 0 (fastest)
+        modsContainer.animate({
+            scrollTop: offset
+        }, 0);
+        // Focus on the previous mod
+        target.focus();
+    }
+    checkMissingImage();
+}
+
 
 window.onload = function () {
     // Select the mod container
     modsContainer = $("#left-stick-home");
-    
+
     // Select all mods
     mods = document.querySelectorAll("#holder>button");
 
@@ -218,85 +334,8 @@ window.onload = function () {
     // Listen to the keydown event and prevent the default
     window.addEventListener('keydown', function (e) {
         e.preventDefault();
-
-        switch (event.keyCode) {
-            case 32: // A Button Clicked
-                $(".is-focused").click();
-            case 37: // Left Dpad / Analog
-                // Nothing to do for them currently
-                break;
-            case 38: // Up Dpad / Analog
-                // Get the mod above the current focused one
-                var target = $(".is-focused").prev();
-
-                while(target.length > 0 && target.is(':hidden')){
-                    target = target.prev();
-                }
-
-                // If that doesn't exist, then dip
-                if (target.length <= 0) {
-                    return;
-                }
-
-                // Check to see if mod is completely in view
-                var fully = checkInView(target) == undefined ? false : true;
-
-                // If so, then just focus and dip
-                if (fully) {
-                    target.focus();
-                    return;
-                } else {
-                    // Remove focus from currently focused one
-                    $(".is-focused").focusout();
-                    // Stop any animation going on in the container
-                    modsContainer.stop();
-                    // Animate the mod container scrolling with a speed of 0 (fastest)
-                    modsContainer.animate({
-                        scrollTop: modsContainer.scrollTop() + target.position().top - 50
-                    }, 0);
-                    // Focus on the previous mod
-                    target.focus();
-                }
-                break;
-            case 39: // Right Dpad / Analog
-                // Nothing to do for them currently
-                break;
-            case 40: // Down Dpad / Analog
-                // Get the next mod that will be focused on
-                var target = $(".is-focused").next();
-
-                while(target.length > 0 && target.is(':hidden')){
-                    target = target.next();
-                }
-                
-                // If there is none after that, then just return
-                if (target.length <= 0) {
-                    return;
-                }
-
-                // See if the mod item is fully in view
-                var fully = checkInView(target) == undefined ? false : true;
-
-                // If it is completely visible, then just change focus and dip
-                if (fully) {
-                    target.focus();
-                    return;
-                } else {
-                    // Remove the focus from the currently selected one
-                    $(".is-focused").focusout();
-                    // Stop any previous animation
-                    modsContainer.stop();
-                    // Animate the mod container scrolling with a speed of 0 (fastest)
-                    modsContainer.animate({
-                        scrollTop: (modsContainer.scrollTop()) + (target.height() * 2)
-                    }, 0);
-                    // Focus on the next mod
-                    target.focus();
-                }
-                break;
-        };
     });
-
+    
     // Loop through each mod and resize the text to fit
     [].forEach.call(mods, function (i) {
         $(".mod-name", i).first().textfill({
@@ -318,5 +357,5 @@ window.onload = function () {
                 }
             }
         }, 100);
-     });
+    });
 }

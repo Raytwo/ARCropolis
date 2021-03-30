@@ -1,6 +1,6 @@
 [package]
 name = "arcropolis"
-version = "1.0.5"
+version = "1.1.0-beta3"
 authors = ["Raytwo <raytwost@gmail.com>, jam1garner <jam1.mcleod@hotmail.com>"]
 edition = "2018"
 
@@ -28,6 +28,7 @@ smash-arc = { path = "../smash-arc", features = [ "smash-runtime", "nozstd" ] }
 binread = { path = "../binread/binread" }
 ramhorns = "0.9.4"
 percent-encoding = "2.1.0"
+walkdir = "2"
 
 [profile.dev]
 panic = "abort"

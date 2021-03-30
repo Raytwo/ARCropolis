@@ -9,17 +9,15 @@
   <link rel="stylesheet" href="./help/css/abstract.css" />
   <link rel="stylesheet" href="./help/css/thema/outgame.css" />
   <link id="font-stylesheet" rel="stylesheet" href="./help/css/font.css" />
-  <link rel="stylesheet" href="./arcropolis/resources/css/arcadia.css">
+  <link rel="stylesheet" href="./arcadia.css">
 </head>
 
 <body>
   <script src="./help/js/jquery-3.3.1.min.js"></script>
-  <script src="./help/../common/js/wsnd.min.js"></script>
-  <script src="./help/../common/js/keyhelp.js"></script>
   <script src="./help/js/common.js"></script>
   <script src="./help/js/two-column-switch.js"></script>
-  <script src="./arcropolis/resources/js/jquery.textfill.min.js"></script>
-  <script src="./arcropolis/resources/js/arcadia.js"></script>
+  <script src="./jquery.textfill.min.js"></script>
+  <script src="./arcadia.js"></script>
   <div id="bg" class="l-bg bg-abstract"></div>
   <div class="l-header">
     <span class="background-clip"></span>
@@ -68,8 +66,8 @@
                 <div class="abstract-button-border">
                   <div class="abstract-button-inner">
                     <div class="abstract-icon-wrapper">
-                      <div id="img-{{id}}"  class="{{#is_disabled}} hidden {{/is_disabled}}">
-                        <img class="abstract-icon is-appear" src="./arcropolis/resources/img/check.svg" />
+                      <div id="img-{{id}}" class="{{#is_disabled}} hidden {{/is_disabled}}">
+                        <img class="abstract-icon is-appear" src="check.svg" />
                       </div>
                     </div>
                     <div class="abstract-button-text f-u-bold mod-name" style="margin-bottom: 5px; display: block;">
@@ -86,31 +84,38 @@
       <td>
 
         <br>
-
-        <div class="l-main">
-          {{#entries}}
-          <div id="about-mods-{{id}}" class="l-main-content is-hidden">
-            <div class="l-screen-shot-wrapper">
-              <div class="screen-shot-wrapper">
-                <img width="280" height="127" class="screen-shot video" ref="img/{{id}}"
-                  onerror='this.src = "./arcropolis/resources/img/missing.webp"' />
-              </div>
-            </div>
-            <div class="l-version">
-              <div class="f-b-bold">
-                <p class="sentence"><span data-msgid="textbox_id-5">Version: {{#version}}{{version}}{{/version}}{{^version}}???{{/version}}</span></p>
-              </div>
-            </div>
-            <div class="l-description scrollbar-desc">
-              <div class="f-b-bold">
-                <p class="sentence p-desc">{{description}}</p>
-              </div>
+        <div class="l-screen-shot-wrapper" id="missing_image">
+          <div class="screen-shot-wrapper">
+            <img width="280" height="127" class="screen-shot video" ref="missing.webp" />
+          </div>
+        </div>
+        {{#entries}}
+        <div id="about-mods-{{id}}" class="l-main-content is-hidden">
+          <div class="l-screen-shot-wrapper" id="about-img-{{id}}">
+            <div class="screen-shot-wrapper">
+              <img width="280" height="127" class="screen-shot video" ref="img/{{id}}"
+                data-img-loaded = "false"
+                onerror='this.style.display = "none"; this.setAttribute("data-img-loaded", "false")'
+                onload='this.setAttribute("data-img-loaded", "true")' />
             </div>
           </div>
-          {{/entries}}
-          <div id="r-stick-desc-icon">
-            <span>&#xE102</span>
+          <div class="l-version">
+            <div class="f-b-bold">
+              <p class="sentence"><span
+                  data-msgid="textbox_id-5">Version:{{#version}}{{version}}{{/version}}{{^version}}???{{/version}}</span>
+              </p>
+            </div>
           </div>
+          <div class="l-description scrollbar-desc">
+            <div class="f-b-bold">
+              <p class="sentence p-desc">{{{description}}}</p>
+            </div>
+          </div>
+        </div>
+        {{/entries}}
+        <div id="r-stick-desc-icon">
+          <span>&#xE102</span>
+        </div>
         </div>
 
 

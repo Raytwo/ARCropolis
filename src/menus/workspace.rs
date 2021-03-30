@@ -12,6 +12,10 @@ use skyline_web::PageResult;
 
 use crate::config::CONFIG;
 
+static HTML_TEXT: &str = include_str!("../../resources/templates/selector.html");
+static CSS_TEXT: &str = include_str!("../../resources/css/selector.css");
+static JAVASCRIPT_TEXT: &str = include_str!("../../resources/js/selector.js");
+
 // Thanks jugeeya :^)
 pub fn get_arguments_from_url(s: &str) -> String {
     let base_url_len = "http://localhost/".len();
@@ -59,17 +63,14 @@ fn get_workspaces() -> Vec<Workspace> {
 }
 
 fn show_selector(workspaces: &Workspaces) -> PageResult {
-    let mut file = std::fs::File::open("sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/arcropolis/selector/templates/index.html").unwrap();
-    let mut page_content: String = String::new();
-    file.read_to_string(&mut page_content).unwrap();
-
-    let tpl = ramhorns::Template::new(page_content).unwrap();
+    let tpl = ramhorns::Template::new(HTML_TEXT).unwrap();
 
     let render = tpl.render(&workspaces);
 
     let mut webpage = skyline_web::Webpage::new();
     webpage.htdocs_dir("contents");
     webpage.file("index.html", &render);
+    webpage.file("selector.css", CSS_TEXT);
     webpage.open().unwrap()
 }
 

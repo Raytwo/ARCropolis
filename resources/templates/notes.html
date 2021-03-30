@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
+    <meta name="focus-ring-visibility" content="hidden" />
+    <title>Update Notes</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            min-height: 100%;
+        }
+
+        .header {
+            padding: 10px 40px;
+            background: url(/img/common/da1f9e6….svg) repeat top left/auto;
+            background-color: #272727;
+            box-sizing: border-box;
+            z-index: 200;
+            color: white;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            box-shadow: 0 0 10px rgb(0 0 0 / 80%);
+        }
+
+        .header-title {
+            padding: 10px 10px 10px 20px;
+        }
+
+        .header .header-title {
+            border-left: 8px solid yellow;
+        }
+
+        .header-title h1,
+        .header-title p {
+            margin: 0;
+            padding: 0;
+            line-height: 1.5;
+        }
+
+        .header-title p {
+            color: #959595;
+            font-weight: bold;
+        }
+
+        .container {
+            margin: 0 auto;
+            width: 1280px;
+            box-sizing: border-box;
+            padding: 150px 40px 0 40px;
+        }
+
+        .preview img {
+            width: 100%;
+        }
+
+        .preview-text {
+            margin: 0;
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-left: 20px;
+        }
+
+        .section {
+            position: relative;
+        }
+
+        .section-header{
+            position: relative;
+            margin: 0 0 20px 0;
+            line-height: 40px;
+        }
+
+        .section-header>div::before {
+            content: '';
+            width: 8px;
+            height: 100%;
+            background-color: #FFF000;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .section-header>div {
+            padding: 0px 20px;
+            background-color: #959595;
+            display: inline-block;
+            box-sizing: border-box;
+            color: white;
+            min-width: 250px;
+            position: relative;
+            max-width: 100%;
+            white-space: nowrap;
+        }
+
+        .section-header>div::after {
+            content: '';
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 40px 0 0 20px;
+            border-color: transparent transparent transparent #959595;
+            position: absolute;
+            top: 0;
+            right: -20px;
+        }
+
+        .section-header::after {
+            content: '';
+            width: 100%;
+            border-bottom: 2px solid #959595;
+            display: block;
+            bottom: 0;
+            position: absolute;
+        }
+
+        .section>div{
+            font-size: 1.3rem;
+            padding: 0 0 10px 10px;
+            font-weight: bold;
+        }
+
+        li{
+            line-height: 2;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .footer{
+            width: 100%;
+            border-top: 2px solid black;
+        }
+
+        .footer>p{
+            color: #505050;
+            font-weight: bold;
+            margin: 0;
+            padding: 40px 60px;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div class="header-title">
+            <h1>{{title}}</h1>
+            <p>{{date}}</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="preview">
+            <table style="width: 100%;">
+                <tr>
+                    <td style="width: 50%;">
+                        <img width="595" height="334" src="./notes.png">
+                    </td>
+                    <td style="width: 100%; display: block;">
+                        <div>
+                            <p class="preview-text">
+                                {{{description}}}
+                            </p>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <br>
+        <br>
+
+        {{#entries}}
+            <div class="section">
+                <h2 class="section-header">
+                    <div>{{{section_title}}}</div>
+                </h2>
+                <div>
+                    {{{contents}}}
+                </div>
+            </div>
+        {{/entries}}
+    </div>
+    <br>
+    <br>
+
+    <div class="footer">
+        <p>
+            ARCropolis<br>
+            Maintainer(s): Raytwo, CoolSonicKirby<br>
+            Special thanks: jam1garner, Shadów, Genwald, Styley
+        </p>
+    </div>
+
+</body>
+
+</html>

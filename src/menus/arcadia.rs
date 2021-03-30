@@ -34,6 +34,13 @@ pub struct ModStatues {
     is_disabled: Vec<bool>,
 }
 
+static HTML_TEXT: &str = include_str!("../../resources/templates/arcadia.html");
+static CSS_TEXT: &str = include_str!("../../resources/css/arcadia.css");
+static ARCADIA_JAVASCRIPT_TEXT: &str = include_str!("../../resources/js/arcadia.js");
+static JQUERY_LIB_JAVASCRIPT_TEXT: &str = include_str!("../../resources/js/jquery.textfill.min.js");
+static MISSING_ICON: &[u8] = include_bytes!("../../resources/img/missing.webp");
+static CHECK_ICON: &[u8] = include_bytes!("../../resources/img/check.svg");
+
 const LOCALHOST: &str = "http://localhost/";
 
 pub fn rename_folder(src: &Path, dest: &Path) -> u32 {
@@ -51,31 +58,34 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
         .filter_map(|(i, path)| {
             let path_to_be_used;
             let disabled;
+            
+            let path = path.unwrap();
 
-            let original = format!("{}", path.unwrap().path().display());
-            let counter_part = match original.chars().next() {
+            let parent_path = format!("{}", path.path().parent().unwrap().display());
+            let original_folder_name = format!("{}", path.file_name().to_os_string().into_string().unwrap());
+
+            
+            let original = format!("{}", path.path().display());
+            let counter_part = match original_folder_name.chars().next() {
                 Some('.') => {
                     disabled = true;
-                    original[1..].to_owned()
+                    format!("{}/{}", parent_path, &original_folder_name[1..])
                 }
                 _ => {
                     disabled = false;
-                    format!(".{}", &original)
+                    format!("{}/.{}", parent_path, &original_folder_name)
                 }
             };
 
-            let original_path = format!("{}/{}", workspace, &original);
-            let counter_part_path = format!("{}/{}", workspace, &counter_part);
-
-            if std::fs::metadata(&original_path).is_ok()
-                & std::fs::metadata(&counter_part_path).is_ok()
+            if std::fs::metadata(&original).is_ok()
+            & std::fs::metadata(&counter_part).is_ok()
             {
-                path_to_be_used = format!("{} (2)", &counter_part_path);
-                rename_folder(Path::new(&counter_part_path), Path::new(&path_to_be_used));
+                path_to_be_used = format!("{} (2)", &counter_part);
+                rename_folder(Path::new(&counter_part), Path::new(&path_to_be_used));
             } else {
-                path_to_be_used = original_path;
+                path_to_be_used = original.to_owned();
             }
-
+            
             let mut folder_name = Path::new(&path_to_be_used)
                 .file_name()
                 .unwrap()
@@ -90,7 +100,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
             };
 
             let info_path = format!("{}/info.toml", path_to_be_used);
-
+            info!("Info Path: {}", info_path);
             let mod_info: Entry = if std::fs::metadata(&info_path).is_ok() {
                 let mut res: Entry =
                     toml::from_str(&std::fs::read_to_string(&info_path).unwrap()).unwrap();
@@ -98,6 +108,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                 res.folder_name = Some(folder_name);
                 res.is_disabled = Some(disabled);
                 res.image = Some(format!("{}/preview.webp", path_to_be_used));
+                res.description = Some(res.description.unwrap_or("".to_string()).replace("\n", "<br>"));
                 res
             } else {
                 Entry {
@@ -160,17 +171,22 @@ pub fn show_arcadia() {
     std::fs::create_dir_all(&img_cache).unwrap();
     //endregion
 
-    let mut file = std::fs::File::open("sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/arcropolis/resources/templates/arcadia.html").unwrap();
-    let mut page_content: String = String::new();
-    file.read_to_string(&mut page_content).unwrap();
+    // let mut file = std::fs::File::open("sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/arcropolis/resources/templates/arcadia.html").unwrap();
+    // let mut page_content: String = String::new();
+    // file.read_to_string(&mut page_content).unwrap();
 
-    let tpl = ramhorns::Template::new(page_content).unwrap();
+    let tpl = ramhorns::Template::new(HTML_TEXT).unwrap();
 
     let render = tpl.render(&mods);
 
     let response = Webpage::new()
         .htdocs_dir("contents")
         .file("index.html", &render)
+        .file("arcadia.css", CSS_TEXT)
+        .file("arcadia.js", ARCADIA_JAVASCRIPT_TEXT)
+        .file("jquery.textfill.min.js", JQUERY_LIB_JAVASCRIPT_TEXT)
+        .file("missing.webp", MISSING_ICON)
+        .file("check.svg", CHECK_ICON)
         .files(&images)
         .background(skyline_web::Background::Default)
         .boot_display(skyline_web::BootDisplay::Default)
@@ -182,8 +198,7 @@ pub fn show_arcadia() {
         url => {
             let res = percent_decode_str(&url[LOCALHOST.len()..])
                 .decode_utf8_lossy()
-                .into_owned()
-                .replace("BREAKTHISLINE", "\n");
+                .into_owned();
 
             let webpage_res: ModStatues = toml::from_str(&res).unwrap();
 
@@ -193,24 +208,21 @@ pub fn show_arcadia() {
                 let enabled_path = Path::new(&workspace).join(&folder_name);
                 let disabled_path = Path::new(&workspace).join(&format!(".{}", &folder_name));
 
-                info!(
-                    "[menus::show_arcadia] ID: {}\nMod Name: {}\nIs Disabled?: {}",
-                    id, folder_name, disabled
-                );
-
                 if disabled {
                     if std::fs::metadata(&enabled_path).is_ok() {
                         info!("[menus::show_arcadia] Disabling {}", folder_name);
+                        let res = rename_folder(&enabled_path, &disabled_path);
                         info!(
                             "[menus::show_arcadia] RenameFolder Result: {:?}",
-                            rename_folder(&enabled_path, &disabled_path)
+                            res
                         );
                     }
                 } else if std::fs::metadata(&disabled_path).is_ok() {
                     info!("[menus::show_arcadia] Enabling {}", folder_name);
+                    let res = rename_folder(&disabled_path, &enabled_path);
                     info!(
                         "[menus::show_arcadia] RenameFolder Result: {:?}",
-                        rename_folder(&disabled_path, &enabled_path)
+                        res
                     );
                 }
 

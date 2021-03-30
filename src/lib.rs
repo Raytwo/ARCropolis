@@ -34,7 +34,7 @@ use runtime::{LoadedTables, ResServiceState, Table2Entry};
 mod menus;
 
 mod logging;
-use log::{info, trace};
+use log::{info, trace, warn};
 
 mod visit;
 
@@ -291,7 +291,7 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
     } else if original_page.contains("contents.htdocs/howto/html/") {
         if original_page.ends_with("index.html") {
             menus::show_arcadia();
-            false
+            true
         } else {
             false
         }
@@ -308,35 +308,33 @@ static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
 
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
-    //menus::show_arcadia();
-    logging::init(CONFIG.read().logger.as_ref().unwrap().logger_level.into()).unwrap();
+    let config = CONFIG.read();
+    
+    if logging::init(config.logger.unwrap().logger_level.into()).is_err() {
+        println!("ARCropolis logger could not be initialized.")
+    }
 
     // Check if an update is available
     if skyline_update::check_update(
-        IpAddr::V4(CONFIG.read().updater.as_ref().unwrap().server_ip),
+        IpAddr::V4(config.updater.unwrap().server_ip),
         "ARCropolis",
         env!("CARGO_PKG_VERSION"),
-        CONFIG.read().updater.as_ref().unwrap().beta_updates,
+        config.updater.unwrap().beta_updates,
     ) {
         skyline::nn::oe::RestartProgramNoArgs();
     }
 
-    // Lmao gross
-    let changelog = if let Ok(mut file) =
-        File::open("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md")
+    if let Ok(changelog) = std::fs::read_to_string("sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis/changelog.toml") 
     {
-        let mut content = String::new();
-        file.read_to_string(&mut content).unwrap();
-        Some(format!("Changelog\n\n{}", &content))
-    } else {
-        None
-    };
-
-    // TODO: Replace by a proper Smash-like menu someday
-    if let Some(text) = changelog {
-        skyline_web::DialogOk::ok(text);
-        std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/changelog.md")
-            .unwrap();
+        match toml::from_str(&changelog) {
+            Ok(changelog) => {
+                menus::display_update_page(&changelog);
+                std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis/changelog.toml").unwrap();
+            },
+            Err(_) => {
+                warn!("Changelog could not be parsed. Is the file malformed?");
+            }
+        }
     }
 
     // Discover files
