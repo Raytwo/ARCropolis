@@ -3,13 +3,14 @@
 #![feature(asm)]
 #![feature(ptr_offset_from)]
 
-use std::ffi::CStr;
+use std::{ffi::CStr, path::PathBuf};
 use std::fs::File;
 use std::io::prelude::*;
 use std::net::IpAddr;
-
+use std::collections::HashMap;
 use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
 
+mod cache;
 mod cpp_vector;
 
 mod config;
@@ -19,7 +20,7 @@ mod hashes;
 mod stream;
 
 mod replacement_files;
-use replacement_files::{FileCtx, FileIndex, INCOMING_IDX, MOD_FILES};
+use replacement_files::{FileCtx, FileIndex, INCOMING_IDX, MOD_FILES, UNSHARE_LUT};
 
 mod offsets;
 use offsets::{
@@ -303,6 +304,8 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
     }
 }
 
+static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
+
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     //menus::show_arcadia();
@@ -339,6 +342,21 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Discover files
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
+        if let Some(handle) = LUT_LOADER_HANDLE.take() {
+            handle.join();
+            let lut = UNSHARE_LUT.read();
+            if lut.is_none() {
+                skyline_web::DialogOk::ok("No valid unsharing lookup table found. One will be generated and the game will restart.");
+                let cache = cache::UnshareCache::new(LoadedTables::get_arc());
+                cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin"));
+                nn::oe::RestartProgramNoArgs();
+            } else if lut.as_ref().unwrap().arc_version != (*LoadedTables::get_arc().fs_header).version {
+                skyline_web::DialogOk::ok("Found unsharing lookup table for a different game version. A new one will be generated and the game will restart.");
+                let cache = cache::UnshareCache::new(LoadedTables::get_arc());
+                cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin"));
+                nn::oe::RestartProgramNoArgs();
+            }
+        } else { unreachable!() }
         let mod_map = replacement_files::ModFileMap::new();
         mod_map.unshare().unwrap();
         lazy_static::initialize(&MOD_FILES);
@@ -348,12 +366,16 @@ fn initial_loading(_ctx: &InlineCtx) {
     }
 }
 
+use binread::*;
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Load hashes from rom:/skyline/hashes.txt if the file is present
     hashes::init();
     // Look for the offset of the various functions to hook
     offsets::search_offsets();
+
+    
 
     install_hooks!(
         initial_loading,
@@ -370,6 +392,19 @@ pub fn main() {
 
     unsafe {
         skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x34636c4, &0x14000002);
+        LUT_LOADER_HANDLE = Some(std::thread::spawn(|| {
+            let mut unshare_lut = UNSHARE_LUT.write();
+            *unshare_lut = match std::fs::read("rom:/skyline/unshare_lut.bin") {
+                Ok(file_data) => {
+                    let mut reader = std::io::Cursor::new(file_data);
+                    match cache::UnshareCache::read(&mut reader) {
+                        Ok(lut) => Some(lut),
+                        Err(_) => None
+                    }
+                },
+                Err(_) => None
+            }
+        }));
     }
 
     println!(

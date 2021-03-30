@@ -9,7 +9,7 @@ use crate::{
 
 use owo_colors::OwoColorize;
 
-use smash_arc::{ArcLookup, FileData, FileDataFlags, FileInfoIndiceIdx, Hash40};
+use smash_arc::{ArcLookup, FileData, FileDataFlags, FileInfoIndiceIdx, Hash40, HashToIndex};
 
 use runtime::{LoadedArcEx, LoadedTables};
 
@@ -17,11 +17,17 @@ use log::warn;
 
 type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> bool;
 
+use binread::*;
+use crate::cache;
+
 lazy_static::lazy_static! {
     pub static ref MOD_FILES: parking_lot::RwLock<ModFiles> = parking_lot::RwLock::new(ModFiles(HashMap::new()));
 
     // For ResInflateThread
     pub static ref INCOMING_IDX: parking_lot::RwLock<Option<FileIndex>> = parking_lot::RwLock::new(None);
+
+    // For unsharing the files :)
+    pub static ref UNSHARE_LUT: parking_lot::RwLock<Option<cache::UnshareCache>> = parking_lot::RwLock::new(None);
 }
 
 #[no_mangle]
@@ -363,9 +369,17 @@ impl ModFileMap {
     }
 
     pub fn unshare(&self) -> Result<(), smash_arc::LookupError> {
+        lazy_static::lazy_static! {
+            static ref UNSHARE_WHITELIST: Vec<Hash40> = vec![
+                Hash40::from("fighter")
+            ];
+        }
         let arc = LoadedTables::get_arc();
-        let mut parent_to_group = HashMap::new();
+        let mut to_unshare = Vec::new();
         let file_paths = arc.get_file_paths();
+        let dir_infos = arc.get_dir_infos();
+        let read_cache = UNSHARE_LUT.read();
+        let cache = read_cache.as_ref().unwrap();
         for (game_path, path) in self.0.iter() {
             let path_idx = match arc.get_file_path_index_from_hash(*game_path) {
                 Ok(index) => index,
@@ -374,22 +388,35 @@ impl ModFileMap {
                     continue;
                 }
             };
-            let parent = file_paths[usize::from(path_idx)].parent.hash40();
-            if !parent_to_group.contains_key(&parent) {
-                let group_hash = arc.get_mass_load_group_hash_from_file_hash(*game_path)?;
-                if !arc.is_unshareable_group(group_hash) {
-                    parent_to_group.insert(parent, Hash40(0));
-                    warn!("[ARC::Unsharing] Unable to unshare directory containing {} ({:#x}).", crate::hashes::get(*game_path).unwrap_or(&format!("{:#x}", game_path.0).as_str()).bright_yellow(), game_path.0.red());
-                } else {
-                    parent_to_group.insert(parent, group_hash);
+            let mut hti = smash_arc::HashToIndex::default();
+            hti.set_hash((game_path.0 & 0xFFFFFFFF) as u32);
+            hti.set_length((game_path.0 >> 32) as u8);
+            hti.set_index(path_idx.0);
+            let dir_entry = match cache.entries.get(&hti) {
+                Some((dir_entry, _)) => dir_entry,
+                None => {
+                    panic!("[ARC::Unsharing] Lookup table file does not contain entry for '{}' ({:#x})", path.display().bright_yellow(), game_path.0.red());
                 }
+            };
+            let tl_parent = get_top_level_parent(dir_entry.hash40());
+            if UNSHARE_WHITELIST.contains(&tl_parent) {
+                to_unshare.push(dir_entry.hash40());
             }
         }
-        let mut to_unshare: Vec<Hash40> = parent_to_group.into_iter().filter_map(|(_, hash)| if hash == Hash40(0) { None } else { Some(hash) }).collect();
         to_unshare.sort();
         to_unshare.dedup();
         LoadedTables::unshare_mass_loading_groups(&to_unshare).unwrap();
-        Ok(())
+        return Ok(());
+
+        fn get_top_level_parent(path: Hash40) -> Hash40 {
+            let arc = LoadedTables::get_arc();
+            let dir_infos = arc.get_dir_infos();
+            let mut dir_info = arc.get_dir_info_from_hash(path).unwrap();
+            while dir_info.parent.hash40().0 != 0 {
+                dir_info = arc.get_dir_info_from_hash(dir_info.parent.hash40()).unwrap();
+            }
+            dir_info.name.hash40()
+        }
     }
 
     pub fn to_mod_files(self) -> ModFiles {

@@ -477,8 +477,10 @@ impl LoadedTables {
             for path in paths.iter() {
                 // start by changing the index of the load data
                 let mass_load_group = arc.get_dir_info_from_hash(*path)?;
+                if (mass_load_group.dir_offset_index >> 8) == 0xFFFFFF { continue; }
                 let intermediate_load_data = &mut folder_offsets[(mass_load_group.dir_offset_index >> 8) as usize]; // ideally change this in smash-arc
                 let old_res_idx = intermediate_load_data.resource_index;
+                if old_res_idx == 0xFFFFFF { continue; }
                 intermediate_load_data.resource_index = lengths.folder_offsets + new_mass_load_datas.len() as u32;
                 drop(intermediate_load_data); // can't mutably borrow twice at once, so drop
                 let shared_load_data = &folder_offsets[old_res_idx as usize];
