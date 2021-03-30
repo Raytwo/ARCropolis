@@ -355,10 +355,7 @@ fn initial_loading(_ctx: &InlineCtx) {
                 nn::oe::RestartProgramNoArgs();
             }
         } else { unreachable!() }
-        let mod_map = replacement_files::ModFileMap::new();
-        mod_map.unshare().unwrap();
         lazy_static::initialize(&MOD_FILES);
-        *MOD_FILES.write() = mod_map.to_mod_files();
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
     }
