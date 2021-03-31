@@ -27,6 +27,9 @@ microSD card format: ``FAT32`` or ``exFAT``
 ### Expected behavior
 [If possible, explain what SHOULD have happened but didn't.]
 
+### Reproducibility 
+[Can you reproduce the crash/infinite load? If so, is it random, every time you try, etc.?]
+
 ### What happened and what's the context?
 [Were you playing offline? Online? With mods? Was it during the Vs. loading screen? On the CSS? On the SSS? ...]
 
