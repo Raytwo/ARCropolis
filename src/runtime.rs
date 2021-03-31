@@ -376,7 +376,10 @@ impl LoadedTables {
                         group_to_index_hash_map.insert(group_hash, offset);
                     }
                 }
-                if skip_this_group { continue; }
+                if skip_this_group {
+                    folder_offsets[(mass_load_group.dir_offset_index >> 8) as usize].resource_index = old_res_idx;
+                    continue;
+                }
                 drop(index_to_data_hash_map);
 
                 let mut path_idx_to_info_indice = HashMap::new();
