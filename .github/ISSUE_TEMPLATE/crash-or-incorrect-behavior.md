@@ -9,31 +9,32 @@ assignees: ''
 ---
 
 ## Read this before continuing
-[ Sentences between [ brackets ] should be removed before posting ]
+[Sentences between [brackets] should be removed before posting.]
 
-[ Before posting, make sure to check on the title screen if the ARCropolis version shows up. If it does not, you did not install it properly and should not open an issue ]
+[Before posting, make sure to check if the ARCropolis version appears on the title screen. If it does not, you did not install it properly and should not open an issue.]
 
-[ Only issues related to the latest Major version, which is the leftmost number (ex.: ``2`` in version ``2.0.0``)` are considered ]
-[ The previous statement does not apply if the only release in a Major version is a beta ]
+[Only issues related to the latest major version, which is the leftmost number (e.g., ``2`` in version ``2.0.0``), are considered.]
+[The previous statement does not apply if the only release in a major version is a beta.]
+[Finally, any issues where the user is using SX OS or ReiNX are not considered and issues with said CFW should not be submitted.]
 
 ### Your setup
-Horizon version: ``9.0.0``
-Atmosphere version (do not post if you use SX OS): ``0.18.1``
+System firmware version: ``11.0.1``
+Atmosphère version: ``0.18.1``
 Smash version: ``11.0.1``
 ARCropolis version: ``2.0.0-beta``
-SD card formatting: ``exFAT`` or ``FAT32``
+microSD card format: ``FAT32`` or ``exFAT``
 
 ### Expected behavior
-[ If possible, explain what SHOULD have happened but didn't ]
+[If possible, explain what SHOULD have happened but didn't.]
 
-### What happened and the context
-[ Were you playing offline? Online? With mods? Was it during the VS loading? On the CSS? On the SSS? ... ]
+### What happened and what's the context?
+[Were you playing offline? Online? With mods? Was it during the Vs. loading screen? On the CSS? On the SSS? ...]
 
 ### Screenshot(s)
-[ If an error prompt with a code ending in ``69`` shows up, please select "Details" and provide a screenshot. If you can't provide a screenshot, write the message down in its entirety ]
+[If an error popup with a code ending in ``69`` shows up, please select "Details" and provide a screenshot. If you cannot provide a screenshot, write down the message in its entirety.]
 
 ### Configuration
-[ Post your configuration located in ``sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml`` here ]
+[Post your configuration file located in ``sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml`` here.]
 
 ### Crash report
-[ If the game crashed, get the most recent file in ``sd:/atmosphere/crash_reports`` and post it here ]
+[If the game crashed, get the most recent ``.log`` file from ``sd:/atmosphere/crash_reports/`` and post it here.]
