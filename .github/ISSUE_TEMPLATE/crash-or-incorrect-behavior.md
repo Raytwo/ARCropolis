@@ -21,7 +21,7 @@ Horizon version: ``9.0.0``
 Atmosphere version (do not post if you use SX OS): ``0.18.1``
 Smash version: ``11.0.1``
 ARCropolis version: ``2.0.0-beta``
-SD card formatting: ``ExFAT`` or ``FAT32``
+SD card formatting: ``exFAT`` or ``FAT32``
 
 ### Expected behavior
 [ If possible, explain what SHOULD have happened but didn't ]
