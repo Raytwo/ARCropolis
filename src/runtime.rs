@@ -649,7 +649,7 @@ impl LoadedTables {
 pub trait LoadedArcEx {
     /// Provides every FileInfo that refers to the FilePath
     fn get_shared_fileinfos(&self, file_path: &FilePath) -> Vec<FileInfo>;
-    fn patch_filedata(&mut self, fileinfo: &FileInfo, size: u32) -> FileData;
+    fn patch_filedata(&mut self, fileinfo: &FileInfo, size: u32) -> u32;
     fn is_unshareable_group(&self, group_hash: Hash40) -> bool;
     fn get_mass_load_group_hash_from_file_hash(&self, file_hash: Hash40) -> Result<Hash40, LookupError>;
 }
@@ -668,7 +668,7 @@ impl LoadedArcEx for LoadedArc {
             .collect()
     }
 
-    fn patch_filedata(&mut self, fileinfo: &FileInfo, size: u32) -> FileData {
+    fn patch_filedata(&mut self, fileinfo: &FileInfo, size: u32) -> u32 {
         let file_path = self.get_file_paths()[usize::from(fileinfo.file_path_index)];
 
         let region = if fileinfo.flags.is_regional() {
@@ -715,7 +715,7 @@ impl LoadedArcEx for LoadedArc {
             }
         }
 
-        orig_filedata
+        orig_filedata.decomp_size
     }
 
     fn is_unshareable_group(&self, group_hash: Hash40) -> bool {

@@ -2,12 +2,11 @@ use std::{collections::HashMap, fs, path::PathBuf, vec};
 
 use crate::{
     runtime,
-    fs::Metadata,
     config::CONFIG,
-    visit::{
-        ModFile,
-        Modpath
-    }
+    fs::{
+        Metadata,
+        visit::ModFile,
+    },
 };
 
 use owo_colors::OwoColorize;
@@ -17,8 +16,6 @@ use smash_arc::{ArcLookup, FileData, FileDataFlags, FileInfoIndiceIdx, Hash40, H
 use runtime::{LoadedArcEx, LoadedTables};
 
 use log::warn;
-
-use walkdir::WalkDir;
 
 type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> bool;
 
@@ -75,7 +72,7 @@ pub struct ModFiles(pub HashMap<FileIndex, FileCtx>);
 pub struct FileCtx {
     pub file: ModFile,
     pub hash: Hash40,
-    pub orig_subfile: FileData,
+    pub orig_size: u32,
     pub index: FileInfoIndiceIdx,
 }
 
@@ -96,76 +93,23 @@ impl ModFiles {
 
         // ARC mods
         if config.paths.arc.exists() {
-            modfiles.extend(ModFiles::discovery(&config.paths.arc));
+            modfiles.extend(crate::fs::visit::discovery(&config.paths.arc));
         }
         // UMM mods
         if config.paths.umm.exists() {
-            modfiles.extend(ModFiles::umm_discovery(&config.paths.umm));
+            modfiles.extend(crate::fs::visit::umm_discovery(&config.paths.umm));
         }
 
         if let Some(extra_paths) = &config.paths.extra_paths {
             for path in extra_paths {
                 // Extra UMM mods
                 if path.exists() {
-                    modfiles.extend(ModFiles::umm_discovery(path));
+                    modfiles.extend(crate::fs::visit::umm_discovery(path));
                 }
             }
         }
         Self::unshare(&modfiles);
         Self(ModFiles::process_mods(&modfiles))
-    }
-
-    fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
-        let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
-
-        WalkDir::new(dir).into_iter().filter_entry(|entry| {
-            // If it starts with a period
-            !entry.file_name().to_str().unwrap().starts_with('.')
-        }).filter_map(|entry| {
-            let entry = entry.unwrap();
-
-            // Only process files
-            if entry.file_type().is_file() {
-                // Make sure the file has an extension
-                if entry.path().extension().is_some() {
-                    let path: ModFile = ModFile::from(entry.path().strip_prefix(dir).unwrap().to_path_buf());
-
-                    match path.get_region() {
-                        Some(region) => {
-                            if region != user_region {
-                                return None;
-                            }
-                        }
-                        None => ()
-                    }
-
-                    let hash = Modpath(entry.path().strip_prefix(dir).unwrap().to_path_buf()).hash40().unwrap();
-                    Some((hash, entry.path().to_path_buf().into()))
-                } else {
-                    println!("File has no extension, aborting");
-                    None
-                }
-            } else {
-                None
-            }
-
-            
-        }).collect()
-    }
-
-    /// Visit Ultimate Mod Manager directories for backwards compatibility
-    fn umm_discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
-        WalkDir::new(dir).min_depth(1).max_depth(1).into_iter().filter_entry(|entry| {
-            !entry.file_name().to_str().unwrap().starts_with('.')
-        }).flat_map(|entry| {
-            let entry = entry.unwrap();
-
-            if !entry.file_type().is_dir() {
-                return Err(());
-            }
-
-            Ok(ModFiles::discovery(&entry.into_path()))
-        }).flatten().collect()
     }
 
     fn process_mods(modfiles: &HashMap<Hash40, ModFile>) -> HashMap<FileIndex, FileCtx> {
@@ -201,7 +145,7 @@ impl ModFiles {
                     let info_index = arc.get_file_info_indices()[usize::from(*info_index)].file_info_index;
                     let file_info = arc.get_file_infos()[usize::from(info_index)];
 
-                    ctx.orig_subfile = arc.patch_filedata(&file_info, ctx.file.len())
+                    ctx.orig_size = arc.patch_filedata(&file_info, ctx.file.len())
                 }
                 _ => {},
             }
@@ -272,15 +216,7 @@ impl FileCtx {
         FileCtx {
             file: PathBuf::new().into(),
             hash: Hash40(0),
-            orig_subfile: FileData {
-                offset_in_folder: 0,
-                comp_size: 0,
-                decomp_size: 0,
-                flags: FileDataFlags::new()
-                    .with_compressed(false)
-                    .with_use_zstd(false)
-                    .with_unk(0),
-            },
+            orig_size: 0,
             index: FileInfoIndiceIdx(0),
         }
     }

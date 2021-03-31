@@ -1,13 +1,72 @@
 use std::{
-    fs,
-    path::{Path, PathBuf},
-};
-
-use fs::metadata;
-use smash_arc::{Hash40, Region};
+    collections::HashMap,
+    path::{
+        Path,
+        PathBuf
+    }};
 
 use crate::replacement_files::get_region_id;
+use crate::config::CONFIG;
 
+use smash_arc::{Hash40, Region};
+
+use walkdir::WalkDir;
+
+pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
+    let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+
+    WalkDir::new(dir).into_iter().filter_entry(|entry| {
+        // If it starts with a period
+        !entry.file_name().to_str().unwrap().starts_with('.')
+    }).filter_map(|entry| {
+        let entry = entry.unwrap();
+
+        // Only process files
+        if entry.file_type().is_file() {
+            // Make sure the file has an extension
+            if entry.path().extension().is_some() {
+                let path: ModFile = ModFile::from(entry.path().strip_prefix(dir).unwrap().to_path_buf());
+
+                match path.get_region() {
+                    Some(region) => {
+                        if region != user_region {
+                            return None;
+                        }
+                    }
+                    None => ()
+                }
+
+                let hash = Modpath(entry.path().strip_prefix(dir).unwrap().to_path_buf()).hash40().unwrap();
+                Some((hash, entry.path().to_path_buf().into()))
+            } else {
+                println!("File has no extension, aborting");
+                None
+            }
+        } else {
+            None
+        }
+
+        
+    }).collect()
+}
+
+/// Visit Ultimate Mod Manager directories for backwards compatibility
+pub fn umm_discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
+    WalkDir::new(dir).min_depth(1).max_depth(1).into_iter().filter_entry(|entry| {
+        !entry.file_name().to_str().unwrap().starts_with('.')
+    }).flat_map(|entry| {
+        let entry = entry.unwrap();
+
+        if !entry.file_type().is_dir() {
+            return Err(());
+        }
+
+        Ok(discovery(&entry.into_path()))
+    }).flatten().collect()
+}
+
+/// Utility struct for the purpose of storing a relative Smash path (starting at the root of the ``/arc`` filesystem)
+/// A few methods are provided to obtain a Hash40 or strip ARCropolis-relevant informations such as a regional indicator
 #[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct Modpath(pub PathBuf);
@@ -86,7 +145,9 @@ impl Modpath {
     }
 }
 
-// TODO: Make a "Modpath" variant for everything that is relative to /arc, and use "Modfile" for storing an absolute SD path
+
+/// Utility struct for the purpose of storing an absolute modfile path (starting at the root of the ``sd:/`` filesystem)
+/// A few methods are provided to obtain a ARCropolis-relevant informations such as the regional indicator
 #[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct ModFile(PathBuf);
@@ -133,7 +194,7 @@ impl ModFile {
     }
 
     pub fn len(&self) -> u32 {
-        metadata(&self.path()).unwrap().len() as u32
+        std::fs::metadata(&self.path()).unwrap().len() as u32
     }
 
     pub fn is_stream(&self) -> bool {

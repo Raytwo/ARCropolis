@@ -34,8 +34,6 @@ mod menus;
 mod logging;
 use log::{info, trace, warn};
 
-mod visit;
-
 mod fs;
 
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
@@ -107,7 +105,7 @@ fn replace_file_by_index(file_index: FileIndex) {
 
 // TODO: Probably remove this once extension callbacks are a thing
 fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) {
-    let orig_size = file_ctx.orig_subfile.decomp_size as usize;
+    let orig_size = file_ctx.orig_size as usize;
 
     let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
