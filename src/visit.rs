@@ -8,54 +8,6 @@ use smash_arc::{Hash40, Region};
 
 use crate::replacement_files::get_region_id;
 
-#[derive(Debug, Clone)]
-pub struct Modpack {
-    path: PathBuf,
-    pub mods: Vec<Modpath>,
-}
-
-impl Modpack {
-    pub fn new<P: AsRef<Path>>(path: P) -> Self {
-        Self {
-            path: path.as_ref().to_owned(),
-            mods: vec![],
-        }
-    }
-
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
-    pub fn append(&mut self, modpaths: Vec<Modpath>) {
-        self.mods = modpaths
-            .iter()
-            .map(|filepath| filepath.0.strip_prefix(&self.path).unwrap().to_owned())
-            .filter(|path| {
-                if path.starts_with(".") {
-                    false
-                } else {
-                    // Make sure the file has an extension, because if not we might get a panic later on
-                    path.extension().is_some()
-                }
-            })
-            .map(|path| path.into())
-            .collect();
-    }
-
-    // TODO: Rework this to be a iterator like DirEntry but with Modpaths/Modfile
-    pub fn merge(&self) -> Vec<(Hash40, ModFile)> {
-        self.mods
-            .iter()
-            .map(|modpath| {
-                let full_path = self.path.to_owned().join(&modpath.path()).into();
-
-                let hash = modpath.hash40().unwrap();
-
-                (hash, full_path)
-            })
-            .collect()
-    }
-}
 #[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct Modpath(pub PathBuf);

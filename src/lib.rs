@@ -4,10 +4,8 @@
 #![feature(ptr_offset_from)]
 
 use std::{ffi::CStr, path::PathBuf};
-use std::fs::File;
 use std::io::prelude::*;
 use std::net::IpAddr;
-use std::collections::HashMap;
 use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
 
 mod cache;
@@ -343,21 +341,23 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Discover files
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
+
         if let Some(handle) = LUT_LOADER_HANDLE.take() {
-            handle.join();
+            handle.join().unwrap();
             let lut = UNSHARE_LUT.read();
             if lut.is_none() {
                 skyline_web::DialogOk::ok("No valid unsharing lookup table found. One will be generated and the game will restart.");
                 let cache = cache::UnshareCache::new(LoadedTables::get_arc());
-                cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin"));
+                cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
                 nn::oe::RestartProgramNoArgs();
             } else if lut.as_ref().unwrap().arc_version != (*LoadedTables::get_arc().fs_header).version {
                 skyline_web::DialogOk::ok("Found unsharing lookup table for a different game version. A new one will be generated and the game will restart.");
                 let cache = cache::UnshareCache::new(LoadedTables::get_arc());
-                cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin"));
+                cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
                 nn::oe::RestartProgramNoArgs();
             }
-        } else { unreachable!() }
+        }
+
         lazy_static::initialize(&MOD_FILES);
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);

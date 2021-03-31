@@ -1,6 +1,14 @@
-use std::{collections::HashMap, fs, io, path::PathBuf, vec};
+use std::{collections::HashMap, fs, path::PathBuf, vec};
 
-use crate::{config::CONFIG, fs::Metadata, runtime, visit::{ModFile, Modpack, Modpath}};
+use crate::{
+    runtime,
+    fs::Metadata,
+    config::CONFIG,
+    visit::{
+        ModFile,
+        Modpath
+    }
+};
 
 use owo_colors::OwoColorize;
 
@@ -14,7 +22,6 @@ use walkdir::WalkDir;
 
 type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> bool;
 
-use binread::*;
 use crate::cache;
 
 lazy_static::lazy_static! {
@@ -163,7 +170,6 @@ impl ModFiles {
 
     fn process_mods(modfiles: &HashMap<Hash40, ModFile>) -> HashMap<FileIndex, FileCtx> {
         let arc = LoadedTables::get_arc_mut();
-        let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
 
         modfiles.iter().filter_map(|(hash, modfile)| {
             let mut filectx = FileCtx::new();
@@ -217,8 +223,6 @@ impl ModFiles {
 
         let arc = LoadedTables::get_arc();
         let mut to_unshare = Vec::new();
-        let file_paths = arc.get_file_paths();
-        let dir_infos = arc.get_dir_infos();
         let read_cache = UNSHARE_LUT.read();
         let cache = read_cache.as_ref().unwrap();
         for (game_path, mod_file) in files.iter() {
@@ -250,7 +254,6 @@ impl ModFiles {
 
         fn get_top_level_parent(path: Hash40) -> Hash40 {
             let arc = LoadedTables::get_arc();
-            let dir_infos = arc.get_dir_infos();
             let mut dir_info = arc.get_dir_info_from_hash(path).unwrap();
             while dir_info.parent.hash40() != Hash40(0) {
                 dir_info = arc.get_dir_info_from_hash(dir_info.parent.hash40()).unwrap();

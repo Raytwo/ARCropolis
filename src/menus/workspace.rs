@@ -3,8 +3,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use std::io::prelude::*;
-
 use log::info;
 use owo_colors::OwoColorize;
 use skyline::nn::web::OfflineExitReason;
@@ -71,6 +69,7 @@ fn show_selector(workspaces: &Workspaces) -> PageResult {
     webpage.htdocs_dir("contents");
     webpage.file("index.html", &render);
     webpage.file("selector.css", CSS_TEXT);
+    webpage.file("selector.js", JAVASCRIPT_TEXT);
     webpage.open().unwrap()
 }
 

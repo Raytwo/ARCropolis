@@ -2,7 +2,6 @@ use smash_arc::*;
 use binread::*;
 use std::collections::HashMap;
 use std::io::{Read, Seek, Write};
-use std::io::BufWriter;
 use std::path::PathBuf;
 #[derive(BinRead, Debug)]
 // #[br(little)]
@@ -30,13 +29,16 @@ fn cache_entry_parser<R: Read + Seek>(reader: &mut R, ro: &ReadOptions, _: ()) -
         Some(x) => x,
         None => { panic!("Missing count for HashMap"); }
     };
+
     let mut map = HashMap::new();
-    for x in 0..count {
+
+    for _ in 0..count {
         map.insert(
             reader.read_le().unwrap(),
             reader.read_le().unwrap()
         );
     }
+
     Ok(map)
 }
 
@@ -67,7 +69,7 @@ impl UnshareCache {
     }
 
     pub fn write(arc: &LoadedArc, cache_map: &HashMap<HashToIndex, (HashToIndex, u32)>, path: &PathBuf) -> std::io::Result<()> {
-        let mut file = std::fs::File::create(path)?;
+        let file = std::fs::File::create(path)?;
         let mut writer = std::io::BufWriter::new(file);
         let out_vec: Vec<(HashToIndex, (HashToIndex, u32))> = cache_map.into_iter().map(|(hash, dir)| (*hash, *dir)).collect();
         let entries = out_vec.len() as u32;

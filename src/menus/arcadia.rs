@@ -6,7 +6,6 @@ use serde::Deserialize;
 use skyline::nn;
 use skyline_web::Webpage;
 use std::ffi::CString;
-use std::io::prelude::*;
 use std::path::Path;
 
 use log::info;

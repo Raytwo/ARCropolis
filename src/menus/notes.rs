@@ -1,4 +1,3 @@
-use skyline::nn;
 use skyline_web::Webpage;
 
 #[derive(ramhorns::Content, serde::Deserialize)]

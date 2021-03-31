@@ -238,171 +238,15 @@ impl LoadedTables {
         std::ptr::copy_nonoverlapping(start, new_ptr, length);
         new_ptr
     }
-    
-    // pub unsafe fn deduplicate_mass_loading_group2<Hash: Into<Hash40> + Clone>(path: Hash) -> Result<(), LookupError> {
-    //     use std::collections::HashMap;
-    //     let path: Hash40 = path.clone().into();
-    //     let mut instance = Self::acquire_instance();
-    //     let arc = Self::get_arc_mut();
-    //     let fs: &'static mut FileSystemHeader = std::mem::transmute(arc.fs_header);
-    //     let mut lengths = ArrayLengths::new();
 
-    //     let dir_infos: &[LoadedDirInfo] = std::slice::from_raw_parts(arc.dir_infos, lengths.dir_infos as usize);
-    //     let folder_offsets: &mut [DirectoryOffset]        = std::slice::from_raw_parts_mut(arc.folder_offsets as *mut DirectoryOffset, lengths.folder_offsets as usize);
-    //     let file_paths: &mut [FilePath]                   = std::slice::from_raw_parts_mut(arc.file_paths as *mut FilePath, lengths.file_paths as usize);
-    //     let file_info_indices: &mut [FileInfoIndex]       = std::slice::from_raw_parts_mut(arc.file_info_indices as *mut FileInfoIndex, lengths.file_info_indices as usize);
-    //     let file_infos: &mut [FileInfo]                   = std::slice::from_raw_parts_mut(arc.file_infos, lengths.file_infos as usize);
-    //     let file_info_to_datas: &mut [FileInfoToFileData] = std::slice::from_raw_parts_mut(arc.file_info_to_datas, lengths.file_info_to_datas as usize);
-    //     let file_datas: &mut [FileData]                   = std::slice::from_raw_parts_mut(arc.file_datas, lengths.file_datas as usize);
-
-    //     let mass_load_group = arc.get_dir_info_from_hash(path)?;
-    //     let intermediate_load_data = &mut folder_offsets[(mass_load_group.dir_offset_index >> 8) as usize];
-    //     let old_res_idx = intermediate_load_data.resource_index;
-    //     intermediate_load_data.resource_index = lengths.folder_offsets;
-    //     drop(intermediate_load_data);
-    //     let shared_load_data = &folder_offsets[old_res_idx as usize];
-
-    //     let mass_load_group_infos = std::slice::from_raw_parts_mut(arc.file_infos.offset(mass_load_group.file_info_start_index as isize), mass_load_group.file_info_count as usize);
-    //     let shared_load_data_infos = std::slice::from_raw_parts_mut(arc.file_infos.offset(shared_load_data.file_info_start_index as isize), shared_load_data.file_info_count as usize);
-
-    //     let mut index_to_data_hash_map = HashMap::new();
-    //     for info in shared_load_data_infos.iter() {
-    //         let hash = file_paths[info.file_path_index.0 as usize].path.hash40();
-    //         let path_idx = file_infos[file_info_indices[info.file_info_indice_index.0 as usize].file_info_index.0 as usize].file_path_index.0;
-    //         index_to_data_hash_map.insert(path_idx, hash);
-    //     }
-    //     let mut data_to_group_hash_map = HashMap::new();
-    //     let mut group_to_index_hash_map = HashMap::new();
-    //     for (idx, info) in mass_load_group_infos.iter().enumerate() {
-    //         let path_idx = file_infos[file_info_indices[info.file_info_indice_index.0 as usize].file_info_index.0 as usize].file_path_index.0;
-    //         if let Some(data_hash) = index_to_data_hash_map.get(&path_idx) {
-    //             let group_hash = file_paths[info.file_path_index.0 as usize].path.hash40();
-    //             if *data_hash == group_hash {
-    //                 return Err(LookupError::Missing);
-    //             }
-    //             data_to_group_hash_map.insert(*data_hash, group_hash);
-    //             group_to_index_hash_map.insert(group_hash, idx);
-    //         }
-    //     }
-    //     drop(index_to_data_hash_map);
-
-    //     let default_data = file_infos[0];
-    //     let mut new_info_indices = Vec::new();
-    //     let mut new_info_to_datas = Vec::new();
-    //     let mut new_infos = Vec::new();
-    //     let mut new_datas = Vec::new();
-    //     new_infos.resize_with(shared_load_data_infos.len(), || default_data);
-    //     for (idx, info) in shared_load_data_infos.iter_mut().enumerate() {
-    //         let source_info_hash = file_paths[info.file_path_index.0 as usize].path.hash40();
-    //         let new_info_hash = data_to_group_hash_map.get(&source_info_hash).expect(&format!("Could not find new hash for source hash {:X}", source_info_hash.0));
-    //         let info_idx = group_to_index_hash_map.get(&new_info_hash).expect(&format!("Could not find info index for new hash {:X}", new_info_hash.0));
-    //         let original_indice_idx = mass_load_group_infos[*info_idx].file_info_indice_index;
-    //         let original_info_idx = file_info_indices[original_indice_idx.0 as usize];
-    //         let mut original_data = file_datas[file_info_to_datas[file_infos[original_info_idx.file_info_index.0 as usize].info_to_data_index.0 as usize].file_data_index.0 as usize];
-    //         let new_path_idx = mass_load_group_infos[*info_idx as usize].file_path_index;
-    //         mass_load_group_infos[*info_idx as usize].file_info_indice_index = FileInfoIndiceIdx(lengths.file_info_indices + new_info_indices.len() as u32);
-    //         mass_load_group_infos[*info_idx as usize].info_to_data_index = InfoToDataIdx(lengths.file_info_to_datas + new_info_to_datas.len() as u32);
-
-    //         new_infos[idx] = info.clone();
-    //         new_infos[idx].file_path_index = new_path_idx;
-    //         new_infos[idx].file_info_indice_index = FileInfoIndiceIdx(lengths.file_info_indices + new_info_indices.len() as u32);
-    //         new_infos[idx].info_to_data_index = InfoToDataIdx(lengths.file_info_to_datas + new_info_to_datas.len() as u32);
-
-    //         let mut redirect_info_idx = shared_load_data.file_info_start_index + idx as u32;
-    //         let mut redirect_info = info;
-    //         let mut redirect_info_to_data = &mut file_info_to_datas[redirect_info.info_to_data_index.0 as usize];
-    //         let shared_path_idx = file_infos[file_info_indices[redirect_info.file_info_indice_index.0 as usize].file_info_index.0 as usize].file_path_index;
-    //         let mut is_first = true;
-    //         loop {
-    //             if !is_first {
-    //                 let mut new_info = redirect_info.clone();
-    //                 new_info.info_to_data_index = InfoToDataIdx(lengths.file_info_to_datas + new_info_to_datas.len() as u32);
-    //                 new_info.file_path_index = new_path_idx;
-    //                 new_info.file_info_indice_index = FileInfoIndiceIdx(lengths.file_info_indices + new_info_indices.len() as u32);
-    //                 println!("{:X}", file_paths[new_path_idx.0 as usize].path.hash40().0);
-    //                 new_infos.push(new_info);
-    //             } else {
-    //                 is_first = false;
-    //             }
-    //             redirect_info_to_data = &mut file_info_to_datas[redirect_info.info_to_data_index.0 as usize];
-    //             let new_info_idx = redirect_info_to_data.file_info_index_and_flag & 0xFFFFFF;
-    //             redirect_info = &mut file_infos[new_info_idx as usize];
-    //             let (is_chain, idx_and_flag) = if redirect_info.file_path_index != shared_path_idx {
-    //                 let flag = redirect_info_to_data.file_info_index_and_flag & 0xFF000000;
-    //                 let info_idx = lengths.file_infos + new_infos.len() as u32;
-    //                 (false, redirect_info_to_data.file_info_index_and_flag)
-    //             } else {
-    //                 let flag = redirect_info_to_data.file_info_index_and_flag;
-    //                 (true, flag | flag)
-    //             };
-    //             if is_chain {
-    //                 let mut new_info_to_data = redirect_info_to_data.clone();
-    //                 new_info_to_data.file_info_index_and_flag = idx_and_flag;
-    //                 new_info_to_data.file_data_index = FileDataIdx(lengths.file_datas + new_datas.len() as u32);
-    //                 new_info_to_data.folder_offset_index = lengths.folder_offsets;
-    //                 new_info_to_datas.push(new_info_to_data);
-    //             } else { 
-    //                 let mut new_info_to_data = redirect_info_to_data.clone();
-    //                 new_info_to_data.file_info_index_and_flag = idx_and_flag;
-    //                 new_info_to_data.file_data_index = FileDataIdx(lengths.file_datas + new_datas.len() as u32);
-    //                 new_info_to_data.folder_offset_index = lengths.folder_offsets;
-    //                 new_info_to_datas.push(new_info_to_data);
-    //                 // let mut new_info = redirect_info.clone();
-    //                 // new_info.file_path_index = new_path_idx;
-    //                 // new_info.file_info_indice_index = FileInfoIndiceIdx(lengths.file_info_indices + new_info_indices.len() as u32);
-    //                 // new_infos.push(new_info);
-    //                 break;
-    //             }
-    //         }
-    //         file_paths[new_path_idx.0 as usize].path.set_index(lengths.file_info_indices + new_info_indices.len() as u32);
-    //         // file_info_indices[original_indice_idx.0 as usize].file_info_index = FileInfoIdx(lengths.file_infos + idx as u32);
-    //         new_datas.push(original_data);
-    //         let mut new_info_index = original_info_idx;
-    //         new_info_index.dir_offset_index = lengths.folder_offsets;
-    //         new_info_index.file_info_index = FileInfoIdx(lengths.file_infos + idx as u32);
-    //         new_info_indices.push(new_info_index);
-    //         // info.info_to_data_index = InfoToDataIdx(0xFFFFFF);
-
-    //     }
-
-    //     let deduplicated_load_data = DirectoryOffset {
-    //         offset: shared_load_data.offset,
-    //         size: shared_load_data.size,
-    //         decomp_size: shared_load_data.decomp_size,
-    //         file_info_start_index: lengths.file_infos,
-    //         file_info_count: shared_load_data.file_info_count,
-    //         resource_index: lengths.folder_offsets
-    //     };
-
-    //     arc.folder_offsets = Self::recreate_array(arc.folder_offsets, lengths.folder_offsets as usize, &vec![deduplicated_load_data.clone()]);
-    //     arc.file_info_indices = Self::recreate_array(arc.file_info_indices, lengths.file_info_indices as usize, &new_info_indices);
-    //     arc.file_infos = Self::recreate_array(arc.file_infos, lengths.file_infos as usize, &new_infos);
-    //     arc.file_info_to_datas = Self::recreate_array(arc.file_info_to_datas, lengths.file_info_to_datas as usize, &new_info_to_datas);
-    //     arc.file_datas = Self::recreate_array(arc.file_datas, lengths.file_datas as usize, &new_datas);
-    //     instance.table2 = Self::extend_table(instance.table2, instance.table2_len as usize, new_info_indices.len());
-    //     instance.loaded_directory_table = Self::extend_table(instance.loaded_directory_table, instance.loaded_directory_table_size as usize, 1);
-    //     instance.loaded_directory_table_size += 1;
-    //     fs.folder_offset_count_1 += 1;
-    //     fs.file_info_index_count += new_info_indices.len() as u32;
-    //     fs.file_info_sub_index_count += new_info_to_datas.len() as u32;
-    //     fs.file_info_count += new_infos.len() as u32;
-    //     fs.file_data_count += new_datas.len() as u32;
-    //     instance.table2_len += new_info_indices.len() as u32;
-
-    //     Ok(())
-    // }
-
-    fn duplicate_file_structure(new_file_path_idx: FilePathIdx, new_info_indice_idx: FileInfoIndiceIdx, start_info_idx: FileInfoIdx, new_data_index: FileDataIdx, new_mass_load_data_index: u32, start_info: &FileInfo, info_to_datas: &mut Vec<FileInfoToFileData>, infos: &mut Vec<FileInfo>, lengths: &ArrayLengths) {
+    fn duplicate_file_structure(new_file_path_idx: FilePathIdx, new_info_indice_idx: FileInfoIndiceIdx, new_data_index: FileDataIdx, new_mass_load_data_index: u32, start_info: &FileInfo, info_to_datas: &mut Vec<FileInfoToFileData>, infos: &mut Vec<FileInfo>, lengths: &ArrayLengths) {
         let arc = Self::get_arc();
-        let file_info_indices = arc.get_file_info_indices();
         let file_infos = arc.get_file_infos();
         let file_info_to_datas = arc.get_file_info_to_datas();
 
-        let mut redirect_info_idx = start_info_idx;
         let mut redirect_info = start_info;
-        let mut redirect_info_to_data = &file_info_to_datas[usize::from(redirect_info.info_to_data_index)];
-        let idx = file_info_indices[usize::from(redirect_info.file_info_indice_index)].file_info_index;
-        let shared_path_idx = file_infos[usize::from(idx)].file_path_index;
+        let redirect_info_to_data = &file_info_to_datas[usize::from(redirect_info.info_to_data_index)];
+
         let mut is_first = true;
         loop {
             if is_first { is_first = false }
@@ -416,7 +260,7 @@ impl LoadedTables {
                 new_info.flags.set_is_regional(false);
                 infos.push(new_info);
             }
-            redirect_info_to_data = &file_info_to_datas[usize::from(redirect_info.info_to_data_index)];
+
             let new_info_idx = redirect_info_to_data.file_info_index_and_flag & 0xFFFFFF;
             redirect_info = &file_infos[new_info_idx as usize];
             let (is_chain, idx_and_flag) = if redirect_info.flags.unknown1() {
@@ -473,7 +317,7 @@ impl LoadedTables {
             let mut new_datas = Vec::new();
             let mut new_mass_load_datas = Vec::new();
 
-            let mut mass_load_data_start_offset = 0;
+            let mass_load_data_start_offset = 0;
             for path in paths.iter() {
                 // start by changing the index of the load data
                 let mass_load_group = match arc.get_dir_info_from_hash(*path) {
@@ -592,7 +436,6 @@ impl LoadedTables {
                         Self::duplicate_file_structure(
                             group_path_idx,
                             new_info_indice_index,
-                            FileInfoIdx(shared_load_data.file_info_start_index + offset as u32),
                             new_data_index,
                             new_mass_load_data_index,
                             info,
@@ -663,7 +506,6 @@ impl LoadedTables {
                         Self::duplicate_file_structure(
                             info.file_path_index,
                             new_info_indice_index,
-                            FileInfoIdx(child_info_index),
                             new_data_index,
                             mass_load_group.dir_offset_index >> 8,
                             info,
