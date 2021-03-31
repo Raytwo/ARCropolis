@@ -373,8 +373,6 @@ pub fn main() {
     // Look for the offset of the various functions to hook
     offsets::search_offsets();
 
-    
-
     install_hooks!(
         initial_loading,
         inflate_incoming,
