@@ -128,7 +128,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
         .collect()
 }
 
-pub fn show_arcadia() {
+pub fn show_arcadia() -> bool {
     let workspace = CONFIG.read().paths.umm.to_str().unwrap().to_string();
 
     let mut mods: Entries = Entries {
@@ -194,13 +194,14 @@ pub fn show_arcadia() {
         .unwrap();
 
     match response.get_last_url().unwrap() {
-        "http://localhost/" => (),
+        "http://localhost/" => false,
         url => {
             let res = percent_decode_str(&url[LOCALHOST.len()..])
                 .decode_utf8_lossy()
                 .into_owned();
 
             let webpage_res: ModStatues = toml::from_str(&res).unwrap();
+            let mut modified_detected = false;
 
             for (id, disabled) in webpage_res.is_disabled.into_iter().enumerate() {
                 let folder_name = &mods.entries[id as usize].folder_name.as_ref().unwrap();
@@ -210,6 +211,7 @@ pub fn show_arcadia() {
 
                 if disabled {
                     if std::fs::metadata(&enabled_path).is_ok() {
+                        modified_detected = true;
                         info!("[menus::show_arcadia] Disabling {}", folder_name);
                         let res = rename_folder(&enabled_path, &disabled_path);
                         info!(
@@ -218,6 +220,7 @@ pub fn show_arcadia() {
                         );
                     }
                 } else if std::fs::metadata(&disabled_path).is_ok() {
+                    modified_detected = true;
                     info!("[menus::show_arcadia] Enabling {}", folder_name);
                     let res = rename_folder(&disabled_path, &enabled_path);
                     info!(
@@ -228,6 +231,8 @@ pub fn show_arcadia() {
 
                 info!("[menus::show_arcadia] ---------------------------");
             }
+
+            modified_detected
         }
     }
 }
