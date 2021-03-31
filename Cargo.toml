@@ -1,7 +1,7 @@
 [package]
 name = "arcropolis"
-version = "1.1.0-beta4"
-authors = ["Raytwo <raytwost@gmail.com>, jam1garner <jam1.mcleod@hotmail.com>"]
+version = "2.0.0-beta1"
+authors = ["Raytwo <raytwost@gmail.com>, jam1garner <jam1.mcleod@hotmail.com>, blujay <the.blu.dev@gmail.com>, Coolsonickirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
 [package.metadata.skyline]
@@ -25,6 +25,7 @@ skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
 skyline-update = { git = "https://github.com/skyline-rs/skyline-update" }
 # Needs to be cloned locally and add link.ld to the root of the directory for the time being. Don't ask why. I don't know.
 smash-arc = { path = "../smash-arc", features = [ "smash-runtime", "nozstd" ] }
+binread = { path = "../binread/binread" }
 ramhorns = "0.9.4"
 percent-encoding = "2.1.0"
 walkdir = "2"

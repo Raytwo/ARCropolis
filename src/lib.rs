@@ -1,13 +1,17 @@
 #![feature(proc_macro_hygiene)]
 #![feature(str_strip)]
 #![feature(asm)]
+#![feature(ptr_offset_from)]
 
 use std::{ffi::CStr, path::PathBuf};
 use std::fs::File;
 use std::io::prelude::*;
 use std::net::IpAddr;
-
+use std::collections::HashMap;
 use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
+
+mod cache;
+mod cpp_vector;
 
 mod config;
 use config::CONFIG;
@@ -16,7 +20,7 @@ mod hashes;
 mod stream;
 
 mod replacement_files;
-use replacement_files::{FileCtx, FileIndex, INCOMING_IDX, MOD_FILES};
+use replacement_files::{FileCtx, FileIndex, INCOMING_IDX, MOD_FILES, UNSHARE_LUT};
 
 mod offsets;
 use offsets::{
@@ -150,8 +154,11 @@ fn inflate_incoming(ctx: &InlineCtx) {
         let hash = arc.get_file_paths()[path_idx].path.hash40();
 
         info!(
-            "[ResInflateThread | #{}] Incoming '{}'",
+            "[ResInflateThread | #{} | Type: {} | {} / {}] Incoming '{}'",
             path_idx.green(),
+            (*ctx.registers[21].w.as_ref()).green(),
+            (*ctx.registers[27].x.as_ref()).yellow(),
+            res_service.processing_file_idx_count.yellow(),
             hashes::get(hash).unwrap_or(&"Unknown").bright_yellow()
         );
 
@@ -231,6 +238,11 @@ fn load_directory_hook(
         "[LoadFileFromDirectory] Incoming decompressed filesize: {:x}",
         out_decomp_data.size
     );
+    // if out_decomp_data.size == 0 {
+    //     println!("Detected bad file size, crashing.");
+    //     std::thread::sleep(std::time::Duration::from_millis(500));
+    //     unsafe { *(0 as *mut u8) = 0x69; }
+    // }
 
     // Let the file be inflated
     let result: u64 = original!()(unk1, out_decomp_data, comp_data);
@@ -295,6 +307,8 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
     }
 }
 
+static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
+
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     let config = CONFIG.read();
@@ -329,12 +343,28 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Discover files
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
-
+        if let Some(handle) = LUT_LOADER_HANDLE.take() {
+            handle.join();
+            let lut = UNSHARE_LUT.read();
+            if lut.is_none() {
+                skyline_web::DialogOk::ok("No valid unsharing lookup table found. One will be generated and the game will restart.");
+                let cache = cache::UnshareCache::new(LoadedTables::get_arc());
+                cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin"));
+                nn::oe::RestartProgramNoArgs();
+            } else if lut.as_ref().unwrap().arc_version != (*LoadedTables::get_arc().fs_header).version {
+                skyline_web::DialogOk::ok("Found unsharing lookup table for a different game version. A new one will be generated and the game will restart.");
+                let cache = cache::UnshareCache::new(LoadedTables::get_arc());
+                cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin"));
+                nn::oe::RestartProgramNoArgs();
+            }
+        } else { unreachable!() }
         lazy_static::initialize(&MOD_FILES);
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
     }
 }
+
+use binread::*;
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
@@ -342,6 +372,8 @@ pub fn main() {
     hashes::init();
     // Look for the offset of the various functions to hook
     offsets::search_offsets();
+
+    
 
     install_hooks!(
         initial_loading,
@@ -355,6 +387,23 @@ pub fn main() {
         change_version_string,
         stream::lookup_by_stream_hash,
     );
+
+    unsafe {
+        skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x34636c4, &0x14000002);
+        LUT_LOADER_HANDLE = Some(std::thread::spawn(|| {
+            let mut unshare_lut = UNSHARE_LUT.write();
+            *unshare_lut = match std::fs::read("rom:/skyline/unshare_lut.bin") {
+                Ok(file_data) => {
+                    let mut reader = std::io::Cursor::new(file_data);
+                    match cache::UnshareCache::read(&mut reader) {
+                        Ok(lut) => Some(lut),
+                        Err(_) => None
+                    }
+                },
+                Err(_) => None
+            }
+        }));
+    }
 
     println!(
         "ARCropolis v{} - File replacement plugin is now installed",
