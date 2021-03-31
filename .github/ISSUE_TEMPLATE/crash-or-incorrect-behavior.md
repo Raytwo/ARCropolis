@@ -1,14 +1,13 @@
 ---
 name: Crash or incorrect behavior
 about: If you did everything right, fill this template
-title: "[ARCropolis 0.9.6] My fake one-slots didn't load despite warnings and this
-  is unnacceptable"
+title: "[ARCropolis version] Brief description of the issue"
 labels: bug
 assignees: ''
 
 ---
 
-## Read this before continuing
+## Bug report
 [Sentences between [brackets] should be removed before posting.]
 
 [Before posting, make sure to check if the ARCropolis version appears on the title screen. If it does not, you did not install it properly and should not open an issue.]
