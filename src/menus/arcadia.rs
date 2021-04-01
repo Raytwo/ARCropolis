@@ -127,7 +127,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
         .collect()
 }
 
-pub fn show_arcadia() -> bool {
+pub fn show_arcadia() {
     let workspace = CONFIG.read().paths.umm.to_str().unwrap().to_string();
 
     let mut mods: Entries = Entries {
@@ -193,7 +193,7 @@ pub fn show_arcadia() -> bool {
         .unwrap();
 
     match response.get_last_url().unwrap() {
-        "http://localhost/" => false,
+        "http://localhost/" => {},
         url => {
             let res = percent_decode_str(&url[LOCALHOST.len()..])
                 .decode_utf8_lossy()
@@ -229,9 +229,13 @@ pub fn show_arcadia() -> bool {
                 }
 
                 info!("[menus::show_arcadia] ---------------------------");
+
+                if modified_detected {
+                    skyline_web::DialogOk::ok("Mods have been toggled!<br>Please reboot Smash to refresh ARCropolis' cache to prevent the game from crashing."); 
+                    // skyline::nn::oe::RestartProgramNoArgs();
+                }
             }
 
-            modified_detected
         }
     }
 }

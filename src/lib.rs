@@ -10,35 +10,30 @@ use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
 
 mod cache;
 mod cpp_vector;
-
 mod config;
-use config::CONFIG;
-
 mod hashes;
 mod stream;
-
 mod replacement_files;
+mod offsets;
+mod runtime;
+mod menus;
+mod logging;
+mod fs;
+
+use config::CONFIG;
+use runtime::{LoadedTables, ResServiceState, Table2Entry};
 use replacement_files::{FileCtx, FileIndex, INCOMING_IDX, MOD_FILES, UNSHARE_LUT};
 
-mod offsets;
 use offsets::{
     INFLATE_DIR_FILE_OFFSET, INFLATE_OFFSET, INITIAL_LOADING_OFFSET, MANUAL_OPEN_OFFSET,
     MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, TITLE_SCREEN_VERSION_OFFSET,
 };
 
-mod runtime;
-use runtime::{LoadedTables, ResServiceState, Table2Entry};
 
-mod menus;
-
-mod logging;
-use log::{info, trace, warn};
-
-mod fs;
-
-use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
-
+use binread::*;
 use owo_colors::OwoColorize;
+use log::{info, trace, warn};
+use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
 
 fn get_filectx_by_index<'a>(
     file_index: FileIndex,
@@ -234,11 +229,6 @@ fn load_directory_hook(
         "[LoadFileFromDirectory] Incoming decompressed filesize: {:x}",
         out_decomp_data.size
     );
-    // if out_decomp_data.size == 0 {
-    //     println!("Detected bad file size, crashing.");
-    //     std::thread::sleep(std::time::Duration::from_millis(500));
-    //     unsafe { *(0 as *mut u8) = 0x69; }
-    // }
 
     // Let the file be inflated
     let result: u64 = original!()(unk1, out_decomp_data, comp_data);
@@ -286,10 +276,7 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
         }
     } else if original_page.contains("contents.htdocs/howto/html/") {
         if original_page.ends_with("index.html") {
-            if menus::show_arcadia(){
-                skyline_web::DialogOk::ok("Mods have been toggled!<br>Please reboot Smash to refresh ARCropolis' cache to prevent the game from crashing."); 
-                // skyline::nn::oe::RestartProgramNoArgs();
-            }
+            menus::show_arcadia();
             true
         } else {
             false
@@ -362,8 +349,6 @@ fn initial_loading(_ctx: &InlineCtx) {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
     }
 }
-
-use binread::*;
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
