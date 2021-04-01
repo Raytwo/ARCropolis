@@ -12,6 +12,9 @@ use smash_arc::{Hash40, Region};
 
 use walkdir::WalkDir;
 
+/// Discover every file in a directory and its sub-directories.  
+/// Files starting with a period are filtered out, and only the files with relevant regions are kept.  
+/// This signifies that if your goal is to simply get all the files, this is not the method to use.
 pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
     let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
 
@@ -25,7 +28,7 @@ pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
         if entry.file_type().is_file() {
             // Make sure the file has an extension
             if entry.path().extension().is_some() {
-                let path: ModFile = ModFile::from(entry.path().strip_prefix(dir).unwrap().to_path_buf());
+                let path: Modpath = Modpath(entry.path().strip_prefix(dir).unwrap().to_path_buf());
 
                 match path.get_region() {
                     Some(region) => {
@@ -36,7 +39,7 @@ pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
                     None => ()
                 }
 
-                let hash = Modpath(entry.path().strip_prefix(dir).unwrap().to_path_buf()).hash40().unwrap();
+                let hash = path.hash40().unwrap();
                 Some((hash, entry.path().to_path_buf().into()))
             } else {
                 println!("File has no extension, aborting");
@@ -50,7 +53,10 @@ pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
     }).collect()
 }
 
-/// Visit Ultimate Mod Manager directories for backwards compatibility
+/// Run ``discovery`` on every directory found using the path  
+/// Files starting with a period are filtered out, and only the files with relevant regions are kept.  
+/// This signifies that if your goal is to simply get all the files, this is not the method to use.  
+/// This method exists to support backward compatibility with Ultimate Mod Manager.  
 pub fn umm_discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
     WalkDir::new(dir).min_depth(1).max_depth(1).into_iter().filter_entry(|entry| {
         !entry.file_name().to_str().unwrap().starts_with('.')
@@ -65,8 +71,8 @@ pub fn umm_discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
     }).flatten().collect()
 }
 
-/// Utility struct for the purpose of storing a relative Smash path (starting at the root of the ``/arc`` filesystem)
-/// A few methods are provided to obtain a Hash40 or strip ARCropolis-relevant informations such as a regional indicator
+/// Utility struct for the purpose of storing a relative Smash path (starting at the root of the ``/arc`` filesystem).  
+/// A few methods are provided to obtain a Hash40 or strip ARCropolis-relevant informations such as a regional indicator.
 #[repr(transparent)]
 #[derive(Debug, Clone)]
 pub struct Modpath(pub PathBuf);
@@ -143,6 +149,31 @@ impl Modpath {
     pub fn is_stream(&self) -> bool {
         self.0.to_str().unwrap().contains("stream")
     }
+
+    pub fn get_region(&self) -> Option<Region> {
+        match self.path().extension() {
+            Some(_) => {
+                // Split the region identifier from the filepath
+                let filename = self
+                    .path()
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string();
+                // Check if the filepath it contains a + symbol
+                if let Some(region_marker) = filename.find('+') {
+                    Some(Region::from(
+                        get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0)
+                            + 1,
+                    ))
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
+    }
 }
 
 
@@ -166,6 +197,10 @@ impl ModFile {
 
     pub fn set_path<P: AsRef<Path>>(&mut self, new_path: P) {
         self.0 = new_path.as_ref().to_path_buf();
+    }
+
+    pub fn to_modpath<P: AsRef<Path>>(&self, parent_dir: P) -> Modpath {
+        self.0.strip_prefix(parent_dir).unwrap().to_path_buf().into()
     }
 
     pub fn as_smash_path(&self) -> PathBuf {

@@ -7,7 +7,7 @@ use skyline::{
 };
 
 use smash_arc::{
-    ArcLookup, FileData, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, LoadedArc,
+    ArcLookup, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, LoadedArc,
 };
 
 use smash_arc::LoadedSearchSection;
@@ -843,6 +843,7 @@ pub struct ResServiceState {
 }
 
 impl ResServiceState {
+    #[allow(dead_code)]
     pub fn get_region_id() -> u32 {
         ResServiceState::get_instance().game_region_idx
     }

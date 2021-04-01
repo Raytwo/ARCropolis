@@ -9,15 +9,12 @@ use crate::{
     },
 };
 
-use owo_colors::OwoColorize;
-
-use smash_arc::{ArcLookup, FileData, FileDataFlags, FileInfoIndiceIdx, Hash40, HashToIndex};
+use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40, HashToIndex};
 
 use runtime::{LoadedArcEx, LoadedTables};
 
 use log::warn;
-
-type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> bool;
+use owo_colors::OwoColorize;
 
 use crate::cache;
 
@@ -30,6 +27,8 @@ lazy_static::lazy_static! {
     // For unsharing the files :)
     pub static ref UNSHARE_LUT: parking_lot::RwLock<Option<cache::UnshareCache>> = parking_lot::RwLock::new(None);
 }
+
+type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> bool;
 
 #[no_mangle]
 pub extern "C" fn subscribe_callback(
@@ -221,6 +220,7 @@ impl FileCtx {
         }
     }
 
+    #[allow(dead_code)]
     pub fn metadata(&self) -> Result<Metadata, String> {
         crate::fs::metadata(self.hash)
     }

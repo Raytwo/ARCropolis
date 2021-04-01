@@ -40,7 +40,6 @@ pub fn random_media_select(directory: &str) -> io::Result<String> {
     Ok(media_files.choose(&mut rng).unwrap().to_string())
 }
 
-// (char *out_path,void *loadedArc,undefined8 *size_out,undefined8 *offset_out, ulonglong hash)
 #[hook(offset = LOOKUP_STREAM_HASH_OFFSET)]
 fn lookup_by_stream_hash(
     out_path: *mut c_char,

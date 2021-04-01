@@ -19,6 +19,7 @@ use crate::runtime::LoadedTables;
 
 pub struct Metadata(Hash40);
 
+#[allow(dead_code)]
 pub fn metadata<H: Into<Hash40>>(hash: H) -> Result<Metadata, String> {
     let hash = hash.into();
     match LoadedTables::get_arc().get_file_path_index_from_hash(hash) {
@@ -28,6 +29,7 @@ pub fn metadata<H: Into<Hash40>>(hash: H) -> Result<Metadata, String> {
 }
 
 impl Metadata {
+    #[allow(dead_code)]
     pub fn file_data(&self) -> Result<&FileData, LookupError> {
         // Assume it exists because you can't instantiate a Metadata if the hash does not exist to begin with
         LoadedTables::get_arc().get_file_data_from_hash(self.0, Region::UsEnglish)

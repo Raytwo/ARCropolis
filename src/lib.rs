@@ -320,6 +320,7 @@ fn initial_loading(_ctx: &InlineCtx) {
         env!("CARGO_PKG_VERSION"),
         config.updater.unwrap().beta_updates,
     ) {
+        skyline_web::DialogOk::ok("The update was downloaded successfully<br>ARCropolis will now reboot."); 
         skyline::nn::oe::RestartProgramNoArgs();
     }
 
