@@ -1,6 +1,6 @@
 ---
 name: Incorrect behavior
-about: If you did everything right but something went wrong, fill this template
+about: Your mod is properly installed , but it doesn't behave properly
 title: "[Incorrect behavior][ARCropolis version] Files with a regional indicator do
   not load properly"
 labels: bug, incorrect behavior
