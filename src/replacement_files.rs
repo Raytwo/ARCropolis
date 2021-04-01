@@ -1,11 +1,11 @@
-use std::{collections::HashMap, fs, path::PathBuf, vec};
+use std::{collections::HashMap, fs, path::{Path, PathBuf}, vec};
 
 use crate::{
     runtime,
     config::CONFIG,
     fs::{
         Metadata,
-        visit::ModFile,
+        visit::ModPath,
     },
 };
 
@@ -69,10 +69,16 @@ pub struct ModFiles(pub HashMap<FileIndex, FileCtx>);
 
 #[derive(Debug, Clone)]
 pub struct FileCtx {
-    pub file: ModFile,
+    pub file: ArcFile,
     pub hash: Hash40,
     pub orig_size: u32,
     pub index: FileInfoIndiceIdx,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ArcFile {
+    File(ModPath),
+    Callback(Hash40),
 }
 
 #[macro_export]
@@ -88,7 +94,7 @@ impl ModFiles {
     fn new() -> Self {
         let config = CONFIG.read();
 
-        let mut modfiles: HashMap<Hash40, ModFile> = HashMap::new();
+        let mut modfiles: HashMap<Hash40, ModPath> = HashMap::new();
 
         // ARC mods
         if config.paths.arc.exists() {
@@ -107,21 +113,22 @@ impl ModFiles {
                 }
             }
         }
+        
         Self::unshare(&modfiles);
         Self(ModFiles::process_mods(&modfiles))
     }
 
-    fn process_mods(modfiles: &HashMap<Hash40, ModFile>) -> HashMap<FileIndex, FileCtx> {
+    fn process_mods(modfiles: &HashMap<Hash40, ModPath>) -> HashMap<FileIndex, FileCtx> {
         let arc = LoadedTables::get_arc_mut();
 
         modfiles.iter().filter_map(|(hash, modfile)| {
             let mut filectx = FileCtx::new();
 
-            filectx.file = modfile.clone();
+            filectx.file = ArcFile::File(modfile.clone());
             filectx.hash = *hash;
 
             if modfile.is_stream() {
-                warn!("[ARC::Patching] File '{}' added as a Stream", filectx.file.path().display().bright_yellow());
+                warn!("[ARC::Patching] File '{}' added as a Stream", filectx.path().display().bright_yellow());
                 Some((FileIndex::Stream(filectx.hash), filectx))
             } else {
                 match arc.get_file_path_index_from_hash(*hash) {
@@ -144,7 +151,7 @@ impl ModFiles {
                     let info_index = arc.get_file_info_indices()[usize::from(*info_index)].file_info_index;
                     let file_info = arc.get_file_infos()[usize::from(info_index)];
 
-                    ctx.orig_size = arc.patch_filedata(&file_info, ctx.file.len())
+                    ctx.orig_size = arc.patch_filedata(&file_info, ctx.len())
                 }
                 _ => {},
             }
@@ -157,7 +164,7 @@ impl ModFiles {
         self.0.get(&file_index)
     }
 
-    fn unshare(files: &HashMap<Hash40, ModFile>) {
+    fn unshare(files: &HashMap<Hash40, ModPath>) {
         lazy_static::lazy_static! {
             static ref UNSHARE_WHITELIST: Vec<Hash40> = vec![
                 Hash40::from("fighter")
@@ -213,20 +220,44 @@ pub fn get_region_id(region: &str) -> Option<u32> {
 impl FileCtx {
     pub fn new() -> Self {
         FileCtx {
-            file: PathBuf::new().into(),
+            file: ArcFile::File(PathBuf::new().into()),
             hash: Hash40(0),
             orig_size: 0,
             index: FileInfoIndiceIdx(0),
         }
     }
 
-    #[allow(dead_code)]
-    pub fn metadata(&self) -> Result<Metadata, String> {
-        crate::fs::metadata(self.hash)
+    // #[allow(dead_code)]
+    // pub fn metadata(&self) -> Result<Metadata, String> {
+    //     crate::fs::metadata(self.hash)
+    // }
+
+    pub fn extension(&self) -> Hash40 {
+        let arc = LoadedTables::get_arc();
+        let path_idx = arc.get_file_path_index_from_hash(self.hash).unwrap();
+        let file_path = &arc.get_file_paths()[usize::from(path_idx)];
+        file_path.ext.hash40()
+    }
+
+    pub fn len(&self) -> u32 {
+        match &self.file {
+            ArcFile::File(modpath) => modpath.path().metadata().unwrap().len() as u32,
+            ArcFile::Callback(_) => unimplemented!(),
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        match &self.file {
+            ArcFile::File(modpath) => modpath.path(),
+            ArcFile::Callback(_) => unimplemented!(),
+        }
     }
 
     pub fn get_file_content(&self) -> Vec<u8> {
         // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
-        fs::read(&self.file.path()).unwrap()
+        match &self.file {
+            ArcFile::File(modpath) => fs::read(modpath.path()).unwrap(),
+            ArcFile::Callback(_) => unimplemented!(),
+        }
     }
 }

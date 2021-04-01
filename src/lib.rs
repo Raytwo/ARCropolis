@@ -62,7 +62,7 @@ fn get_filectx_by_index<'a>(
                     info!(
                         "[ARC::Loading | #{}] Hash matching for file: '{:?}'",
                         usize::from(info_indice_index).green(),
-                        file_ctx.file.path().display().bright_yellow()
+                        file_ctx.path().display().bright_yellow()
                     );
                     Some((file_ctx, table2entry))
                 }
@@ -80,7 +80,7 @@ fn replace_file_by_index(file_index: FileIndex) {
         }
 
         // Call extension callbacks from here
-        if file_ctx.file.extension() == Hash40::from("nutexb") {
+        if file_ctx.extension() == Hash40::from("nutexb") {
             replace_textures_by_index(&file_ctx, table2entry);
             return;
         }
@@ -128,7 +128,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
             .copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
     } else {
         let mut data_slice = unsafe {
-            std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.file.len() as _)
+            std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.len() as _)
         };
         data_slice.write_all(&file_slice).unwrap();
     }

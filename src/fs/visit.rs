@@ -15,7 +15,7 @@ use walkdir::WalkDir;
 /// Discover every file in a directory and its sub-directories.  
 /// Files starting with a period are filtered out, and only the files with relevant regions are kept.  
 /// This signifies that if your goal is to simply get all the files, this is not the method to use.
-pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
+pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModPath> {
     let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
 
     WalkDir::new(dir).into_iter().filter_entry(|entry| {
@@ -28,7 +28,7 @@ pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
         if entry.file_type().is_file() {
             // Make sure the file has an extension
             if entry.path().extension().is_some() {
-                let path: Modpath = Modpath(entry.path().strip_prefix(dir).unwrap().to_path_buf());
+                let path: SmashPath = SmashPath(entry.path().strip_prefix(dir).unwrap().to_path_buf());
 
                 match path.get_region() {
                     Some(region) => {
@@ -57,7 +57,7 @@ pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
 /// Files starting with a period are filtered out, and only the files with relevant regions are kept.  
 /// This signifies that if your goal is to simply get all the files, this is not the method to use.  
 /// This method exists to support backward compatibility with Ultimate Mod Manager.  
-pub fn umm_discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
+pub fn umm_discovery(dir: &PathBuf) -> HashMap<Hash40, ModPath> {
     WalkDir::new(dir).min_depth(1).max_depth(1).into_iter().filter_entry(|entry| {
         !entry.file_name().to_str().unwrap().starts_with('.')
     }).flat_map(|entry| {
@@ -75,39 +75,39 @@ pub fn umm_discovery(dir: &PathBuf) -> HashMap<Hash40, ModFile> {
 /// A few methods are provided to obtain a Hash40 or strip ARCropolis-relevant informations such as a regional indicator.
 #[repr(transparent)]
 #[derive(Debug, Clone)]
-pub struct Modpath(pub PathBuf);
+pub struct SmashPath(pub PathBuf);
 
-impl From<Modpath> for PathBuf {
-    fn from(modpath: Modpath) -> Self {
+impl From<SmashPath> for PathBuf {
+    fn from(modpath: SmashPath) -> Self {
         modpath.0
     }
 }
 
-impl From<PathBuf> for Modpath {
+impl From<PathBuf> for SmashPath {
     fn from(path: PathBuf) -> Self {
         Self(path)
     }
 }
 
-impl From<PathBuf> for ModFile {
+impl From<PathBuf> for ModPath {
     fn from(path: PathBuf) -> Self {
         Self(path)
     }
 }
 
-impl From<ModFile> for PathBuf {
-    fn from(modfile: ModFile) -> Self {
+impl From<ModPath> for PathBuf {
+    fn from(modfile: ModPath) -> Self {
         modfile.0
     }
 }
 
-impl From<Modpath> for ModFile {
-    fn from(modpath: Modpath) -> Self {
+impl From<SmashPath> for ModPath {
+    fn from(modpath: SmashPath) -> Self {
         Self(modpath.0)
     }
 }
 
-impl Modpath {
+impl SmashPath {
     pub fn path(&self) -> &Path {
         &self.0
     }
@@ -180,10 +180,10 @@ impl Modpath {
 /// Utility struct for the purpose of storing an absolute modfile path (starting at the root of the ``sd:/`` filesystem)
 /// A few methods are provided to obtain a ARCropolis-relevant informations such as the regional indicator
 #[repr(transparent)]
-#[derive(Debug, Clone)]
-pub struct ModFile(PathBuf);
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ModPath(PathBuf);
 
-impl ModFile {
+impl ModPath {
     pub fn new() -> Self {
         Self(PathBuf::new())
     }
@@ -197,10 +197,6 @@ impl ModFile {
 
     pub fn set_path<P: AsRef<Path>>(&mut self, new_path: P) {
         self.0 = new_path.as_ref().to_path_buf();
-    }
-
-    pub fn to_modpath<P: AsRef<Path>>(&self, parent_dir: P) -> Modpath {
-        self.0.strip_prefix(parent_dir).unwrap().to_path_buf().into()
     }
 
     pub fn as_smash_path(&self) -> PathBuf {
