@@ -1,17 +1,17 @@
 ---
-name: Crash report
-about: If you did everything right and get a crash, fill this template
-title: "[Crash] [ARCropolis version] Brief description of the issue"
-labels: bug, crash
+name: Incorrect behavior
+about: If you did everything right but something went wrong, fill this template
+title: "[Incorrect behavior][ARCropolis version] Files with a regional indicator do
+  not load properly"
+labels: bug, incorrect behavior
 assignees: ''
 
 ---
 
-## Crash report
+## Bug report
 [Sentences between [brackets] should be removed before posting.]
 
 [Before posting, make sure to check if the ARCropolis version appears on the title screen. If it does not, you did not install it properly and should not open an issue.]
-[Please make sure the issue comes from ARCropolis itself by disabling any other plugin you may have and confirming you still can reproduce the crash]
 
 [Only issues related to the latest major version, which is the leftmost number (e.g., ``2`` in version ``2.0.0``), are considered.]
 [The previous statement does not apply if the only release in a major version is a beta.]
@@ -24,14 +24,17 @@ Smash version: ``11.0.1``
 ARCropolis version: ``2.0.0-beta``
 microSD card format: ``FAT32`` or ``exFAT``
 
+### Expected behavior
+[If possible, explain what SHOULD have happened but didn't.]
+
 ### Reproducibility 
-[Can you reproduce the crash/infinite load? If so, is it random, every time you try, etc.? If you can, providing a zip/rar to reproduce the issue can help]
+[Can you reproduce this incorrect behavior? If so, is it random, every time you try, etc.? If possible, provide a zip/rar with the bare minimum to reproduce the issue]
 
 ### What happened and what's the context?
 [Were you playing offline? Online? With mods? Was it during the Vs. loading screen? On the CSS? On the SSS? ...]
 
+### Screenshot(s)
+[If the incorrect behavior can be shown, please provide a screenshot of it if possible.]
+
 ### Configuration
 [Post your configuration file located in ``sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml`` here.]
-
-### Crash report
-[Get the most recent ``.log`` file from ``sd:/atmosphere/crash_reports/`` and post it here.]

@@ -1,17 +1,15 @@
 ---
-name: Crash report
-about: If you did everything right and get a crash, fill this template
-title: "[Crash] [ARCropolis version] Brief description of the issue"
-labels: bug, crash
+name: Infinite loading
+about: Your mods are properly installed, but the game loads infinitely
+title: "[Infinite loading][ARCropolis version] Infinite loading on Vs. screen when
+  playing a modded Dark Samus"
+labels: bug, infinite loading
 assignees: ''
 
 ---
 
-## Crash report
+## Bug report
 [Sentences between [brackets] should be removed before posting.]
-
-[Before posting, make sure to check if the ARCropolis version appears on the title screen. If it does not, you did not install it properly and should not open an issue.]
-[Please make sure the issue comes from ARCropolis itself by disabling any other plugin you may have and confirming you still can reproduce the crash]
 
 [Only issues related to the latest major version, which is the leftmost number (e.g., ``2`` in version ``2.0.0``), are considered.]
 [The previous statement does not apply if the only release in a major version is a beta.]
@@ -25,13 +23,10 @@ ARCropolis version: ``2.0.0-beta``
 microSD card format: ``FAT32`` or ``exFAT``
 
 ### Reproducibility 
-[Can you reproduce the crash/infinite load? If so, is it random, every time you try, etc.? If you can, providing a zip/rar to reproduce the issue can help]
+[Can you reproduce the infinite loading? If so, is it random, every time you try, etc.? If you can, please provide a zip/rar with the bare minimum amount of files that can reproduce the issue]
 
-### What happened and what's the context?
+### What's the context?
 [Were you playing offline? Online? With mods? Was it during the Vs. loading screen? On the CSS? On the SSS? ...]
 
 ### Configuration
 [Post your configuration file located in ``sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml`` here.]
-
-### Crash report
-[Get the most recent ``.log`` file from ``sd:/atmosphere/crash_reports/`` and post it here.]
