@@ -30,8 +30,8 @@ pub fn string_to_static_str(s: String) -> &'static str {
 }
 
 #[allow(dead_code)]
-pub fn get(x: Hash40) -> Option<&'static &'static str> {
-    HASHES.get(&x)
+pub fn get(x: Hash40) -> &'static &'static str {
+    HASHES.get(&x).unwrap_or(&"Unknown")
 }
 
 pub fn init() {

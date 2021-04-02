@@ -368,7 +368,7 @@ impl LoadedTables {
                     if let Some(data_hash) = index_to_data_hash_map.get(&idx) {
                         let group_hash = file_paths[usize::from(info.file_path_index)].path.hash40();
                         if *data_hash == group_hash {
-                            log::warn!("[ARC::Unsharing] Attempting to unshare source slot for file '{}' ({:#x}). Skipping.", crate::hashes::get(*data_hash).unwrap_or(&"Unknown").bright_yellow(), data_hash.0.red());
+                            log::warn!("[ARC::Unsharing] Attempting to unshare source slot for file '{}' ({:#x}). Skipping.", crate::hashes::get(*data_hash).bright_yellow(), data_hash.0.red());
                             skip_this_group = true;
                             break;
                         }
@@ -396,7 +396,7 @@ impl LoadedTables {
                         None => {
                             log::warn!(
                                 "[ARC::Unsharing] Unable to find new hash for source hash '{}'", 
-                                crate::hashes::get(source_info_hash).unwrap_or(&"Unknown").bright_yellow()
+                                crate::hashes::get(source_info_hash).bright_yellow()
                             );
                             new_infos[current_mld_offset + offset] = info.clone();
                             continue;
@@ -473,7 +473,7 @@ impl LoadedTables {
                 for (offset, info) in mass_load_group_infos.iter_mut().enumerate() {
                     if BANNED_FILENAMES.contains(&file_paths[usize::from(info.file_path_index)].file_name.hash40()) 
                         || BANNED_EXTENSIONS.contains(&file_paths[usize::from(info.file_path_index)].ext.hash40())
-                        || (*crate::hashes::get(file_paths[info.file_path_index.0 as usize].path.hash40()).unwrap()).contains("motion/") { 
+                        || (*crate::hashes::get(file_paths[info.file_path_index.0 as usize].path.hash40())).contains("motion/") { 
                         continue;
                     }
                     if let Some((info_indice_idx, info_to_data_idx)) = path_idx_to_info_indice.get(&info.file_path_index) {
@@ -489,7 +489,7 @@ impl LoadedTables {
                         let other_hash = file_paths[usize::from(idx)].path.hash40();
                         if current_hash == other_hash || folder_offsets[original_folder_offset_idx as usize].resource_index == 0xFFFFFF { continue; }
                         if offset >= 50 { continue; }
-                        println!("{}", crate::hashes::get(file_paths[info.file_path_index.0 as usize].path.hash40()).unwrap_or(&"Unknown"));
+                        println!("{}", crate::hashes::get(file_paths[info.file_path_index.0 as usize].path.hash40()));
                         let idx = file_info_indices[usize::from(info.file_info_indice_index)].file_info_index;
                         let idx = file_infos[usize::from(idx)].info_to_data_index;
                         let idx = file_info_to_datas[usize::from(idx)].file_data_index;

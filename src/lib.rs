@@ -85,9 +85,7 @@ fn replace_file_by_index(file_index: FileIndex) {
         info!(
             "[ResInflateThread | #{}] Replacing '{}'",
             usize::from(file_ctx.index).green(),
-            hashes::get(file_ctx.hash)
-                .unwrap_or(&"Unknown")
-                .bright_yellow()
+            hashes::get(file_ctx.hash).bright_yellow()
         );
 
         unsafe {
@@ -107,9 +105,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
     info!(
         "[ResInflateThread | #{}] Replacing '{}'",
         usize::from(file_ctx.index).green(),
-        hashes::get(file_ctx.hash)
-            .unwrap_or(&"Unknown")
-            .bright_yellow()
+        hashes::get(file_ctx.hash).bright_yellow()
     );
 
     if orig_size > file_slice.len() {
@@ -150,7 +146,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
             (*ctx.registers[21].w.as_ref()).green(),
             (*ctx.registers[27].x.as_ref()).yellow(),
             res_service.processing_file_idx_count.yellow(),
-            hashes::get(hash).unwrap_or(&"Unknown").bright_yellow()
+            hashes::get(hash).bright_yellow()
         );
 
         let mut incoming = INCOMING_IDX.write();
@@ -179,7 +175,7 @@ fn loading_incoming(ctx: &InlineCtx) {
         info!(
             "[ResLoadingThread | #{}] Incoming '{}'",
             path_idx.bright_yellow(),
-            hashes::get(hash).unwrap_or(&"Unknown").bright_yellow()
+            hashes::get(hash).bright_yellow()
         );
     }
 }
