@@ -20,6 +20,7 @@ mod menus;
 mod logging;
 mod fs;
 mod callbacks;
+mod api;
 
 use config::CONFIG;
 use runtime::{LoadedTables, ResServiceState, Table2Entry};
