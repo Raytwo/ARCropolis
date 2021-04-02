@@ -174,6 +174,7 @@ impl SmashPath {
 }
 
 
+// TODO: Should probably deref to a Path
 /// Utility struct for the purpose of storing an absolute modfile path (starting at the root of the ``sd:/`` filesystem)
 /// A few methods are provided to obtain a ARCropolis-relevant informations such as the regional indicator
 #[repr(transparent)]

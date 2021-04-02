@@ -4,6 +4,7 @@ use crate::{
     runtime,
     config::CONFIG,
     fs::visit::ModPath,
+    callbacks::Callback,
 };
 
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40, HashToIndex};
@@ -66,16 +67,20 @@ pub struct ModFiles(pub HashMap<FileIndex, FileCtx>);
 
 #[derive(Debug, Clone)]
 pub struct FileCtx {
-    pub file: ArcFile,
+    pub file: FileBacking,
     pub hash: Hash40,
     pub orig_size: u32,
     pub index: FileInfoIndiceIdx,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ArcFile {
-    File(ModPath),
-    Callback(Hash40),
+pub enum FileBacking {
+    LoadFromArc,
+    Path(ModPath),
+    Callback {
+        callback: Callback,
+        original: Box<FileBacking>,
+    }
 }
 
 #[macro_export]
@@ -121,7 +126,7 @@ impl ModFiles {
         modfiles.iter().filter_map(|(hash, modfile)| {
             let mut filectx = FileCtx::new();
 
-            filectx.file = ArcFile::File(modfile.clone());
+            filectx.file = FileBacking::Path(modfile.clone());
             filectx.hash = *hash;
 
             if modfile.is_stream() {
@@ -214,7 +219,7 @@ pub fn get_region_id(region: &str) -> Option<u32> {
 impl FileCtx {
     pub fn new() -> Self {
         FileCtx {
-            file: ArcFile::File(PathBuf::new().into()),
+            file: FileBacking::Path(ModPath::new()),
             hash: Hash40(0),
             orig_size: 0,
             index: FileInfoIndiceIdx(0),
@@ -235,23 +240,26 @@ impl FileCtx {
 
     pub fn len(&self) -> u32 {
         match &self.file {
-            ArcFile::File(modpath) => modpath.path().metadata().unwrap().len() as u32,
-            ArcFile::Callback(_) => unimplemented!(),
+            FileBacking::Path(modpath) => modpath.path().metadata().unwrap().len() as u32,
+            FileBacking::LoadFromArc => unimplemented!(),
+            FileBacking::Callback { callback, original } => unimplemented!(),
         }
     }
 
     pub fn path(&self) -> &Path {
         match &self.file {
-            ArcFile::File(modpath) => modpath.path(),
-            ArcFile::Callback(_) => unimplemented!(),
+            FileBacking::Path(modpath) => modpath.path(),
+            FileBacking::LoadFromArc => unimplemented!(),
+            FileBacking::Callback { callback, original } => unimplemented!(),
         }
     }
 
     pub fn get_file_content(&self) -> Vec<u8> {
         // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
         match &self.file {
-            ArcFile::File(modpath) => fs::read(modpath.path()).unwrap(),
-            ArcFile::Callback(_) => unimplemented!(),
+            FileBacking::Path(modpath) => fs::read(modpath.path()).unwrap(),
+            FileBacking::LoadFromArc => unimplemented!(),
+            FileBacking::Callback { callback, original } => unimplemented!(),
         }
     }
 }
