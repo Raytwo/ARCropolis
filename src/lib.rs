@@ -164,22 +164,6 @@ fn inflate_incoming(ctx: &InlineCtx) {
     }
 }
 
-#[hook(offset = 0x33b6798, inline)]
-fn loading_incoming(ctx: &InlineCtx) {
-    unsafe {
-        let arc = LoadedTables::get_arc();
-
-        let path_idx = *ctx.registers[25].x.as_ref() as u32;
-        let hash = arc.get_file_paths()[path_idx as usize].path.hash40();
-
-        info!(
-            "[ResLoadingThread | #{}] Incoming '{}'",
-            path_idx.bright_yellow(),
-            hashes::get(hash).bright_yellow()
-        );
-    }
-}
-
 /// For small uncompressed files
 #[hook(offset = MEMCPY_1_OFFSET, inline)]
 fn memcpy_uncompressed(_ctx: &InlineCtx) {
@@ -356,7 +340,6 @@ pub fn main() {
     install_hooks!(
         initial_loading,
         inflate_incoming,
-        //loading_incoming,
         memcpy_uncompressed,
         memcpy_uncompressed_2,
         memcpy_uncompressed_3,
