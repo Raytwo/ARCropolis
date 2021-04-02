@@ -143,14 +143,11 @@ impl ModFiles {
                 }
             }
         }).collect::<HashMap<FileIndex, FileCtx>>().iter_mut().map(|(index, ctx)| {
-            match index {
-                FileIndex::Regular(info_index) => {
-                    let info_index = arc.get_file_info_indices()[usize::from(*info_index)].file_info_index;
-                    let file_info = arc.get_file_infos()[usize::from(info_index)];
+            if let FileIndex::Regular(info_index) = index {
+                let info_index = arc.get_file_info_indices()[usize::from(*info_index)].file_info_index;
+                let file_info = arc.get_file_infos()[usize::from(info_index)];
 
-                    ctx.orig_size = arc.patch_filedata(&file_info, ctx.len())
-                }
-                _ => {},
+                ctx.orig_size = arc.patch_filedata(&file_info, ctx.len())
             }
 
             (*index, ctx.clone())

@@ -224,7 +224,7 @@ impl LoadedTables {
         unsafe { nn::os::UnlockMutex(self.mutex); }
     }
 
-    unsafe fn recreate_array<T: Sized>(start: *const T, length: usize, new_entries: &Vec<T>) -> *mut T {
+    unsafe fn recreate_array<T: Sized>(start: *const T, length: usize, new_entries: &[T]) -> *mut T {
         let arr_layout = std::alloc::Layout::from_size_align((length + new_entries.len()) * std::mem::size_of::<T>(), 0x10).unwrap();
         let new_ptr = std::alloc::alloc(arr_layout) as *mut T;
         std::ptr::copy_nonoverlapping(start, new_ptr, length);
@@ -280,7 +280,7 @@ impl LoadedTables {
         }
     }
 
-    pub fn unshare_mass_loading_groups<Hash: Into<Hash40> + Clone>(paths: &Vec<Hash>) -> Result<(), String> {
+    pub fn unshare_mass_loading_groups<Hash: Into<Hash40> + Clone>(paths: &[Hash]) -> Result<(), String> {
         lazy_static::lazy_static! {
             static ref BANNED_FILENAMES: Vec<Hash40> = vec![
                 Hash40::from("model.xmb")
