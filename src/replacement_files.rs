@@ -3,10 +3,7 @@ use std::{collections::HashMap, fs, path::{Path, PathBuf}, vec};
 use crate::{
     runtime,
     config::CONFIG,
-    fs::{
-        Metadata,
-        visit::ModPath,
-    },
+    fs::visit::ModPath,
 };
 
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40, HashToIndex};
@@ -184,7 +181,7 @@ impl ModFiles {
                 }
             };
             let mut index = HashToIndex::default();
-            index.set_hash((game_path.0 & 0xFFFFFFFF) as u32);
+            index.set_hash((game_path.0 & 0xFFFF_FFFF) as u32);
             index.set_length((game_path.0 >> 32) as u8);
             index.set_index(path_idx.0);
             let dir_entry = match cache.entries.get(&index) {

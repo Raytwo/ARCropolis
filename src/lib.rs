@@ -350,7 +350,7 @@ pub fn main() {
     );
 
     unsafe {
-        skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x34636c4, &0x14000002);
+        skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x346_36c4, &0x1400_0002);
         LUT_LOADER_HANDLE = Some(std::thread::spawn(|| {
             let mut unshare_lut = UNSHARE_LUT.write();
             *unshare_lut = match std::fs::read("rom:/skyline/unshare_lut.bin") {

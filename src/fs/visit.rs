@@ -30,13 +30,10 @@ pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModPath> {
             if entry.path().extension().is_some() {
                 let path: SmashPath = SmashPath(entry.path().strip_prefix(dir).unwrap().to_path_buf());
 
-                match path.get_region() {
-                    Some(region) => {
-                        if region != user_region {
-                            return None;
-                        }
+                if let Some(region) = path.get_region() {
+                    if region != user_region {
+                        return None;
                     }
-                    None => ()
                 }
 
                 let hash = path.hash40().unwrap();
@@ -180,12 +177,12 @@ impl SmashPath {
 /// Utility struct for the purpose of storing an absolute modfile path (starting at the root of the ``sd:/`` filesystem)
 /// A few methods are provided to obtain a ARCropolis-relevant informations such as the regional indicator
 #[repr(transparent)]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct ModPath(PathBuf);
 
 impl ModPath {
     pub fn new() -> Self {
-        Self(PathBuf::new())
+        Self::default()
     }
     pub fn from<P: AsRef<Path>>(path: P) -> Self {
         Self(path.as_ref().to_path_buf())

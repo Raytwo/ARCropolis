@@ -54,14 +54,14 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
     std::fs::read_dir(workspace)
         .unwrap()
         .enumerate()
-        .filter_map(|(i, path)| {
+        .map(|(i, path)| {
             let path_to_be_used;
             let disabled;
             
             let path = path.unwrap();
 
             let parent_path = format!("{}", path.path().parent().unwrap().display());
-            let original_folder_name = format!("{}", path.file_name().to_os_string().into_string().unwrap());
+            let original_folder_name = path.file_name().into_string().unwrap();
 
             
             let original = format!("{}", path.path().display());
@@ -82,7 +82,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                 path_to_be_used = format!("{} (2)", &counter_part);
                 rename_folder(Path::new(&counter_part), Path::new(&path_to_be_used));
             } else {
-                path_to_be_used = original.to_owned();
+                path_to_be_used = original;
             }
             
             let mut folder_name = Path::new(&path_to_be_used)
@@ -107,7 +107,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                 res.folder_name = Some(folder_name);
                 res.is_disabled = Some(disabled);
                 res.image = Some(format!("{}/preview.webp", path_to_be_used));
-                res.description = Some(res.description.unwrap_or("".to_string()).replace("\n", "<br>"));
+                res.description = Some(res.description.unwrap_or_else(String::new).replace("\n", "<br>"));
                 res
             } else {
                 Entry {
@@ -122,7 +122,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                 }
             };
 
-            Some(mod_info)
+            mod_info
         })
         .collect()
 }

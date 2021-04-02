@@ -71,17 +71,17 @@ impl UnshareCache {
     pub fn write(arc: &LoadedArc, cache_map: &HashMap<HashToIndex, (HashToIndex, u32)>, path: &PathBuf) -> std::io::Result<()> {
         let file = std::fs::File::create(path)?;
         let mut writer = std::io::BufWriter::new(file);
-        let out_vec: Vec<(HashToIndex, (HashToIndex, u32))> = cache_map.into_iter().map(|(hash, dir)| (*hash, *dir)).collect();
+        let out_vec: Vec<(HashToIndex, (HashToIndex, u32))> = cache_map.iter().map(|(hash, dir)| (*hash, *dir)).collect();
         let entries = out_vec.len() as u32;
         unsafe {
             writer.write_all(
-                "ARC_VER\0".as_bytes()
+                b"ARC_VER\0"
             ).unwrap();
             writer.write_all(
                 std::slice::from_raw_parts(&(*arc.fs_header).version as *const u32 as *const u8, std::mem::size_of::<u32>())
             ).unwrap();
             writer.write_all(
-                "MOD_VER\0".as_bytes()
+                b"MOD_VER\0"
             ).unwrap();
             writer.write_all(
                 std::slice::from_raw_parts(&0u32 as *const u32 as *const u8, std::mem::size_of::<u32>())

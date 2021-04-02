@@ -1,19 +1,19 @@
 use skyline::hooks::{getRegionAddress, Region};
 
 // default 9.0.2 offsets
-pub static mut LOADED_TABLES_ADRP_OFFSET: usize = 0x35bb1f8;
-pub static mut RES_SERVICE_ADRP_OFFSET: usize = 0x335a860;
+pub static mut LOADED_TABLES_ADRP_OFFSET: usize = 0x35b_b1f8;
+pub static mut RES_SERVICE_ADRP_OFFSET: usize = 0x335_a860;
 
-pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x335A7F0;
-pub static mut TITLE_SCREEN_VERSION_OFFSET: usize = 0x35BAE00;
+pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x335_A7F0;
+pub static mut TITLE_SCREEN_VERSION_OFFSET: usize = 0x35B_AE00;
 
-pub static mut INFLATE_OFFSET: usize = 0x33b71e8;
-pub static mut MEMCPY_1_OFFSET: usize = 0x33b7d08;
-pub static mut MEMCPY_2_OFFSET: usize = 0x33b78f8;
-pub static mut MEMCPY_3_OFFSET: usize = 0x33b7988;
-pub static mut INFLATE_DIR_FILE_OFFSET: usize = 0x3816230;
-pub static mut MANUAL_OPEN_OFFSET: usize = 0x35c93b0;
-pub static mut INITIAL_LOADING_OFFSET: usize = 0x35c6474;
+pub static mut INFLATE_OFFSET: usize = 0x33b_71e8;
+pub static mut MEMCPY_1_OFFSET: usize = 0x33b_7d08;
+pub static mut MEMCPY_2_OFFSET: usize = 0x33b_78f8;
+pub static mut MEMCPY_3_OFFSET: usize = 0x33b_7988;
+pub static mut INFLATE_DIR_FILE_OFFSET: usize = 0x381_6230;
+pub static mut MANUAL_OPEN_OFFSET: usize = 0x35c_93b0;
+pub static mut INITIAL_LOADING_OFFSET: usize = 0x35c_6474;
 
 static LOADED_TABLES_ADRP_SEARCH_CODE: &[u8] = &[
     0xf3, 0x03, 0x00, 0xaa, 0x1f, 0x01, 0x09, 0x6b, 0xe0, 0x04, 0x00, 0x54,
@@ -73,17 +73,19 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .position(|window| window == needle)
 }
 
+#[allow(clippy::inconsistent_digit_grouping)]
 fn offset_from_adrp(adrp_offset: usize) -> usize {
     unsafe {
         let adrp = *(offset_to_addr(adrp_offset) as *const u32);
         let immhi = (adrp & 0b0_00_00000_1111111111111111111_00000) >> 3;
         let immlo = (adrp & 0b0_11_00000_0000000000000000000_00000) >> 29;
         let imm = ((immhi | immlo) << 12) as i32 as usize;
-        let base = adrp_offset & 0xFFFFFFFFFFFFF000;
+        let base = adrp_offset & 0xFFFF_FFFF_FFFF_F000;
         base + imm
     }
 }
 
+#[allow(clippy::inconsistent_digit_grouping)]
 fn offset_from_ldr(ldr_offset: usize) -> usize {
     unsafe {
         let ldr = *(offset_to_addr(ldr_offset) as *const u32);
@@ -120,8 +122,8 @@ macro_rules! find_offsets {
 
 pub fn search_offsets() {
     unsafe {
-        crate::runtime::LOADED_TABLES_OFFSET = 0x50567a0;
-        crate::runtime::RES_SERVICE_OFFSET = 0x50567a8;
+        crate::runtime::LOADED_TABLES_OFFSET = 0x505_67a0;
+        crate::runtime::RES_SERVICE_OFFSET = 0x505_67a8;
 
         let text_ptr = getRegionAddress(Region::Text) as *const u8;
         let text_size = (getRegionAddress(Region::Rodata) as usize) - (text_ptr as usize);
