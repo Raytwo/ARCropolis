@@ -1,6 +1,6 @@
 use std::fmt;
 use std::sync::atomic::AtomicU32;
-
+use std::collections::HashMap;
 use skyline::{
     hooks::{getRegionAddress, Region},
     nn,
@@ -17,8 +17,9 @@ use crate::replacement_files::get_region_id;
 use crate::config::CONFIG;
 
 use crate::cpp_vector::CppVector;
+use crate::hashes;
 
-use log::info;
+use log::{warn, info};
 use owo_colors::OwoColorize;
 
 // 9.0.1 offsets
@@ -224,7 +225,9 @@ impl LoadedTables {
         unsafe { nn::os::UnlockMutex(self.mutex); }
     }
 
+    #[inline(never)]
     unsafe fn recreate_array<T: Sized>(start: *const T, length: usize, new_entries: &[T]) -> *mut T {
+        if new_entries.len() == 0 { return start as *mut T; }
         let arr_layout = std::alloc::Layout::from_size_align((length + new_entries.len()) * std::mem::size_of::<T>(), 0x10).unwrap();
         let new_ptr = std::alloc::alloc(arr_layout) as *mut T;
         std::ptr::copy_nonoverlapping(start, new_ptr, length);
@@ -232,20 +235,23 @@ impl LoadedTables {
         new_ptr
     }
 
+    #[inline(never)]
     unsafe fn extend_table<T: Sized>(start: *const T, length: usize, new_entries: usize) -> *mut T {
+        if new_entries == 0 { return start as *mut T; }
         let arr_layout = std::alloc::Layout::from_size_align((length + new_entries) * std::mem::size_of::<T>(), 0x10).unwrap();
         let new_ptr = std::alloc::alloc(arr_layout) as *mut T;
         std::ptr::copy_nonoverlapping(start, new_ptr, length);
         new_ptr
     }
 
+    #[inline(never)]
     fn duplicate_file_structure(new_file_path_idx: FilePathIdx, new_info_indice_idx: FileInfoIndiceIdx, new_data_index: FileDataIdx, new_mass_load_data_index: u32, start_info: &FileInfo, info_to_datas: &mut Vec<FileInfoToFileData>, infos: &mut Vec<FileInfo>, lengths: &ArrayLengths) {
         let arc = Self::get_arc();
         let file_infos = arc.get_file_infos();
         let file_info_to_datas = arc.get_file_info_to_datas();
 
         let mut redirect_info = start_info;
-        let redirect_info_to_data = &file_info_to_datas[usize::from(redirect_info.info_to_data_index)];
+        let mut redirect_info_to_data = &file_info_to_datas[redirect_info.info_to_data_index];
 
         let mut is_first = true;
         loop {
@@ -276,20 +282,25 @@ impl LoadedTables {
                 folder_offset_index: new_mass_load_data_index
             };
             info_to_datas.push(new_info_to_data);
+            redirect_info_to_data = &file_info_to_datas[redirect_info.info_to_data_index];
             if !is_chain { break; }
         }
     }
 
+    #[inline(never)]
     pub fn unshare_mass_loading_groups<Hash: Into<Hash40> + Clone>(paths: &[Hash]) -> Result<(), String> {
+        use std::slice::{from_raw_parts, from_raw_parts_mut}; // :)
+        let region = smash_arc::Region::from(
+            get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
+        );
+
         lazy_static::lazy_static! {
             static ref BANNED_FILENAMES: Vec<Hash40> = vec![
-                Hash40::from("model.xmb")
-            ];
-            static ref BANNED_EXTENSIONS: Vec<Hash40> = vec![
-                Hash40::from("nuanmb")
+                Hash40::from("model.xmb"),
+                // Hash40::from("model.nuhlpb")
             ];
         }
-        use std::collections::HashMap;
+        // Get all of the provides hashes and turn them into Hash40s for use later
         let paths: Vec<Hash40> = paths.iter().map(|x| {
             x.clone().into()
         }).collect();
@@ -298,15 +309,15 @@ impl LoadedTables {
             let mut instance = Self::acquire_instance(); // acquiring will lock the mutex and unlock on drop
             let arc = Self::get_arc_mut();
             let fs: &'static mut FileSystemHeader = &mut *(arc.fs_header as *mut _);
-            let uncompressed_fs: &'static mut FileSystemHeader = &mut *(arc.uncompressed_fs as *mut _);
             let lengths = ArrayLengths::new(); // get array lengths as u32 values, simplifies making the indices
 
-            let folder_offsets = std::slice::from_raw_parts_mut(arc.folder_offsets as *mut DirectoryOffset, lengths.folder_offsets as usize);
-            let file_paths = std::slice::from_raw_parts_mut(arc.file_paths as *mut FilePath, lengths.file_paths as usize);
-            let file_info_indices = std::slice::from_raw_parts(arc.file_info_indices, lengths.file_info_indices as usize);
-            let file_infos = std::slice::from_raw_parts_mut(arc.file_infos, lengths.file_infos as usize);
-            let file_info_to_datas = std::slice::from_raw_parts(arc.file_info_to_datas, lengths.file_info_to_datas as usize);
-            let file_datas = std::slice::from_raw_parts(arc.file_datas, lengths.file_datas as usize);
+            // jam suggested to put this in smash-arc (which I understand), but instead I'm going to leave them here for the time being
+            let folder_offsets = from_raw_parts_mut(arc.folder_offsets as *mut DirectoryOffset, lengths.folder_offsets as usize);
+            let file_paths = from_raw_parts_mut(arc.file_paths as *mut FilePath, lengths.file_paths as usize);
+            let file_info_indices = from_raw_parts(arc.file_info_indices, lengths.file_info_indices as usize);
+            let file_infos = from_raw_parts_mut(arc.file_infos, lengths.file_infos as usize);
+            let file_info_to_datas = from_raw_parts(arc.file_info_to_datas, lengths.file_info_to_datas as usize);
+            let file_datas = from_raw_parts(arc.file_datas, lengths.file_datas as usize);
 
             let default_info = file_infos[0]; // default data to reserve sizes with
 
@@ -316,127 +327,94 @@ impl LoadedTables {
             let mut new_info_to_datas = Vec::new();
             let mut new_datas = Vec::new();
             let mut new_mass_load_datas = Vec::new();
-
-            let mass_load_data_start_offset = 0;
             for path in paths.iter() {
                 // start by changing the index of the load data
                 let mass_load_group = match arc.get_dir_info_from_hash(*path) {
                     Ok(info) => Ok(info),
                     Err(error) => Err(format!("Lookup error ({:?}) when getting directory information for hash {:#x}", error, path.0))
                 }?;
-                if (mass_load_group.dir_offset_index >> 8) == 0xFF_FFFF { continue; }
-                let intermediate_load_data = &mut folder_offsets[(mass_load_group.dir_offset_index >> 8) as usize]; // ideally change this in smash-arc
-                let old_res_idx = intermediate_load_data.resource_index;
-                if old_res_idx == 0xFF_FFFF { continue; }
-                intermediate_load_data.resource_index = lengths.folder_offsets + new_mass_load_datas.len() as u32;
-                let shared_load_data = &folder_offsets[old_res_idx as usize];
 
-                let mass_load_group_infos = std::slice::from_raw_parts_mut(
-                    arc.file_infos.offset(mass_load_group.file_info_start_index as isize),
-                    mass_load_group.file_info_count as usize
-                );
-                let shared_load_data_infos = std::slice::from_raw_parts_mut(
-                    arc.file_infos.offset(shared_load_data.file_info_start_index as isize),
-                    shared_load_data.file_info_count as usize
-                );
-
-                // get the file path index and map it to a hash
-                // the FileInfoIndex for a group file (i.e. "fighter/roy/model/body/c00/model.numshb")
-                // is the same as one for the shared data file. In the case of Roy, they all point to the c07 variants
-                // However, it goes deeper than this, as some files are shared even further. For example,
-                // "fighter/roy/model/body/c00/model.xmb" redirects to "fighter/roy/model/body/c07/model.xmb"
-                // which further redirects to fox's model.xmb.
-                // ^^ lol this doesn't work
-                // In order to unshare these files we have to go two redirections deep to be 100% sure we map the right hashes together
-                let mut index_to_data_hash_map = HashMap::new();
-                for info in shared_load_data_infos.iter() {
-                    let hash = file_paths[usize::from(info.file_path_index)].path.hash40();
-                    let idx = file_info_indices[usize::from(info.file_info_indice_index)].file_info_index;
-                    let idx = file_infos[usize::from(idx)].file_path_index;
-                    index_to_data_hash_map.insert(idx, hash);
-                }
-                // we do this to be able to go from shared data hash -> mass load group hash
-                // this is important so that the file path indices in our new MassLoadData point
-                // to the original filepaths
-                let mut data_to_group_hash_map = HashMap::new();
-                let mut group_to_index_hash_map = HashMap::new();
-                let mut skip_this_group = false;
-                for (offset, info) in mass_load_group_infos.iter().enumerate() {
-                    let idx = file_info_indices[usize::from(info.file_info_indice_index)].file_info_index;
-                    let idx = file_infos[usize::from(idx)].file_path_index;
-                    if let Some(data_hash) = index_to_data_hash_map.get(&idx) {
-                        let group_hash = file_paths[usize::from(info.file_path_index)].path.hash40();
-                        if *data_hash == group_hash {
-                            log::warn!("[ARC::Unsharing] Attempting to unshare source slot for file '{}' ({:#x}). Skipping.", crate::hashes::get(*data_hash).bright_yellow(), data_hash.0.red());
-                            skip_this_group = true;
-                            break;
-                        }
-                        data_to_group_hash_map.insert(*data_hash, group_hash);
-                        group_to_index_hash_map.insert(group_hash, offset);
+                let shared_load_data = match Self::get_shared_mass_load_data(arc, mass_load_group) {
+                    Ok(data) => data,
+                    Err(msg) => {
+                        warn!("{}", msg);
+                        continue;
                     }
-                }
-                if skip_this_group {
-                    folder_offsets[(mass_load_group.dir_offset_index >> 8) as usize].resource_index = old_res_idx;
-                    continue;
-                }
-                drop(index_to_data_hash_map);
+                };
 
-                let mut path_idx_to_info_indice = HashMap::new();
+                // I'd love to do this in a rust-idiomatic way, but unfortunately I can't borrow twice at a time
+                // no jam, it does not compile without doing it this way <3
+                let info_start = mass_load_group.file_info_start_index as isize;
+                let info_count = mass_load_group.file_info_count as usize;
+                let mass_load_group_infos = from_raw_parts_mut(arc.file_infos.offset(info_start), info_count);
+                
+                let info_start = shared_load_data.file_info_start_index as isize;
+                let info_count = shared_load_data.file_info_count as usize;
+                let shared_load_data_infos = from_raw_parts(arc.file_infos.offset(info_start), info_count);
 
-                // since we also have to include our redirection chain, we have to make sure we get contigious FileInfos
-                // for our new MassLoadData
-                let current_mld_offset = new_infos.len();
-                new_infos.resize_with(current_mld_offset + shared_load_data_infos.len(), || default_info);
+                let connections = match Self::get_unshared_connections(arc, mass_load_group_infos, shared_load_data_infos) {
+                    Some(c) => c,
+                    None => {
+                        warn!(
+                            "[ARC::Unsharing] Failed to unshare directory '{}' ({:#x}), maybe it is a source slot? Skipping.",
+                            hashes::get(mass_load_group.path.hash40()).bright_yellow(), mass_load_group.path.hash40().0.red()
+                        );
+                        continue;
+                    }
+                };
+                
+                let new_mass_load_data_index = lengths.folder_offsets + new_mass_load_datas.len() as u32;
+
+                let current_info_start = new_infos.len(); // new MassLoadingData has to point to contiguous FileInfos
+                new_infos.resize_with(current_info_start + shared_load_data_infos.len(), || default_info);
                 for (offset, info) in shared_load_data_infos.iter().enumerate() {
-                    // get the shared hash
-                    let source_info_hash = file_paths[usize::from(info.file_path_index)].path.hash40();
-                    let new_info_hash = match data_to_group_hash_map.get(&source_info_hash) {
+                    let new_info_index = current_info_start + offset; // index into our new infos for contiguous data access
+                    // get the group connections from the shared MassLoadingData file hash
+                    let shared_data_hash = file_paths[info.file_path_index].path.hash40();
+                    let (new_info_hash, group_offset) = match connections.get(&shared_data_hash) {
                         Some(hash) => *hash,
                         None => {
-                            log::warn!(
+                            warn!(
                                 "[ARC::Unsharing] Unable to find new hash for source hash '{}'", 
-                                crate::hashes::get(source_info_hash).bright_yellow()
+                                hashes::get(shared_data_hash).bright_yellow()
                             );
-                            new_infos[current_mld_offset + offset] = *info;
+                            new_infos[new_info_index] = *info;
                             continue;
                         }
                     };
-                    // extract the MassLoadGroup's child info for this
-                    let child_info_offset = match group_to_index_hash_map.get(&new_info_hash) {
-                        Some(offset) => Ok(offset),
-                        None => Err(format!("Could not find info index for new hash {:#x}", new_info_hash.0))
-                    }?;
-                    let child_info = &mut mass_load_group_infos[*child_info_offset];
-                    // get the data this pointed to
-                    let idx_ = child_info.file_info_indice_index;
-                    let idx_ = file_info_indices[usize::from(idx_)].file_info_index;
-                    let info_to_data_idx = file_infos[usize::from(idx_)].info_to_data_index;
-                    let idx_ = file_info_to_datas[usize::from(info_to_data_idx)].file_data_index;
-                    let original_data = file_datas[usize::from(idx_)];
+
+                    let group_info = &mut mass_load_group_infos[group_offset];
+                    let group_path = file_paths[group_info.file_path_index].path.hash40();
+                    let group_data = arc.get_file_data(group_info, region);
 
                     // Create our indices for repeated use
                     let new_info_indice_index = FileInfoIndiceIdx(lengths.file_info_indices + new_info_indices.len() as u32);
-                    let new_info_index_start = FileInfoIdx(lengths.file_infos + (current_mld_offset + offset) as u32);
+                    let new_info_index_start = FileInfoIdx(lengths.file_infos + new_info_index as u32);
                     let new_info_to_data_index_start = InfoToDataIdx(lengths.file_info_to_datas + new_info_to_datas.len() as u32);
                     let new_data_index = FileDataIdx(lengths.file_datas + new_datas.len() as u32);
-                    let new_mass_load_data_index = lengths.folder_offsets + new_mass_load_datas.len() as u32;
 
-                    // get the FilePathIdx for the group file
-                    let group_path_idx = child_info.file_path_index;
-                    let file_name = file_paths[usize::from(group_path_idx)].file_name.hash40();
+
+                    // check if the file is banned, if it is we are going to ignore the unsharing business
+                    // *sad model.xmb noises*
+                    let file_name = file_paths[group_info.file_path_index].file_name.hash40();
                     let is_banned = BANNED_FILENAMES.contains(&file_name);
 
                     // manufacture the index which goes into the contiguous data section
-                    new_infos[current_mld_offset + offset] = *info;
+                    new_infos[new_info_index] = *info;
                     if !is_banned {
-                        child_info.file_info_indice_index = new_info_indice_index; // points to a yet to be created FileInfoIndex
-                        child_info.info_to_data_index = new_info_to_data_index_start; // yet to be created file data
-                        new_infos[current_mld_offset + offset].file_info_indice_index = new_info_indice_index;
-                        new_infos[current_mld_offset + offset].file_path_index = group_path_idx;
-                        new_infos[current_mld_offset + offset].info_to_data_index = new_info_to_data_index_start;
+                        info!(
+                            "[ARC::Unsharing] Unsharing file '{}' ({:#x}) -> '{}' ({:#x})",
+                            hashes::get(shared_data_hash).bright_yellow(), shared_data_hash.0.red(), hashes::get(group_path).bright_yellow(), group_path.0.red()
+                        );
+                        group_info.file_info_indice_index = new_info_indice_index; // points to a yet to be created FileInfoIndex
+                        group_info.info_to_data_index = new_info_to_data_index_start; // yet to be created file data
+
+                        new_infos[new_info_index].file_info_indice_index = new_info_indice_index;
+                        new_infos[new_info_index].file_path_index = group_info.file_path_index;
+                        new_infos[new_info_index].info_to_data_index = new_info_to_data_index_start;
 
                         Self::duplicate_file_structure(
-                            group_path_idx,
+                            group_info.file_path_index,
                             new_info_indice_index,
                             new_data_index,
                             new_mass_load_data_index,
@@ -445,123 +423,145 @@ impl LoadedTables {
                             &mut new_infos,
                             &lengths
                         );
-                        file_paths[usize::from(group_path_idx)].path.set_index(new_info_indice_index.0);
-                        path_idx_to_info_indice.insert(group_path_idx, (new_info_indice_index, new_info_to_data_index_start));
-                        new_datas.push(original_data);
-                    }
-                    let new_info_index = FileInfoIndex {
-                        dir_offset_index: new_mass_load_data_index,
-                        file_info_index: new_info_index_start
-                    };
-                    new_info_indices.push(new_info_index);
-                }
-                let new_mass_load_data = DirectoryOffset {
-                    offset: shared_load_data.offset,
-                    size: shared_load_data.size,
-                    decomp_size: shared_load_data.decomp_size,
-                    file_info_start_index: lengths.file_infos + current_mld_offset as u32,
-                    file_info_count: shared_load_data.file_info_count,
-                    resource_index: lengths.folder_offsets + new_mass_load_datas.len() as u32
-                };
-                new_mass_load_datas.push(new_mass_load_data);
-
-                continue;
-
-                // unshare the rest of the chads
-                // still WIP
-                for (offset, info) in mass_load_group_infos.iter_mut().enumerate() {
-                    if BANNED_FILENAMES.contains(&file_paths[usize::from(info.file_path_index)].file_name.hash40()) 
-                        || BANNED_EXTENSIONS.contains(&file_paths[usize::from(info.file_path_index)].ext.hash40())
-                        || (*crate::hashes::get(file_paths[info.file_path_index.0 as usize].path.hash40())).contains("motion/") { 
-                        continue;
-                    }
-                    if let Some((info_indice_idx, info_to_data_idx)) = path_idx_to_info_indice.get(&info.file_path_index) {
-                        info.file_info_indice_index = *info_indice_idx;
-                        info.info_to_data_index = *info_to_data_idx;
-                    } else {
-                        let child_info_index = mass_load_group.file_info_start_index + offset as u32;
-                        let current_hash = file_paths[usize::from(info.file_path_index)].path.hash40();
-                        let original_folder_offset_idx = file_info_to_datas[usize::from(info.info_to_data_index)].folder_offset_index;
-                        let idx = info.file_info_indice_index;
-                        let idx = file_info_indices[usize::from(idx)].file_info_index;
-                        let idx = file_infos[usize::from(idx)].file_path_index;
-                        let other_hash = file_paths[usize::from(idx)].path.hash40();
-                        if current_hash == other_hash || folder_offsets[original_folder_offset_idx as usize].resource_index == 0xFF_FFFF { continue; }
-                        if offset >= 50 { continue; }
-                        println!("{}", crate::hashes::get(file_paths[info.file_path_index.0 as usize].path.hash40()));
-                        let idx = file_info_indices[usize::from(info.file_info_indice_index)].file_info_index;
-                        let idx = file_infos[usize::from(idx)].info_to_data_index;
-                        let idx = file_info_to_datas[usize::from(idx)].file_data_index;
-                        let original_data = file_datas[usize::from(idx)];
-
-                        let new_info_indice_index = FileInfoIndiceIdx(lengths.file_info_indices + new_info_indices.len() as u32);
-                        let new_info_index_start = FileInfoIdx(lengths.file_infos + new_infos.len() as u32);
-                        let new_info_to_data_index_start = InfoToDataIdx(lengths.file_info_to_datas + new_info_to_datas.len() as u32);
-                        let new_data_index = FileDataIdx(lengths.file_datas + new_datas.len() as u32);
-
-                        let mut new_info = *info;
-                        new_info.file_info_indice_index = new_info_indice_index;
-                        new_info.file_path_index = info.file_path_index;
-                        new_info.info_to_data_index = new_info_to_data_index_start;
-                        new_infos.push(new_info);
-
-                        Self::duplicate_file_structure(
-                            info.file_path_index,
-                            new_info_indice_index,
-                            new_data_index,
-                            mass_load_group.dir_offset_index >> 8,
-                            info,
-                            &mut new_info_to_datas,
-                            &mut new_infos,
-                            &lengths
-                        );
-
-                        let original_info_to_data = file_info_to_datas[usize::from(info.info_to_data_index)];
-                        let mut new_info_to_data = original_info_to_data;
-                        new_info_to_data.file_data_index = new_data_index;
-                        new_info_to_data.folder_offset_index = mass_load_group.dir_offset_index >> 8;
-                        new_info_to_data.file_info_index_and_flag &= 0xFF00_0000;
-                        if info.flags.unknown1() {
-                            new_info_to_data.file_info_index_and_flag |= original_info_to_data.file_info_index_and_flag & 0x00FF_FFFF;
-                        } else {
-                            new_info_to_data.file_info_index_and_flag |= new_info_index_start.0 + 1;
-                        }
-                        
-                        file_paths[usize::from(info.file_path_index)].path.set_index(new_info_indice_index.0);
-                        info.file_info_indice_index = new_info_indice_index;
-                        // info.info_to_data_index = InfoToDataIdx(lengths.file_info_to_datas + new_info_to_datas.len() as u32);
-                        new_info_to_datas.push(new_info_to_data);
-                        new_datas.push(original_data);
+                        file_paths[group_info.file_path_index].path.set_index(new_info_indice_index.0);
+                        new_datas.push(group_data.clone());
                         let new_info_index = FileInfoIndex {
-                            dir_offset_index: mass_load_group.dir_offset_index >> 8,
+                            dir_offset_index: new_mass_load_data_index,
                             file_info_index: new_info_index_start
                         };
                         new_info_indices.push(new_info_index);
                     }
                 }
+                folder_offsets[mass_load_group.path.index() as usize].resource_index = new_mass_load_data_index;
+                let new_mass_load_data = DirectoryOffset {
+                    offset: shared_load_data.offset,
+                    size: shared_load_data.size,
+                    decomp_size: shared_load_data.decomp_size,
+                    file_info_start_index: lengths.file_infos + current_info_start as u32,
+                    file_info_count: shared_load_data.file_info_count,
+                    resource_index: new_mass_load_data_index
+                };
+                new_mass_load_datas.push(new_mass_load_data);
             }
-            
-            arc.folder_offsets = Self::recreate_array(arc.folder_offsets, lengths.folder_offsets as usize, &new_mass_load_datas);
-            arc.file_info_indices = Self::recreate_array(arc.file_info_indices, lengths.file_info_indices as usize, &new_info_indices);
-            arc.file_infos = Self::recreate_array(arc.file_infos, lengths.file_infos as usize, &new_infos);
-            arc.file_info_to_datas = Self::recreate_array(arc.file_info_to_datas, lengths.file_info_to_datas as usize, &new_info_to_datas);
-            arc.file_datas = Self::recreate_array(arc.file_datas, lengths.file_datas as usize, &new_datas);
-            instance.table1 = Self::extend_table(instance.table1, instance.table1_len as usize, new_info_indices.len());
-            instance.table2 = Self::extend_table(instance.table2, instance.table2_len as usize, new_info_indices.len());
-            instance.loaded_directory_table = Self::extend_table(instance.loaded_directory_table, instance.loaded_directory_table_size as usize, new_mass_load_datas.len());
-            fs.folder_offset_count_1 += new_mass_load_datas.len() as u32;
-            fs.file_info_index_count += new_info_indices.len() as u32;
-            fs.file_info_sub_index_count += new_info_to_datas.len() as u32;
-            fs.file_info_count += new_infos.len() as u32;
-            fs.file_data_count += new_datas.len() as u32;
-            instance.table1_len += new_info_indices.len() as u32;
-            instance.table2_len += new_info_indices.len() as u32;
-            instance.loaded_directory_table_size += new_mass_load_datas.len() as u32;
+
+            Self::recreate_arrays(
+                &vec![],
+                &new_mass_load_datas,
+                &vec![],
+                &new_info_indices,
+                &new_infos,
+                &new_info_to_datas,
+                &new_datas
+            );
+
+            Self::extend_tables(
+                0,
+                new_info_indices.len(),
+                new_mass_load_datas.len()
+            );
         }
         Ok(())
     }
 
+    fn get_unshared_connections(arc: &LoadedArc, mass_load_infos: &[FileInfo], shared_load_infos: &[FileInfo]) -> Option<HashMap<Hash40, (Hash40, usize)>> {
+        let mut index_to_data_hash_map = HashMap::new();
+        let file_paths = arc.get_file_paths();
+        let file_info_indices = arc.get_file_info_indices();
+        let file_infos = arc.get_file_infos();
+        for info in shared_load_infos.iter() {
+            let hash = file_paths[info.file_path_index].path.hash40();
+            let idx = file_info_indices[info.file_info_indice_index].file_info_index;
+            let idx = file_infos[idx].file_path_index;
+            index_to_data_hash_map.insert(idx, hash);
+        }
+        let mut connections = HashMap::new();
+        for (offset, info) in mass_load_infos.iter().enumerate() {
+            let idx = file_info_indices[info.file_info_indice_index].file_info_index;
+            let idx = file_infos[idx].file_path_index;
+            if let Some(data_hash) = index_to_data_hash_map.get(&idx) {
+                let group_hash = file_paths[info.file_path_index].path.hash40();
+                if group_hash == *data_hash {
+                    return None; // can't unshare a source slot
+                }
+                if let Some((prev_hash, _)) = connections.insert(*data_hash, (group_hash, offset)) {
+                    warn!(
+                        "[ARC::Unsharing] Duplicate entry found for file '{}' ({:#x}): '{}' ({:#x}).",
+                        hashes::get(*data_hash).bright_yellow(), data_hash.0.red(), hashes::get(group_hash).bright_yellow(), group_hash.0.red()
+                    );
+                }
+            }
+        }
+        Some(connections)
+    }
 
+    fn get_shared_mass_load_data<'a>(arc: &'a LoadedArc, mass_load_group: &LoadedDirInfo) -> Result<&'a DirectoryOffset, String> {
+        // get the index of the intermediate MassLoadingData
+        if mass_load_group.path.index() == 0xFF_FFFF {
+            return Err(format!(
+                "[ARC::Unsharing] Directory '{}' ({:#x}) does not contain an intermediate MassLoadingData -- skipping.",
+                hashes::get(mass_load_group.path.hash40()).bright_yellow(), mass_load_group.path.hash40().0.red()
+            ));
+        }
+
+        // get the index of the shared MassLoadingData (don't change it yet)
+        let intermediate_load_data = &arc.get_folder_offsets()[mass_load_group.path.index() as usize];
+        if intermediate_load_data.resource_index == 0xFF_FFFF {
+            return Err(format!(
+                "[ARC::Unsharing] Directory '{}' ({:#x}) does not point to a shared MassLoadingData -- skipping.",
+                hashes::get(mass_load_group.path.hash40()).bright_yellow(), mass_load_group.path.hash40().0.red()
+            ));
+        }
+
+        Ok(&arc.get_folder_offsets()[intermediate_load_data.resource_index as usize])
+    }
+
+    fn recreate_arrays(
+        mass_load_groups: &Vec<LoadedDirInfo>,
+        mass_load_datas: &Vec<DirectoryOffset>,
+        file_paths: &Vec<FilePath>,
+        file_info_indices: &Vec<FileInfoIndex>,
+        file_infos: &Vec<FileInfo>,
+        info_to_datas: &Vec<FileInfoToFileData>,
+        file_datas: &Vec<FileData>
+    ) {
+        let lengths = ArrayLengths::new();
+        let arc = Self::get_arc_mut();
+        unsafe {
+            arc.dir_infos = Self::recreate_array(arc.dir_infos, lengths.dir_infos as usize, mass_load_groups);
+            arc.folder_offsets = Self::recreate_array(arc.folder_offsets, lengths.folder_offsets as usize, mass_load_datas);
+            arc.file_paths = Self::recreate_array(arc.file_paths, lengths.file_paths as usize, file_paths);
+            arc.file_info_indices = Self::recreate_array(arc.file_info_indices, lengths.file_info_indices as usize, file_info_indices);
+            arc.file_infos = Self::recreate_array(arc.file_infos, lengths.file_infos as usize, file_infos);
+            arc.file_info_to_datas = Self::recreate_array(arc.file_info_to_datas, lengths.file_info_to_datas as usize, info_to_datas);
+            arc.file_datas = Self::recreate_array(arc.file_datas, lengths.file_datas as usize, file_datas);
+
+            let fs: &'static mut FileSystemHeader = std::mem::transmute(arc.fs_header);
+            fs.folder_count += mass_load_groups.len() as u32;
+            fs.folder_offset_count_1 += mass_load_datas.len() as u32;
+            fs.file_info_path_count += file_paths.len() as u32;
+            fs.file_info_index_count += file_info_indices.len() as u32;
+            fs.file_info_count += file_infos.len() as u32;
+            fs.file_info_sub_index_count += info_to_datas.len() as u32;
+            fs.file_data_count += file_datas.len() as u32;
+        }
+    }
+
+    fn extend_tables(
+        table1_entries: usize,
+        table2_entries: usize,
+        loaded_directories: usize
+    ) {
+        unsafe {
+            let instance = Self::get_instance();
+            instance.table1 = Self::extend_table(instance.table1, instance.table1_len as usize, table1_entries);
+            instance.table2 = Self::extend_table(instance.table2, instance.table2_len as usize, table2_entries);
+            instance.loaded_directory_table = Self::extend_table(instance.loaded_directory_table, instance.loaded_directory_table_size as usize, loaded_directories);
+
+            instance.table1_len += table1_entries as u32;
+            instance.table2_len += table2_entries as u32;
+            instance.loaded_directory_table_size += loaded_directories as u32;
+        }
+    }
 
     pub fn acquire_instance() -> TableGuard {
         TableGuard::new()
@@ -729,7 +729,7 @@ impl LoadedArcEx for LoadedArc {
         let folder_offsets = self.get_folder_offsets();
         let file_infos = self.get_file_infos();
         let file_paths = self.get_file_paths();
-        let intermediate_idx = group_info.dir_offset_index >> 8;
+        let intermediate_idx = group_info.path.index();
         if intermediate_idx == 0xFF_FFFF { return false; }
         let shared_idx = folder_offsets[intermediate_idx as usize].resource_index;
         if shared_idx == 0xFF_FFFF { return false; }
@@ -753,7 +753,7 @@ impl LoadedArcEx for LoadedArc {
             let child_infos = file_infos.iter().skip(dir_info.file_info_start_index as usize).take(dir_info.file_info_count as usize);
             for child_info in child_infos {
                 if child_info.file_path_index == path_idx {
-                    return Ok(Hash40((dir_info.path_hash as u64) | (((dir_info.dir_offset_index & 0xFF) as u64) << 32)));
+                    return Ok(dir_info.path.hash40());
                 }
             }
         }
