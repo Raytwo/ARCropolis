@@ -1,4 +1,7 @@
-use skyline_web::Webpage;
+use skyline_web::{
+    ramhorns,
+    Webpage,
+};
 
 #[derive(ramhorns::Content, serde::Deserialize)]
 pub struct NotesEntry{

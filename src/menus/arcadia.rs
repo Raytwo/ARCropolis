@@ -4,10 +4,12 @@ use crate::config::CONFIG;
 use percent_encoding::percent_decode_str;
 use serde::Deserialize;
 use skyline::nn;
-use skyline_web::Webpage;
+use skyline_web::{
+    ramhorns,
+    Webpage,
+};
 use std::ffi::CString;
 use std::path::Path;
-
 use log::info;
 
 #[derive(Debug, ramhorns::Content)]

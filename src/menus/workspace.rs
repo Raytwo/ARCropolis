@@ -8,7 +8,10 @@ use log::info;
 use owo_colors::OwoColorize;
 use percent_encoding::percent_decode_str;
 use skyline::nn::web::OfflineExitReason;
-use skyline_web::PageResult;
+use skyline_web::{
+    ramhorns,
+    PageResult,
+};
 
 static HTML_TEXT: &str = include_str!("../../resources/templates/selector.html");
 static JAVASCRIPT_TEXT: &str = include_str!("../../resources/js/selector.js");
