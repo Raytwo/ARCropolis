@@ -142,7 +142,7 @@ impl ModFiles {
                         Some((FileIndex::Regular(filectx.index), filectx))
                     }
                     Err(_) => {
-                        warn!("[ARC::Patching] File '{}' was not found in data.arc", modfile.as_smash_path().display().bright_yellow());
+                        warn!("[ARC::Patching] File '{}' was not found in data.arc", modfile.to_smash_path().display().bright_yellow());
                         None
                     }
                 }
@@ -240,7 +240,7 @@ impl FileCtx {
 
     pub fn len(&self) -> u32 {
         match &self.file {
-            FileBacking::Path(modpath) => modpath.as_path().metadata().unwrap().len() as u32,
+            FileBacking::Path(modpath) => modpath.len() as u32,
             FileBacking::LoadFromArc => unimplemented!(),
             FileBacking::Callback { callback, original } => unimplemented!(),
         }
@@ -248,7 +248,7 @@ impl FileCtx {
 
     pub fn path(&self) -> &Path {
         match &self.file {
-            FileBacking::Path(modpath) => modpath.as_path(),
+            FileBacking::Path(modpath) => modpath,
             FileBacking::LoadFromArc => unimplemented!(),
             FileBacking::Callback { callback, original } => unimplemented!(),
         }
@@ -257,7 +257,7 @@ impl FileCtx {
     pub fn get_file_content(&self) -> Vec<u8> {
         // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
         match &self.file {
-            FileBacking::Path(modpath) => fs::read(modpath.as_path()).unwrap(),
+            FileBacking::Path(modpath) => fs::read(modpath).unwrap(),
             FileBacking::LoadFromArc => unimplemented!(),
             FileBacking::Callback { callback, original } => unimplemented!(),
         }
