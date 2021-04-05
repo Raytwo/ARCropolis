@@ -194,7 +194,7 @@ pub fn get_region_id(region: &str) -> Option<u32> {
 impl FileCtx {
     pub fn new() -> Self {
         FileCtx {
-            file: FileBacking::Path(ModPath::new()),
+            file: FileBacking::LoadFromArc,
             hash: Hash40(0),
             orig_size: 0,
             index: FileInfoIndiceIdx(0),
