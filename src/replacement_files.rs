@@ -178,7 +178,7 @@ impl ModFiles {
             let path_idx = match arc.get_file_path_index_from_hash(*game_path) {
                 Ok(index) => index,
                 Err(_) => {
-                    warn!("[ARC::Unsharing] Unable to get path index for '{}' ({:#x})", mod_file.path().display().bright_yellow(), game_path.0.red());
+                    warn!("[ARC::Unsharing] Unable to get path index for '{}' ({:#x})", mod_file.as_path().display().bright_yellow(), game_path.0.red());
                     continue;
                 }
             };
@@ -189,7 +189,7 @@ impl ModFiles {
             let dir_entry = match cache.entries.get(&index) {
                 Some((dir_entry, _)) => dir_entry,
                 None => {
-                    panic!("Lookup table file does not contain entry for '{}' ({:#x})", mod_file.path().display(), game_path.0);
+                    panic!("Lookup table file does not contain entry for '{}' ({:#x})", mod_file.as_path().display(), game_path.0);
                 }
             };
             let top_level = get_top_level_parent(dir_entry.hash40());
@@ -240,7 +240,7 @@ impl FileCtx {
 
     pub fn len(&self) -> u32 {
         match &self.file {
-            FileBacking::Path(modpath) => modpath.path().metadata().unwrap().len() as u32,
+            FileBacking::Path(modpath) => modpath.as_path().metadata().unwrap().len() as u32,
             FileBacking::LoadFromArc => unimplemented!(),
             FileBacking::Callback { callback, original } => unimplemented!(),
         }
@@ -248,7 +248,7 @@ impl FileCtx {
 
     pub fn path(&self) -> &Path {
         match &self.file {
-            FileBacking::Path(modpath) => modpath.path(),
+            FileBacking::Path(modpath) => modpath.as_path(),
             FileBacking::LoadFromArc => unimplemented!(),
             FileBacking::Callback { callback, original } => unimplemented!(),
         }
@@ -257,7 +257,7 @@ impl FileCtx {
     pub fn get_file_content(&self) -> Vec<u8> {
         // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
         match &self.file {
-            FileBacking::Path(modpath) => fs::read(modpath.path()).unwrap(),
+            FileBacking::Path(modpath) => fs::read(modpath.as_path()).unwrap(),
             FileBacking::LoadFromArc => unimplemented!(),
             FileBacking::Callback { callback, original } => unimplemented!(),
         }

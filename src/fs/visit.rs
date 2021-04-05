@@ -1,4 +1,5 @@
 use std::{
+    ops::Deref,
     collections::HashMap,
     path::{
         Path,
@@ -71,8 +72,22 @@ pub fn umm_discovery(dir: &PathBuf) -> HashMap<Hash40, ModPath> {
 /// Utility struct for the purpose of storing a relative Smash path (starting at the root of the ``/arc`` filesystem).  
 /// A few methods are provided to obtain a Hash40 or strip ARCropolis-relevant informations such as a regional indicator.
 #[repr(transparent)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SmashPath(pub PathBuf);
+
+impl Deref for SmashPath {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<Path> for SmashPath {
+    fn as_ref(&self) -> &Path {
+        &self
+    }
+}
 
 impl From<SmashPath> for PathBuf {
     fn from(modpath: SmashPath) -> Self {
@@ -86,43 +101,45 @@ impl From<PathBuf> for SmashPath {
     }
 }
 
-impl From<PathBuf> for ModPath {
-    fn from(path: PathBuf) -> Self {
-        Self(path)
-    }
-}
-
 impl From<ModPath> for PathBuf {
     fn from(modfile: ModPath) -> Self {
         modfile.0
     }
 }
 
-impl From<SmashPath> for ModPath {
-    fn from(modpath: SmashPath) -> Self {
-        Self(modpath.0)
-    }
-}
-
 impl SmashPath {
-    pub fn path(&self) -> &Path {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn from<P: AsRef<Path>>(path: P) -> Result<Self, String> {
+        let path = path.as_ref();
+
+        if path.extension().is_some() {
+            Ok(Self(path.to_path_buf()))
+        } else {
+            Err("This path does not have an extension".to_string())
+        }
+    }
+    
+    pub fn as_path(&self) -> &Path {
         &self.0
     }
 
     pub fn hash40(&self) -> Result<Hash40, String> {
-        let smash_path = self.as_smash_path();
+        let smash_path = self.to_smash_path();
 
         match smash_path.to_str() {
             Some(path) => Ok(Hash40::from(path)),
             // TODO: Replace this by a proper error. This-error or something else.
             None => Err(format!(
                 "Couldn't convert {} to a &str",
-                self.path().display()
+                self.as_path().display()
             )),
         }
     }
 
-    pub fn as_smash_path(&self) -> PathBuf {
+    pub fn to_smash_path(&self) -> PathBuf {
         let mut arc_path = self.0.to_str().unwrap().to_string();
 
         if arc_path.find(';').is_some() {
@@ -148,27 +165,20 @@ impl SmashPath {
     }
 
     pub fn get_region(&self) -> Option<Region> {
-        match self.path().extension() {
-            Some(_) => {
-                // Split the region identifier from the filepath
-                let filename = self
-                    .path()
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
-                // Check if the filepath it contains a + symbol
-                if let Some(region_marker) = filename.find('+') {
-                    Some(Region::from(
-                        get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0)
-                            + 1,
-                    ))
-                } else {
-                    None
-                }
-            }
-            None => None,
+        // Split the region identifier from the filepath
+        let filename = self
+            .as_path()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        // Check if the filepath it contains a + symbol
+        if let Some(region_marker) = filename.find('+') {
+            Some(Region::from(get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0) + 1))
+        } else {
+            None
         }
     }
 }
@@ -181,24 +191,53 @@ impl SmashPath {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct ModPath(PathBuf);
 
+impl Deref for ModPath {
+    type Target = Path;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl AsRef<Path> for ModPath {
+    fn as_ref(&self) -> &Path {
+        &self
+    }
+}
+
+impl From<PathBuf> for ModPath {
+    fn from(path: PathBuf) -> Self {
+        Self(path)
+    }
+}
+
+impl From<SmashPath> for ModPath {
+    fn from(modpath: SmashPath) -> Self {
+        Self(modpath.0)
+    }
+}
+
 impl ModPath {
     pub fn new() -> Self {
         Self::default()
     }
-    pub fn from<P: AsRef<Path>>(path: P) -> Self {
-        Self(path.as_ref().to_path_buf())
+
+    pub fn from<P: AsRef<Path>>(path: P) -> Result<Self, String> {
+        let path = path.as_ref();
+
+        if path.extension().is_some() {
+            Ok(Self(path.to_path_buf()))
+        } else {
+            Err("This path does not have an extension".to_string())
+        }
     }
 
-    pub fn path(&self) -> &Path {
-        &self.0
+    pub fn as_path(&self) -> &Path {
+        &self
     }
 
-    pub fn set_path<P: AsRef<Path>>(&mut self, new_path: P) {
-        self.0 = new_path.as_ref().to_path_buf();
-    }
-
-    pub fn as_smash_path(&self) -> PathBuf {
-        let mut arc_path = self.path().to_str().unwrap().to_string();
+    pub fn to_smash_path(&self) -> PathBuf {
+        let mut arc_path = self.as_path().to_str().unwrap().to_string();
 
         if arc_path.find(';').is_some() {
             arc_path = arc_path.replace(";", ":");
@@ -219,40 +258,32 @@ impl ModPath {
     }
 
     pub fn extension(&self) -> Hash40 {
-        Hash40::from(self.path().extension().unwrap().to_str().unwrap())
+        Hash40::from(self.as_path().extension().unwrap().to_str().unwrap())
     }
 
     pub fn len(&self) -> u32 {
-        std::fs::metadata(&self.path()).unwrap().len() as u32
+        std::fs::metadata(self).unwrap().len() as u32
     }
 
     pub fn is_stream(&self) -> bool {
-        //self.path.starts_with("stream")
-        self.path().to_str().unwrap().contains("stream")
+        self.to_str().unwrap().contains("stream")
     }
 
     pub fn get_region(&self) -> Option<Region> {
-        match self.path().extension() {
-            Some(_) => {
-                // Split the region identifier from the filepath
-                let filename = self
-                    .path()
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
-                // Check if the filepath it contains a + symbol
-                if let Some(region_marker) = filename.find('+') {
-                    Some(Region::from(
-                        get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0)
-                            + 1,
-                    ))
-                } else {
-                    None
-                }
-            }
-            None => None,
+        // Split the region identifier from the filepath
+        let filename = self
+            .as_path()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        // Check if the filepath it contains a + symbol
+        if let Some(region_marker) = filename.find('+') {
+            Some(Region::from(get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0) + 1))
+        } else {
+            None
         }
     }
 }
