@@ -67,6 +67,11 @@ macro_rules! get_from_file_info_indice_index {
     };
 }
 
+extern "C" fn dummy_func(hash: Hash40) -> bool {
+    println!("Hash received: {:#x}", hash.as_u64());
+    false
+}
+
 impl ModFiles {
     fn new() -> Self {
         let config = CONFIG.read();
@@ -91,14 +96,14 @@ impl ModFiles {
             }
         }
         
-        Self::unshare(&modfiles);
+        //Self::unshare(&modfiles);
         Self(ModFiles::process_mods(&modfiles))
     }
 
     fn process_mods(modfiles: &HashMap<Hash40, ModPath>) -> HashMap<FileIndex, FileCtx> {
         let arc = LoadedTables::get_arc_mut();
 
-        modfiles.iter().filter_map(|(hash, modfile)| {
+        let mut mods = modfiles.iter().filter_map(|(hash, modfile)| {
             let mut filectx = FileCtx::new();
 
             filectx.file = FileBacking::Path(modfile.clone());
@@ -122,10 +127,33 @@ impl ModFiles {
                     }
                 }
             }
-        }).collect::<HashMap<FileIndex, FileCtx>>().iter_mut().map(|(index, ctx)| {
+        }).collect::<HashMap<FileIndex, FileCtx>>();
+
+        // Process callbacks here?
+        if let Ok(path_idx) = arc.get_file_path_index_from_hash(Hash40::from("ui/message/msg_name.msbt")) {
+            let file_info_indice_idx = arc.get_file_info_from_path_index(path_idx).file_info_indice_index;
+
+            match mods.get_mut(&FileIndex::Regular(file_info_indice_idx)) {
+                Some(ctx) => {
+                    let mut new_ctx = ctx.clone();
+
+                    new_ctx.file = FileBacking::Callback {
+                        callback: Callback {
+                            callback: dummy_func,
+                            len: 0,
+                            fallback: Box::new(FileBacking::LoadFromArc),
+                        },
+                        original: Box::new(ctx.file.clone()),
+                    }
+                }
+                None => {}
+            }
+        }
+        
+        mods.iter_mut().map(|(index, ctx)| {
             if let FileIndex::Regular(info_index) = index {
-                let info_index = arc.get_file_info_indices()[usize::from(*info_index)].file_info_index;
-                let file_info = arc.get_file_infos()[usize::from(info_index)];
+                let info_index = arc.get_file_info_indices()[*info_index].file_info_index;
+                let file_info = arc.get_file_infos()[info_index];
 
                 ctx.orig_size = arc.patch_filedata(&file_info, ctx.len())
             }
@@ -201,11 +229,6 @@ impl FileCtx {
         }
     }
 
-    // #[allow(dead_code)]
-    // pub fn metadata(&self) -> Result<Metadata, String> {
-    //     crate::fs::metadata(self.hash)
-    // }
-
     pub fn extension(&self) -> Hash40 {
         let arc = LoadedTables::get_arc();
         let path_idx = arc.get_file_path_index_from_hash(self.hash).unwrap();
@@ -217,7 +240,7 @@ impl FileCtx {
         match &self.file {
             FileBacking::Path(modpath) => modpath.len() as u32,
             FileBacking::LoadFromArc => unimplemented!(),
-            FileBacking::Callback { callback, original } => unimplemented!(),
+            FileBacking::Callback { callback, original } => callback.len,
         }
     }
 
@@ -234,7 +257,11 @@ impl FileCtx {
         match &self.file {
             FileBacking::Path(modpath) => fs::read(modpath).unwrap(),
             FileBacking::LoadFromArc => unimplemented!(),
-            FileBacking::Callback { callback, original } => unimplemented!(),
+            FileBacking::Callback { callback, original } => {
+                let cb = callback.callback;
+                let result = cb(self.hash);
+                unimplemented!()
+            },
         }
     }
 }
