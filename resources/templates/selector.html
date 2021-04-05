@@ -1,55 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link rel="stylesheet" href="selector.css" />
-	<script src="selector.js"></script>
-    <title>Document</title>
-	<!-- <link rel="stylesheet" href="style.css"> -->
-	
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
+    <meta name="focus-ring-visibility" content="hidden" />
+    <title>Menu</title>
+    <script src="./help/js/jquery-3.3.1.min.js"></script>
+    <link rel="stylesheet" href="./selector.css" />
+    <link rel="stylesheet" href="./help/css/common.css" />
+    <script src="./common/js/wsnd.min.js"></script>
+    <script src="./common/js/keyhelp.js"></script>
+    <script src="./help/js/common.js"></script>
+    <script src="./selector.js"></script>
 </head>
-<body>
-	<div class="TopBar">
-		<div class="TopBarText">
-			<div class="TopBarReturnButton">
-				<img class="TopBarReturnImage" src="arcropolis/resources/img/back.svg" />
-			</div>
-			<span class="CenterText">Workspace Selection</span>
-		</div>
-	</div>
 
-    <div class="WorkspaceList">
-    	<div class="WorkspaceListItem">
-			<a href="http://localhost/reset">
-				<div class="Border">
-					<div class="ItemContainer">
-						<div class="IconContainer">
-							<img class="Icon" src="arcropolis/resources/img/check.svg">
-						</div>
-						<div class="WorkspaceText">
-							<span class="CenterText">Restore default workspaces</span>
-						</div>
-					</div>
-				</div>
-			</a>
-		</div>
-		{{#workspace}}
-		<div class="WorkspaceListItem">
-			<a href="http://localhost/{{index}}">
-				<div class="Border">
-					<div class="ItemContainer">
-						<div class="IconContainer">
-							<img class="Icon{{#in_use}}Checked{{/in_use}}" src="arcropolis/resources/img/check.svg">
-						</div>
-						<div class="WorkspaceText">
-							<span class="CenterText">{{name}}</span>
-						</div>
-					</div>
-				</div>
-			</a>
-		</div>
-		{{/workspace}}
+<body>
+    <div id="bg"></div>
+    <div class="l-header">
+        <span class="background-clip"></span>
+        <div class="header">
+            <a id="ret-button" tabindex="-1" class="header-decoration" href="javascript:goBack()" nx-se-disabled="">
+                <div class="ret-icon-wrapper">
+                    <img class="ret-icon-shadow" ref="./help/img/icon/m_retnormal.svg" />
+                    <img class="ret-icon" ref="./help/img/icon/m_retnormal.svg" />
+                </div>
+            </a>
+            <div class="breadcrumb-list f-u-bold">
+                <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
+			color: orangered;
+			-webkit-text-stroke-width: 2px;
+			-webkit-text-stroke-color: black;
+			z-index: 1;" id="test">Workspace Selector</span></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="main" id="workspaces">
+        <div class="scrollbar">
+            <div class="flex-container">
+                <button onclick="location.href = 'http://localhost/default'" class="flex-item">
+                    <div class="icon-background"></div>
+                    <div class="item-container">
+                        <h2>Reset to Default</h2>
+                    </div>
+                </button>
+                {{#workspace}}
+                <button id="{{index}}" onclick="changeDivFromTo('workspaces', 'options', `{{index}}`)" class="flex-item {{#umm_exists}}umm_exists{{/umm_exists}} {{#arc_exists}}arc_exists{{/arc_exists}}">
+                    <div class="icon-background {{#in_use}}{{in_use}}{{/in_use}}"></div>
+                    <div class="item-container">
+                        <img src="{{#in_use}}check.svg{{/in_use}}">
+                        <h2>{{name}}</h2>
+                    </div>
+                </button>
+                {{/workspace}}
+            </div>
+        </div>
+    </div>
+    
+    <div class="main" id="options">
+        <div class="scrollbar">
+            <div class="flex-container">
+                <button onclick="changeDivFromTo('options', 'workspaces', ``)" class="flex-item">
+                    <div class="icon-background"></div>
+                    <div class="item-container">
+                        <h2>Go Back</h2>
+                    </div>
+                </button>
+
+                <button id="arc_btn" onclick="submit(`arc`)" class="flex-item">
+                    <div class="icon-background"></div>
+                    <div class="item-container">
+                        <h2>ARC (All-in-One Only)</h2>
+                    </div>
+                </button>
+                <button id="umm_btn" onclick="submit(`umm`)" class="flex-item">
+                    <div class="icon-background"></div>
+                    <div class="item-container">
+                        <h2>UMM (Modpack only)</h2>
+                    </div>
+                </button>
+                <button id="both_btn" onclick="submit(`both`)" class="flex-item">
+                    <div class="icon-background"></div>
+                    <div class="item-container">
+                        <h2>Both</h2>
+                    </div>
+                </button>
+            </div>
+        </div>
     </div>
 </body>
+
 </html>
