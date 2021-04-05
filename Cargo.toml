@@ -28,6 +28,8 @@ smash-arc = { path = "../smash-arc", features = [ "smash-runtime", "nozstd" ] }
 binread = "2"
 percent-encoding = "2.1.0"
 walkdir = "2"
+# This is added as a dependency just to locally try the API and will be removed before the merge. Can be downloaded here: https://github.com/Raytwo/arcropolis_api
+arcropolis-api = { path = "../arcropolis_api" }
 
 [profile.dev]
 panic = "abort"

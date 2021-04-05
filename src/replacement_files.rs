@@ -103,13 +103,13 @@ impl ModFiles {
     fn process_mods(modfiles: &HashMap<Hash40, ModPath>) -> HashMap<FileIndex, FileCtx> {
         let arc = LoadedTables::get_arc_mut();
 
-        let mut mods = modfiles.iter().filter_map(|(hash, modfile)| {
+        let mut mods = modfiles.iter().filter_map(|(hash, modpath)| {
             let mut filectx = FileCtx::new();
 
-            filectx.file = FileBacking::Path(modfile.clone());
+            filectx.file = FileBacking::Path(modpath.clone());
             filectx.hash = *hash;
 
-            if modfile.is_stream() {
+            if modpath.is_stream() {
                 warn!("[ARC::Patching] File '{}' added as a Stream", filectx.path().display().bright_yellow());
                 Some((FileIndex::Stream(filectx.hash), filectx))
             } else {
@@ -122,14 +122,15 @@ impl ModFiles {
                         Some((FileIndex::Regular(filectx.index), filectx))
                     }
                     Err(_) => {
-                        warn!("[ARC::Patching] File '{}' was not found in data.arc", modfile.to_smash_path().display().bright_yellow());
+                        warn!("[ARC::Patching] File '{}' was not found in data.arc", modpath.as_smash_path().display().bright_yellow());
                         None
                     }
                 }
             }
         }).collect::<HashMap<FileIndex, FileCtx>>();
 
-        // Process callbacks here?
+        // Process callbacks here? Shoukd probably store them in some global static until we reach this point.
+        // Pretend the hash was provided by whatever API call registers callbacks
         if let Ok(path_idx) = arc.get_file_path_index_from_hash(Hash40::from("ui/message/msg_name.msbt")) {
             let file_info_indice_idx = arc.get_file_info_from_path_index(path_idx).file_info_indice_index;
 
