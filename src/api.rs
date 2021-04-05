@@ -6,3 +6,7 @@ pub extern "C" fn arcrop_load_file(hash: Hash40, out_buffer: *mut u8, length: us
     
     unimplemented!()
 }
+
+pub extern "C" fn arcrop_register_callback(hash: Hash40) {
+    unimplemented!()
+}
