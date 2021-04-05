@@ -26,36 +26,6 @@ lazy_static::lazy_static! {
     pub static ref UNSHARE_LUT: parking_lot::RwLock<Option<cache::UnshareCache>> = parking_lot::RwLock::new(None);
 }
 
-type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> bool;
-
-#[no_mangle]
-pub extern "C" fn subscribe_callback(
-    _hash: Hash40,
-    _extension: *const u8,
-    _extension_len: usize,
-    _callback: ArcCallback,
-) {
-    // Deprecated
-    warn!("{}", "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red());
-}
-
-#[no_mangle]
-pub extern "C" fn subscribe_callback_with_size(
-    _hash: Hash40,
-    _filesize: u32,
-    _extension: *const u8,
-    _extension_len: usize,
-    _callback: ArcCallback,
-) {
-    // Deprecated
-    warn!("{}", "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red());
-}
-
-const REGIONS: &[&str] = &[
-    "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
-    "eu_ru", "kr_ko", "zh_cn", "zh_tw",
-];
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FileIndex {
     Regular(FileInfoIndiceIdx),
