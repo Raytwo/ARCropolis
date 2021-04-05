@@ -310,21 +310,21 @@ fn initial_loading(_ctx: &InlineCtx) {
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
 
-        if let Some(handle) = LUT_LOADER_HANDLE.take() {
-            handle.join().unwrap();
-            let lut = UNSHARE_LUT.read();
-            if lut.is_none() {
-                skyline_web::DialogOk::ok("No valid unsharing lookup table found. One will be generated and the game will restart.");
-                let cache = cache::UnshareCache::new(LoadedTables::get_arc());
-                cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
-                nn::oe::RestartProgramNoArgs();
-            } else if lut.as_ref().unwrap().arc_version != (*LoadedTables::get_arc().fs_header).version {
-                skyline_web::DialogOk::ok("Found unsharing lookup table for a different game version. A new one will be generated and the game will restart.");
-                let cache = cache::UnshareCache::new(LoadedTables::get_arc());
-                cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
-                nn::oe::RestartProgramNoArgs();
-            }
-        }
+        // if let Some(handle) = LUT_LOADER_HANDLE.take() {
+        //     handle.join().unwrap();
+        //     let lut = UNSHARE_LUT.read();
+        //     if lut.is_none() {
+        //         skyline_web::DialogOk::ok("No valid unsharing lookup table found. One will be generated and the game will restart.");
+        //         let cache = cache::UnshareCache::new(LoadedTables::get_arc());
+        //         cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
+        //         nn::oe::RestartProgramNoArgs();
+        //     } else if lut.as_ref().unwrap().arc_version != (*LoadedTables::get_arc().fs_header).version {
+        //         skyline_web::DialogOk::ok("Found unsharing lookup table for a different game version. A new one will be generated and the game will restart.");
+        //         let cache = cache::UnshareCache::new(LoadedTables::get_arc());
+        //         cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
+        //         nn::oe::RestartProgramNoArgs();
+        //     }
+        // }
 
         lazy_static::initialize(&MOD_FILES);
 
@@ -351,22 +351,22 @@ pub fn main() {
         stream::lookup_by_stream_hash,
     );
 
-    unsafe {
-        skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x346_36c4, &0x1400_0002);
-        LUT_LOADER_HANDLE = Some(std::thread::spawn(|| {
-            let mut unshare_lut = UNSHARE_LUT.write();
-            *unshare_lut = match std::fs::read("rom:/skyline/unshare_lut.bin") {
-                Ok(file_data) => {
-                    let mut reader = std::io::Cursor::new(file_data);
-                    match cache::UnshareCache::read(&mut reader) {
-                        Ok(lut) => Some(lut),
-                        Err(_) => None
-                    }
-                },
-                Err(_) => None
-            }
-        }));
-    }
+    // unsafe {
+    //     skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x346_36c4, &0x1400_0002);
+    //     LUT_LOADER_HANDLE = Some(std::thread::spawn(|| {
+    //         let mut unshare_lut = UNSHARE_LUT.write();
+    //         *unshare_lut = match std::fs::read("rom:/skyline/unshare_lut.bin") {
+    //             Ok(file_data) => {
+    //                 let mut reader = std::io::Cursor::new(file_data);
+    //                 match cache::UnshareCache::read(&mut reader) {
+    //                     Ok(lut) => Some(lut),
+    //                     Err(_) => None
+    //                 }
+    //             },
+    //             Err(_) => None
+    //         }
+    //     }));
+    // }
 
     println!(
         "ARCropolis v{} - File replacement plugin is now installed",
