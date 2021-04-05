@@ -26,31 +26,6 @@ lazy_static::lazy_static! {
     pub static ref UNSHARE_LUT: parking_lot::RwLock<Option<cache::UnshareCache>> = parking_lot::RwLock::new(None);
 }
 
-type ArcCallback = extern "C" fn(Hash40, *mut skyline::libc::c_void, usize) -> bool;
-
-#[no_mangle]
-pub extern "C" fn subscribe_callback(
-    _hash: Hash40,
-    _extension: *const u8,
-    _extension_len: usize,
-    _callback: ArcCallback,
-) {
-    // Deprecated
-    warn!("{}", "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red());
-}
-
-#[no_mangle]
-pub extern "C" fn subscribe_callback_with_size(
-    _hash: Hash40,
-    _filesize: u32,
-    _extension: *const u8,
-    _extension_len: usize,
-    _callback: ArcCallback,
-) {
-    // Deprecated
-    warn!("{}", "Another plugin is trying to reach ARCropolis, but this API is deprecated.".red());
-}
-
 const REGIONS: &[&str] = &[
     "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
     "eu_ru", "kr_ko", "zh_cn", "zh_tw",
@@ -92,6 +67,11 @@ macro_rules! get_from_file_info_indice_index {
     };
 }
 
+extern "C" fn dummy_func(hash: Hash40) -> bool {
+    println!("Hash received: {:#x}", hash.as_u64());
+    false
+}
+
 impl ModFiles {
     fn new() -> Self {
         let config = CONFIG.read();
@@ -116,14 +96,14 @@ impl ModFiles {
             }
         }
         
-        Self::unshare(&modfiles);
+        //Self::unshare(&modfiles);
         Self(ModFiles::process_mods(&modfiles))
     }
 
     fn process_mods(modfiles: &HashMap<Hash40, ModPath>) -> HashMap<FileIndex, FileCtx> {
         let arc = LoadedTables::get_arc_mut();
 
-        modfiles.iter().filter_map(|(hash, modfile)| {
+        let mut mods = modfiles.iter().filter_map(|(hash, modfile)| {
             let mut filectx = FileCtx::new();
 
             filectx.file = FileBacking::Path(modfile.clone());
@@ -147,10 +127,33 @@ impl ModFiles {
                     }
                 }
             }
-        }).collect::<HashMap<FileIndex, FileCtx>>().iter_mut().map(|(index, ctx)| {
+        }).collect::<HashMap<FileIndex, FileCtx>>();
+
+        // Process callbacks here?
+        if let Ok(path_idx) = arc.get_file_path_index_from_hash(Hash40::from("ui/message/msg_name.msbt")) {
+            let file_info_indice_idx = arc.get_file_info_from_path_index(path_idx).file_info_indice_index;
+
+            match mods.get_mut(&FileIndex::Regular(file_info_indice_idx)) {
+                Some(ctx) => {
+                    let mut new_ctx = ctx.clone();
+
+                    new_ctx.file = FileBacking::Callback {
+                        callback: Callback {
+                            callback: dummy_func,
+                            len: 0,
+                            fallback: Box::new(FileBacking::LoadFromArc),
+                        },
+                        original: Box::new(ctx.file.clone()),
+                    }
+                }
+                None => {}
+            }
+        }
+        
+        mods.iter_mut().map(|(index, ctx)| {
             if let FileIndex::Regular(info_index) = index {
-                let info_index = arc.get_file_info_indices()[usize::from(*info_index)].file_info_index;
-                let file_info = arc.get_file_infos()[usize::from(info_index)];
+                let info_index = arc.get_file_info_indices()[*info_index].file_info_index;
+                let file_info = arc.get_file_infos()[info_index];
 
                 ctx.orig_size = arc.patch_filedata(&file_info, ctx.len())
             }
@@ -226,11 +229,6 @@ impl FileCtx {
         }
     }
 
-    // #[allow(dead_code)]
-    // pub fn metadata(&self) -> Result<Metadata, String> {
-    //     crate::fs::metadata(self.hash)
-    // }
-
     pub fn extension(&self) -> Hash40 {
         let arc = LoadedTables::get_arc();
         let path_idx = arc.get_file_path_index_from_hash(self.hash).unwrap();
@@ -242,7 +240,7 @@ impl FileCtx {
         match &self.file {
             FileBacking::Path(modpath) => modpath.path().metadata().unwrap().len() as u32,
             FileBacking::LoadFromArc => unimplemented!(),
-            FileBacking::Callback { callback, original } => unimplemented!(),
+            FileBacking::Callback { callback, original } => callback.len,
         }
     }
 
@@ -259,7 +257,11 @@ impl FileCtx {
         match &self.file {
             FileBacking::Path(modpath) => fs::read(modpath.path()).unwrap(),
             FileBacking::LoadFromArc => unimplemented!(),
-            FileBacking::Callback { callback, original } => unimplemented!(),
+            FileBacking::Callback { callback, original } => {
+                let cb = callback.callback;
+                let result = cb(self.hash);
+                unimplemented!()
+            },
         }
     }
 }
