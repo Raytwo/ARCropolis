@@ -26,6 +26,11 @@ lazy_static::lazy_static! {
     pub static ref UNSHARE_LUT: parking_lot::RwLock<Option<cache::UnshareCache>> = parking_lot::RwLock::new(None);
 }
 
+const REGIONS: &[&str] = &[
+    "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
+    "eu_ru", "kr_ko", "zh_cn", "zh_tw",
+];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FileIndex {
     Regular(FileInfoIndiceIdx),
