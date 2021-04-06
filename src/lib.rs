@@ -36,6 +36,7 @@ use binread::*;
 use owo_colors::OwoColorize;
 use log::{info, trace, warn};
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
+use arcropolis_api as arc_api;
 
 fn get_filectx_by_index<'a>(
     file_index: FileIndex,
@@ -305,6 +306,9 @@ fn initial_loading(_ctx: &InlineCtx) {
             }
         }
     }
+
+    // Register a callback before file discovery happens to test the API
+    arc_api::register_callback("ui/message/msg_name.msbt");
 
     // Discover files
     unsafe {
