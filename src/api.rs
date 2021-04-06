@@ -9,10 +9,12 @@ pub extern "C" fn arcrop_load_file(hash: Hash40, out_buffer: *mut u8, length: us
     unimplemented!()
 }
 
+#[no_mangle]
 pub extern "C" fn arcrop_register_callback(hash: Hash40) {
     debug!("[Arcropolis-API::register_callback] hash: {:#x}", hash.as_u64());
 }
 
+#[no_mangle]
 pub extern "C" fn arcrop_api_version() {
     debug!("[Arcropolis-API::api_version] Function called");
 }
