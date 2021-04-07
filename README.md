@@ -25,5 +25,5 @@ Beta builds are sometimes posted there, too.
 Here is a list of the multiple people who have contributed to ARCropolis over time
 
 Maintainers: ``Raytwo``, ``CoolSonicKirby``, ``blujay``  
-Contributors: ``jam1garner``, ``Shadow``, ``CoolSonicKirby``, ``blujay``, ``Genwald``  
+Contributors: ``jam1garner``, ``Shadow``, ``CoolSonicKirby``, ``blujay``, ``Genwald`` , ``Mowjoh``   
 Logo: ``Styley``  
