@@ -54,9 +54,7 @@ impl UnshareCache {
         let dir_infos = arc.get_dir_infos();
         let file_infos = arc.get_file_infos();
         for (idx, dir_info) in dir_infos.iter().enumerate() {
-            let mut self_hash_to_index = HashToIndex::default();
-            self_hash_to_index.set_hash(dir_info.path_hash);
-            self_hash_to_index.set_length((dir_info.dir_offset_index & 0xFF) as u8);
+            let mut self_hash_to_index = dir_info.path;
             self_hash_to_index.set_index(idx as u32);
             let child_infos = file_infos.iter().skip(dir_info.file_info_start_index as usize).take(dir_info.file_info_count as usize);
             for (child_idx, child_info) in child_infos.enumerate() {
