@@ -348,16 +348,12 @@ impl LoadedTables {
                     }
                 };
 
-                // I'd love to do this in a rust-idiomatic way, but unfortunately I can't borrow twice at a time
-                // no jam, it does not compile without doing it this way <3
                 let info_start = mass_load_group.file_info_start_index as usize;
                 let info_count = mass_load_group.file_info_count as usize;
-                //let mass_load_group_infos = from_raw_parts_mut(arc.file_infos.offset(info_start), info_count);
                 let mut mass_load_group_infos = &file_infos[info_start..info_count];
                 
                 let info_start = shared_load_data.file_info_start_index as usize;
                 let info_count = shared_load_data.file_info_count as usize;
-                //let shared_load_data_infos = from_raw_parts(arc.file_infos.offset(info_start), info_count);
                 let shared_load_data_infos = &file_infos[info_start..info_count];
 
                 let connections = match arc.get_unshared_connections(mass_load_group_infos, shared_load_data_infos) {
@@ -733,6 +729,7 @@ impl LoadedArcEx for LoadedArc {
         let dir_infos = self.get_dir_infos();
         let file_infos = self.get_file_infos();
         let path_idx = self.get_file_path_index_from_hash(file_hash)?;
+
         for dir_info in dir_infos.iter() {
             let child_infos = file_infos.iter().skip(dir_info.file_info_start_index as usize).take(dir_info.file_info_count as usize);
             for child_info in child_infos {
@@ -741,40 +738,38 @@ impl LoadedArcEx for LoadedArc {
                 }
             }
         }
+        
         Err(LookupError::Missing)
     }
 
+    // Should probably return a Result because of the potential error in unsharing a source slot
     fn get_unshared_connections(&self, mass_load_infos: &[FileInfo], shared_load_infos: &[FileInfo]) -> Option<HashMap<Hash40, (Hash40, usize)>> {
         let file_paths = self.get_file_paths();
         let file_info_indices = self.get_file_info_indices();
         let file_infos = self.get_file_infos();
 
-        let mut index_to_data_hash_map: HashMap<FilePathIdx, Hash40> = shared_load_infos.iter().map(|info| {
+        let mut path_idx_to_data: HashMap<FilePathIdx, Hash40> = shared_load_infos.iter().map(|info| {
             let hash = file_paths[info.file_path_index].path.hash40();
-            let idx = file_info_indices[info.file_info_indice_index].file_info_index;
-            let idx = file_infos[idx].file_path_index;
+            let info_idx = file_info_indices[info.file_info_indice_index].file_info_index;
+            let path_idx = file_infos[info_idx].file_path_index;
 
-            (idx, hash)
+            (path_idx, hash)
         }).collect();
 
-        let mut connections = HashMap::new();
-        
-        for (offset, info) in mass_load_infos.iter().enumerate() {
-            let idx = file_info_indices[info.file_info_indice_index].file_info_index;
-            let idx = file_infos[idx].file_path_index;
-            if let Some(data_hash) = index_to_data_hash_map.get(&idx) {
+        let connections: HashMap<Hash40, (Hash40, usize)> = mass_load_infos.iter().enumerate().map(|(idx, info)| {
+            let info_idx = file_info_indices[info.file_info_indice_index].file_info_index;
+            let path_idx = file_infos[info_idx].file_path_index;
+
+            if let Some(data_hash) = path_idx_to_data.get(&path_idx) {
                 let group_hash = file_paths[info.file_path_index].path.hash40();
+
                 if group_hash == *data_hash {
                     return None; // can't unshare a source slot
                 }
-                if let Some((prev_hash, _)) = connections.insert(*data_hash, (group_hash, offset)) {
-                    warn!(
-                        "[ARC::Unsharing] Duplicate entry found for file '{}' ({:#x}): '{}' ({:#x}).",
-                        hashes::get(*data_hash).bright_yellow(), data_hash.0.red(), hashes::get(group_hash).bright_yellow(), group_hash.0.red()
-                    );
-                }
+
+                (*data_hash, (group_hash, idx))
             }
-        }
+        }).collect();
 
         Some(connections)
     }
