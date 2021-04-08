@@ -389,7 +389,6 @@ impl LoadedTables {
                     };
 
                     let mut group_info = mass_load_group_infos[group_offset];
-                    //let group_info = mass_load_group_infos[group_offset];
                     let group_path = file_paths[group_info.file_path_index].path.hash40();
                     let group_data = arc.get_file_data(&mut group_info, region);
 
@@ -443,12 +442,9 @@ impl LoadedTables {
                 folder_offsets[mass_load_group.path.index() as usize].resource_index = new_mass_load_data_index;
 
                 let new_mass_load_data = DirectoryOffset {
-                    offset: shared_load_data.offset,
-                    size: shared_load_data.size,
-                    decomp_size: shared_load_data.decomp_size,
                     file_info_start_index: lengths.file_infos + current_info_start as u32,
-                    file_info_count: shared_load_data.file_info_count,
-                    resource_index: new_mass_load_data_index
+                    resource_index: new_mass_load_data_index,
+                    .. *shared_load_data
                 };
 
                 new_mass_load_datas.push(new_mass_load_data);
@@ -756,7 +752,7 @@ impl LoadedArcEx for LoadedArc {
             (path_idx, hash)
         }).collect();
 
-        let connections: HashMap<Hash40, (Hash40, usize)> = mass_load_infos.iter().enumerate().map(|(idx, info)| {
+        let connections: HashMap<Hash40, (Hash40, usize)> = mass_load_infos.iter().enumerate().filter_map(|(idx, info)| {
             let info_idx = file_info_indices[info.file_info_indice_index].file_info_index;
             let path_idx = file_infos[info_idx].file_path_index;
 
@@ -764,10 +760,12 @@ impl LoadedArcEx for LoadedArc {
                 let group_hash = file_paths[info.file_path_index].path.hash40();
 
                 if group_hash == *data_hash {
-                    return None; // can't unshare a source slot
+                    None // can't unshare a source slot
+                } else {
+                    Some((*data_hash, (group_hash, idx)))
                 }
-
-                (*data_hash, (group_hash, idx))
+            } else {
+                None
             }
         }).collect();
 
