@@ -93,8 +93,7 @@ fn replace_file_by_index(file_index: FileIndex) {
         );
 
         unsafe {
-            let mut data_slice =
-                std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
+            let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
             data_slice.write_all(&file_slice).unwrap();
         }
     }
@@ -316,7 +315,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     }
 
     // Register a callback before file discovery happens to test the API
-    arc_api::register_callback("ui/message/msg_name.msbt", 0x70C90, dummy_func);
+    arc_api::register_callback("ui/message/msg_name.msbt", 0x800a0, dummy_func);
 
     // Discover files
     unsafe {

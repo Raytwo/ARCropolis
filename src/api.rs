@@ -24,7 +24,7 @@ pub extern "C" fn arcrop_load_file(hash: u64, out_buffer: *mut u8, length: usize
     let arc = LoadedTables::get_arc();
     let mut buffer = unsafe { std::slice::from_raw_parts_mut(out_buffer, length) };
     // "Error while reading magic number"
-    let content = arc.get_file_contents(hash, Region::UsEnglish).unwrap();
+    let content = arc.get_file_contents(hash, Region::EuFrench).unwrap();
     
     buffer.write(&content).unwrap();
 
