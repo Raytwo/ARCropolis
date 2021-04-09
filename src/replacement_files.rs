@@ -65,6 +65,11 @@ macro_rules! get_from_file_info_indice_index {
     };
 }
 
+extern "C" fn dummy_func(hash: Hash40) -> bool {
+    println!("Hash received: {:#x}", hash.as_u64());
+    false
+}
+
 impl ModFiles {
     fn new() -> Self {
         let config = CONFIG.read();
