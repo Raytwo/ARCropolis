@@ -1,13 +1,8 @@
 use std::{collections::HashMap, fs, path::{Path, PathBuf}, vec};
 
-use crate::{
-    runtime,
-    config::CONFIG,
-    fs::visit::ModPath,
-    callbacks::Callback,
-};
+use crate::{callbacks::Callback, config::CONFIG, fs::visit::ModPath, hashes, runtime};
 
-use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40, HashToIndex};
+use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40, HashToIndex, Region};
 
 use runtime::{LoadedArcEx, LoadedTables};
 
@@ -21,6 +16,9 @@ lazy_static::lazy_static! {
 
     // For ResInflateThread
     pub static ref INCOMING_IDX: parking_lot::RwLock<Option<FileIndex>> = parking_lot::RwLock::new(None);
+
+    // For... Callbacks.
+    pub static ref CALLBACKS: parking_lot::RwLock<HashMap<Hash40, Callback>> = parking_lot::RwLock::new(HashMap::new());
 
     // For unsharing the files :)
     pub static ref UNSHARE_LUT: parking_lot::RwLock<Option<cache::UnshareCache>> = parking_lot::RwLock::new(None);
@@ -65,11 +63,6 @@ macro_rules! get_from_file_info_indice_index {
             x.get(FileIndex::Regular($index))
         })
     };
-}
-
-extern "C" fn dummy_func(hash: Hash40) -> bool {
-    println!("Hash received: {:#x}", hash.as_u64());
-    false
 }
 
 impl ModFiles {
@@ -122,34 +115,50 @@ impl ModFiles {
                         Some((FileIndex::Regular(filectx.index), filectx))
                     }
                     Err(_) => {
-                        warn!("[ARC::Patching] File '{}' was not found in data.arc", modpath.as_smash_path().display().bright_yellow());
+                        warn!("[ARC::Patching] File '{}' was not found in data.arc", modpath.to_smash_path().display().bright_yellow());
                         None
                     }
                 }
             }
         }).collect::<HashMap<FileIndex, FileCtx>>();
 
-        // Process callbacks here? Shoukd probably store them in some global static until we reach this point.
-        // Pretend the hash was provided by whatever API call registers callbacks
-        if let Ok(path_idx) = arc.get_file_path_index_from_hash(Hash40::from("ui/message/msg_name.msbt")) {
-            let file_info_indice_idx = arc.get_file_info_from_path_index(path_idx).file_info_indice_index;
+        // Process callbacks here?
+        let callbacks = CALLBACKS.read();
 
-            match mods.get_mut(&FileIndex::Regular(file_info_indice_idx)) {
-                Some(ctx) => {
-                    let mut new_ctx = ctx.clone();
+        // This is disgusting please help
 
-                    new_ctx.file = FileBacking::Callback {
-                        callback: Callback {
-                            callback: dummy_func,
-                            len: 0,
-                            fallback: Box::new(FileBacking::LoadFromArc),
-                        },
-                        original: Box::new(ctx.file.clone()),
+        callbacks.iter().for_each(|(hash, callback)| {
+            let path_idx = arc.get_file_path_index_from_hash(*hash).unwrap();
+            let info = arc.get_file_info_from_path_index(path_idx).file_info_indice_index;
+
+            match mods.get_mut(&FileIndex::Regular(info)) {
+                // There is already a file found on the SD or a callback
+                Some(filectx) => {
+                    let new_callback = callback;
+                    //new_callback.fallback = Box::new(filectx.file);
+
+                    filectx.file = FileBacking::Callback {
+                        callback: new_callback.clone(),
+                        original: Box::new(filectx.file.clone()),
                     }
                 }
-                None => {}
+                // This file hasn't been found on the SD or no callback is installed
+                None => {
+                    let new_callback = callback;
+
+                    let mut filectx = FileCtx::new();
+                    filectx.hash = *hash;
+                    filectx.index = info;
+
+                    filectx.file = FileBacking::Callback {
+                        callback: new_callback.clone(),
+                        original: Box::new(FileBacking::LoadFromArc),
+                    };
+
+                    mods.insert(FileIndex::Regular(info), filectx);
+                }
             }
-        }
+        });
         
         mods.iter_mut().map(|(index, ctx)| {
             if let FileIndex::Regular(info_index) = index {
@@ -231,16 +240,26 @@ impl FileCtx {
     }
 
     pub fn extension(&self) -> Hash40 {
-        let arc = LoadedTables::get_arc();
-        let path_idx = arc.get_file_path_index_from_hash(self.hash).unwrap();
-        let file_path = &arc.get_file_paths()[usize::from(path_idx)];
-        file_path.ext.hash40()
+        match &self.file {
+            FileBacking::Path(modpath) => modpath.extension(),
+            _ => {
+                let arc = LoadedTables::get_arc();
+                let path_idx = arc.get_file_path_index_from_hash(self.hash).unwrap();
+                let file_path = &arc.get_file_paths()[path_idx];
+
+                file_path.ext.hash40()
+            }
+        }
     }
 
     pub fn len(&self) -> u32 {
         match &self.file {
             FileBacking::Path(modpath) => modpath.len() as u32,
-            FileBacking::LoadFromArc => unimplemented!(),
+            FileBacking::LoadFromArc => {
+                let arc = LoadedTables::get_arc();
+                // TODO: Probably do not hardcode the region, maybe use the user's?
+                arc.get_file_data_from_hash(self.hash, Region::None).unwrap().decomp_size
+            },
             FileBacking::Callback { callback, original } => callback.len,
         }
     }
@@ -248,20 +267,32 @@ impl FileCtx {
     pub fn path(&self) -> &Path {
         match &self.file {
             FileBacking::Path(modpath) => modpath,
-            FileBacking::LoadFromArc => unimplemented!(),
-            FileBacking::Callback { callback, original } => unimplemented!(),
+            FileBacking::LoadFromArc => &Path::new("None"),
+            FileBacking::Callback { callback: _, original: _ } => {
+                &Path::new("Callback")
+            },
         }
     }
 
     pub fn get_file_content(&self) -> Vec<u8> {
-        // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
         match &self.file {
+            // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
             FileBacking::Path(modpath) => fs::read(modpath).unwrap(),
-            FileBacking::LoadFromArc => unimplemented!(),
-            FileBacking::Callback { callback, original } => {
+            FileBacking::LoadFromArc => {
+                let arc = LoadedTables::get_arc();
+                // Does not work
+                arc.get_file_contents(self.hash, Region::None).unwrap()
+            },
+            FileBacking::Callback { callback, original: _ } => {
                 let cb = callback.callback;
-                let result = cb(self.hash);
-                unimplemented!()
+
+                let mut buffer = Vec::with_capacity(callback.len as _);
+                unsafe { buffer.set_len(callback.len as usize) };
+                //buffer.resize_default(callback.len as usize);
+
+                cb(self.hash.as_u64(), buffer.as_mut_ptr(), callback.len as usize);
+
+                buffer
             },
         }
     }

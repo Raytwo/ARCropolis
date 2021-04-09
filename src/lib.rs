@@ -6,6 +6,7 @@
 use std::{ffi::CStr, path::PathBuf};
 use std::io::prelude::*;
 use std::net::IpAddr;
+use callbacks::Callback;
 use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
 
 mod cache;
@@ -275,6 +276,13 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
 
 static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
 
+extern "C" fn dummy_func(hash: u64, out_buffer: *mut u8, length: usize) {
+    println!("Hash received: {}", hashes::get(hash));
+    let mut buffer = unsafe { std::slice::from_raw_parts_mut(out_buffer, length) };
+
+    arc_api::load_original_file(hash, buffer);
+}
+
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     let config = CONFIG.read();
@@ -308,7 +316,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     }
 
     // Register a callback before file discovery happens to test the API
-    arc_api::register_callback("ui/message/msg_name.msbt");
+    arc_api::register_callback("ui/message/msg_name.msbt", 0x41620, dummy_func);
 
     // Discover files
     unsafe {
@@ -355,23 +363,23 @@ pub fn main() {
         stream::lookup_by_stream_hash,
     );
 
-    unsafe {
-        skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x346_36c4, &0x1400_0002);
+    // unsafe {
+    //     skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x346_36c4, &0x1400_0002);
         
-        LUT_LOADER_HANDLE = Some(std::thread::spawn(|| {
-            let mut unshare_lut = UNSHARE_LUT.write();
-            *unshare_lut = match std::fs::read("rom:/skyline/unshare_lut.bin") {
-                Ok(file_data) => {
-                    let mut reader = std::io::Cursor::new(file_data);
-                    match cache::UnshareCache::read(&mut reader) {
-                        Ok(lut) => Some(lut),
-                        Err(_) => None
-                    }
-                },
-                Err(_) => None
-            }
-        }));
-    }
+    //     LUT_LOADER_HANDLE = Some(std::thread::spawn(|| {
+    //         let mut unshare_lut = UNSHARE_LUT.write();
+    //         *unshare_lut = match std::fs::read("rom:/skyline/unshare_lut.bin") {
+    //             Ok(file_data) => {
+    //                 let mut reader = std::io::Cursor::new(file_data);
+    //                 match cache::UnshareCache::read(&mut reader) {
+    //                     Ok(lut) => Some(lut),
+    //                     Err(_) => None
+    //                 }
+    //             },
+    //             Err(_) => None
+    //         }
+    //     }));
+    // }
 
     println!(
         "ARCropolis v{} - File replacement plugin is now installed",
