@@ -24,9 +24,9 @@ pub extern "C" fn arcrop_load_file(hash: u64, out_buffer: *mut u8, length: usize
     let arc = LoadedTables::get_arc();
     let mut buffer = unsafe { std::slice::from_raw_parts_mut(out_buffer, length) };
     // "Error while reading magic number"
-    let content = arc.get_file_contents(hash, Region::None).unwrap();
+    let content = arc.get_file_contents(hash, Region::UsEnglish).unwrap();
     
-    buffer.write_all(&content).unwrap();
+    buffer.write(&content).unwrap();
 
     // Should call the Fallback until we get the content?
     // let path_idx = arc.get_file_path_index_from_hash(hash).unwrap();
