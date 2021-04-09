@@ -316,7 +316,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     }
 
     // Register a callback before file discovery happens to test the API
-    arc_api::register_callback("ui/message/msg_name.msbt", 0x41620, dummy_func);
+    arc_api::register_callback("ui/message/msg_name.msbt", 0x70C90, dummy_func);
 
     // Discover files
     unsafe {
