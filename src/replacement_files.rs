@@ -140,12 +140,11 @@ impl ModFiles {
                 // There is already a file found on the SD or a callback
                 Some(filectx) => {
                     let new_callback = callback;
-                    //new_callback.fallback = Box::new(filectx.file);
 
                     filectx.file = FileBacking::Callback {
                         callback: new_callback.clone(),
                         original: Box::new(filectx.file.clone()),
-                    }
+                    };
                 }
                 // This file hasn't been found on the SD or no callback is installed
                 None => {
@@ -181,53 +180,53 @@ impl ModFiles {
         self.0.get(&file_index)
     }
 
-    fn unshare(files: &HashMap<Hash40, ModPath>) {
-        lazy_static::lazy_static! {
-            static ref UNSHARE_WHITELIST: Vec<Hash40> = vec![
-                Hash40::from("fighter")
-            ];
-        }
+    // fn unshare(files: &HashMap<Hash40, ModPath>) {
+    //     lazy_static::lazy_static! {
+    //         static ref UNSHARE_WHITELIST: Vec<Hash40> = vec![
+    //             Hash40::from("fighter")
+    //         ];
+    //     }
 
-        let arc = LoadedTables::get_arc();
-        let mut to_unshare = Vec::new();
-        let read_cache = UNSHARE_LUT.read();
-        let cache = read_cache.as_ref().unwrap();
-        for (game_path, mod_file) in files.iter() {
-            let path_idx = match arc.get_file_path_index_from_hash(*game_path) {
-                Ok(index) => index,
-                Err(_) => {
-                    warn!("[ARC::Unsharing] Unable to get path index for '{}' ({:#x})", mod_file.as_path().display().bright_yellow(), game_path.0.red());
-                    continue;
-                }
-            };
-            let mut index = HashToIndex::default();
-            index.set_hash((game_path.0 & 0xFFFF_FFFF) as u32);
-            index.set_length((game_path.0 >> 32) as u8);
-            index.set_index(path_idx.0);
-            let dir_entry = match cache.entries.get(&index) {
-                Some((dir_entry, _)) => dir_entry,
-                None => {
-                    panic!("Lookup table file does not contain entry for '{}' ({:#x})", mod_file.as_path().display(), game_path.0);
-                }
-            };
-            let top_level = get_top_level_parent(dir_entry.hash40());
-            if UNSHARE_WHITELIST.contains(&top_level) {
-                to_unshare.push(dir_entry.hash40());
-            }
-        }
-        to_unshare.sort();
-        to_unshare.dedup();
-        LoadedTables::unshare_mass_loading_groups(&to_unshare).unwrap();
+    //     let arc = LoadedTables::get_arc();
+    //     let mut to_unshare = Vec::new();
+    //     let read_cache = UNSHARE_LUT.read();
+    //     let cache = read_cache.as_ref().unwrap();
+    //     for (game_path, mod_file) in files.iter() {
+    //         let path_idx = match arc.get_file_path_index_from_hash(*game_path) {
+    //             Ok(index) => index,
+    //             Err(_) => {
+    //                 warn!("[ARC::Unsharing] Unable to get path index for '{}' ({:#x})", mod_file.as_path().display().bright_yellow(), game_path.0.red());
+    //                 continue;
+    //             }
+    //         };
+    //         let mut index = HashToIndex::default();
+    //         index.set_hash((game_path.0 & 0xFFFF_FFFF) as u32);
+    //         index.set_length((game_path.0 >> 32) as u8);
+    //         index.set_index(path_idx.0);
+    //         let dir_entry = match cache.entries.get(&index) {
+    //             Some((dir_entry, _)) => dir_entry,
+    //             None => {
+    //                 panic!("Lookup table file does not contain entry for '{}' ({:#x})", mod_file.as_path().display(), game_path.0);
+    //             }
+    //         };
+    //         let top_level = get_top_level_parent(dir_entry.hash40());
+    //         if UNSHARE_WHITELIST.contains(&top_level) {
+    //             to_unshare.push(dir_entry.hash40());
+    //         }
+    //     }
+    //     to_unshare.sort();
+    //     to_unshare.dedup();
+    //     LoadedTables::unshare_mass_loading_groups(&to_unshare).unwrap();
 
-        fn get_top_level_parent(path: Hash40) -> Hash40 {
-            let arc = LoadedTables::get_arc();
-            let mut dir_info = arc.get_dir_info_from_hash(path).unwrap();
-            while dir_info.parent.hash40() != Hash40(0) {
-                dir_info = arc.get_dir_info_from_hash(dir_info.parent.hash40()).unwrap();
-            }
-            dir_info.name.hash40()
-        }
-    }
+    //     fn get_top_level_parent(path: Hash40) -> Hash40 {
+    //         let arc = LoadedTables::get_arc();
+    //         let mut dir_info = arc.get_dir_info_from_hash(path).unwrap();
+    //         while dir_info.parent.hash40() != Hash40(0) {
+    //             dir_info = arc.get_dir_info_from_hash(dir_info.parent.hash40()).unwrap();
+    //         }
+    //         dir_info.name.hash40()
+    //     }
+    // }
 }
 
 pub fn get_region_id(region: &str) -> Option<u32> {
@@ -261,17 +260,30 @@ impl FileCtx {
         match &self.file {
             FileBacking::Path(modpath) => modpath.len() as u32,
             FileBacking::LoadFromArc => {
+                let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+
                 let arc = LoadedTables::get_arc();
-                // TODO: Probably do not hardcode the region, maybe use the user's?
-                arc.get_file_data_from_hash(self.hash, Region::None).unwrap().decomp_size
+                // Careful, this could backfire once the size is patched
+                arc.get_file_data_from_hash(self.hash, user_region).unwrap().decomp_size
             },
-            FileBacking::Callback { callback, original } => callback.len,
+            FileBacking::Callback { callback, original } => {
+                // callback.len
+                let recursive_len = if let FileBacking::Callback { callback: recursive_cb, original: _ } = &**original {
+                    recursive_cb.len
+                } else {
+                    0  
+                };
+
+                if recursive_len > callback.len { recursive_len } else { callback.len }
+            },
         }
     }
 
+    // TODO: Eventually make this a Option<&Path> instead? Or just stop logging filepaths
     pub fn path(&self) -> &Path {
         match &self.file {
             FileBacking::Path(modpath) => modpath,
+            // lol, lmao
             FileBacking::LoadFromArc => &Path::new("None"),
             FileBacking::Callback { callback: _, original: _ } => {
                 &Path::new("Callback")
@@ -284,9 +296,10 @@ impl FileCtx {
             // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
             FileBacking::Path(modpath) => fs::read(modpath).unwrap(),
             FileBacking::LoadFromArc => {
+                let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+
                 let arc = LoadedTables::get_arc();
-                // Does not work
-                arc.get_file_contents(self.hash, Region::None).unwrap()
+                arc.get_file_contents(self.hash, user_region).unwrap()
             },
             FileBacking::Callback { callback, original: _ } => {
                 let cb = callback.callback;

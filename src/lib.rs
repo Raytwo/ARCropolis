@@ -275,11 +275,17 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
 
 static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
 
-extern "C" fn dummy_func(hash: u64, out_buffer: *mut u8, length: usize) {
+extern "C" fn replace_msg_name(hash: u64, out_buffer: *mut u8, length: usize) {
     println!("Hash received: {}", hashes::get(hash));
     let mut buffer = unsafe { std::slice::from_raw_parts_mut(out_buffer, length) };
 
-    arc_api::load_original_file(hash, buffer);
+    // Get EuFrench msg_name.msbt and write that in the buffer
+    let arc = LoadedTables::get_arc();
+    let content = arc.get_nonstream_file_contents(Hash40(hash), smash_arc::Region::EuFrench).unwrap();
+    buffer.write(&content);
+
+    // Load the file on the SD, or from data.arc if there are none
+    // arc_api::load_original_file(hash, buffer);
 }
 
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
@@ -315,7 +321,8 @@ fn initial_loading(_ctx: &InlineCtx) {
     }
 
     // Register a callback before file discovery happens to test the API
-    arc_api::register_callback("ui/message/msg_name.msbt", 0x800a0, dummy_func);
+    // Size for EuFrench msg_name.msbt on 11.0.1
+    arc_api::register_callback("ui/message/msg_name.msbt", 0x800a0, replace_msg_name);
 
     // Discover files
     unsafe {
