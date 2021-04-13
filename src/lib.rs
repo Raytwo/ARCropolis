@@ -85,6 +85,7 @@ fn replace_file_by_index(file_index: FileIndex) {
         }
 
         let file_slice = file_ctx.get_file_content().into_boxed_slice();
+        println!("Replace_by_idx slice size: {:#x}", file_slice.len());
 
         info!(
             "[ResInflateThread | #{}] Replacing '{}'",
@@ -275,14 +276,40 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
 
 static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
 
-extern "C" fn replace_msg_name(hash: u64, out_buffer: *mut u8, length: usize) {
+extern "C" fn replace_msg_name(out_size: *mut usize, hash: u64, buffer: *mut u8, length: usize) -> bool {
     println!("Hash received: {}", hashes::get(hash));
-    let mut buffer = unsafe { std::slice::from_raw_parts_mut(out_buffer, length) };
+    let mut buffer = unsafe { std::slice::from_raw_parts_mut(buffer, length) };
 
     // Get EuFrench msg_name.msbt and write that in the buffer
     let arc = LoadedTables::get_arc();
     let content = arc.get_nonstream_file_contents(Hash40(hash), smash_arc::Region::EuFrench).unwrap();
     buffer.write(&content);
+
+    let mut size = out_size;
+    unsafe { *size = length };
+
+    true
+
+    // Load the file on the SD, or from data.arc if there are none
+    // arc_api::load_original_file(hash, buffer);
+}
+
+extern "C" fn chained_replace_msg_name(out_size: *mut usize, hash: u64, buffer: *mut u8, length: usize) -> bool {
+    println!("Hash received: {}", hashes::get(hash));
+    let mut buffer = unsafe { std::slice::from_raw_parts_mut(buffer, length) };
+
+    // Get EuFrench msg_name.msbt and write that in the buffer
+    let arc = LoadedTables::get_arc();
+    let content = arc.get_nonstream_file_contents(Hash40(hash), smash_arc::Region::EuDutch).unwrap();
+    buffer.write(&content);
+
+    let mut size = out_size;
+    unsafe { *size = content.len() };
+
+    // If returning true, msg_name will be in dutch
+    //true
+    // If returning false, msg_name will be loaded by the next callback in line if there is one, or a file on the SD or data.arc
+    false
 
     // Load the file on the SD, or from data.arc if there are none
     // arc_api::load_original_file(hash, buffer);
@@ -323,6 +350,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Register a callback before file discovery happens to test the API
     // Size for EuFrench msg_name.msbt on 11.0.1
     arc_api::register_callback("ui/message/msg_name.msbt", 0x800a0, replace_msg_name);
+    arc_api::register_callback("ui/message/msg_name.msbt", 0x77580, chained_replace_msg_name);
 
     // Discover files
     unsafe {

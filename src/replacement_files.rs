@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::{Path, PathBuf}, vec};
+use std::{collections::HashMap, fs, path::{Path, PathBuf}, vec, io::Write};
 
 use crate::{callbacks::Callback, config::CONFIG, fs::visit::ModPath, hashes, runtime};
 
@@ -63,11 +63,6 @@ macro_rules! get_from_file_info_indice_index {
             x.get(FileIndex::Regular($index))
         })
     };
-}
-
-extern "C" fn dummy_func(hash: Hash40) -> bool {
-    println!("Hash received: {:#x}", hash.as_u64());
-    false
 }
 
 impl ModFiles {
@@ -141,10 +136,22 @@ impl ModFiles {
                 Some(filectx) => {
                     let new_callback = callback;
 
-                    filectx.file = FileBacking::Callback {
-                        callback: new_callback.clone(),
-                        original: Box::new(filectx.file.clone()),
+                    let new_backing = if let FileBacking::Callback { callback, original} = &*callback.previous {
+                        FileBacking::Callback {
+                            callback : new_callback.clone(),
+                            original: Box::new(FileBacking::Callback {
+                                callback: callback.clone(),
+                                original: original.clone(),
+                            }),
+                        }
+                    } else {
+                        FileBacking::Callback {
+                            callback: new_callback.clone(),
+                            original: Box::new(filectx.file.clone()),
+                        }
                     };
+
+                    filectx.file = new_backing;
                 }
                 // This file hasn't been found on the SD or no callback is installed
                 None => {
@@ -301,16 +308,47 @@ impl FileCtx {
                 let arc = LoadedTables::get_arc();
                 arc.get_file_contents(self.hash, user_region).unwrap()
             },
-            FileBacking::Callback { callback, original: _ } => {
+            FileBacking::Callback { callback, original } => {
                 let cb = callback.callback;
 
+                // Prepare a buffer with the patched size
                 let mut buffer = Vec::with_capacity(callback.len as _);
                 unsafe { buffer.set_len(callback.len as usize) };
-                //buffer.resize_default(callback.len as usize);
 
-                cb(self.hash.as_u64(), buffer.as_mut_ptr(), callback.len as usize);
+                let mut out_size: usize = 0;
 
-                buffer
+                if cb(&mut out_size, self.hash.as_u64(), buffer.as_mut_ptr(), callback.len as usize) {
+                    println!("Callback returned size: {:#x}", out_size);
+                    buffer[0..out_size].to_vec()
+                } else {
+                    match &**original {
+                        // Extract the file from data.arc
+                        FileBacking::LoadFromArc => {
+                            println!("Callback returned false, LoadFromArc");
+                            let arc = LoadedTables::get_arc();
+
+                            let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+                            let content = arc.get_file_contents(self.hash, user_region).unwrap();
+
+                            buffer.write(&content).unwrap();
+                            buffer[0..self.orig_size as usize].to_vec()
+                        }
+                        // Use the file on the SD
+                        FileBacking::Path(modpath) => {
+                            println!("Callback returned false, Path");
+                            std::fs::read(modpath).unwrap()
+                            
+                        }
+                        // Call a parent callback that itself will provide its processed file. Unsupported for now
+                        FileBacking::Callback { callback: test, original: _ } => {
+                            println!("Callback returned false, chained Callback");
+                            //unreachable!()
+                            let cb = test.callback;
+                            cb(&mut out_size, self.hash.as_u64(), buffer.as_mut_ptr(), test.len as usize);
+                            buffer[0..out_size].to_vec()
+                        }
+                    }
+                }
             },
         }
     }

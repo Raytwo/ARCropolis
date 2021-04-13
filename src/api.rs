@@ -13,11 +13,11 @@ use owo_colors::OwoColorize;
 use smash_arc::{ArcLookup, Hash40, Region};
 
 #[no_mangle]
-pub extern "C" fn arcrop_load_file(hash: u64, out_buffer: *mut u8, length: usize) {
-    debug!("[Arcropolis-API::load_file] Hash received: {}, Buffer len: {:#x}", hashes::get(Hash40(hash)).green(), length);
+pub extern "C" fn arcrop_load_file(hash: u64, out_buffer: *mut u8, buf_length: usize) {
+    debug!("[Arcropolis-API::load_file] Hash received: {}, Buffer len: {:#x}", hashes::get(Hash40(hash)).green(), buf_length);
 
     let arc = LoadedTables::get_arc();
-    let mut buffer = unsafe { std::slice::from_raw_parts_mut(out_buffer, length) };
+    let mut buffer = unsafe { std::slice::from_raw_parts_mut(out_buffer, buf_length) };
 
     // TODO: Require extra code to handle streams
     let path_idx = arc.get_file_path_index_from_hash(Hash40(hash)).unwrap();
@@ -56,17 +56,24 @@ pub extern "C" fn arcrop_register_callback(hash: u64, length: usize, cb: Callbac
 
     let mut callbacks = CALLBACKS.write();
 
-    let bigger_length = if let Some(previous_cb) =  callbacks.get(&Hash40(hash)) {
+    let callback = if let Some(previous_cb) =  callbacks.get(&Hash40(hash)) {
         // Always get the larger length for patching to accomodate the callback that requires the biggest buffer
-        if previous_cb.len > length as u32 { previous_cb.len }  else { length as u32 }
-    } else {
-        length as u32
-    };
+        let length = if previous_cb.len > length as u32 { previous_cb.len }  else { length as u32 };
 
-    let callback = Callback {
-        callback: cb,
-        len: bigger_length,
-        fallback: Box::new(FileBacking::LoadFromArc),
+        Callback {
+            callback: cb,
+            len: length,
+            previous: Box::new(FileBacking::Callback {
+                callback: previous_cb.clone(),
+                original: Box::new(FileBacking::LoadFromArc),
+            }),
+        }
+    } else {
+        Callback {
+            callback: cb,
+            len: length as u32,
+            previous: Box::new(FileBacking::LoadFromArc),
+        }
     };
 
     // Overwrite the previous callback. Could probably be done better.
