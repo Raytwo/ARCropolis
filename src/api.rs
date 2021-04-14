@@ -1,19 +1,13 @@
 use std::io::Write;
 
-use crate::{
-    CONFIG,
-    callbacks::{Callback, CallbackFn},
-    hashes,
-    replacement_files::{CALLBACKS, FileBacking, FileIndex, MOD_FILES, get_region_id},
-    runtime::LoadedTables
-};
+use crate::{CONFIG, callbacks::{Callback, CallbackFn}, hashes, replacement_files::{self, CALLBACKS, FileBacking, FileIndex, MOD_FILES, get_region_id}, runtime::LoadedTables};
 
 use log::debug;
 use owo_colors::OwoColorize;
 use smash_arc::{ArcLookup, Hash40, Region};
 
 #[no_mangle]
-pub extern "C" fn arcrop_load_file(hash: u64, out_buffer: *mut u8, buf_length: usize) {
+pub extern "C" fn arcrop_load_file(out_size: *mut usize, hash: u64, out_buffer: *mut u8, buf_length: usize) {
     debug!("[Arcropolis-API::load_file] Hash received: {}, Buffer len: {:#x}", hashes::get(Hash40(hash)).green(), buf_length);
 
     let arc = LoadedTables::get_arc();
@@ -26,27 +20,9 @@ pub extern "C" fn arcrop_load_file(hash: u64, out_buffer: *mut u8, buf_length: u
     // Get the FileCtx for this hash
     if let Some(filectx) = MOD_FILES.read().get(FileIndex::Regular(info_indice_idx)) {
         // Get the callback for this file as well as the file it applies to (either extracted from data.arc or from the SD)
-        if let FileBacking::Callback { callback, original } = &filectx.file {
-            match &**original {
-                // Extract the file from data.arc
-                FileBacking::LoadFromArc => {
-                    let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
-                    let content = arc.get_file_contents(hash, user_region).unwrap();
-                    buffer.write(&content).unwrap();
-                }
-                // Use the file on the SD
-                FileBacking::Path(modpath) => {
-                    let content = std::fs::read(modpath).unwrap();
-                    buffer.write(&content).unwrap();
-                }
-                // Call a parent callback that itself will provide its processed file. Unsupported for now
-                FileBacking::Callback { callback: test, original: _ } => {
-                    unreachable!()
-                    // let cb = test.callback;
-                    // cb(hash, buffer.as_mut_ptr(), length as usize);
-                }
-            }
-        }
+        let content = replacement_files::test(Hash40(hash), &filectx.file);
+        unsafe { *out_size = content.len(); }
+        buffer.write(&content).unwrap();
     }
 }
 

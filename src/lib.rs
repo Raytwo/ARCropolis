@@ -288,7 +288,7 @@ extern "C" fn replace_msg_name(out_size: *mut usize, hash: u64, buffer: *mut u8,
     let mut size = out_size;
     unsafe { *size = length };
 
-    true
+    false
 
     // Load the file on the SD, or from data.arc if there are none
     // arc_api::load_original_file(hash, buffer);

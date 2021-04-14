@@ -141,7 +141,7 @@ impl ModFiles {
                             callback : new_callback.clone(),
                             original: Box::new(FileBacking::Callback {
                                 callback: callback.clone(),
-                                original: original.clone(),
+                                original: Box::new(filectx.file.clone()),
                             }),
                         }
                     } else {
@@ -299,57 +299,40 @@ impl FileCtx {
     }
 
     pub fn get_file_content(&self) -> Vec<u8> {
-        match &self.file {
-            // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
-            FileBacking::Path(modpath) => fs::read(modpath).unwrap(),
-            FileBacking::LoadFromArc => {
-                let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+        println!("Get_file_content");
+        test(self.hash, &self.file)
+    }
+}
 
-                let arc = LoadedTables::get_arc();
-                arc.get_file_contents(self.hash, user_region).unwrap()
-            },
-            FileBacking::Callback { callback, original } => {
-                let cb = callback.callback;
+pub fn test(hash: Hash40, backing: &FileBacking) -> Vec<u8> {
+    match backing {
+        // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
+        FileBacking::Path(modpath) => { 
+            println!("Path");
+            fs::read(modpath).unwrap() },
+        FileBacking::LoadFromArc => {
+            println!("LoadFromArc");
+            let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
 
-                // Prepare a buffer with the patched size
-                let mut buffer = Vec::with_capacity(callback.len as _);
-                unsafe { buffer.set_len(callback.len as usize) };
+            let arc = LoadedTables::get_arc();
+            arc.get_file_contents(hash, user_region).unwrap()
+        },
+        FileBacking::Callback { callback, original } => {
+            println!("Callback");
+            let cb = callback.callback;
 
-                let mut out_size: usize = 0;
+            // Prepare a buffer with the patched size
+            let mut buffer = Vec::with_capacity(callback.len as _);
+            unsafe { buffer.set_len(callback.len as usize) };
 
-                if cb(&mut out_size, self.hash.as_u64(), buffer.as_mut_ptr(), callback.len as usize) {
-                    println!("Callback returned size: {:#x}", out_size);
-                    buffer[0..out_size].to_vec()
-                } else {
-                    match &**original {
-                        // Extract the file from data.arc
-                        FileBacking::LoadFromArc => {
-                            println!("Callback returned false, LoadFromArc");
-                            let arc = LoadedTables::get_arc();
+            let mut out_size: usize = 0;
 
-                            let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
-                            let content = arc.get_file_contents(self.hash, user_region).unwrap();
-
-                            buffer.write(&content).unwrap();
-                            buffer[0..self.orig_size as usize].to_vec()
-                        }
-                        // Use the file on the SD
-                        FileBacking::Path(modpath) => {
-                            println!("Callback returned false, Path");
-                            std::fs::read(modpath).unwrap()
-                            
-                        }
-                        // Call a parent callback that itself will provide its processed file. Unsupported for now
-                        FileBacking::Callback { callback: test, original: _ } => {
-                            println!("Callback returned false, chained Callback");
-                            //unreachable!()
-                            let cb = test.callback;
-                            cb(&mut out_size, self.hash.as_u64(), buffer.as_mut_ptr(), test.len as usize);
-                            buffer[0..out_size].to_vec()
-                        }
-                    }
-                }
-            },
-        }
+            if cb(&mut out_size, hash.as_u64(), buffer.as_mut_ptr(), callback.len as usize) {
+                println!("Callback returned size: {:#x}", out_size);
+                buffer[0..out_size].to_vec()
+            } else {
+                test(hash, &**original)
+            }
+        },
     }
 }
