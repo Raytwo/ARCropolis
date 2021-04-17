@@ -274,14 +274,7 @@ impl FileCtx {
                 arc.get_file_data_from_hash(self.hash, user_region).unwrap().decomp_size
             },
             FileBacking::Callback { callback, original } => {
-                // callback.len
-                let recursive_len = if let FileBacking::Callback { callback: recursive_cb, original: _ } = &**original {
-                    recursive_cb.len
-                } else {
-                    0  
-                };
-
-                if recursive_len > callback.len { recursive_len } else { callback.len }
+                callback.len
             },
         }
     }
