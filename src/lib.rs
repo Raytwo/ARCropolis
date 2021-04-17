@@ -105,6 +105,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
     let orig_size = file_ctx.orig_size as usize;
 
     let file_slice = file_ctx.get_file_content().into_boxed_slice();
+    println!("Replace_texture_by_idx slice size: {:#x}", file_slice.len());
 
     info!(
         "[ResInflateThread | #{}] Replacing '{}'",
@@ -112,19 +113,14 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
         hashes::get(file_ctx.hash).bright_yellow()
     );
 
-    if orig_size > file_slice.len() {
-        let data_slice =
-            unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size) };
-        // Copy the content at the beginning
-        data_slice[0..file_slice.len() - 0xB0]
-            .copy_from_slice(&file_slice[0..file_slice.len() - 0xB0]);
-        // Copy our new footer at the end
-        data_slice[orig_size - 0xB0..orig_size]
-            .copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
+    if file_ctx.len() as usize > file_slice.len() {
+        let data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.len() as usize) };
+
+        let (mut from, mut to) = data_slice.split_at_mut(file_ctx.len() as usize - 0xB0);
+        from.write(&file_slice[0..file_slice.len() - 0xB0]);
+        to.write(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
     } else {
-        let mut data_slice = unsafe {
-            std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.len() as _)
-        };
+        let mut data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len() as _) };
         data_slice.write_all(&file_slice).unwrap();
     }
 }
@@ -349,8 +345,8 @@ fn initial_loading(_ctx: &InlineCtx) {
 
     // Register a callback before file discovery happens to test the API
     // Size for EuFrench msg_name.msbt on 11.0.1
-    arc_api::register_callback("ui/message/msg_name.msbt", 0x800a0, replace_msg_name);
-    arc_api::register_callback("ui/message/msg_name.msbt", 0x77580, chained_replace_msg_name);
+    //arc_api::register_callback("ui/message/msg_name.msbt", 0x800a0, replace_msg_name);
+    //arc_api::register_callback("ui/message/msg_name.msbt", 0x77580, chained_replace_msg_name);
 
     // Discover files
     unsafe {
