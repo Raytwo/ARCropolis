@@ -2,6 +2,7 @@
 #![feature(str_strip)]
 #![feature(asm)]
 #![feature(ptr_offset_from)]
+#![feature(slice_fill)]
 
 use std::{ffi::CStr, path::PathBuf};
 use std::io::prelude::*;
@@ -61,7 +62,7 @@ fn get_filectx_by_index<'a>(
                     info!(
                         "[ARC::Loading | #{}] Hash matching for file: '{:?}'",
                         usize::from(info_indice_index).green(),
-                        file_ctx.path().display().bright_yellow()
+                        hashes::get(file_ctx.hash).bright_yellow()
                     );
                     Some((file_ctx, table2entry))
                 }
@@ -84,7 +85,7 @@ fn replace_file_by_index(file_index: FileIndex) {
             return;
         }
 
-        let file_slice = file_ctx.get_file_content().into_boxed_slice();
+        let file_slice = file_ctx.get_file_content();
         println!("Replace_by_idx slice size: {:#x}", file_slice.len());
 
         info!(
@@ -94,7 +95,7 @@ fn replace_file_by_index(file_index: FileIndex) {
         );
 
         unsafe {
-            let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
+            let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.len() as usize);
             data_slice.write_all(&file_slice).unwrap();
         }
     }
@@ -311,6 +312,20 @@ extern "C" fn chained_replace_msg_name(out_size: *mut usize, hash: u64, buffer: 
     // arc_api::load_original_file(hash, buffer);
 }
 
+extern "C" fn replace_title_screen_music(out_size: *mut usize, hash: u64, buf: *mut u8, length: usize) -> bool {
+    println!("Stream hash received: {}", hashes::get(hash));
+    return false;
+    
+    let mut buffer = unsafe { std::slice::from_raw_parts_mut(buf, length) };
+
+    arc_api::load_original_file(hash, buffer);
+
+    let mut size = out_size;
+    unsafe { *size = length };
+
+    true
+}
+
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     let config = CONFIG.read();
@@ -347,6 +362,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Size for EuFrench msg_name.msbt on 11.0.1
     //arc_api::register_callback("ui/message/msg_name.msbt", 0x800a0, replace_msg_name);
     //arc_api::register_callback("ui/message/msg_name.msbt", 0x77580, chained_replace_msg_name);
+    arc_api::register_stream_callback("stream:/sound/bgm/bgm_crs2_01_menu.nus3audio", 0x6148, "sd:/bgm_crs2_01_menu.nus3audio", replace_title_screen_music);
 
     // Discover files
     unsafe {

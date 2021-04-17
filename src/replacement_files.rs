@@ -103,7 +103,7 @@ impl ModFiles {
             filectx.hash = *hash;
 
             if modpath.is_stream() {
-                warn!("[ARC::Patching] File '{}' added as a Stream", filectx.path().display().bright_yellow());
+                warn!("[ARC::Patching] File '{}' added as a Stream", filectx.path().unwrap().display().bright_yellow());
                 Some((FileIndex::Stream(filectx.hash), filectx))
             } else {
                 match arc.get_file_path_index_from_hash(*hash) {
@@ -128,47 +128,133 @@ impl ModFiles {
         // This is disgusting please help
 
         callbacks.iter().for_each(|(hash, callback)| {
-            let path_idx = arc.get_file_path_index_from_hash(*hash).unwrap();
-            let info = arc.get_file_info_from_path_index(path_idx).file_info_indice_index;
+            match arc.get_file_path_index_from_hash(*hash) {
+                // This hash exists in the regular files
+                Ok(path_index) => {
+                    let info = arc.get_file_info_from_path_index(path_index).file_info_indice_index;
 
-            match mods.get_mut(&FileIndex::Regular(info)) {
-                // There is already a file found on the SD or a callback
-                Some(filectx) => {
-                    let new_callback = callback;
-
-                    let new_backing = if let FileBacking::Callback { callback, original} = &*callback.previous {
-                        FileBacking::Callback {
-                            callback : new_callback.clone(),
-                            original: Box::new(FileBacking::Callback {
-                                callback: callback.clone(),
-                                original: Box::new(filectx.file.clone()),
-                            }),
+                    // Do we already have a FileCtx for it?
+                    match mods.get_mut(&FileIndex::Regular(info)) {
+                        // There is already a file found on the SD or a callback
+                        Some(filectx) => {
+                            let new_callback = callback;
+        
+                            let new_backing = if let FileBacking::Callback { callback, original} = &*callback.previous {
+                                FileBacking::Callback {
+                                    callback : new_callback.clone(),
+                                    original: Box::new(FileBacking::Callback {
+                                        callback: callback.clone(),
+                                        original: Box::new(filectx.file.clone()),
+                                    }),
+                                }
+                            } else {
+                                FileBacking::Callback {
+                                    callback: new_callback.clone(),
+                                    original: Box::new(filectx.file.clone()),
+                                }
+                            };
+        
+                            filectx.file = new_backing;
                         }
-                    } else {
-                        FileBacking::Callback {
-                            callback: new_callback.clone(),
-                            original: Box::new(filectx.file.clone()),
+                        // This file hasn't been found on the SD or no callback is installed
+                        None => {
+                            let new_callback = callback;
+        
+                            let mut filectx = FileCtx::new();
+                            filectx.hash = *hash;
+                            filectx.index = info;
+        
+                            filectx.file = FileBacking::Callback {
+                                callback: new_callback.clone(),
+                                original: Box::new(FileBacking::LoadFromArc),
+                            };
+        
+                            mods.insert(FileIndex::Regular(info), filectx);
                         }
-                    };
+                    }
 
-                    filectx.file = new_backing;
                 }
-                // This file hasn't been found on the SD or no callback is installed
-                None => {
-                    let new_callback = callback;
-
-                    let mut filectx = FileCtx::new();
-                    filectx.hash = *hash;
-                    filectx.index = info;
-
-                    filectx.file = FileBacking::Callback {
-                        callback: new_callback.clone(),
-                        original: Box::new(FileBacking::LoadFromArc),
-                    };
-
-                    mods.insert(FileIndex::Regular(info), filectx);
+                // Couldn't find the hash in the regular files, so let's try in the streams
+                Err(_) => {
+                    // Do we already have a FileCtx for it?
+                    match mods.get_mut(&FileIndex::Stream(*hash)) {
+                        // There is already a file found on the SD or a callback
+                        Some(filectx) => {
+                            let new_callback = callback;
+        
+                            let new_backing = if let FileBacking::Callback { callback, original} = &*callback.previous {
+                                FileBacking::Callback {
+                                    callback : new_callback.clone(),
+                                    original: Box::new(FileBacking::Callback {
+                                        callback: callback.clone(),
+                                        original: Box::new(filectx.file.clone()),
+                                    }),
+                                }
+                            } else {
+                                FileBacking::Callback {
+                                    callback: new_callback.clone(),
+                                    original: Box::new(filectx.file.clone()),
+                                }
+                            };
+        
+                            filectx.file = new_backing;
+                        }
+                        // This file hasn't been found on the SD or no callback is installed
+                        None => {
+                            let new_callback = callback;
+        
+                            let mut filectx = FileCtx::new();
+                            filectx.hash = *hash;
+        
+                            filectx.file = FileBacking::Callback {
+                                callback: new_callback.clone(),
+                                original: Box::new(FileBacking::LoadFromArc),
+                            };
+        
+                            mods.insert(FileIndex::Stream(*hash), filectx);
+                        }
+                    }
                 }
             }
+
+            // match mods.get_mut(&FileIndex::Regular(info)) {
+            //     // There is already a file found on the SD or a callback
+            //     Some(filectx) => {
+            //         let new_callback = callback;
+
+            //         let new_backing = if let FileBacking::Callback { callback, original} = &*callback.previous {
+            //             FileBacking::Callback {
+            //                 callback : new_callback.clone(),
+            //                 original: Box::new(FileBacking::Callback {
+            //                     callback: callback.clone(),
+            //                     original: Box::new(filectx.file.clone()),
+            //                 }),
+            //             }
+            //         } else {
+            //             FileBacking::Callback {
+            //                 callback: new_callback.clone(),
+            //                 original: Box::new(filectx.file.clone()),
+            //             }
+            //         };
+
+            //         filectx.file = new_backing;
+            //     }
+            //     // This file hasn't been found on the SD or no callback is installed
+            //     None => {
+            //         let new_callback = callback;
+
+            //         let mut filectx = FileCtx::new();
+            //         filectx.hash = *hash;
+            //         filectx.index = info;
+
+            //         filectx.file = FileBacking::Callback {
+            //             callback: new_callback.clone(),
+            //             original: Box::new(FileBacking::LoadFromArc),
+            //         };
+
+            //         mods.insert(FileIndex::Regular(info), filectx);
+            //     }
+            // }
         });
         
         mods.iter_mut().map(|(index, ctx)| {
@@ -280,13 +366,15 @@ impl FileCtx {
     }
 
     // TODO: Eventually make this a Option<&Path> instead? Or just stop logging filepaths
-    pub fn path(&self) -> &Path {
+    pub fn path(&self) -> Option<PathBuf> {
         match &self.file {
-            FileBacking::Path(modpath) => modpath,
+            FileBacking::Path(modpath) => Some(modpath.to_path_buf()),
             // lol, lmao
-            FileBacking::LoadFromArc => &Path::new("None"),
-            FileBacking::Callback { callback: _, original: _ } => {
-                &Path::new("Callback")
+            FileBacking::LoadFromArc => None,
+            FileBacking::Callback { callback, original: _ } => {
+                callback.path.clone()
+                //Some(PathBuf::from("sd:/bgm_crs2_01_menu.nus3audio"))
+                //&Path::new("Callback")
             },
         }
     }
@@ -312,7 +400,7 @@ pub fn test(hash: Hash40, backing: &FileBacking) -> Vec<u8> {
         },
         FileBacking::Callback { callback, original } => {
             println!("Callback");
-            let cb = callback.callback;
+            let cb = callback.callback_fn;
 
             // Prepare a buffer with the patched size
             let mut buffer = Vec::with_capacity(callback.len as _);

@@ -49,39 +49,18 @@ fn lookup_by_stream_hash(
     hash: Hash40,
 ) {
     if let Some(file_ctx) = MOD_FILES.read().0.get(&FileIndex::Stream(hash)) {
-        let file;
-        let metadata;
-        let size;
-        let random_selection;
-
-        let directory = file_ctx.path().display().to_string();
-
-        if Path::new(&directory).is_dir() {
-            match random_media_select(&directory) {
-                Ok(pass) => random_selection = pass,
-                Err(_err) => {
-                    warn!("{}", _err);
-                    original!()(out_path, loaded_arc, size_out, offset_out, hash);
-                    return;
-                }
-            };
-
-            file = fs::File::open(&random_selection).unwrap();
-            metadata = file.metadata().unwrap();
-            size = metadata.len() as u64;
-        } else {
-            random_selection = file_ctx
-                .path()
-                .to_str()
-                .expect("Paths must be valid unicode")
-                .to_string();
-            size = file_ctx.len() as u64;
-        }
+        let path = match file_ctx.path() {
+            Some(path) => path,
+            None => {
+                original!()(out_path, loaded_arc, size_out, offset_out, hash);
+                return
+            }
+        };
 
         unsafe {
-            *size_out = size;
+            *size_out = path.metadata().unwrap().len();
             *offset_out = 0;
-            let string = random_selection;
+            let string = path.to_str().unwrap().to_string();
             info!("Loading '{}'...", string);
             let bytes = string.as_bytes();
             ptr::copy_nonoverlapping(bytes.as_ptr(), out_path, bytes.len());
