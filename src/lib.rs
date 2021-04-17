@@ -306,7 +306,7 @@ extern "C" fn chained_replace_msg_name(out_size: *mut usize, hash: u64, buffer: 
     // If returning true, msg_name will be in dutch
     //true
     // If returning false, msg_name will be loaded by the next callback in line if there is one, or a file on the SD or data.arc
-    false
+    true
 
     // Load the file on the SD, or from data.arc if there are none
     // arc_api::load_original_file(hash, buffer);
@@ -318,10 +318,8 @@ extern "C" fn replace_title_screen_music(out_size: *mut usize, hash: u64, buf: *
     
     let mut buffer = unsafe { std::slice::from_raw_parts_mut(buf, length) };
 
-    arc_api::load_original_file(hash, buffer);
-
     let mut size = out_size;
-    unsafe { *size = length };
+    unsafe { *out_size = arc_api::load_original_file(hash, buffer) };
 
     true
 }
@@ -360,9 +358,9 @@ fn initial_loading(_ctx: &InlineCtx) {
 
     // Register a callback before file discovery happens to test the API
     // Size for EuFrench msg_name.msbt on 11.0.1
-    //arc_api::register_callback("ui/message/msg_name.msbt", 0x800a0, replace_msg_name);
-    //arc_api::register_callback("ui/message/msg_name.msbt", 0x77580, chained_replace_msg_name);
-    arc_api::register_stream_callback("stream:/sound/bgm/bgm_crs2_01_menu.nus3audio", 0x6148, "sd:/bgm_crs2_01_menu.nus3audio", replace_title_screen_music);
+    arc_api::register_callback("ui/message/msg_name.msbt", 0x800a0, replace_msg_name);
+    arc_api::register_callback("ui/message/msg_name.msbt", 0x77580, chained_replace_msg_name);
+    //arc_api::register_stream_callback("stream:/sound/bgm/bgm_crs2_01_menu.nus3audio", 0x6148, "sd:/bgm_crs2_01_menu.nus3audio", replace_title_screen_music);
 
     // Discover files
     unsafe {

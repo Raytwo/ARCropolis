@@ -7,7 +7,7 @@ use owo_colors::OwoColorize;
 use smash_arc::{ArcLookup, Hash40, Region};
 
 #[no_mangle]
-pub extern "C" fn arcrop_load_file(out_size: *mut usize, hash: Hash40, out_buffer: *mut u8, buf_length: usize) {
+pub extern "C" fn arcrop_load_file(hash: Hash40, out_buffer: *mut u8, buf_length: usize, out_size: &mut usize) -> bool {
     debug!("[Arcropolis-API::load_file] Hash received: {}, Buffer len: {:#x}", hashes::get(hash).green(), buf_length);
 
     let arc = LoadedTables::get_arc();
@@ -23,6 +23,7 @@ pub extern "C" fn arcrop_load_file(out_size: *mut usize, hash: Hash40, out_buffe
         let content = replacement_files::test(hash, &filectx.file);
         unsafe { *out_size = content.len(); }
         buffer.write(&content).unwrap();
+        return true;
     }
 
     if let Some(filectx) = MOD_FILES.read().get(FileIndex::Stream(hash)) {
@@ -30,7 +31,10 @@ pub extern "C" fn arcrop_load_file(out_size: *mut usize, hash: Hash40, out_buffe
         let content = replacement_files::test(hash, &filectx.file);
         unsafe { *out_size = content.len(); }
         buffer.write(&content).unwrap();
+        return true;
     }
+
+    false
 }
 
 #[no_mangle]
