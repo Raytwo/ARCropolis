@@ -38,7 +38,7 @@ pub enum FileIndex {
 #[repr(transparent)]
 pub struct ModFiles(pub HashMap<FileIndex, FileCtx>);
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct FileCtx {
     pub file: FileBacking,
     pub hash: Hash40,
@@ -46,7 +46,7 @@ pub struct FileCtx {
     pub index: FileInfoIndiceIdx,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone)]
 pub enum FileBacking {
     LoadFromArc,
     Path(ModPath),

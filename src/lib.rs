@@ -118,8 +118,8 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
         let data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.len() as usize) };
 
         let (mut from, mut to) = data_slice.split_at_mut(file_ctx.len() as usize - 0xB0);
-        from.write(&file_slice[0..file_slice.len() - 0xB0]);
-        to.write(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
+        from.write(&file_slice[0..file_slice.len() - 0xB0]).unwrap();
+        to.write(&file_slice[file_slice.len() - 0xB0..file_slice.len()]).unwrap();
     } else {
         let mut data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len() as _) };
         data_slice.write_all(&file_slice).unwrap();
@@ -273,7 +273,7 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
 
 static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
 
-extern "C" fn replace_msg_name(out_size: *mut usize, hash: u64, buffer: *mut u8, length: usize) -> bool {
+extern "C" fn replace_msg_name(out_size: &mut usize, hash: u64, buffer: *mut u8, length: usize) -> bool {
     println!("Hash received: {}", hashes::get(hash));
     let mut buffer = unsafe { std::slice::from_raw_parts_mut(buffer, length) };
 
@@ -291,7 +291,7 @@ extern "C" fn replace_msg_name(out_size: *mut usize, hash: u64, buffer: *mut u8,
     // arc_api::load_original_file(hash, buffer);
 }
 
-extern "C" fn chained_replace_msg_name(out_size: *mut usize, hash: u64, buffer: *mut u8, length: usize) -> bool {
+extern "C" fn chained_replace_msg_name(out_size: &mut usize, hash: u64, buffer: *mut u8, length: usize) -> bool {
     println!("Hash received: {}", hashes::get(hash));
     let mut buffer = unsafe { std::slice::from_raw_parts_mut(buffer, length) };
 
