@@ -2,10 +2,12 @@
 #![feature(str_strip)]
 #![feature(asm)]
 #![feature(ptr_offset_from)]
+#![feature(slice_fill)]
 
 use std::{ffi::CStr, path::PathBuf};
 use std::io::prelude::*;
 use std::net::IpAddr;
+use callbacks::Callback;
 use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
 
 mod cache;
@@ -20,6 +22,7 @@ mod menus;
 mod logging;
 mod fs;
 mod callbacks;
+mod api;
 
 use config::CONFIG;
 use runtime::{LoadedTables, ResServiceState, Table2Entry};
@@ -35,6 +38,7 @@ use binread::*;
 use owo_colors::OwoColorize;
 use log::{info, trace, warn};
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
+use arcropolis_api as arc_api;
 
 fn get_filectx_by_index<'a>(
     file_index: FileIndex,
@@ -58,7 +62,7 @@ fn get_filectx_by_index<'a>(
                     info!(
                         "[ARC::Loading | #{}] Hash matching for file: '{:?}'",
                         usize::from(info_indice_index).green(),
-                        file_ctx.path().display().bright_yellow()
+                        hashes::get(file_ctx.hash).bright_yellow()
                     );
                     Some((file_ctx, table2entry))
                 }
@@ -81,7 +85,7 @@ fn replace_file_by_index(file_index: FileIndex) {
             return;
         }
 
-        let file_slice = file_ctx.get_file_content().into_boxed_slice();
+        let file_slice = file_ctx.get_file_content();
 
         info!(
             "[ResInflateThread | #{}] Replacing '{}'",
@@ -90,8 +94,7 @@ fn replace_file_by_index(file_index: FileIndex) {
         );
 
         unsafe {
-            let mut data_slice =
-                std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len());
+            let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.len() as usize);
             data_slice.write_all(&file_slice).unwrap();
         }
     }
@@ -109,19 +112,14 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
         hashes::get(file_ctx.hash).bright_yellow()
     );
 
-    if orig_size > file_slice.len() {
-        let data_slice =
-            unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, orig_size) };
-        // Copy the content at the beginning
-        data_slice[0..file_slice.len() - 0xB0]
-            .copy_from_slice(&file_slice[0..file_slice.len() - 0xB0]);
-        // Copy our new footer at the end
-        data_slice[orig_size - 0xB0..orig_size]
-            .copy_from_slice(&file_slice[file_slice.len() - 0xB0..file_slice.len()]);
+    if file_ctx.len() as usize > file_slice.len() {
+        let data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.len() as usize) };
+
+        let (mut from, mut to) = data_slice.split_at_mut(file_ctx.len() as usize - 0xB0);
+        from.write(&file_slice[0..file_slice.len() - 0xB0]).unwrap();
+        to.write(&file_slice[file_slice.len() - 0xB0..file_slice.len()]).unwrap();
     } else {
-        let mut data_slice = unsafe {
-            std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.len() as _)
-        };
+        let mut data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len() as _) };
         data_slice.write_all(&file_slice).unwrap();
     }
 }
@@ -309,21 +307,21 @@ fn initial_loading(_ctx: &InlineCtx) {
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
 
-        if let Some(handle) = LUT_LOADER_HANDLE.take() {
-            handle.join().unwrap();
-            let lut = UNSHARE_LUT.read();
-            if lut.is_none() {
-                skyline_web::DialogOk::ok("No valid unsharing lookup table found. One will be generated and the game will restart.");
-                let cache = cache::UnshareCache::new(LoadedTables::get_arc());
-                cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
-                nn::oe::RestartProgramNoArgs();
-            } else if lut.as_ref().unwrap().arc_version != (*LoadedTables::get_arc().fs_header).version {
-                skyline_web::DialogOk::ok("Found unsharing lookup table for a different game version. A new one will be generated and the game will restart.");
-                let cache = cache::UnshareCache::new(LoadedTables::get_arc());
-                cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
-                nn::oe::RestartProgramNoArgs();
-            }
-        }
+        // if let Some(handle) = LUT_LOADER_HANDLE.take() {
+        //     handle.join().unwrap();
+        //     let lut = UNSHARE_LUT.read();
+        //     if lut.is_none() {
+        //         skyline_web::DialogOk::ok("No valid unsharing lookup table found. One will be generated and the game will restart.");
+        //         let cache = cache::UnshareCache::new(LoadedTables::get_arc());
+        //         cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
+        //         nn::oe::RestartProgramNoArgs();
+        //     } else if lut.as_ref().unwrap().arc_version != (*LoadedTables::get_arc().fs_header).version {
+        //         skyline_web::DialogOk::ok("Found unsharing lookup table for a different game version. A new one will be generated and the game will restart.");
+        //         let cache = cache::UnshareCache::new(LoadedTables::get_arc());
+        //         cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
+        //         nn::oe::RestartProgramNoArgs();
+        //     }
+        // }
 
         lazy_static::initialize(&MOD_FILES);
 
@@ -350,23 +348,23 @@ pub fn main() {
         stream::lookup_by_stream_hash,
     );
 
-    unsafe {
-        skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x346_36c4, &0x1400_0002);
+    // unsafe {
+    //     skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x346_36c4, &0x1400_0002);
         
-        LUT_LOADER_HANDLE = Some(std::thread::spawn(|| {
-            let mut unshare_lut = UNSHARE_LUT.write();
-            *unshare_lut = match std::fs::read("rom:/skyline/unshare_lut.bin") {
-                Ok(file_data) => {
-                    let mut reader = std::io::Cursor::new(file_data);
-                    match cache::UnshareCache::read(&mut reader) {
-                        Ok(lut) => Some(lut),
-                        Err(_) => None
-                    }
-                },
-                Err(_) => None
-            }
-        }));
-    }
+    //     LUT_LOADER_HANDLE = Some(std::thread::spawn(|| {
+    //         let mut unshare_lut = UNSHARE_LUT.write();
+    //         *unshare_lut = match std::fs::read("rom:/skyline/unshare_lut.bin") {
+    //             Ok(file_data) => {
+    //                 let mut reader = std::io::Cursor::new(file_data);
+    //                 match cache::UnshareCache::read(&mut reader) {
+    //                     Ok(lut) => Some(lut),
+    //                     Err(_) => None
+    //                 }
+    //             },
+    //             Err(_) => None
+    //         }
+    //     }));
+    // }
 
     println!(
         "ARCropolis v{} - File replacement plugin is now installed",

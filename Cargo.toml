@@ -24,10 +24,12 @@ skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
 skyline-update = { git = "https://github.com/skyline-rs/skyline-update" }
 # Needs to be cloned locally and add link.ld to the root of the directory for the time being. Don't ask why. I don't know.
-smash-arc = { path = "../smash-arc", features = [ "smash-runtime", "nozstd" ] }
+smash-arc = { path = "../smash-arc", features = [ "smash-runtime", "rust-zstd" ] }
 binread = "2"
 percent-encoding = "2.1.0"
 walkdir = "2"
+# This is added as a dependency just to locally try the API and will be removed before the merge. Can be downloaded here: https://github.com/Raytwo/arcropolis_api
+arcropolis-api = { path = "../arcropolis_api" }
 
 [profile.dev]
 panic = "abort"

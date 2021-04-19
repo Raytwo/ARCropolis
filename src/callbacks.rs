@@ -1,10 +1,29 @@
+use std::path::PathBuf;
+
+use smash_arc::Hash40;
 use crate::replacement_files::FileBacking;
+use arcropolis_api::{ CallbackFn, StreamCallbackFn };
 
-type CallbackFn = extern "C" fn() -> bool;
+#[repr(C)]
+pub enum CallbackKind {
+    Regular(Callback),
+    Stream(StreamCallback),
+}
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(C)]
+#[derive(Clone)]
 pub struct Callback {
-    callback: CallbackFn,
-    len: u32,
-    fallback: Box<FileBacking>
+    pub callback_fn: CallbackFn,
+    pub path: Option<PathBuf>,
+    pub len: u32,
+    pub previous: Box<FileBacking>
+}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct StreamCallback {
+    pub callback_fn: StreamCallbackFn,
+    pub path: Option<PathBuf>,
+    pub len: u32,
+    pub previous: Box<FileBacking>
 }
