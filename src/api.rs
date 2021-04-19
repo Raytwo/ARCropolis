@@ -1,10 +1,31 @@
-use std::{ffi::CStr, io::Write, path::PathBuf};
-
-use crate::{CONFIG, callbacks::{Callback, CallbackFn}, hashes, replacement_files::{self, CALLBACKS, FileBacking, FileIndex, MOD_FILES, get_region_id}, runtime::LoadedTables};
+use std::{
+    ffi::CStr,
+    io::Write,
+    path::PathBuf
+};
 
 use log::debug;
 use owo_colors::OwoColorize;
 use smash_arc::{ArcLookup, Hash40, Region};
+use arcropolis_api::{CallbackFn, StreamCallbackFn};
+
+use crate::{
+    CONFIG,
+    hashes,
+    runtime::LoadedTables,
+    callbacks::{
+        Callback,
+        StreamCallback
+    },
+    replacement_files::{
+        CALLBACKS,
+        MOD_FILES,
+        FileBacking,
+        FileIndex,
+        get_region_id,
+        recursive_file_backing_load,
+    },
+};
 
 #[no_mangle]
 pub extern "C" fn arcrop_load_file(hash: Hash40, out_buffer: *mut u8, buf_length: usize, out_size: &mut usize) -> bool {
@@ -20,7 +41,7 @@ pub extern "C" fn arcrop_load_file(hash: Hash40, out_buffer: *mut u8, buf_length
     // Get the FileCtx for this hash
     if let Some(filectx) = MOD_FILES.read().get(FileIndex::Regular(info_indice_idx)) {
         // Get the callback for this file as well as the file it applies to (either extracted from data.arc or from the SD)
-        let content = replacement_files::test(hash, &filectx.file);
+        let content = recursive_file_backing_load(hash, &filectx.file);
         unsafe { *out_size = content.len(); }
         buffer.write(&content).unwrap();
         return true;
@@ -28,7 +49,7 @@ pub extern "C" fn arcrop_load_file(hash: Hash40, out_buffer: *mut u8, buf_length
 
     if let Some(filectx) = MOD_FILES.read().get(FileIndex::Stream(hash)) {
         // Get the callback for this file as well as the file it applies to (either extracted from data.arc or from the SD)
-        let content = replacement_files::test(hash, &filectx.file);
+        let content = recursive_file_backing_load(hash, &filectx.file);
         unsafe { *out_size = content.len(); }
         buffer.write(&content).unwrap();
         return true;

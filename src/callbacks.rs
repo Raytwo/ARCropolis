@@ -2,11 +2,7 @@ use std::path::PathBuf;
 
 use smash_arc::Hash40;
 use crate::replacement_files::FileBacking;
-
-// out_size, hash, out_buffer, length
-pub type CallbackFn = extern "C" fn(&mut usize, u64, *mut u8, usize) -> bool;
-// out_size, 
-pub type StreamCallbackFn = extern "C" fn(&mut usize, u64, *mut u8, usize) -> bool;
+use arcropolis_api::{ CallbackFn, StreamCallbackFn };
 
 #[repr(C)]
 pub enum CallbackKind {

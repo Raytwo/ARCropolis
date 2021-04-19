@@ -358,8 +358,8 @@ fn initial_loading(_ctx: &InlineCtx) {
 
     // Register a callback before file discovery happens to test the API
     // Size for EuFrench msg_name.msbt on 11.0.1
-    arc_api::register_callback("ui/message/msg_name.msbt", 0x800a0, replace_msg_name);
-    arc_api::register_callback("ui/message/msg_name.msbt", 0x77580, chained_replace_msg_name);
+    //arc_api::register_callback("ui/message/msg_name.msbt", 0x800a0, replace_msg_name);
+    //arc_api::register_callback("ui/message/msg_name.msbt", 0x77580, chained_replace_msg_name);
     //arc_api::register_stream_callback("stream:/sound/bgm/bgm_crs2_01_menu.nus3audio", 0x6148, "sd:/bgm_crs2_01_menu.nus3audio", replace_title_screen_music);
 
     // Discover files

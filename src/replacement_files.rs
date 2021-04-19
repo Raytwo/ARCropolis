@@ -381,11 +381,11 @@ impl FileCtx {
 
     pub fn get_file_content(&self) -> Vec<u8> {
         println!("Get_file_content");
-        test(self.hash, &self.file)
+        recursive_file_backing_load(self.hash, &self.file)
     }
 }
 
-pub fn test(hash: Hash40, backing: &FileBacking) -> Vec<u8> {
+pub fn recursive_file_backing_load(hash: Hash40, backing: &FileBacking) -> Vec<u8> {
     match backing {
         // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
         FileBacking::Path(modpath) => { 
@@ -408,11 +408,11 @@ pub fn test(hash: Hash40, backing: &FileBacking) -> Vec<u8> {
 
             let mut out_size: usize = 0;
 
-            if cb(&mut out_size, hash.as_u64(), buffer.as_mut_ptr(), callback.len as usize) {
+            if cb(hash.as_u64(), buffer.as_mut_ptr(), callback.len as usize, &mut out_size) {
                 println!("Callback returned size: {:#x}", out_size);
                 buffer[0..out_size].to_vec()
             } else {
-                test(hash, &**original)
+                recursive_file_backing_load(hash, &**original)
             }
         },
     }
