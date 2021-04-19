@@ -27,6 +27,19 @@ use crate::{
     },
 };
 
+/// NOTE: THIS MUST BE BUMPED ANY TIME THE EXTERNALLY-FACING API IS CHANGED
+///
+/// How to know which to bump:
+/// 
+/// Do your changes modify an existing API: Major bump
+/// Do your changes only add new APIs in a backwards compatible way: Minor bump
+///
+/// Are your changes only internal? No version bump
+static API_VERSION: ApiVersion = ApiVersion {
+    major: 1,
+    minor: 0
+};
+
 #[no_mangle]
 pub extern "C" fn arcrop_load_file(hash: Hash40, out_buffer: *mut u8, buf_length: usize, out_size: &mut usize) -> bool {
     debug!("[Arcropolis-API::load_file] Hash received: {}, Buffer len: {:#x}", hashes::get(hash).green(), buf_length);
@@ -125,7 +138,39 @@ pub extern "C" fn arcrop_register_callback_with_path(hash: Hash40, length: usize
 }
 
 #[no_mangle]
-pub extern "C" fn arcrop_api_version() {
+pub extern "C" fn arcrop_api_version() -> &'static ApiVersion {
     debug!("[Arcropolis-API::api_version] Function called");
-    unimplemented!()
+
+    &API_VERSION
+}
+
+fn show_arcrop_update_prompt() -> ! {
+    skyline_web::DialogOk::ok(
+        "Your ARCropolis version is older than one of your plugins supports, an update is required"
+    );
+
+    unsafe { skyline::nn::oe::ExitApplication() }
+}
+
+fn show_plugin_update_prompt() -> ! {
+    skyline_web::DialogOk::ok(
+        "Your ARCropolis version is too new for one of your plugins, it must be updated to support this API version"
+    );
+
+    unsafe { skyline::nn::oe::ExitApplication() }
+}
+
+#[no_mangle]
+pub extern "C" fn arcrop_require_api_version(major: u32, minor: u32) {
+    if major > API_VERSION.major || (major == API_VERSION.major && minor > API_VERSION.minor) {
+        show_arcrop_update_prompt()
+    } else if major < API_VERSION.major {
+        show_plugin_update_prompt()
+    }
+}
+
+#[repr(C)]
+pub struct ApiVersion {
+    major: u32,
+    minor: u32,
 }
