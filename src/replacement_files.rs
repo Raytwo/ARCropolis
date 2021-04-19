@@ -380,7 +380,6 @@ impl FileCtx {
     }
 
     pub fn get_file_content(&self) -> Vec<u8> {
-        println!("Get_file_content");
         recursive_file_backing_load(self.hash, &self.file)
     }
 }
@@ -389,17 +388,14 @@ pub fn recursive_file_backing_load(hash: Hash40, backing: &FileBacking) -> Vec<u
     match backing {
         // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
         FileBacking::Path(modpath) => { 
-            println!("Path");
             fs::read(modpath).unwrap() },
         FileBacking::LoadFromArc => {
-            println!("LoadFromArc");
             let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
 
             let arc = LoadedTables::get_arc();
             arc.get_file_contents(hash, user_region).unwrap()
         },
         FileBacking::Callback { callback, original } => {
-            println!("Callback");
             let cb = callback.callback_fn;
 
             // Prepare a buffer with the patched size
