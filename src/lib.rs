@@ -102,8 +102,7 @@ fn replace_file_by_index(file_index: FileIndex) {
 
 // TODO: Probably remove this once extension callbacks are a thing
 fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) {
-    let orig_size = file_ctx.orig_size as usize;
-
+    // get the file data to be loaded into the buffer
     let file_slice = file_ctx.get_file_content().into_boxed_slice();
 
     info!(
@@ -112,15 +111,40 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
         hashes::get(file_ctx.hash).bright_yellow()
     );
 
-    if file_ctx.len() as usize > file_slice.len() {
-        let data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.len() as usize) };
+    // get the size of the buffer the game allocated
+    let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+    let arc = LoadedTables::get_arc();
+    let buffer_size = arc.get_file_data_from_hash(file_ctx.hash, user_region).unwrap().decomp_size;
 
-        let (mut from, mut to) = data_slice.split_at_mut(file_ctx.len() as usize - 0xB0);
-        from.write(&file_slice[0..file_slice.len() - 0xB0]).unwrap();
-        to.write(&file_slice[file_slice.len() - 0xB0..file_slice.len()]).unwrap();
-    } else {
-        let mut data_slice = unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_slice.len() as _) };
-        data_slice.write_all(&file_slice).unwrap();
+
+    // length of the buffer before header extension
+    let real_size = file_slice.len();
+
+    // file_ctx.len() - size of the allocated buffer, the max size
+    // table2entry.data - pointer to the buffer allocated
+    // ??? - size of the nutexb before extension
+    // ??? - the file data needing extension
+    let mut data_out = unsafe { 
+        std::slice::from_raw_parts_mut(table2entry.data as *mut u8, buffer_size as _)
+    };
+
+    // Copy data into out buffer
+    data_out.copy_from_slice(&file_slice);
+
+    // this will point to the index where the footer needs to be
+    let max_data_size = data_out.len() - 0xb0;
+
+    // if the data given is smaller than the out buffer, we need to copy the nutexb footer
+    // to the end of the buffer
+    if file_slice.len() < data_out.len() {
+        let start_of_footer = real_size - 0xb0;
+
+        let (contents, footer) = data_out.split_at_mut(max_data_size);
+
+        let original_footer = &contents[start_of_footer..real_size];
+
+        // copy the footer to the end of the buffer
+        footer.copy_from_slice(original_footer);
     }
 }
 
