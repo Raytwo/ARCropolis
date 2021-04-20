@@ -129,7 +129,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
     };
 
     // Copy data into out buffer
-    data_out.copy_from_slice(&file_slice);
+    data_out[..file_slice.len()].copy_from_slice(&file_slice);
 
     // this will point to the index where the footer needs to be
     let max_data_size = data_out.len() - 0xb0;
