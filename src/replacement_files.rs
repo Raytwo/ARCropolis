@@ -42,7 +42,6 @@ pub struct ModFiles(pub HashMap<FileIndex, FileCtx>);
 pub struct FileCtx {
     pub file: FileBacking,
     pub hash: Hash40,
-    pub orig_size: u32,
     pub index: FileInfoIndiceIdx,
 }
 
@@ -237,7 +236,7 @@ impl ModFiles {
                 let info_index = arc.get_file_info_indices()[*info_index].file_info_index;
                 let file_info = arc.get_file_infos()[info_index];
 
-                ctx.orig_size = arc.patch_filedata(&file_info, ctx.len())
+                arc.patch_filedata(&file_info, ctx.len());
             }
 
             (*index, ctx.clone())
@@ -306,7 +305,6 @@ impl FileCtx {
         FileCtx {
             file: FileBacking::LoadFromArc,
             hash: Hash40(0),
-            orig_size: 0,
             index: FileInfoIndiceIdx(0),
         }
     }
