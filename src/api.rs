@@ -28,7 +28,7 @@ use crate::{CONFIG, callbacks::{Callback, CallbackKind, StreamCallback}, hashes,
 /// Are your changes only internal? No version bump
 static API_VERSION: ApiVersion = ApiVersion {
     major: 1,
-    minor: 0
+    minor: 1
 };
 
 #[no_mangle]
