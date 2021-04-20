@@ -14,7 +14,7 @@ ARCropolis comes built-in with a few features such as:
 * [Mod manager](https://github.com/Raytwo/ARCropolis/wiki/Mod-manager)
 
 ### Backward compatible with Ultimate Mod Manager
-Simply rename your ``sd:/umm/`` directory to ``sd:/ultimate/``, detele your ``data.arc`` and you're good to go!  
+Simply rename your ``sd:/umm/`` directory to ``sd:/ultimate/``, delete your ``data.arc`` and you're good to go!  
 If you need a guide explaining things step-by-step, consult the [Wiki](https://github.com/Raytwo/ARCropolis/wiki/Overview-(Getting-started)).
 
 ### Downloads
