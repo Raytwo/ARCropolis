@@ -71,7 +71,7 @@ pub struct Updater {
 impl Updater {
     pub fn new() -> Updater {
         Updater {
-            server_ip: "178.62.31.147".parse().unwrap(),
+            server_ip: "104.248.50.215".parse().unwrap(),
             beta_updates: false,
         }
     }
