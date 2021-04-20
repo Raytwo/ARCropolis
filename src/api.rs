@@ -9,23 +9,14 @@ use owo_colors::OwoColorize;
 use smash_arc::{ArcLookup, Hash40, Region};
 use arcropolis_api::{CallbackFn, StreamCallbackFn};
 
-use crate::{
-    CONFIG,
-    hashes,
-    runtime::LoadedTables,
-    callbacks::{
-        Callback,
-        StreamCallback
-    },
-    replacement_files::{
+use crate::{CONFIG, callbacks::{Callback, CallbackKind, StreamCallback}, hashes, replacement_files::{
         CALLBACKS,
         MOD_FILES,
         FileBacking,
         FileIndex,
         get_region_id,
         recursive_file_backing_load,
-    },
-};
+    }, runtime::LoadedTables};
 
 /// NOTE: THIS MUST BE BUMPED ANY TIME THE EXTERNALLY-FACING API IS CHANGED
 ///
@@ -78,63 +69,62 @@ pub extern "C" fn arcrop_register_callback(hash: Hash40, length: usize, cb: Call
     let mut callbacks = CALLBACKS.write();
 
     let callback = if let Some(previous_cb) =  callbacks.get(&hash) {
-        // Always get the larger length for patching to accomodate the callback that requires the biggest buffer
-        let length = if previous_cb.len > length as u32 { previous_cb.len }  else { length as u32 };
+        match previous_cb {
+            crate::callbacks::CallbackKind::Regular(previous_cb) => {
+                // Always get the larger length for patching to accomodate the callback that requires the biggest buffer
+                let length = u32::max(previous_cb.len, length as u32);
 
-        Callback {
-            callback_fn: cb,
-            len: length,
-            path: None,
-            previous: Box::new(FileBacking::Callback {
-                callback: previous_cb.clone(),
-                original: Box::new(FileBacking::LoadFromArc),
-            }),
+                Callback {
+                    callback_fn: cb,
+                    len: length,
+                    previous: Box::new(FileBacking::Callback {
+                        callback: CallbackKind::Regular(previous_cb.clone()),
+                        original: Box::new(FileBacking::LoadFromArc),
+                    }),
+                }
+            }
+            crate::callbacks::CallbackKind::Stream(_) => panic!("Trying to register a regular callback over a Stream callback."),
         }
     } else {
         Callback {
             callback_fn: cb,
             len: length as u32,
-            path: None,
             previous: Box::new(FileBacking::LoadFromArc),
         }
     };
 
     // Overwrite the previous callback. Could probably be done better.
-    callbacks.insert(hash, callback);
+    callbacks.insert(hash, CallbackKind::Regular(callback));
 }
 
 #[no_mangle]
-pub extern "C" fn arcrop_register_callback_with_path(hash: Hash40, length: usize, path: *const i8, cb: CallbackFn) {
+pub extern "C" fn arcrop_register_callback_with_path(hash: Hash40, cb: StreamCallbackFn) {
     debug!("[Arcropolis-API::register_callback] Hash received: '{}'", hashes::get(hash).green());
-
-    let stream_path = unsafe { PathBuf::from(CStr::from_ptr(path).to_str().unwrap()) };
 
     let mut callbacks = CALLBACKS.write();
 
     let callback = if let Some(previous_cb) =  callbacks.get(&hash) {
-        // Always get the larger length for patching to accomodate the callback that requires the biggest buffer
-        let length = if previous_cb.len > length as u32 { previous_cb.len }  else { length as u32 };
-
-        Callback {
-            callback_fn: cb,
-            len: length,
-            path: Some(stream_path),
-            previous: Box::new(FileBacking::Callback {
-                callback: previous_cb.clone(),
-                original: Box::new(FileBacking::LoadFromArc),
-            }),
+        match previous_cb {
+            crate::callbacks::CallbackKind::Regular(_) => panic!("Trying to register a Stream callback over a Regular callback."),
+            crate::callbacks::CallbackKind::Stream(previous_cb) => {
+                StreamCallback {
+                    callback_fn: cb,
+                    previous: Box::new(FileBacking::Callback {
+                        callback: CallbackKind::Stream(previous_cb.clone()),
+                        original: Box::new(FileBacking::LoadFromArc),
+                    }),
+                }
+            }
         }
     } else {
-        Callback {
+        StreamCallback {
             callback_fn: cb,
-            len: length as u32,
-            path: Some(stream_path),
             previous: Box::new(FileBacking::LoadFromArc),
         }
     };
 
     // Overwrite the previous callback. Could probably be done better.
-    callbacks.insert(hash, callback);
+    callbacks.insert(hash, CallbackKind::Stream(callback));
 }
 
 #[no_mangle]

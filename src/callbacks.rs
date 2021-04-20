@@ -5,6 +5,7 @@ use crate::replacement_files::FileBacking;
 use arcropolis_api::{ CallbackFn, StreamCallbackFn };
 
 #[repr(C)]
+#[derive(Clone)]
 pub enum CallbackKind {
     Regular(Callback),
     Stream(StreamCallback),
@@ -14,7 +15,6 @@ pub enum CallbackKind {
 #[derive(Clone)]
 pub struct Callback {
     pub callback_fn: CallbackFn,
-    pub path: Option<PathBuf>,
     pub len: u32,
     pub previous: Box<FileBacking>
 }
@@ -23,7 +23,5 @@ pub struct Callback {
 #[derive(Clone)]
 pub struct StreamCallback {
     pub callback_fn: StreamCallbackFn,
-    pub path: Option<PathBuf>,
-    pub len: u32,
     pub previous: Box<FileBacking>
 }
