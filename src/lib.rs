@@ -26,7 +26,7 @@ mod api;
 
 use config::CONFIG;
 use runtime::{LoadedTables, ResServiceState, Table2Entry};
-use replacement_files::{FileCtx, FileIndex, INCOMING_IDX, MOD_FILES, UNSHARE_LUT};
+use replacement_files::{FileCtx, FileIndex, get_region_id, INCOMING_IDX, MOD_FILES, UNSHARE_LUT};
 
 use offsets::{
     INFLATE_DIR_FILE_OFFSET, INFLATE_OFFSET, INITIAL_LOADING_OFFSET, MANUAL_OPEN_OFFSET,
