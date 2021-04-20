@@ -71,7 +71,7 @@ pub struct Updater {
 impl Updater {
     pub fn new() -> Updater {
         Updater {
-            server_ip: "104.248.50.215".parse().unwrap(),
+            server_ip: "178.62.31.147".parse().unwrap(),
             beta_updates: false,
         }
     }
@@ -197,10 +197,8 @@ impl Config {
             None => self.paths.extra_paths = Some(vec![]),
         }
 
-        match &mut self.updater {
-            Some(updater) => {
-                 updater.server_ip = "104.248.50.215".parse().unwrap()
-            }
+        match &self.updater {
+            Some(_) => {}
             None => self.updater = Some(Updater::new()),
         }
 
