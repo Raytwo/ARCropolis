@@ -7,6 +7,7 @@ use smash_arc::{ArcLookup, Hash40, Region};
 
 use crate::{
     callbacks::{Callback, CallbackKind, StreamCallback},
+    config::REGION,
     hashes,
     replacement_files::{
         recursive_file_backing_load, FileBacking, FileIndex, CALLBACKS, MOD_FILES,
@@ -62,24 +63,24 @@ pub extern "C" fn arcrop_load_file(
     if let Some(filectx) = MOD_FILES.read().get(FileIndex::Regular(info_indice_idx)) {
         // Get the callback for this file as well as the file it applies to (either extracted from data.arc or from the SD)
         let content = recursive_file_backing_load(hash, &filectx.file);
-        unsafe {
-            *out_size = content.len();
-        }
-        buffer.write(&content).unwrap();
-        return true;
-    }
-
-    if let Some(filectx) = MOD_FILES.read().get(FileIndex::Stream(hash)) {
+        *out_size = content.len();
+        buffer.write_all(&content).unwrap();
+    } else if let Some(filectx) = MOD_FILES.read().get(FileIndex::Stream(hash)) {
         // Get the callback for this file as well as the file it applies to (either extracted from data.arc or from the SD)
         let content = recursive_file_backing_load(hash, &filectx.file);
-        unsafe {
-            *out_size = content.len();
+        *out_size = content.len();
+        buffer.write_all(&content).unwrap();
+    } else {
+        match arc.get_file_contents(hash, *REGION) {
+            Ok(contents) => {
+                *out_size = contents.len();
+                buffer.write_all(&contents).unwrap();
+            }
+            Err(_) => return false
         }
-        buffer.write(&content).unwrap();
-        return true;
     }
 
-    false
+    true
 }
 
 #[no_mangle]
