@@ -4,41 +4,40 @@
 #![feature(ptr_offset_from)]
 #![feature(slice_fill)]
 
-use std::{ffi::CStr, path::PathBuf};
-use std::io::prelude::*;
-use std::net::IpAddr;
 use callbacks::Callback;
 use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
+use std::io::prelude::*;
+use std::net::IpAddr;
+use std::{ffi::CStr, path::PathBuf};
 
-mod cache;
-mod cpp_vector;
-mod config;
-mod hashes;
-mod stream;
-mod replacement_files;
-mod offsets;
-mod runtime;
-mod menus;
-mod logging;
-mod fs;
-mod callbacks;
 mod api;
+mod cache;
+mod callbacks;
+mod config;
+mod cpp_vector;
+mod fs;
+mod hashes;
+mod logging;
+mod menus;
+mod offsets;
+mod replacement_files;
+mod runtime;
+mod stream;
 
 use config::CONFIG;
+use replacement_files::{get_region_id, FileCtx, FileIndex, INCOMING_IDX, MOD_FILES, UNSHARE_LUT};
 use runtime::{LoadedTables, ResServiceState, Table2Entry};
-use replacement_files::{FileCtx, FileIndex, get_region_id, INCOMING_IDX, MOD_FILES, UNSHARE_LUT};
 
 use offsets::{
     INFLATE_DIR_FILE_OFFSET, INFLATE_OFFSET, INITIAL_LOADING_OFFSET, MANUAL_OPEN_OFFSET,
     MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, TITLE_SCREEN_VERSION_OFFSET,
 };
 
-
-use binread::*;
-use owo_colors::OwoColorize;
-use log::{info, trace, warn};
-use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
 use arcropolis_api as arc_api;
+use binread::*;
+use log::{info, trace, warn};
+use owo_colors::OwoColorize;
+use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
 
 fn get_filectx_by_index<'a>(
     file_index: FileIndex,
@@ -94,7 +93,10 @@ fn replace_file_by_index(file_index: FileIndex) {
         );
 
         unsafe {
-            let mut data_slice = std::slice::from_raw_parts_mut(table2entry.data as *mut u8, file_ctx.len() as usize);
+            let mut data_slice = std::slice::from_raw_parts_mut(
+                table2entry.data as *mut u8,
+                file_ctx.len() as usize,
+            );
             data_slice.write_all(&file_slice).unwrap();
         }
     }
@@ -112,10 +114,14 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
     );
 
     // get the size of the buffer the game allocated
-    let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+    let user_region = smash_arc::Region::from(
+        get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
+    );
     let arc = LoadedTables::get_arc();
-    let buffer_size = arc.get_file_data_from_hash(file_ctx.hash, user_region).unwrap().decomp_size;
-
+    let buffer_size = arc
+        .get_file_data_from_hash(file_ctx.hash, user_region)
+        .unwrap()
+        .decomp_size;
 
     // length of the buffer before header extension
     let real_size = file_slice.len();
@@ -124,9 +130,8 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
     // table2entry.data - pointer to the buffer allocated
     // ??? - size of the nutexb before extension
     // ??? - the file data needing extension
-    let mut data_out = unsafe { 
-        std::slice::from_raw_parts_mut(table2entry.data as *mut u8, buffer_size as _)
-    };
+    let mut data_out =
+        unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, buffer_size as _) };
 
     // Copy data into out buffer
     data_out[..file_slice.len()].copy_from_slice(&file_slice);
@@ -298,7 +303,7 @@ static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     let config = CONFIG.read();
-    
+
     if logging::init(config.logger.unwrap().logger_level.into()).is_err() {
         println!("ARCropolis logger could not be initialized.")
     }
@@ -310,17 +315,23 @@ fn initial_loading(_ctx: &InlineCtx) {
         env!("CARGO_PKG_VERSION"),
         config.updater.unwrap().beta_updates,
     ) {
-        skyline_web::DialogOk::ok("The update was downloaded successfully<br>ARCropolis will now reboot."); 
+        skyline_web::DialogOk::ok(
+            "The update was downloaded successfully<br>ARCropolis will now reboot.",
+        );
         skyline::nn::oe::RestartProgramNoArgs();
     }
 
-    if let Ok(changelog) = std::fs::read_to_string("sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis/changelog.toml") 
-    {
+    if let Ok(changelog) = std::fs::read_to_string(
+        "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis/changelog.toml",
+    ) {
         match toml::from_str(&changelog) {
             Ok(changelog) => {
                 menus::display_update_page(&changelog);
-                std::fs::remove_file("sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis/changelog.toml").unwrap();
-            },
+                std::fs::remove_file(
+                    "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis/changelog.toml",
+                )
+                .unwrap();
+            }
             Err(_) => {
                 warn!("Changelog could not be parsed. Is the file malformed?");
             }
@@ -374,7 +385,7 @@ pub fn main() {
 
     // unsafe {
     //     skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x346_36c4, &0x1400_0002);
-        
+
     //     LUT_LOADER_HANDLE = Some(std::thread::spawn(|| {
     //         let mut unshare_lut = UNSHARE_LUT.write();
     //         *unshare_lut = match std::fs::read("rom:/skyline/unshare_lut.bin") {

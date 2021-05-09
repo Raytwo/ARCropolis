@@ -1,6 +1,17 @@
-use std::{collections::HashMap, fs, path::{Path, PathBuf}, vec, io::Write};
+use std::{
+    collections::HashMap,
+    fs,
+    io::Write,
+    path::{Path, PathBuf},
+    vec,
+};
 
-use crate::{callbacks::{Callback, CallbackKind}, config::CONFIG, fs::visit::ModPath, hashes, runtime};
+use crate::{
+    callbacks::{Callback, CallbackKind},
+    config::CONFIG,
+    fs::visit::ModPath,
+    hashes, runtime,
+};
 
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40, HashToIndex, Region};
 
@@ -52,7 +63,7 @@ pub enum FileBacking {
     Callback {
         callback: CallbackKind,
         original: Box<FileBacking>,
-    }
+    },
 }
 
 #[macro_export]
@@ -87,7 +98,7 @@ impl ModFiles {
                 }
             }
         }
-        
+
         //Self::unshare(&modfiles);
         Self(ModFiles::process_mods(&modfiles))
     }
@@ -95,31 +106,40 @@ impl ModFiles {
     fn process_mods(modfiles: &HashMap<Hash40, ModPath>) -> HashMap<FileIndex, FileCtx> {
         let arc = LoadedTables::get_arc_mut();
 
-        let mut mods = modfiles.iter().filter_map(|(hash, modpath)| {
-            let mut filectx = FileCtx::new();
+        let mut mods = modfiles
+            .iter()
+            .filter_map(|(hash, modpath)| {
+                let mut filectx = FileCtx::new();
 
-            filectx.file = FileBacking::Path(modpath.clone());
-            filectx.hash = *hash;
+                filectx.file = FileBacking::Path(modpath.clone());
+                filectx.hash = *hash;
 
-            if modpath.is_stream() {
-                warn!("[ARC::Patching] File '{}' added as a Stream", filectx.path().unwrap().display().bright_yellow());
-                Some((FileIndex::Stream(filectx.hash), filectx))
-            } else {
-                match arc.get_file_path_index_from_hash(*hash) {
-                    Ok(index) => {
-                        let file_info = arc.get_file_info_from_path_index(index);
+                if modpath.is_stream() {
+                    warn!(
+                        "[ARC::Patching] File '{}' added as a Stream",
+                        filectx.path().unwrap().display().bright_yellow()
+                    );
+                    Some((FileIndex::Stream(filectx.hash), filectx))
+                } else {
+                    match arc.get_file_path_index_from_hash(*hash) {
+                        Ok(index) => {
+                            let file_info = arc.get_file_info_from_path_index(index);
 
-                        filectx.index = file_info.file_info_indice_index;
+                            filectx.index = file_info.file_info_indice_index;
 
-                        Some((FileIndex::Regular(filectx.index), filectx))
-                    }
-                    Err(_) => {
-                        warn!("[ARC::Patching] File '{}' was not found in data.arc", modpath.to_smash_path().display().bright_yellow());
-                        None
+                            Some((FileIndex::Regular(filectx.index), filectx))
+                        }
+                        Err(_) => {
+                            warn!(
+                                "[ARC::Patching] File '{}' was not found in data.arc",
+                                modpath.to_smash_path().display().bright_yellow()
+                            );
+                            None
+                        }
                     }
                 }
-            }
-        }).collect::<HashMap<FileIndex, FileCtx>>();
+            })
+            .collect::<HashMap<FileIndex, FileCtx>>();
 
         // Process callbacks here?
         let callbacks = CALLBACKS.read();
@@ -135,7 +155,9 @@ impl ModFiles {
                     match arc.get_file_path_index_from_hash(*hash) {
                         // This hash exists in the regular files
                         Ok(path_index) => {
-                            let info = arc.get_file_info_from_path_index(path_index).file_info_indice_index;
+                            let info = arc
+                                .get_file_info_from_path_index(path_index)
+                                .file_info_indice_index;
 
                             // Check if we already have a FileCtx for it
                             match mods.get_mut(&FileIndex::Regular(info)) {
@@ -143,46 +165,54 @@ impl ModFiles {
                                 Some(filectx) => {
                                     // Update the FileCtx
                                     let new_callback = callback;
-                
-                                    let new_backing = if let FileBacking::Callback { callback, original} = &*callback.previous {
-                                        FileBacking::Callback {
-                                            callback: CallbackKind::Regular(new_callback.clone()),
-                                            original: Box::new(FileBacking::Callback {
-                                                callback: callback.clone(),
+
+                                    let new_backing =
+                                        if let FileBacking::Callback { callback, original } =
+                                            &*callback.previous
+                                        {
+                                            FileBacking::Callback {
+                                                callback: CallbackKind::Regular(
+                                                    new_callback.clone(),
+                                                ),
+                                                original: Box::new(FileBacking::Callback {
+                                                    callback: callback.clone(),
+                                                    original: Box::new(filectx.file.clone()),
+                                                }),
+                                            }
+                                        } else {
+                                            FileBacking::Callback {
+                                                callback: CallbackKind::Regular(
+                                                    new_callback.clone(),
+                                                ),
                                                 original: Box::new(filectx.file.clone()),
-                                            }),
-                                        }
-                                    } else {
-                                        FileBacking::Callback {
-                                            callback: CallbackKind::Regular(new_callback.clone()),
-                                            original: Box::new(filectx.file.clone()),
-                                        }
-                                    };
-                
+                                            }
+                                        };
+
                                     filectx.file = new_backing;
                                 }
                                 // Doesn't exist on the SD
                                 None => {
                                     // Create a FileCtx for it
                                     let new_callback = callback;
-                
+
                                     let mut filectx = FileCtx::new();
                                     filectx.hash = *hash;
                                     filectx.index = info;
-                
+
                                     filectx.file = FileBacking::Callback {
                                         callback: CallbackKind::Regular(new_callback.clone()),
                                         original: Box::new(FileBacking::LoadFromArc),
                                     };
-                
+
                                     mods.insert(FileIndex::Regular(info), filectx);
                                 }
                             }
                         }
                         // The file does not exist in data.arc, but this should be implement when file addition is a thing.
-                        Err(_) => {
-                            debug!("A callback registered for a hash that does not exist ({:#x})", hash.as_u64())
-                        }
+                        Err(_) => debug!(
+                            "A callback registered for a hash that does not exist ({:#x})",
+                            hash.as_u64()
+                        ),
                     }
                 }
                 // Stream file callback
@@ -193,8 +223,10 @@ impl ModFiles {
                         Some(filectx) => {
                             // Update the FileCtx
                             let new_callback = callback;
-        
-                            let new_backing = if let FileBacking::Callback { callback, original} = &*callback.previous {
+
+                            let new_backing = if let FileBacking::Callback { callback, original } =
+                                &*callback.previous
+                            {
                                 FileBacking::Callback {
                                     callback: CallbackKind::Stream(new_callback.clone()),
                                     original: Box::new(FileBacking::Callback {
@@ -208,39 +240,41 @@ impl ModFiles {
                                     original: Box::new(filectx.file.clone()),
                                 }
                             };
-        
+
                             filectx.file = new_backing;
                         }
                         // Doesn't exist on the SD
                         None => {
                             // Create a FileCtx for it
                             let new_callback = callback;
-        
+
                             let mut filectx = FileCtx::new();
                             filectx.hash = *hash;
-        
+
                             filectx.file = FileBacking::Callback {
                                 callback: CallbackKind::Stream(new_callback.clone()),
                                 original: Box::new(FileBacking::LoadFromArc),
                             };
-        
+
                             mods.insert(FileIndex::Stream(*hash), filectx);
                         }
                     }
                 }
             }
         });
-        
-        mods.iter_mut().map(|(index, ctx)| {
-            if let FileIndex::Regular(info_index) = index {
-                let info_index = arc.get_file_info_indices()[*info_index].file_info_index;
-                let file_info = arc.get_file_infos()[info_index];
 
-                arc.patch_filedata(&file_info, ctx.len());
-            }
+        mods.iter_mut()
+            .map(|(index, ctx)| {
+                if let FileIndex::Regular(info_index) = index {
+                    let info_index = arc.get_file_info_indices()[*info_index].file_info_index;
+                    let file_info = arc.get_file_infos()[info_index];
 
-            (*index, ctx.clone())
-        }).collect()
+                    arc.patch_filedata(&file_info, ctx.len());
+                }
+
+                (*index, ctx.clone())
+            })
+            .collect()
     }
 
     pub fn get(&self, file_index: FileIndex) -> Option<&FileCtx> {
@@ -326,19 +360,23 @@ impl FileCtx {
         match &self.file {
             FileBacking::Path(modpath) => modpath.len() as u32,
             FileBacking::LoadFromArc => {
-                let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+                let user_region = smash_arc::Region::from(
+                    get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
+                );
 
                 let arc = LoadedTables::get_arc();
                 // Careful, this could backfire once the size is patched
-                arc.get_file_data_from_hash(self.hash, user_region).unwrap().decomp_size
-            },
+                arc.get_file_data_from_hash(self.hash, user_region)
+                    .unwrap()
+                    .decomp_size
+            }
             FileBacking::Callback { callback, original } => {
                 if let CallbackKind::Regular(cb) = callback {
                     cb.len
                 } else {
                     0
                 }
-            },
+            }
         }
     }
 
@@ -348,9 +386,10 @@ impl FileCtx {
             FileBacking::Path(modpath) => Some(modpath.to_path_buf()),
             // lol, lmao
             FileBacking::LoadFromArc => None,
-            FileBacking::Callback { callback, original: _ } => {
-                Some(PathBuf::from("Callback"))
-            },
+            FileBacking::Callback {
+                callback,
+                original: _,
+            } => Some(PathBuf::from("Callback")),
         }
     }
 
@@ -362,14 +401,15 @@ impl FileCtx {
 pub fn recursive_file_backing_load(hash: Hash40, backing: &FileBacking) -> Vec<u8> {
     match backing {
         // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
-        FileBacking::Path(modpath) => { 
-            fs::read(modpath).unwrap() },
+        FileBacking::Path(modpath) => fs::read(modpath).unwrap(),
         FileBacking::LoadFromArc => {
-            let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+            let user_region = smash_arc::Region::from(
+                get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
+            );
 
             let arc = LoadedTables::get_arc();
             arc.get_file_contents(hash, user_region).unwrap()
-        },
+        }
         FileBacking::Callback { callback, original } => {
             if let CallbackKind::Regular(callback) = callback {
                 let cb = callback.callback_fn;
@@ -377,10 +417,15 @@ pub fn recursive_file_backing_load(hash: Hash40, backing: &FileBacking) -> Vec<u
                 // Prepare a buffer with the patched size
                 let mut buffer = Vec::with_capacity(callback.len as _);
                 unsafe { buffer.set_len(callback.len as usize) };
-                
+
                 let mut out_size: usize = 0;
 
-                if cb(hash.as_u64(), buffer.as_mut_ptr(), callback.len as usize, &mut out_size) {
+                if cb(
+                    hash.as_u64(),
+                    buffer.as_mut_ptr(),
+                    callback.len as usize,
+                    &mut out_size,
+                ) {
                     println!("Callback returned size: {:#x}", out_size);
                     buffer[0..out_size].to_vec()
                 } else {
@@ -390,6 +435,6 @@ pub fn recursive_file_backing_load(hash: Hash40, backing: &FileBacking) -> Vec<u
                 // If this is a CallbackKind::Stream, just defer to the next FileBacking in line (SD/Arc)
                 recursive_file_backing_load(hash, &**original)
             }
-        },
+        }
     }
 }

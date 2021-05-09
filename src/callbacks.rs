@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
-use smash_arc::Hash40;
 use crate::replacement_files::FileBacking;
-use arcropolis_api::{ CallbackFn, StreamCallbackFn };
+use arcropolis_api::{CallbackFn, StreamCallbackFn};
+use smash_arc::Hash40;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -16,12 +16,12 @@ pub enum CallbackKind {
 pub struct Callback {
     pub callback_fn: CallbackFn,
     pub len: u32,
-    pub previous: Box<FileBacking>
+    pub previous: Box<FileBacking>,
 }
 
 #[repr(C)]
 #[derive(Clone)]
 pub struct StreamCallback {
     pub callback_fn: StreamCallbackFn,
-    pub previous: Box<FileBacking>
+    pub previous: Box<FileBacking>,
 }

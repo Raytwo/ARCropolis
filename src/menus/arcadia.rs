@@ -1,16 +1,13 @@
 // #![feature(proc_macro_hygiene)]
 
 use crate::config::CONFIG;
+use log::info;
 use percent_encoding::percent_decode_str;
 use serde::Deserialize;
 use skyline::nn;
-use skyline_web::{
-    ramhorns,
-    Webpage,
-};
+use skyline_web::{ramhorns, Webpage};
 use std::ffi::CString;
 use std::path::Path;
-use log::info;
 
 #[derive(Debug, ramhorns::Content)]
 pub struct Entries {
@@ -59,13 +56,12 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
         .map(|(i, path)| {
             let path_to_be_used;
             let disabled;
-            
+
             let path = path.unwrap();
 
             let parent_path = format!("{}", path.path().parent().unwrap().display());
             let original_folder_name = path.file_name().into_string().unwrap();
 
-            
             let original = format!("{}", path.path().display());
             let counter_part = match original_folder_name.chars().next() {
                 Some('.') => {
@@ -78,15 +74,13 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                 }
             };
 
-            if std::fs::metadata(&original).is_ok()
-            & std::fs::metadata(&counter_part).is_ok()
-            {
+            if std::fs::metadata(&original).is_ok() & std::fs::metadata(&counter_part).is_ok() {
                 path_to_be_used = format!("{} (2)", &counter_part);
                 rename_folder(Path::new(&counter_part), Path::new(&path_to_be_used));
             } else {
                 path_to_be_used = original;
             }
-            
+
             let mut folder_name = Path::new(&path_to_be_used)
                 .file_name()
                 .unwrap()
@@ -109,7 +103,11 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                 res.folder_name = Some(folder_name);
                 res.is_disabled = Some(disabled);
                 res.image = Some(format!("{}/preview.webp", path_to_be_used));
-                res.description = Some(res.description.unwrap_or_else(String::new).replace("\n", "<br>"));
+                res.description = Some(
+                    res.description
+                        .unwrap_or_else(String::new)
+                        .replace("\n", "<br>"),
+                );
                 res
             } else {
                 Entry {
@@ -195,7 +193,7 @@ pub fn show_arcadia() {
         .unwrap();
 
     match response.get_last_url().unwrap() {
-        "http://localhost/" => {},
+        "http://localhost/" => {}
         url => {
             let res = percent_decode_str(&url[LOCALHOST.len()..])
                 .decode_utf8_lossy()
@@ -215,29 +213,22 @@ pub fn show_arcadia() {
                         modified_detected = true;
                         info!("[menus::show_arcadia] Disabling {}", folder_name);
                         let res = rename_folder(&enabled_path, &disabled_path);
-                        info!(
-                            "[menus::show_arcadia] RenameFolder Result: {:?}",
-                            res
-                        );
+                        info!("[menus::show_arcadia] RenameFolder Result: {:?}", res);
                     }
                 } else if std::fs::metadata(&disabled_path).is_ok() {
                     modified_detected = true;
                     info!("[menus::show_arcadia] Enabling {}", folder_name);
                     let res = rename_folder(&disabled_path, &enabled_path);
-                    info!(
-                        "[menus::show_arcadia] RenameFolder Result: {:?}",
-                        res
-                    );
+                    info!("[menus::show_arcadia] RenameFolder Result: {:?}", res);
                 }
 
                 info!("[menus::show_arcadia] ---------------------------");
 
                 if modified_detected {
-                    skyline_web::DialogOk::ok("Mods have been toggled!<br>Please reboot Smash to refresh ARCropolis' cache to prevent the game from crashing."); 
+                    skyline_web::DialogOk::ok("Mods have been toggled!<br>Please reboot Smash to refresh ARCropolis' cache to prevent the game from crashing.");
                     // skyline::nn::oe::RestartProgramNoArgs();
                 }
             }
-
         }
     }
 }

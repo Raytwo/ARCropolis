@@ -52,7 +52,9 @@ fn lookup_by_stream_hash(
     if let Some(file_ctx) = MOD_FILES.read().0.get(&FileIndex::Stream(hash)) {
         match &file_ctx.file {
             // Goes without saying
-            crate::replacement_files::FileBacking::LoadFromArc => original!()(out_path, loaded_arc, size_out, offset_out, hash),
+            crate::replacement_files::FileBacking::LoadFromArc => {
+                original!()(out_path, loaded_arc, size_out, offset_out, hash)
+            }
             // Load the file from the SD
             crate::replacement_files::FileBacking::Path(_) => {
                 let path = match file_ctx.path() {
@@ -62,7 +64,7 @@ fn lookup_by_stream_hash(
                         return;
                     }
                 };
-        
+
                 // Daily reminder that Raytwo did not write this so please don't blame him for it looking bad.
                 unsafe {
                     *size_out = path.metadata().unwrap().len() as usize;

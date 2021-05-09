@@ -1,13 +1,11 @@
 use std::{
-    ops::Deref,
     collections::HashMap,
-    path::{
-        Path,
-        PathBuf
-    }};
+    ops::Deref,
+    path::{Path, PathBuf},
+};
 
-use crate::replacement_files::get_region_id;
 use crate::config::CONFIG;
+use crate::replacement_files::get_region_id;
 
 use smash_arc::{Hash40, Region};
 
@@ -17,38 +15,43 @@ use walkdir::WalkDir;
 /// Files starting with a period are filtered out, and only the files with relevant regions are kept.  
 /// This signifies that if your goal is to simply get all the files, this is not the method to use.
 pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModPath> {
-    let user_region = smash_arc::Region::from(get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1);
+    let user_region = smash_arc::Region::from(
+        get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
+    );
 
-    WalkDir::new(dir).into_iter().filter_entry(|entry| {
-        // If it starts with a period
-        !entry.file_name().to_str().unwrap().starts_with('.')
-    }).filter_map(|entry| {
-        let entry = entry.unwrap();
+    WalkDir::new(dir)
+        .into_iter()
+        .filter_entry(|entry| {
+            // If it starts with a period
+            !entry.file_name().to_str().unwrap().starts_with('.')
+        })
+        .filter_map(|entry| {
+            let entry = entry.unwrap();
 
-        // Only process files
-        if entry.file_type().is_file() {
-            // Make sure the file has an extension
-            if entry.path().extension().is_some() {
-                let path: SmashPath = SmashPath(entry.path().strip_prefix(dir).unwrap().to_path_buf());
+            // Only process files
+            if entry.file_type().is_file() {
+                // Make sure the file has an extension
+                if entry.path().extension().is_some() {
+                    let path: SmashPath =
+                        SmashPath(entry.path().strip_prefix(dir).unwrap().to_path_buf());
 
-                if let Some(region) = path.get_region() {
-                    if region != user_region {
-                        return None;
+                    if let Some(region) = path.get_region() {
+                        if region != user_region {
+                            return None;
+                        }
                     }
-                }
 
-                let hash = path.hash40().unwrap();
-                Some((hash, entry.path().to_path_buf().into()))
+                    let hash = path.hash40().unwrap();
+                    Some((hash, entry.path().to_path_buf().into()))
+                } else {
+                    println!("File has no extension, aborting");
+                    None
+                }
             } else {
-                println!("File has no extension, aborting");
                 None
             }
-        } else {
-            None
-        }
-
-        
-    }).collect()
+        })
+        .collect()
 }
 
 /// Run ``discovery`` on every directory found using the path  
@@ -56,17 +59,22 @@ pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModPath> {
 /// This signifies that if your goal is to simply get all the files, this is not the method to use.  
 /// This method exists to support backward compatibility with Ultimate Mod Manager.  
 pub fn umm_discovery(dir: &PathBuf) -> HashMap<Hash40, ModPath> {
-    WalkDir::new(dir).min_depth(1).max_depth(1).into_iter().filter_entry(|entry| {
-        !entry.file_name().to_str().unwrap().starts_with('.')
-    }).flat_map(|entry| {
-        let entry = entry.unwrap();
+    WalkDir::new(dir)
+        .min_depth(1)
+        .max_depth(1)
+        .into_iter()
+        .filter_entry(|entry| !entry.file_name().to_str().unwrap().starts_with('.'))
+        .flat_map(|entry| {
+            let entry = entry.unwrap();
 
-        if !entry.file_type().is_dir() {
-            return Err(());
-        }
+            if !entry.file_type().is_dir() {
+                return Err(());
+            }
 
-        Ok(discovery(&entry.into_path()))
-    }).flatten().collect()
+            Ok(discovery(&entry.into_path()))
+        })
+        .flatten()
+        .collect()
 }
 
 /// Utility struct for the purpose of storing a relative Smash path (starting at the root of the ``/arc`` filesystem).  
@@ -121,7 +129,7 @@ impl SmashPath {
             Err("This path does not have an extension".to_string())
         }
     }
-    
+
     pub fn as_path(&self) -> &Path {
         &self.0
     }
@@ -176,13 +184,14 @@ impl SmashPath {
 
         // Check if the filepath it contains a + symbol
         if let Some(region_marker) = filename.find('+') {
-            Some(Region::from(get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0) + 1))
+            Some(Region::from(
+                get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0) + 1,
+            ))
         } else {
             None
         }
     }
 }
-
 
 // TODO: Should probably deref to a Path
 /// Utility struct for the purpose of storing an absolute modfile path (starting at the root of the ``sd:/`` filesystem)
@@ -281,7 +290,9 @@ impl ModPath {
 
         // Check if the filepath it contains a + symbol
         if let Some(region_marker) = filename.find('+') {
-            Some(Region::from(get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0) + 1))
+            Some(Region::from(
+                get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0) + 1,
+            ))
         } else {
             None
         }

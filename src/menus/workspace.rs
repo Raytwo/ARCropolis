@@ -8,10 +8,7 @@ use log::info;
 use owo_colors::OwoColorize;
 use percent_encoding::percent_decode_str;
 use skyline::nn::web::OfflineExitReason;
-use skyline_web::{
-    ramhorns,
-    PageResult,
-};
+use skyline_web::{ramhorns, PageResult};
 
 static HTML_TEXT: &str = include_str!("../../resources/templates/selector.html");
 static JAVASCRIPT_TEXT: &str = include_str!("../../resources/js/selector.js");
@@ -32,7 +29,7 @@ pub struct Workspace {
     pub name: String,
     pub in_use: Option<String>,
     pub umm_exists: bool,
-    pub arc_exists: bool
+    pub arc_exists: bool,
 }
 
 fn get_workspaces() -> Vec<Workspace> {
@@ -52,17 +49,19 @@ fn get_workspaces() -> Vec<Workspace> {
 
             if entry.file_type().unwrap().is_file() {
                 None
-            }else if name == "mods" {
+            } else if name == "mods" {
                 None
-            }else {
+            } else {
                 let ws = Some(Workspace {
                     index: actual_index,
                     name: name.clone(),
                     in_use: {
                         let arc_used =
-                            PathBuf::from(&format!("{}/{}/arc", WORKSPACES_LOCATION, name)) == config.paths.arc;
+                            PathBuf::from(&format!("{}/{}/arc", WORKSPACES_LOCATION, name))
+                                == config.paths.arc;
                         let umm_used =
-                            PathBuf::from(&format!("{}/{}/umm", WORKSPACES_LOCATION, name)) == config.paths.umm;
+                            PathBuf::from(&format!("{}/{}/umm", WORKSPACES_LOCATION, name))
+                                == config.paths.umm;
 
                         if arc_used && umm_used {
                             Some(String::from("both"))
@@ -74,8 +73,10 @@ fn get_workspaces() -> Vec<Workspace> {
                             None
                         }
                     },
-                    umm_exists: Path::new(&format!("{}/{}/umm", WORKSPACES_LOCATION, name)).exists(),
-                    arc_exists: Path::new(&format!("{}/{}/arc", WORKSPACES_LOCATION, name)).exists(),
+                    umm_exists: Path::new(&format!("{}/{}/umm", WORKSPACES_LOCATION, name))
+                        .exists(),
+                    arc_exists: Path::new(&format!("{}/{}/arc", WORKSPACES_LOCATION, name))
+                        .exists(),
                 });
 
                 actual_index += 1;
@@ -91,13 +92,13 @@ fn show_selector(workspaces: &Workspaces) -> PageResult {
     let render = tpl.render(&workspaces);
 
     skyline_web::Webpage::new()
-                        .htdocs_dir("contents")
-                        .file("index.html", &render)
-                        .file("selector.css", CSS_TEXT)
-                        .file("selector.js", JAVASCRIPT_TEXT)
-                        .file("check.svg", CHECK_ICON)
-                        .open()
-                        .unwrap()
+        .htdocs_dir("contents")
+        .file("index.html", &render)
+        .file("selector.css", CSS_TEXT)
+        .file("selector.js", JAVASCRIPT_TEXT)
+        .file("check.svg", CHECK_ICON)
+        .open()
+        .unwrap()
 }
 
 // Please don't judge too hard I'm in a rush :'D
@@ -109,9 +110,10 @@ pub fn workspace_selector() {
 
     // Sort workspaces alphabatically
     workspaces.workspace.sort_by(|a, b| {
-        a.name.to_ascii_lowercase().cmp(&b.name.to_ascii_lowercase())
+        a.name
+            .to_ascii_lowercase()
+            .cmp(&b.name.to_ascii_lowercase())
     });
-
 
     if workspaces.workspace.is_empty() {
         skyline_web::DialogOk::ok("Your directory does not contain any modpack.");
@@ -165,21 +167,21 @@ pub fn workspace_selector() {
                             config.paths.arc = PathBuf::from(format!("{}/{}", path, "arc"));
                             config_changed = true;
                         }
-                    },
+                    }
                     "umm" => {
                         // Set UMM path in config
                         if Path::new(&format!("{}/{}", path, "umm")).exists() {
                             config.paths.umm = PathBuf::from(format!("{}/{}", path, "umm"));
                             config_changed = true;
                         }
-                    },
+                    }
                     "both" => {
                         // Set Arc path in config
                         if Path::new(&format!("{}/{}", path, "arc")).exists() {
                             config.paths.arc = PathBuf::from(format!("{}/{}", path, "arc"));
                             config_changed = true;
                         }
-                        
+
                         // Set UMM path in config
                         if Path::new(&format!("{}/{}", path, "umm")).exists() {
                             config.paths.umm = PathBuf::from(format!("{}/{}", path, "umm"));
@@ -187,14 +189,10 @@ pub fn workspace_selector() {
                         }
                     }
                     _ => {
-                        skyline_web::DialogOk::ok(
-                            "How the hell did you break this???????",
-                        );
+                        skyline_web::DialogOk::ok("How the hell did you break this???????");
                         return;
                     }
                 }
-
-
             }
         }
 
