@@ -10,9 +10,7 @@ use smash_arc::{ArcLookup, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, L
 
 use smash_arc::LoadedSearchSection;
 
-use crate::replacement_files::get_region_id;
-
-use crate::config::CONFIG;
+use crate::config::{CONFIG, REGION};
 
 use crate::cpp_vector::CppVector;
 use crate::hashes;
@@ -326,9 +324,7 @@ impl LoadedTables {
         paths: &[Hash],
     ) -> Result<(), String> {
         use std::slice::{from_raw_parts, from_raw_parts_mut}; // :)
-        let region = smash_arc::Region::from(
-            get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
-        );
+        let region = *REGION;
 
         lazy_static::lazy_static! {
             static ref BANNED_FILENAMES: Vec<Hash40> = vec![
@@ -731,9 +727,7 @@ impl LoadedArcEx for LoadedArc {
         let file_path = self.get_file_paths()[usize::from(fileinfo.file_path_index)];
 
         let region = if fileinfo.flags.is_regional() {
-            smash_arc::Region::from(
-                get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
-            )
+            *REGION
         } else {
             smash_arc::Region::None
         };

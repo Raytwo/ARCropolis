@@ -24,14 +24,16 @@ mod replacement_files;
 mod runtime;
 mod stream;
 
-use config::CONFIG;
-use replacement_files::{get_region_id, FileCtx, FileIndex, INCOMING_IDX, MOD_FILES, UNSHARE_LUT};
+use config::{CONFIG, REGION};
+use replacement_files::{FileCtx, FileIndex, IncomingLoad, INCOMING_LOAD, MOD_FILES, UNSHARE_LUT};
 use runtime::{LoadedTables, ResServiceState, Table2Entry};
 
 use offsets::{
     INFLATE_DIR_FILE_OFFSET, INFLATE_OFFSET, INITIAL_LOADING_OFFSET, MANUAL_OPEN_OFFSET,
     MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, TITLE_SCREEN_VERSION_OFFSET,
 };
+
+use api::{ExtCallbackFn, EXT_CALLBACKS};
 
 use arcropolis_api as arc_api;
 use binread::*;
@@ -114,12 +116,9 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
     );
 
     // get the size of the buffer the game allocated
-    let user_region = smash_arc::Region::from(
-        get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
-    );
     let arc = LoadedTables::get_arc();
     let buffer_size = arc
-        .get_file_data_from_hash(file_ctx.hash, user_region)
+        .get_file_data_from_hash(file_ctx.hash, *REGION)
         .unwrap()
         .decomp_size;
 
@@ -153,6 +152,40 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
     }
 }
 
+fn replace_extension_callback(callback: ExtCallbackFn, index: FileInfoIndiceIdx) {
+    let tables = LoadedTables::get_instance();
+    let arc = LoadedTables::get_arc();
+
+    let info_index = arc.get_file_info_indices()[index].file_info_index;
+    let file_info = &arc.get_file_infos()[info_index];
+    let file_path = &arc.get_file_paths()[file_info.file_path_index];
+
+    let path_hash = file_path.path.hash40();
+
+    let table2entry = match tables.get_t2_mut(index) {
+        Ok(entry) => entry,
+        Err(_) => return,
+    };
+
+    let file_data = arc.get_file_data(file_info, *REGION);
+
+    let data = table2entry.data as *mut u8;
+    let max_len = file_data.decomp_size as usize;
+
+    let mut out_len = 0;
+    if callback(path_hash, data, max_len, &mut out_len) {
+        todo!()
+    } else {
+        // don't replace the file
+        todo!()
+    }
+
+    if file_path.ext.hash40() == Hash40::from("nutexb") {
+        // handle extending nutexb footer
+        todo!()
+    }
+}
+
 #[hook(offset = INFLATE_OFFSET, inline)]
 fn inflate_incoming(ctx: &InlineCtx) {
     unsafe {
@@ -166,7 +199,8 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
         let path_idx = usize::from(file_info.file_path_index);
 
-        let hash = arc.get_file_paths()[path_idx].path.hash40();
+        let file_path = &arc.get_file_paths()[path_idx];
+        let hash = file_path.path.hash40();
 
         info!(
             "[ResInflateThread | #{} | Type: {} | {} / {}] Incoming '{}'",
@@ -177,17 +211,25 @@ fn inflate_incoming(ctx: &InlineCtx) {
             hashes::get(hash).bright_yellow()
         );
 
-        let mut incoming = INCOMING_IDX.write();
+        let mut incoming = INCOMING_LOAD.write();
+
+        *incoming = IncomingLoad::None;
+
+        let ext_callbacks = EXT_CALLBACKS.read();
+        if !ext_callbacks.is_empty() {
+            let ext = file_path.path.hash40();
+            if let Some(callback) = ext_callbacks.get(&ext) {
+                *incoming = IncomingLoad::ExtCallback(*callback, info_indice_index);
+            }
+        }
 
         if let Ok(context) = get_from_file_info_indice_index!(info_indice_index) {
-            *incoming = Some(FileIndex::Regular(context.index));
+            *incoming = IncomingLoad::Index(FileIndex::Regular(context.index));
             info!(
                 "[ResInflateThread | #{}] Added index {} to the queue",
                 path_idx.green(),
                 usize::from(context.index).green()
             );
-        } else {
-            *incoming = None;
         }
     }
 }
@@ -214,10 +256,12 @@ fn memcpy_uncompressed_3(_ctx: &InlineCtx) {
 }
 
 fn memcpy_impl() {
-    let incoming = INCOMING_IDX.read();
+    let incoming = INCOMING_LOAD.read();
 
-    if let Some(index) = *incoming {
-        replace_file_by_index(index);
+    match *incoming {
+        IncomingLoad::Index(index) => replace_file_by_index(index),
+        IncomingLoad::ExtCallback(callback, index) => replace_extension_callback(callback, index),
+        IncomingLoad::None => (),
     }
 }
 
@@ -241,14 +285,12 @@ fn load_directory_hook(
     // Let the file be inflated
     let result: u64 = original!()(unk1, out_decomp_data, comp_data);
 
-    let incoming = INCOMING_IDX.read();
+    let incoming = INCOMING_LOAD.read();
 
-    if let Some(index) = *incoming {
-        if index == FileIndex::Regular(FileInfoIndiceIdx(0)) {
-            return result;
-        }
-
-        replace_file_by_index(index);
+    match *incoming {
+        IncomingLoad::Index(FileIndex::Regular(FileInfoIndiceIdx(0))) | IncomingLoad::None => (),
+        IncomingLoad::Index(index) => replace_file_by_index(index),
+        IncomingLoad::ExtCallback(callback, index) => replace_extension_callback(callback, index),
     }
 
     result

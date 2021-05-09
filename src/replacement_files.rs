@@ -7,8 +7,9 @@ use std::{
 };
 
 use crate::{
+    api::ExtCallbackFn,
     callbacks::{Callback, CallbackKind},
-    config::CONFIG,
+    config::{CONFIG, REGION},
     fs::visit::ModPath,
     hashes, runtime,
 };
@@ -26,7 +27,7 @@ lazy_static::lazy_static! {
     pub static ref MOD_FILES: parking_lot::RwLock<ModFiles> = parking_lot::RwLock::new(ModFiles::new());
 
     // For ResInflateThread
-    pub static ref INCOMING_IDX: parking_lot::RwLock<Option<FileIndex>> = parking_lot::RwLock::new(None);
+    pub static ref INCOMING_LOAD: parking_lot::RwLock<IncomingLoad> = parking_lot::RwLock::new(IncomingLoad::None);
 
     // For... Callbacks.
     pub static ref CALLBACKS: parking_lot::RwLock<HashMap<Hash40, CallbackKind>> = parking_lot::RwLock::new(HashMap::new());
@@ -39,6 +40,12 @@ const REGIONS: &[&str] = &[
     "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
     "eu_ru", "kr_ko", "zh_cn", "zh_tw",
 ];
+
+pub enum IncomingLoad {
+    Index(FileIndex),
+    ExtCallback(ExtCallbackFn, FileInfoIndiceIdx),
+    None,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FileIndex {
@@ -360,9 +367,7 @@ impl FileCtx {
         match &self.file {
             FileBacking::Path(modpath) => modpath.len() as u32,
             FileBacking::LoadFromArc => {
-                let user_region = smash_arc::Region::from(
-                    get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
-                );
+                let user_region = *REGION;
 
                 let arc = LoadedTables::get_arc();
                 // Careful, this could backfire once the size is patched
@@ -403,9 +408,7 @@ pub fn recursive_file_backing_load(hash: Hash40, backing: &FileBacking) -> Vec<u
         // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
         FileBacking::Path(modpath) => fs::read(modpath).unwrap(),
         FileBacking::LoadFromArc => {
-            let user_region = smash_arc::Region::from(
-                get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
-            );
+            let user_region = *REGION;
 
             let arc = LoadedTables::get_arc();
             arc.get_file_contents(hash, user_region).unwrap()

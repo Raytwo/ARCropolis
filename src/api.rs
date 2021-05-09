@@ -9,7 +9,7 @@ use crate::{
     callbacks::{Callback, CallbackKind, StreamCallback},
     hashes,
     replacement_files::{
-        get_region_id, recursive_file_backing_load, FileBacking, FileIndex, CALLBACKS, MOD_FILES,
+        recursive_file_backing_load, FileBacking, FileIndex, CALLBACKS, MOD_FILES,
     },
     runtime::LoadedTables,
     CONFIG,
@@ -24,6 +24,17 @@ use crate::{
 ///
 /// Are your changes only internal? No version bump
 static API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 1 };
+
+use lazy_static::lazy_static;
+use parking_lot::RwLock;
+use std::collections::HashMap;
+
+pub type ExtCallbackFn = extern "C" fn(Hash40, *mut u8, usize, &mut usize) -> bool;
+
+lazy_static! {
+    pub static ref EXT_CALLBACKS: RwLock<HashMap<Hash40, ExtCallbackFn>> =
+        RwLock::new(HashMap::new());
+}
 
 #[no_mangle]
 pub extern "C" fn arcrop_load_file(

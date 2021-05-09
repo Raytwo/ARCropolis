@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::config::CONFIG;
+use crate::config::{CONFIG, REGION};
 use crate::replacement_files::get_region_id;
 
 use smash_arc::{Hash40, Region};
@@ -15,9 +15,7 @@ use walkdir::WalkDir;
 /// Files starting with a period are filtered out, and only the files with relevant regions are kept.  
 /// This signifies that if your goal is to simply get all the files, this is not the method to use.
 pub fn discovery(dir: &PathBuf) -> HashMap<Hash40, ModPath> {
-    let user_region = smash_arc::Region::from(
-        get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
-    );
+    let user_region = *REGION;
 
     WalkDir::new(dir)
         .into_iter()

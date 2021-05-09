@@ -19,10 +19,17 @@ mod writeable;
 use readable::*;
 use writeable::*;
 
+use smash_arc::Region;
+use crate::replacement_files::get_region_id;
+
 const CONFIG_PATH: &str = "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml";
 
 lazy_static::lazy_static! {
     pub static ref CONFIG: Configuration = Configuration::new();
+
+    pub static ref REGION: Region = Region::from(
+        get_region_id(CONFIG.read().misc.region.as_ref().unwrap()).unwrap() + 1,
+    );
 }
 
 pub struct Configuration(RwLock<Config>);
