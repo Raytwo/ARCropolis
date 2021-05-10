@@ -152,7 +152,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
     }
 }
 
-fn replace_extension_callback(callback: ExtCallbackFn, index: FileInfoIndiceIdx) {
+fn replace_extension_callback(extension: Hash40, index: FileInfoIndiceIdx) {
     let tables = LoadedTables::get_instance();
     let arc = LoadedTables::get_arc();
 
@@ -172,17 +172,46 @@ fn replace_extension_callback(callback: ExtCallbackFn, index: FileInfoIndiceIdx)
     let data = table2entry.data as *mut u8;
     let max_len = file_data.decomp_size as usize;
 
+    let file_slice = unsafe { std::slice::from_raw_parts_mut(data, max_len) };
+
     let mut out_len = 0;
-    if callback(path_hash, data, max_len, &mut out_len) {
-        todo!()
-    } else {
-        // don't replace the file
-        todo!()
+    for callback in EXT_CALLBACKS.read().get(&extension).iter().map(|x| x.iter()).flatten() {
+        if callback(path_hash, data, max_len, &mut out_len) {
+            // handle extending nutexb footers
+            if file_path.ext.hash40() == Hash40::from("nutexb") {
+                // this will point to the index where the footer needs to be
+                let max_data_size = max_len - 0xb0;
+
+                // if the data given is smaller than the out buffer, we need to copy the nutexb footer
+                // to the end of the buffer
+                if out_len < max_len {
+                    let start_of_footer = out_len - 0xb0;
+
+                    let (contents, footer) = file_slice.split_at_mut(max_data_size);
+
+                    let original_footer = &contents[start_of_footer..out_len];
+
+                    // copy the footer to the end of the buffer
+                    footer.copy_from_slice(original_footer);
+                }
+            }
+
+            return
+        }
     }
 
-    if file_path.ext.hash40() == Hash40::from("nutexb") {
-        // handle extending nutexb footer
-        todo!()
+    // if the file wasn't loaded by any of the callbacks, search for a fallback
+    if MOD_FILES.read().0.contains_key(&FileIndex::Regular(index)) {
+        replace_file_by_index(FileIndex::Regular(index));
+    } else {
+        // load vanilla
+        let mut buffer = unsafe { std::slice::from_raw_parts_mut(data, max_len) };
+        match arc.get_file_contents(path_hash, *REGION) {
+            Ok(contents) => {
+                buffer.write_all(&contents).unwrap();
+            }
+            Err(_) => panic!("Failed to load fallback file {:#x?}", path_hash)
+        }
     }
 }
 
@@ -218,8 +247,9 @@ fn inflate_incoming(ctx: &InlineCtx) {
         let ext_callbacks = EXT_CALLBACKS.read();
         if !ext_callbacks.is_empty() {
             let ext = file_path.path.hash40();
-            if let Some(callback) = ext_callbacks.get(&ext) {
-                *incoming = IncomingLoad::ExtCallback(*callback, info_indice_index);
+            if ext_callbacks.contains_key(&ext) {
+                *incoming = IncomingLoad::ExtCallback(ext, info_indice_index);
+                return
             }
         }
 
@@ -260,7 +290,7 @@ fn memcpy_impl() {
 
     match *incoming {
         IncomingLoad::Index(index) => replace_file_by_index(index),
-        IncomingLoad::ExtCallback(callback, index) => replace_extension_callback(callback, index),
+        IncomingLoad::ExtCallback(ext, index) => replace_extension_callback(ext, index),
         IncomingLoad::None => (),
     }
 }
@@ -290,7 +320,7 @@ fn load_directory_hook(
     match *incoming {
         IncomingLoad::Index(FileIndex::Regular(FileInfoIndiceIdx(0))) | IncomingLoad::None => (),
         IncomingLoad::Index(index) => replace_file_by_index(index),
-        IncomingLoad::ExtCallback(callback, index) => replace_extension_callback(callback, index),
+        IncomingLoad::ExtCallback(ext, index) => replace_extension_callback(ext, index),
     }
 
     result

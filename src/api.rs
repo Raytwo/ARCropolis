@@ -33,7 +33,7 @@ use std::collections::HashMap;
 pub type ExtCallbackFn = extern "C" fn(Hash40, *mut u8, usize, &mut usize) -> bool;
 
 lazy_static! {
-    pub static ref EXT_CALLBACKS: RwLock<HashMap<Hash40, ExtCallbackFn>> =
+    pub static ref EXT_CALLBACKS: RwLock<HashMap<Hash40, Vec<ExtCallbackFn>>> =
         RwLock::new(HashMap::new());
 }
 

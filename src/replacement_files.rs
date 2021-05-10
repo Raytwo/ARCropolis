@@ -43,7 +43,7 @@ const REGIONS: &[&str] = &[
 
 pub enum IncomingLoad {
     Index(FileIndex),
-    ExtCallback(ExtCallbackFn, FileInfoIndiceIdx),
+    ExtCallback(/* ext */ Hash40, FileInfoIndiceIdx),
     None,
 }
 
