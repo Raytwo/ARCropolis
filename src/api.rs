@@ -24,13 +24,13 @@ use crate::{
 /// Do your changes only add new APIs in a backwards compatible way: Minor bump
 ///
 /// Are your changes only internal? No version bump
-static API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 1 };
+static API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 2 };
 
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
 use std::collections::HashMap;
 
-pub type ExtCallbackFn = extern "C" fn(Hash40, *mut u8, usize, &mut usize) -> bool;
+pub use arcropolis_api::*;
 
 lazy_static! {
     pub static ref EXT_CALLBACKS: RwLock<HashMap<Hash40, Vec<ExtCallbackFn>>> =
@@ -154,6 +154,15 @@ pub extern "C" fn arcrop_register_callback_with_path(hash: Hash40, cb: StreamCal
 
     // Overwrite the previous callback. Could probably be done better.
     callbacks.insert(hash, CallbackKind::Stream(callback));
+}
+
+#[no_mangle]
+pub extern "C" fn arcrop_register_extension_callback(hash: Hash40, cb: ExtCallbackFn) {
+    EXT_CALLBACKS
+        .write()
+        .entry(hash)
+        .or_default()
+        .push(cb)
 }
 
 #[no_mangle]

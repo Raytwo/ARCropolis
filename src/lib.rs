@@ -176,7 +176,7 @@ fn replace_extension_callback(extension: Hash40, index: FileInfoIndiceIdx) {
 
     let mut out_len = 0;
     for callback in EXT_CALLBACKS.read().get(&extension).iter().map(|x| x.iter()).flatten() {
-        if callback(path_hash, data, max_len, &mut out_len) {
+        if callback(path_hash.as_u64(), data, max_len, &mut out_len) {
             // handle extending nutexb footers
             if file_path.ext.hash40() == Hash40::from("nutexb") {
                 // this will point to the index where the footer needs to be
