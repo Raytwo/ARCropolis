@@ -1,6 +1,8 @@
 use arc_vector::ArcVector;
 use smash_arc::*;
 use crate::runtime::*;
+use parking_lot::Mutex;
+use std::collections::HashMap;
 trait LoadedArcAdditions {
     fn get_dir_infos_as_vec(&self) -> ArcVector<DirInfo>;
     fn get_file_paths_as_vec(&self) -> ArcVector<FilePath>;
@@ -10,7 +12,6 @@ trait LoadedArcAdditions {
     fn get_file_datas_as_vec(&self) -> ArcVector<FileData>;
     fn get_file_groups_as_vec(&self) -> ArcVector<DirectoryOffset>;
     fn get_path_to_index_as_vec(&self) -> ArcVector<HashToIndex>;
-    fn recreate_file_buckets(&mut self, bucket_count: usize);
 }
 
 trait LoadedTableAdditions {
@@ -111,31 +112,6 @@ impl LoadedArcAdditions for LoadedArc {
             None
         )
     }
-
-    fn recreate_file_buckets(&mut self, count: usize) {
-        use skyline::libc::*;
-        // currently unimplemented, but since we access via index I'm not gonna worry *yet*
-        let file_info_buckets = unsafe { malloc((count + 1) * std::mem::size_of::<FileInfoBucket>()) as *mut FileInfoBucket};
-        let file_info_buckets = unsafe { std::slice::from_raw_parts_mut(file_info_buckets, count + 1) };
-        let path_to_hashes = self.get_path_to_index_as_vec();
-        let mut new_path_to_hashes = Vec::with_capacity(path_to_hashes.len());
-        file_info_buckets[0].count = count as u32;
-        let mut start = 0;
-        for x in 0..count {
-            for pth in path_to_hashes.iter() {
-                if pth.hash40().as_u64() % (count as u64) == (x as u64) {
-                    new_path_to_hashes.push(pth.clone());
-                }
-            }
-            file_info_buckets[x + 1].start = start;
-            file_info_buckets[x + 1].count = (new_path_to_hashes.len() as u32) - start;
-            start = new_path_to_hashes.len() as u32;
-        }
-        drop(path_to_hashes);
-        let new_path_to_hashes = new_path_to_hashes.leak();
-        self.file_hash_to_path_index = new_path_to_hashes.as_ptr();
-        self.file_info_buckets = file_info_buckets.as_ptr();
-    }
 }
 
 impl LoadedTableAdditions for LoadedTables {
@@ -167,5 +143,124 @@ impl LoadedTableAdditions for LoadedTables {
             ptr_size,
             None
         )
+    }
+}
+
+lazy_static! {
+    static ref ALREADY_RESHARED: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+    static ref RESHARED_FILEPATHS: Mutex<HashMap<Hash40, FilePathIdx>> = Mutex::new(HashMap::new());
+}
+
+pub fn reshare_dir_info(hash: Hash40) {
+    fn is_lowest_shared_file(info: &FileInfo, arc: &LoadedArc) -> bool {
+        let file_paths = arc.get_file_paths();
+        let info_indices = arc.get_file_info_indices();
+        let file_infos = arc.get_file_infos();
+        let cur_file_path_hash = file_paths[info.file_path_index].path.hash40();
+        let next_file_path_hash = file_paths[file_infos[info_indices[file_paths[info.file_path_index].path.index() as usize].file_info_index].file_path_index].path.hash40();
+        cur_file_path_hash == next_file_path_hash
+    }
+
+    fn get_shared_hash(info: &FileInfo, arc: &LoadedArc) -> Hash40 {
+        let file_paths = arc.get_file_paths();
+        let info_indices = arc.get_file_info_indices();
+        let file_infos = arc.get_file_infos();
+        file_paths[file_infos[info_indices[file_paths[info.file_path_index].path.index() as usize].file_info_index].file_path_index].path.hash40()
+    }
+    
+    let loaded_tables = LoadedTables::acquire_instance();
+    let mut already_reshared = ALREADY_RESHARED.lock();
+    let arc = LoadedTables::get_arc_mut();
+
+    // Acquire the necessary vectors
+    let mut file_paths = arc.get_file_paths_as_vec();
+    let mut info_indices = arc.get_file_info_indices_as_vec();
+    let mut file_infos = arc.get_file_infos_as_vec();
+    let mut file_groups = arc.get_file_groups_as_vec();
+
+    // get the hash's dir info
+    let dir_info = if let Ok(info) = arc.get_dir_info_from_hash(hash) {
+        info.clone()
+    } else {
+        return;
+    };
+
+    // get the DirInfo's shared filegroup (if it exists)
+    let shared_file_group = if let Some(RedirectionType::Shared(group)) = arc.get_directory_dependency(&dir_info) {
+        group
+    } else {
+        return;
+    };
+
+    if !already_reshared.contains(&shared_file_group.directory_index) {
+        // backup current FileInfo vec length
+        let og_fi_len = file_infos.len();
+
+        // Get the reshared filepaths hashmap
+        let mut reshared = RESHARED_FILEPATHS.lock();
+
+        // duplicate the file infos all at once so we aren't storing invalid references when we realloc
+        file_infos.extend_from_within(shared_file_group.file_start_index as usize, shared_file_group.file_count as usize);
+        for (current_offset, file_info) in file_infos.iter_mut().skip(og_fi_len).enumerate() {
+            // Duplicate the filepath
+            // In order to eliminate the source slot problem, we have to recreate all of the filepaths with something unique that we can detect.
+            // To do this, we take the CRC32 and assign it a length of 0x69
+            file_paths.push_from_within(usize::from(file_info.file_path_index));
+            let new_fp = file_paths.last_mut().unwrap();
+            new_fp.path.set_length(0x69);
+
+            // Create the new FileInfoIndex before we drop the FilePath reference, since we need to change the FileInfoIndex it points to
+            info_indices.push_from_within(new_fp.path.index() as usize);
+            new_fp.path.set_index((info_indices.len() - 1) as u32);
+
+            // Add our reshared file path to our HashMap
+            // This would be much, much nicer if we could add it to the FileInfoBuckets and let smash-arc search it, but for some reason
+            // it is not properly handling it
+            let fp_hash = new_fp.path.hash40();
+            drop(new_fp);
+            let fp_index = FilePathIdx((file_paths.len() - 1) as u32);
+            let _ = reshared.insert(fp_hash, fp_index);
+
+            // Change the FileInfo index on the new FileInfoIndex
+            // Note: On files shared with other fighters, this doesn't actually matter.
+            let new_ii = info_indices.last_mut().unwrap();
+            new_ii.file_info_index = FileInfoIdx((og_fi_len + current_offset) as u32);
+            drop(new_ii);
+
+            // Here, we are checking to see if this file is shared with another fighter, or really anything else that isn't itself
+            // This is important, because if this is the "source file" then the InfoToData/FileData will be correct. If it isn't, then they will
+            // be wrong and cause an infinite load
+            if is_lowest_shared_file(file_info, arc) {
+                file_info.file_path_index = fp_index;
+                file_info.file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
+            }
+        }
+        file_groups[shared_file_group.directory_index].file_start_index = og_fi_len as u32;
+        loaded_tables.get_filepath_table_as_vec().set_len(file_paths.len());
+        loaded_tables.get_loaded_data_table_as_vec().set_len(file_paths.len());
+        already_reshared.push(shared_file_group.directory_index);
+    }
+
+    let reshared = RESHARED_FILEPATHS.lock();
+
+    // let arc = LoadedTables::get_arc();
+    let shared_start = arc.get_shared_data_index();
+    for file_info in file_infos.iter_mut().skip(dir_info.file_info_start_index as usize).take(dir_info.file_count as usize) {
+        // Check if the FileData is past the "shared offset". If so, then we need to search the FilePaths for the right information
+        if arc.get_file_in_folder(file_info, Region::None).file_data_index.0 >= shared_start {
+            // Get the deeper shared FilePath hash from this.
+            let shared_file_hash = get_shared_hash(file_info, arc);
+            // Change it to the new hash we created for accessing the reshared files
+            let backup_hash = Hash40((shared_file_hash.as_u64() & 0xFFFF_FFFF) | 0x69_0000_0000);
+            if let Some(path_idx) = reshared.get(&backup_hash) {
+                cli::send(format!("b: {:#x}", backup_hash.0).as_str());
+                // The reshared FilePath was found, change this FileInfo's information to reflect it
+                let new_ii_index = file_paths[usize::from(*path_idx)].path.index();
+                file_paths[usize::from(file_info.file_path_index)].path.set_index(new_ii_index);
+                file_info.file_info_indice_index = FileInfoIndiceIdx(new_ii_index);
+            } else {
+                cli::send(format!("ub: {:#x}", backup_hash.0).as_str());
+            }
+        }
     }
 }

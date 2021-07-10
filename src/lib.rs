@@ -4,6 +4,8 @@
 #![allow(unaligned_references)]
 
 extern crate skyline_communicate as cli;
+#[macro_use]
+extern crate lazy_static;
 
 use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
 use std::io::prelude::*;
@@ -429,6 +431,15 @@ fn initial_loading(_ctx: &InlineCtx) {
         //         nn::oe::RestartProgramNoArgs();
         //     }
         // }
+
+        unsharing::reshare_dir_info(Hash40::from("fighter/jack/c00"));
+        unsharing::reshare_dir_info(Hash40::from("fighter/jack/c01"));
+        unsharing::reshare_dir_info(Hash40::from("fighter/jack/c02"));
+        unsharing::reshare_dir_info(Hash40::from("fighter/jack/c03"));
+        unsharing::reshare_dir_info(Hash40::from("fighter/jack/c04"));
+        unsharing::reshare_dir_info(Hash40::from("fighter/jack/c05"));
+        unsharing::reshare_dir_info(Hash40::from("fighter/jack/c06"));
+        unsharing::reshare_dir_info(Hash40::from("fighter/jack/c07"));
 
         lazy_static::initialize(&MOD_FILES);
 
