@@ -3,6 +3,8 @@
 #![allow(dead_code)]
 #![allow(unaligned_references)]
 
+extern crate skyline_communicate as cli;
+
 use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
 use std::io::prelude::*;
 use std::net::IpAddr;
@@ -18,6 +20,7 @@ mod hashes;
 mod logging;
 mod menus;
 mod offsets;
+mod remote;
 mod replacement_files;
 mod runtime;
 mod stream;
@@ -432,6 +435,8 @@ fn initial_loading(_ctx: &InlineCtx) {
     }
 }
 
+
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Load hashes from rom:/skyline/hashes.txt if the file is present
@@ -450,6 +455,16 @@ pub fn main() {
         change_version_string,
         stream::lookup_by_stream_hash,
     );
+
+    fn receive(args: Vec<String>) {
+        // println!("{:?}", remote::arc::Arc::from_iter(args.into_iter()));
+        let _ = cli::send(remote::handle_command(args).as_str());
+    }
+
+    std::thread::spawn(|| {
+        skyline_communicate::set_on_receive(cli::Receiver::CLIStyle(receive));
+        skyline_communicate::start_server("ARCropolis", 6968);
+    });
 
     // unsafe {
     //     skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x346_36c4, &0x1400_0002);

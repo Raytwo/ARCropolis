@@ -42,6 +42,7 @@ impl fmt::Display for FileState {
 
 #[repr(C)]
 #[repr(packed)]
+#[derive(Debug)]
 pub struct Table1Entry {
     pub table2_index: u32,
     pub in_table_2: u32,
@@ -121,11 +122,13 @@ pub struct LoadedTables {
 #[derive(Debug)]
 pub struct LoadedDirectory {
     pub directory_offset_index: u32,
-    pub dir_count: u32,
-    unk: u64,
-    pub child_files_indexes: CppVector<u32>,
+    pub ref_count: AtomicU32,
+    pub flags: u8,
+    pub state: FileState,
+    pub incoming_request_count: AtomicU32,
+    pub child_path_indices: CppVector<u32>,
     pub child_folders: CppVector<*mut LoadedDirectory>,
-    pub redirection_dir: *const LoadedDirectory,
+    pub redirection_dir: *mut LoadedDirectory,
 }
 
 #[repr(C)]

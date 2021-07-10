@@ -15,6 +15,10 @@ impl<T> CppVector<T> {
     pub fn iter_mut(&mut self) -> CppVectorIteratorMut<T> {
         self.into_iter()
     }
+
+    pub fn len(&self) -> usize {
+        ((self.end as usize) - (self.start as usize)) / std::mem::size_of::<T>()
+    }
 }
 
 impl<T> Drop for CppVector<T> {

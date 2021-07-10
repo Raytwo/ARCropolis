@@ -1,6 +1,6 @@
 [package]
 name = "arcropolis"
-version = "1.2.0"
+version = "2.1.0"
 authors = ["Raytwo <raytwost@gmail.com>, jam1garner <jam@jam1.re>, blujay <the.blu.dev@gmail.com>, CoolSonicKirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
@@ -23,8 +23,10 @@ rand = { git = "https://github.com/skyline-rs/rand" }
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
 skyline-update = { git = "https://github.com/skyline-rs/skyline-update" }
+easy_flag = "0.1.2"
 # Needs to be cloned locally and add link.ld to the root of the directory for the time being. Don't ask why. I don't know.
 smash-arc = { path = "./smash-arc", features = [ "smash-runtime", "rust-zstd" ] }
+skyline-communicate = { path = "./cli" }
 binread = "2"
 percent-encoding = "2.1.0"
 walkdir = "2"

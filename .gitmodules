@@ -1,3 +1,6 @@
 [submodule "smash-arc"]
 	path = smash-arc
 	url = https://github.com/jam1garner/smash-arc
+[submodule "cli"]
+	path = cli
+	url = https://github.com/blu-dev/skyline-communicate
