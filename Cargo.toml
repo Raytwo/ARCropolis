@@ -1,6 +1,6 @@
 [package]
 name = "arcropolis"
-version = "2.1.0"
+version = "2.0.0"
 authors = ["Raytwo <raytwost@gmail.com>, jam1garner <jam@jam1.re>, blujay <the.blu.dev@gmail.com>, CoolSonicKirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
@@ -26,7 +26,9 @@ skyline-update = { git = "https://github.com/skyline-rs/skyline-update" }
 easy_flag = "0.1.2"
 # Needs to be cloned locally and add link.ld to the root of the directory for the time being. Don't ask why. I don't know.
 smash-arc = { path = "./smash-arc", features = [ "smash-runtime", "rust-zstd" ] }
+arc-vector = { path = "./arc-vector" }
 skyline-communicate = { path = "./cli" }
+# arc-vector = { git = "https://github.com/blu-dev/arc-vector" }
 binread = "2"
 percent-encoding = "2.1.0"
 walkdir = "2"

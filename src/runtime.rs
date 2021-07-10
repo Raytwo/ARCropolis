@@ -3,7 +3,7 @@ use skyline::{
     nn,
 };
 use std::fmt;
-use std::sync::atomic::AtomicU32;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use smash_arc::{ArcLookup, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, LoadedArc};
 
@@ -42,7 +42,7 @@ impl fmt::Display for FileState {
 
 #[repr(C)]
 #[repr(packed)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Table1Entry {
     pub table2_index: u32,
     pub in_table_2: u32,
@@ -80,6 +80,21 @@ pub struct Table2Entry {
     pub flags: u8,
     pub version: u32,
     pub unk: u8,
+}
+
+impl Clone for Table2Entry {
+    fn clone(&self) -> Self {
+        Table2Entry {
+            data: self.data,
+            ref_count: AtomicU32::new(self.ref_count.load(Ordering::SeqCst)),
+            is_used: self.is_used,
+            state: self.state,
+            file_flags2: self.file_flags2,
+            flags: self.flags,
+            version: self.version,
+            unk: self.unk
+        }
+    }
 }
 
 impl fmt::Display for Table2Entry {
@@ -129,6 +144,21 @@ pub struct LoadedDirectory {
     pub child_path_indices: CppVector<u32>,
     pub child_folders: CppVector<*mut LoadedDirectory>,
     pub redirection_dir: *mut LoadedDirectory,
+}
+// to satisfy ArcVector
+impl Clone for LoadedDirectory {
+    fn clone(&self) -> Self {
+        LoadedDirectory {
+            directory_offset_index: self.directory_offset_index,
+            ref_count: AtomicU32::new(self.ref_count.load(Ordering::SeqCst)),
+            flags: self.flags,
+            state: self.state,
+            incoming_request_count: AtomicU32::new(self.incoming_request_count.load(Ordering::SeqCst)),
+            child_path_indices: self.child_path_indices,
+            child_folders: self.child_folders,
+            redirection_dir: self.redirection_dir
+        }
+    }
 }
 
 #[repr(C)]

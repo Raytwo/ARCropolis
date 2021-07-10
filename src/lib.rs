@@ -24,6 +24,7 @@ mod remote;
 mod replacement_files;
 mod runtime;
 mod stream;
+mod unsharing;
 
 use config::{CONFIG, REGION};
 use replacement_files::{FileCtx, FileIndex, IncomingLoad, INCOMING_LOAD, MOD_FILES};

@@ -4,3 +4,6 @@
 [submodule "cli"]
 	path = cli
 	url = https://github.com/blu-dev/skyline-communicate
+[submodule "arc-vector"]
+	path = arc-vector
+	url = https://github.com/blu-dev/arc-vector
