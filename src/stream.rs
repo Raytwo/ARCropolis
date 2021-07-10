@@ -8,7 +8,7 @@ use std::{
 use skyline::hook;
 use skyline::libc::c_char;
 
-use log::{info, warn};
+use log::info;
 use rand::seq::SliceRandom;
 
 use crate::{callbacks::CallbackKind, replacement_files::MOD_FILES};
@@ -77,7 +77,7 @@ fn lookup_by_stream_hash(
                 }
             }
             // Load the file from a StreamCallback
-            crate::replacement_files::FileBacking::Callback { callback, original } => {
+            crate::replacement_files::FileBacking::Callback { callback, original: _ } => {
                 // If we have a StreamCallback, call it
                 if let CallbackKind::Stream(cb) = callback {
                     let callback_fn = cb.callback_fn;

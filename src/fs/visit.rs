@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::config::{CONFIG, REGION};
+use crate::config::REGION;
 use crate::replacement_files::get_region_id;
 
 use smash_arc::{Hash40, Region};

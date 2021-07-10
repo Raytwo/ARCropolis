@@ -1,17 +1,15 @@
 #![feature(proc_macro_hygiene)]
-#![feature(str_strip)]
 #![feature(asm)]
-#![feature(ptr_offset_from)]
-#![feature(slice_fill)]
+#![allow(dead_code)]
+#![allow(unaligned_references)]
 
-use callbacks::Callback;
 use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
 use std::io::prelude::*;
 use std::net::IpAddr;
-use std::{ffi::CStr, path::PathBuf};
+use std::ffi::CStr;
 
 mod api;
-mod cache;
+// mod cache;
 mod callbacks;
 mod config;
 mod cpp_vector;
@@ -25,7 +23,7 @@ mod runtime;
 mod stream;
 
 use config::{CONFIG, REGION};
-use replacement_files::{FileCtx, FileIndex, IncomingLoad, INCOMING_LOAD, MOD_FILES, UNSHARE_LUT};
+use replacement_files::{FileCtx, FileIndex, IncomingLoad, INCOMING_LOAD, MOD_FILES};
 use runtime::{LoadedTables, ResServiceState, Table2Entry};
 
 use offsets::{
@@ -33,10 +31,8 @@ use offsets::{
     MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, TITLE_SCREEN_VERSION_OFFSET,
 };
 
-use api::{ExtCallbackFn, EXT_CALLBACKS};
+use api::EXT_CALLBACKS;
 
-use arcropolis_api as arc_api;
-use binread::*;
 use log::{info, trace, warn};
 use owo_colors::OwoColorize;
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
@@ -129,7 +125,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
     // table2entry.data - pointer to the buffer allocated
     // ??? - size of the nutexb before extension
     // ??? - the file data needing extension
-    let mut data_out =
+    let data_out =
         unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, buffer_size as _) };
 
     // Copy data into out buffer
@@ -370,7 +366,7 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
     }
 }
 
-static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
+// static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
 
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
 fn initial_loading(_ctx: &InlineCtx) {

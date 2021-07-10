@@ -1,27 +1,24 @@
 use std::{
     collections::HashMap,
     fs,
-    io::Write,
-    path::{Path, PathBuf},
-    vec,
+    path::PathBuf,
 };
 
 use crate::{
-    api::ExtCallbackFn,
-    callbacks::{Callback, CallbackKind},
+    callbacks::CallbackKind,
     config::{CONFIG, REGION},
     fs::visit::ModPath,
-    hashes, runtime,
+    runtime,
 };
 
-use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40, HashToIndex, Region};
+use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
 
 use runtime::{LoadedArcEx, LoadedTables};
 
 use log::{debug, warn};
 use owo_colors::OwoColorize;
 
-use crate::cache;
+// use crate::cache;
 
 lazy_static::lazy_static! {
     pub static ref MOD_FILES: parking_lot::RwLock<ModFiles> = parking_lot::RwLock::new(ModFiles::new());
@@ -33,7 +30,7 @@ lazy_static::lazy_static! {
     pub static ref CALLBACKS: parking_lot::RwLock<HashMap<Hash40, CallbackKind>> = parking_lot::RwLock::new(HashMap::new());
 
     // For unsharing the files :)
-    pub static ref UNSHARE_LUT: parking_lot::RwLock<Option<cache::UnshareCache>> = parking_lot::RwLock::new(None);
+    // pub static ref UNSHARE_LUT: parking_lot::RwLock<Option<cache::UnshareCache>> = parking_lot::RwLock::new(None);
 }
 
 const REGIONS: &[&str] = &[
@@ -174,7 +171,7 @@ impl ModFiles {
                                     let new_callback = callback;
 
                                     let new_backing =
-                                        if let FileBacking::Callback { callback, original } =
+                                        if let FileBacking::Callback { callback, original: _ } =
                                             &*callback.previous
                                         {
                                             FileBacking::Callback {
@@ -231,7 +228,7 @@ impl ModFiles {
                             // Update the FileCtx
                             let new_callback = callback;
 
-                            let new_backing = if let FileBacking::Callback { callback, original } =
+                            let new_backing = if let FileBacking::Callback { callback, original: _ } =
                                 &*callback.previous
                             {
                                 FileBacking::Callback {
@@ -375,7 +372,7 @@ impl FileCtx {
                     .unwrap()
                     .decomp_size
             }
-            FileBacking::Callback { callback, original } => {
+            FileBacking::Callback { callback, original: _ } => {
                 if let CallbackKind::Regular(cb) = callback {
                     cb.len
                 } else {
@@ -392,7 +389,7 @@ impl FileCtx {
             // lol, lmao
             FileBacking::LoadFromArc => None,
             FileBacking::Callback {
-                callback,
+                callback: _,
                 original: _,
             } => Some(PathBuf::from("Callback")),
         }

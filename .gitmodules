@@ -1,0 +1,3 @@
+[submodule "smash-arc"]
+	path = smash-arc
+	url = https://github.com/jam1garner/smash-arc

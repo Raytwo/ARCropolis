@@ -43,7 +43,7 @@ fn get_workspaces() -> Vec<Workspace> {
     read_dir(WORKSPACES_LOCATION)
         .unwrap()
         .enumerate()
-        .filter_map(|(index, entry)| {
+        .filter_map(|(_, entry)| {
             let entry = entry.unwrap();
             let name = String::from(entry.path().file_name().unwrap().to_str().unwrap());
 

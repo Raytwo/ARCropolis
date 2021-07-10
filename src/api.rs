@@ -1,9 +1,9 @@
-use std::{ffi::CStr, io::Write, path::PathBuf};
+use std::io::Write;
 
 use arcropolis_api::{CallbackFn, StreamCallbackFn};
 use log::debug;
 use owo_colors::OwoColorize;
-use smash_arc::{ArcLookup, Hash40, Region};
+use smash_arc::{ArcLookup, Hash40};
 
 use crate::{
     callbacks::{Callback, CallbackKind, StreamCallback},
@@ -13,7 +13,6 @@ use crate::{
         recursive_file_backing_load, FileBacking, FileIndex, CALLBACKS, MOD_FILES,
     },
     runtime::LoadedTables,
-    CONFIG,
 };
 
 /// NOTE: THIS MUST BE BUMPED ANY TIME THE EXTERNALLY-FACING API IS CHANGED
