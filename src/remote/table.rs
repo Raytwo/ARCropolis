@@ -394,6 +394,44 @@ mod utils {
             }
         }
     }
+
+    pub fn handle_get_broken_filepaths(tables: &LoadedTables, mut args: Vec<String>) -> String {
+        use std::fmt::Write;
+        #[derive(Debug)]
+        enum BrokenReason {
+            InvalidDataIdx,
+            DataUnloaded
+        }
+        let filter = get_flag_and_option("-f", &mut args);
+        let arc = LoadedTables::get_arc();
+        let table1 = tables.table_1();
+        let table2 = tables.table_2();
+        let file_paths = arc.get_file_paths();
+        let broken: Vec<(Hash40, BrokenReason)> = table1.iter().enumerate().filter_map(|(idx, entry)| {
+            if entry.in_table_2 != 0 {
+                if entry.table2_index == 0xFF_FFFF {
+                    Some((file_paths[idx].path.hash40(), BrokenReason::InvalidDataIdx))
+                } else if table2[entry.table2_index as usize].state != FileState::Loaded {
+                    Some((file_paths[idx].path.hash40(), BrokenReason::DataUnloaded))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }).collect();
+        let mut output = String::from("");
+        for (hash, reason) in broken.into_iter() {
+            let dehashed = hashes::get(hash);
+            if let Some(filter) = filter.as_ref() {
+                if !dehashed.contains(filter) {
+                    continue;
+                }
+            }
+            let _ = write!(&mut output, "'{}' ({:#x}): {:?}\n", dehashed, hash.0, reason);
+        }
+        output
+    }
 }
 
 pub fn handle_command(mut args: Vec<String>) -> String {
@@ -409,6 +447,7 @@ pub fn handle_command(mut args: Vec<String>) -> String {
         "check_directory" => utils::handle_check_directory(tables, args),
         "freeze" => utils::handle_freeze(),
         "unfreeze" => utils::handle_unfreeze(),
+        "get_broken_filepaths" => utils::handle_get_broken_filepaths(tables, args),
         _ => String::from(USAGE)
     }
 }
