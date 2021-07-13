@@ -2,7 +2,12 @@ use arc_vector::ArcVector;
 use smash_arc::*;
 use crate::runtime::*;
 use parking_lot::Mutex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+lazy_static! {
+    pub static ref UNSHARED_FILES: Mutex<HashMap<u32, HashSet<u32>>> = Mutex::new(HashMap::new());
+    pub static ref ALREADY_UNSHARED: Mutex<HashSet<u32>> = Mutex::new(HashSet::new());
+}
 trait LoadedArcAdditions {
     fn get_dir_infos_as_vec(&self) -> ArcVector<DirInfo>;
     fn get_file_paths_as_vec(&self) -> ArcVector<FilePath>;
@@ -14,7 +19,7 @@ trait LoadedArcAdditions {
     fn get_path_to_index_as_vec(&self) -> ArcVector<HashToIndex>;
 }
 
-trait LoadedTableAdditions {
+pub trait LoadedTableAdditions {
     fn get_filepath_table_as_vec(&self) -> ArcVector<Table1Entry>;
     fn get_loaded_data_table_as_vec(&self) -> ArcVector<Table2Entry>;
     fn get_loaded_directories_as_vec(&self) -> ArcVector<LoadedDirectory>;
@@ -151,6 +156,10 @@ lazy_static! {
     static ref RESHARED_FILEPATHS: Mutex<HashMap<Hash40, FilePathIdx>> = Mutex::new(HashMap::new());
 }
 
+static mut FILE_PATH_CAPACITY: Option<usize> = None;
+static mut INFO_INDICE_CAPACITY: Option<usize> = None;
+static mut FILE_INFO_CAPACITY: Option<usize> = None;
+
 pub fn reshare_dir_info(hash: Hash40) {
     fn is_lowest_shared_file(info: &FileInfo, arc: &LoadedArc) -> bool {
         let file_paths = arc.get_file_paths();
@@ -191,6 +200,7 @@ pub fn reshare_dir_info(hash: Hash40) {
     } else {
         return;
     };
+    let mut info_to_datas = arc.get_file_info_to_datas_as_vec();
 
     if !already_reshared.contains(&shared_file_group.directory_index) {
         // backup current FileInfo vec length
@@ -233,6 +243,8 @@ pub fn reshare_dir_info(hash: Hash40) {
             if is_lowest_shared_file(file_info, arc) {
                 file_info.file_path_index = fp_index;
                 file_info.file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
+                // info_to_datas[file_info.info_to_data_index.0].folder_offset_index = 0xca6;
+                // info_to_datas[file_info.info_to_data_index.0].file_info_index_and_flag = 0x0100_0000;
             }
         }
         file_groups[shared_file_group.directory_index].file_start_index = og_fi_len as u32;
@@ -241,9 +253,9 @@ pub fn reshare_dir_info(hash: Hash40) {
         already_reshared.push(shared_file_group.directory_index);
     }
 
-    let reshared = RESHARED_FILEPATHS.lock();
+    // file_groups[dir_info.path.index() as usize].directory_index = 0xFF_FFFF;
 
-    // let arc = LoadedTables::get_arc();
+    let reshared = RESHARED_FILEPATHS.lock();
     let shared_start = arc.get_shared_data_index();
     for file_info in file_infos.iter_mut().skip(dir_info.file_info_start_index as usize).take(dir_info.file_count as usize) {
         // Check if the FileData is past the "shared offset". If so, then we need to search the FilePaths for the right information
@@ -253,14 +265,270 @@ pub fn reshare_dir_info(hash: Hash40) {
             // Change it to the new hash we created for accessing the reshared files
             let backup_hash = Hash40((shared_file_hash.as_u64() & 0xFFFF_FFFF) | 0x69_0000_0000);
             if let Some(path_idx) = reshared.get(&backup_hash) {
-                cli::send(format!("b: {:#x}", backup_hash.0).as_str());
                 // The reshared FilePath was found, change this FileInfo's information to reflect it
                 let new_ii_index = file_paths[usize::from(*path_idx)].path.index();
                 file_paths[usize::from(file_info.file_path_index)].path.set_index(new_ii_index);
                 file_info.file_info_indice_index = FileInfoIndiceIdx(new_ii_index);
-            } else {
-                cli::send(format!("ub: {:#x}", backup_hash.0).as_str());
             }
         }
     }
+}
+
+pub fn unshare_files(directory: Hash40) {
+    unshare_recursively(directory);
+    LoadedTables::get_instance().get_loaded_data_table_as_vec().set_len(LoadedTables::get_arc().get_file_info_indices().len());
+}
+
+pub fn unshare_recursively(directory: Hash40) {
+    fn get_shared_file(info: &FileInfo, arc: &LoadedArc) -> FilePathIdx {
+        let file_paths = arc.get_file_paths();
+        let info_indices = arc.get_file_info_indices();
+        let file_infos = arc.get_file_infos();
+        let mut last_file_path = file_infos[info_indices[file_paths[info.file_path_index].path.index() as usize].file_info_index].file_path_index;
+        while file_infos[info_indices[file_paths[last_file_path].path.index() as usize].file_info_index].file_path_index != last_file_path {
+            last_file_path = file_infos[info_indices[file_paths[last_file_path].path.index() as usize].file_info_index].file_path_index;
+        }
+        last_file_path
+    }
+
+    fn get_self_index(info: &DirInfo, arc: &LoadedArc) -> u32 {
+        let hash_index = arc.get_dir_hash_to_info_index();
+        for hash in hash_index.iter() {
+            if hash.hash40() == info.path.hash40() {
+                return hash.index();
+            }
+        }
+        0xFF_FFFF
+    }
+
+    fn unshare_children(info: &DirInfo, arc: &LoadedArc) {
+        for idx in info.children_range() {
+            let next_hash = unsafe { (*arc.folder_child_hashes.add(idx)).hash40() };
+            unshare_recursively(next_hash);
+        }
+    }
+
+    let loaded_tables = LoadedTables::acquire_instance();
+    let arc = LoadedTables::get_arc();
+
+    let dir_info = if let Ok(info) = arc.get_dir_info_from_hash(directory) {
+        info.clone()
+    } else {
+        return;
+    };
+
+    if !dir_info.flags.redirected() || dir_info.flags.is_symlink() {
+        unshare_children(&dir_info, arc);
+        return;
+    }
+
+    let file_group_idx = arc.get_folder_offsets()[dir_info.path.index() as usize].directory_index;
+    arc.get_file_groups_as_vec()[dir_info.path.index() as usize].directory_index = 0xFF_FFFF;
+
+    let self_index = get_self_index(&dir_info, arc);
+    let mut unshared_files = UNSHARED_FILES.lock();
+
+    let mut unshared_filepaths = if let Some(filepaths) = unshared_files.get_mut(&self_index) {
+        filepaths
+    } else {
+        unshared_files.insert(self_index, HashSet::new());
+        unshared_files.get_mut(&self_index).unwrap()
+    };
+
+    let mut file_paths = arc.get_file_paths_as_vec();
+    if let Some(cap) = unsafe { FILE_PATH_CAPACITY.clone() } {
+        file_paths.set_capacity(cap);
+    }
+    let mut info_indices = arc.get_file_info_indices_as_vec();
+    if let Some(cap) = unsafe { INFO_INDICE_CAPACITY.clone() } {
+        info_indices.set_capacity(cap);
+    }
+    let mut file_infos = arc.get_file_infos_as_vec();
+    if let Some(cap) = unsafe { FILE_INFO_CAPACITY.clone() } {
+        file_infos.set_capacity(cap);
+    }
+
+    let shared_data_idx = arc.get_shared_data_index();
+    for current_index in dir_info.file_info_range() {
+        let current_file_path = file_infos[current_index].file_path_index;
+        if !unshared_filepaths.contains(&current_file_path.0) {
+            if arc.get_file_in_folder(&file_infos[current_index], Region::None).file_data_index.0 >= shared_data_idx {
+                let shared_file_path = get_shared_file(&file_infos[current_index], arc);
+                file_infos.extend_from_within(info_indices[file_paths[shared_file_path.0].path.index() as usize].file_info_index.0 as usize, 1);
+                info_indices.push_from_within(file_paths[shared_file_path.0].path.index() as usize);
+                let new_ii = info_indices.last_mut().unwrap();
+                new_ii.file_info_index = FileInfoIdx((file_infos.len() - 1) as u32);
+                drop(new_ii);
+                file_paths[file_infos[current_index].file_path_index.0].path.set_index((info_indices.len() - 1) as u32);
+                let current_path_idx = file_infos[current_index].file_path_index;
+                let new_fi = file_infos.last_mut().unwrap();
+                new_fi.file_path_index = current_path_idx;
+                new_fi.file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
+                unshared_filepaths.insert(new_fi.file_path_index.0);
+                file_infos[current_index].file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
+            }
+        }
+    }
+
+    unsafe {
+        FILE_PATH_CAPACITY = Some(file_paths.capacity());
+        INFO_INDICE_CAPACITY = Some(info_indices.capacity());
+        FILE_INFO_CAPACITY = Some(file_infos.capacity());
+    }
+
+    unshare_children(&dir_info, arc);
+}
+
+pub fn unshare_files_in_directory(directory: Hash40, files: Vec<Hash40>) {
+    fn get_shared_hash(info: &FileInfo, arc: &LoadedArc) -> Hash40 {
+        let file_paths = arc.get_file_paths();
+        let info_indices = arc.get_file_info_indices();
+        let file_infos = arc.get_file_infos();
+        file_paths[file_infos[info_indices[file_paths[info.file_path_index].path.index() as usize].file_info_index].file_path_index].path.hash40()
+    }
+
+    fn get_self_index(info: &DirInfo, arc: &LoadedArc) -> u32 {
+        let hash_index = arc.get_dir_hash_to_info_index();
+        for hash in hash_index.iter() {
+            if hash.hash40() == info.path.hash40() {
+                return hash.index();
+            }
+        }
+        0xFF_FFFF
+    }
+
+    let files: HashSet<Hash40> = files.into_iter().map(|x| x).collect();
+
+    let loaded_tables = LoadedTables::acquire_instance();
+    let arc = LoadedTables::get_arc();
+
+    let dir_info = if let Ok(info) = arc.get_dir_info_from_hash(directory) {
+        info.clone()
+    } else {
+        return;
+    };
+
+    arc.get_file_groups_as_vec()[dir_info.path.index()].directory_index = 0xFF_FFFF;
+
+    let dir_infos = arc.get_dir_infos();
+    let mut unshared_files = UNSHARED_FILES.lock();
+    let mut unshared_filepaths = None;
+    for (idx, filepaths) in unshared_files.iter_mut() {
+        if dir_infos[*idx as usize].path.hash40() == dir_info.path.hash40() {
+            unshared_filepaths = Some(filepaths);
+            break;
+        }
+    } 
+    let unshared_filepaths = if let Some(filepaths) = unshared_filepaths {
+        filepaths
+    } else {
+        let self_index = get_self_index(&dir_info, arc);
+        if self_index == 0xFF_FFFF {
+            return;
+        }
+        unshared_files.insert(self_index, HashSet::new());
+        unshared_files.get_mut(&self_index).unwrap()
+    };
+
+    let mut file_paths = arc.get_file_paths_as_vec();
+    let mut info_indices = arc.get_file_info_indices_as_vec();
+    let mut file_infos = arc.get_file_infos_as_vec();
+    let mut info_to_datas = arc.get_file_info_to_datas_as_vec();
+    
+    let file_info_range = dir_info.file_info_range();
+    for current_index in file_info_range {
+        if !unshared_filepaths.contains(&file_infos[current_index].file_path_index.0) {
+            let file_hash = file_paths[file_infos[current_index].file_path_index.0].path.hash40();
+            if files.contains(&file_hash) {
+                let shared_hash = get_shared_hash(&file_infos[current_index], arc);
+                if shared_hash != file_hash {
+                    file_infos.extend_from_within(info_indices[file_paths[file_infos[current_index].file_path_index.0].path.index()].file_info_index.0 as usize, 1);
+                    info_indices.push_from_within(file_paths[file_infos[current_index].file_path_index.0].path.index() as usize);
+                    let new_ii = info_indices.last_mut().unwrap();
+                    new_ii.file_info_index = FileInfoIdx((file_infos.len() - 1) as u32);
+                    drop(new_ii);
+                    file_paths[file_infos[current_index].file_path_index.0].path.set_index((info_indices.len() - 1) as u32);
+                    let current_path_idx = file_infos[current_index].file_path_index;
+                    let new_fi = file_infos.last_mut().unwrap();
+                    new_fi.file_path_index = current_path_idx;
+                    new_fi.file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
+                    unshared_filepaths.insert(new_fi.file_path_index.0);
+                    info_to_datas[new_fi.info_to_data_index.0].file_info_index_and_flag = 0x0100_0000;
+                    drop(new_fi);
+                    file_infos[current_index].file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
+                }
+            }
+        }
+    }
+    loaded_tables.get_loaded_data_table_as_vec().set_len(info_indices.len());
+}
+
+pub fn unshare_file_in_directory(directory: Hash40, file: Hash40) {
+    fn get_shared_hash(info: &FileInfo, arc: &LoadedArc) -> Hash40 {
+        let file_paths = arc.get_file_paths();
+        let info_indices = arc.get_file_info_indices();
+        let file_infos = arc.get_file_infos();
+        file_paths[file_infos[info_indices[file_paths[info.file_path_index].path.index() as usize].file_info_index].file_path_index].path.hash40()
+    }
+
+    let loaded_tables = LoadedTables::acquire_instance();
+    let arc = LoadedTables::get_arc_mut();
+
+    let dir_info = if let Ok(info) = arc.get_dir_info_from_hash(directory) {
+        info.clone()
+    } else {
+        return;
+    };
+
+    let mut file_paths = arc.get_file_paths_as_vec();
+    let mut info_indices = arc.get_file_info_indices_as_vec();
+    let mut file_infos = arc.get_file_infos_as_vec();
+    let mut info_to_datas = arc.get_file_info_to_datas_as_vec();
+    let mut file_groups = arc.get_file_groups_as_vec();
+    file_groups[dir_info.path.index()].directory_index = 0xFFFFFF;
+
+    let file_info_range = dir_info.file_info_range();
+    for current_index in file_info_range.clone() {
+        if file_paths[file_infos[current_index].file_path_index.0].path.hash40() == file {
+            cli::send("inside of first test");
+            let shared_hash = get_shared_hash(&file_infos[current_index], arc);
+            if shared_hash != file {
+                cli::send("inside of second test");
+                // let file_info = file_infos[current_index];
+                // file_infos.push(file_info);
+                file_infos.extend_from_within(info_indices[file_paths[file_infos[current_index].file_path_index.0].path.index()].file_info_index.0 as usize, 1);
+                // file_infos.push_from_within(current_index);
+                info_indices.push_from_within(file_paths[file_infos[current_index].file_path_index.0].path.index() as usize);
+                let new_ii = info_indices.last_mut().unwrap();
+                new_ii.file_info_index = FileInfoIdx((file_infos.len() - 1) as u32);
+                drop(new_ii);
+                let new_fi = file_infos.last_mut().unwrap();
+                file_paths[new_fi.file_path_index.0].path.set_index((info_indices.len() - 1) as u32);
+                new_fi.file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
+            }
+        }
+    }
+    // for (current_offset, info) in file_infos[file_info_range].iter_mut().enumerate() {
+    //     if file_paths[info.file_path_index.0].path.hash40() == file {
+    //         let shared_hash = get_shared_hash(info, arc);
+    //         if shared_hash != file {
+    //             info.file_info_indice_index = FileInfoIndiceIdx(info_indices.len() as u32);
+    //             info_indices.push_from_within(file_paths[info.file_path_index.0].path.index() as usize);
+    //             let new_ii = info_indices.last_mut().unwrap();
+    //             arc.get_file_infos_mut()[new_ii.file_info_index].file_info_indice_index = info.file_info_indice_index;
+    //             // new_ii.file_info_index = FileInfoIdx(dir_info.file_info_start_index + current_offset as u32);
+    //             // new_ii.dir_offset_index = 0x472;
+    //             drop(new_ii);
+    //             let shared_file_path_idx = arc.get_file_path_index_from_hash(shared_hash).unwrap();
+    //             file_paths[info.file_path_index.0].path.set_index((info_indices.len() - 1) as u32);
+    //             file_paths[shared_file_path_idx.0].path.set_index((info_indices.len() - 1) as u32);
+    //             // file_paths[info.file_path_index.0].ext.set_index(0x00);
+    //             // info.flags.set_unknown2(false);
+    //             // info.flags.set_unknown3(false);
+    //             info_to_datas[info.info_to_data_index.0].file_info_index_and_flag = info_to_datas[arc.get_file_infos()[info_indices[info.file_info_indice_index.0].file_info_index].info_to_data_index.0].file_info_index_and_flag;
+    //             info_to_datas[info.info_to_data_index.0].folder_offset_index = 0xca6;
+    //         }
+    //     }
+    // }
+    loaded_tables.get_loaded_data_table_as_vec().set_len(info_indices.len());
 }

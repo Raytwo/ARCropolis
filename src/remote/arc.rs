@@ -660,7 +660,7 @@ mod utils {
         let file_info = arc.get_file_info_from_hash(file_path.path.hash40()).unwrap(); // Fine to unwrap here since we already know it's there
         let shared_data_index = arc.get_shared_data_index();
         let data_index = arc.get_file_in_folder(file_info, Region::None).file_data_index.0;
-        if data_index >= shared_data_index {
+        if data_index >= shared_data_index || true {
             if !recursive {
                 let shared_hash = arc.get_file_paths()[file_info.file_path_index].path.hash40();
                 if shared_hash == file_path.path.hash40() {

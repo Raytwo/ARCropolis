@@ -62,6 +62,10 @@ table: Commands to help scan the filesystem tables for analysis/troubleshooting 
                   Pass -p for pretty printing with colors
                   Pass -u to only print unloaded file infos
                   Pass --ref-count or --pointer to only see those fields of the loaded data table entries for each file (the default is the loaded state)
+        freeze
+            Note: Freezes ResLoadingThread
+        unfreeze
+            Note: Unfreeses ResLoadingThread
 "#;
 
 pub fn parse_index(arg: &str) -> Option<u32> {

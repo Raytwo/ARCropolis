@@ -9,7 +9,7 @@ use smash_arc::{ArcLookup, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, L
 
 use smash_arc::LoadedSearchSection;
 
-use crate::config::REGION;
+use crate::{config::REGION, res_list::ResList};
 
 use crate::cpp_vector::CppVector;
 
@@ -954,10 +954,7 @@ pub struct ResServiceState {
     pub res_loading_thread: *mut nn::os::ThreadType,
     pub res_inflate_thread: *mut nn::os::ThreadType,
     unk4: *const (),
-    unk5: [CppVector<CppVector<u32>>; 4],
-    unk6: *const (),
-    unk7: *const (),
-    unk8: *const (),
+    pub res_lists: [ResList; 5],
     pub loaded_tables: *mut LoadedTables,
     pub unk_region_idx: u32,
     pub game_region_idx: u32,

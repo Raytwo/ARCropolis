@@ -201,6 +201,7 @@ mod utils {
         let dir_infos = arc.get_dir_infos();
         let child_dir_to_index = unsafe { std::slice::from_raw_parts(arc.folder_child_hashes, (*arc.fs_header).folder_count as usize) };
         let file_paths = arc.get_file_paths();
+        let table1 = tables.table_1();
         let table2 = tables.table_2();
         let directories = tables.get_loaded_directories();
 
@@ -232,34 +233,70 @@ mod utils {
         };
 
         for path_idx in loaded_dir.child_path_indices.iter() {
-            let table2_idx = file_paths[*path_idx as usize].path.index();
-            let hash = file_paths[*path_idx as usize].path.hash40();
-            if table2[table2_idx as usize].state == FileState::Loaded && unloaded {
-                continue;
+            let t2_entry = {
+                if table1[*path_idx as usize].in_table_2 == 0 {
+                    None
+                } else {
+                    if table1[*path_idx as usize].table2_index == 0xFFFFFF {
+                        None
+                    } else {
+                        Some(&table2[table1[*path_idx as usize].table2_index as usize])
+                    }
+                }
+            };
+            if let Some(entry) = t2_entry.as_ref() {
+                if entry.state == FileState::Loaded && unloaded {
+                    continue;
+                }
             }
+            let hash = file_paths[*path_idx as usize].path.hash40();
             write_indent(&mut output, indent + 2);
             if pretty {
                 match info_type {
                     CheckInfoType::State => {
-                        let _ = write!(&mut output, "| '{}' ({:#x}): {:?}\n", hashes::get(hash).bright_red(), hash.0, table2[table2_idx as usize].state);
+                        if let Some(entry) = t2_entry {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {:?}\n", hashes::get(hash).bright_red(), hash.0, entry.state);
+                        } else {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::get(hash).bright_red(), hash.0, "Error! Invalid filepath table state!".red());
+                        }
                     },
                     CheckInfoType::RefCount => {
-                        let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::get(hash).bright_red(), hash.0, table2[table2_idx as usize].ref_count.load(std::sync::atomic::Ordering::SeqCst));
+                        if let Some(entry) = t2_entry {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::get(hash).bright_red(), hash.0, entry.ref_count.load(std::sync::atomic::Ordering::SeqCst));
+                        } else {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::get(hash).bright_red(), hash.0, "Error! Invalid filepath table state!".red());
+                        }
                     },
                     CheckInfoType::Pointer => {
-                        let _ = write!(&mut output, "| '{}' ({:#x}): {:x}\n", hashes::get(hash).bright_red(), hash.0, table2[table2_idx as usize].data as u64);
+                        if let Some(entry) = t2_entry {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {:x}\n", hashes::get(hash).bright_red(), hash.0, entry.data as u64);
+                        } else {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::get(hash).bright_red(), hash.0, "Error! Invalid filepath table state!".red());
+                        }
                     }
                 }
             } else {
                 match info_type {
                     CheckInfoType::State => {
-                        let _ = write!(&mut output, "| '{}' ({:#x}): {:?}\n", hashes::get(hash), hash.0, table2[table2_idx as usize].state);
+                        if let Some(entry) = t2_entry {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {:?}\n", hashes::get(hash), hash.0, entry.state);
+                        } else {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::get(hash), hash.0, "Error! Invalid filepath table state!".red());
+                        }
                     },
                     CheckInfoType::RefCount => {
-                        let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::get(hash), hash.0, table2[table2_idx as usize].ref_count.load(std::sync::atomic::Ordering::SeqCst));
+                        if let Some(entry) = t2_entry {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::get(hash), hash.0, entry.ref_count.load(std::sync::atomic::Ordering::SeqCst));
+                        } else {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::get(hash), hash.0, "Error! Invalid filepath table state!".red());
+                        }
                     },
                     CheckInfoType::Pointer => {
-                        let _ = write!(&mut output, "| '{}' ({:#x}): {:x}\n", hashes::get(hash), hash.0, table2[table2_idx as usize].data as u64);
+                        if let Some(entry) = t2_entry {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {:x}\n", hashes::get(hash), hash.0, entry.data as u64);
+                        } else {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::get(hash), hash.0, "Error! Invalid filepath table state!".red());
+                        }
                     }
                 }
             }
@@ -335,6 +372,28 @@ mod utils {
 
         check_directory(tables, index, pretty, unloaded, info_type, None, 0)
     }
+
+    pub fn handle_freeze() -> String {
+        unsafe {
+            if crate::RES_LOADING_THREAD_LOCK {
+                String::from("ResLoadingThread is already frozen.")
+            } else {
+                crate::RES_LOADING_THREAD_LOCK = true;
+                String::from("ResLoadingThread frozen.")
+            }
+        }
+    }
+
+    pub fn handle_unfreeze() -> String {
+        unsafe {
+            if crate::RES_LOADING_THREAD_LOCK {
+                crate::RES_LOADING_THREAD_LOCK = false;
+                String::from("ResLoadingThread unfrozen.")
+            } else {
+                String::from("ResLoadingThread is not frozen.")
+            }
+        }
+    }
 }
 
 pub fn handle_command(mut args: Vec<String>) -> String {
@@ -348,6 +407,8 @@ pub fn handle_command(mut args: Vec<String>) -> String {
         "get_loaded_data_table_entry" => lookups::handle_get_loaded_data_table_entry(tables, args),
         "get_loaded_directory_table_entry" => lookups::handle_get_loaded_directory_table_entry(tables, args),
         "check_directory" => utils::handle_check_directory(tables, args),
+        "freeze" => utils::handle_freeze(),
+        "unfreeze" => utils::handle_unfreeze(),
         _ => String::from(USAGE)
     }
 }
