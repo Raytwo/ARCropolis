@@ -9,8 +9,8 @@ extern crate lazy_static;
 
 use arcropolis_api::load_original_file;
 use res_list::{LoadInfo, LoadType};
-use skyline::{hook, hooks::InlineCtx, install_hooks, libc::malloc, nn};
-use std::io::prelude::*;
+use skyline::{hook, hooks::InlineCtx, install_hooks, libc::{c_char, malloc}, nn};
+use std::{ffi, io::prelude::*};
 use std::net::IpAddr;
 use std::ffi::CStr;
 
@@ -404,6 +404,8 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
     }
 }
 
+pub static mut ORIGINAL_SHARED_INDEX: u32 = 0;
+
 // static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
 
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
@@ -505,6 +507,7 @@ fn initial_loading(_ctx: &InlineCtx) {
         //     Hash40::from("fighter/lucario/model/body/c01/model.numshb"),
         // ]);
         // println!("unsharing lucario");
+        ORIGINAL_SHARED_INDEX = LoadedTables::get_arc().get_shared_data_index();
         unsharing::unshare_files(Hash40::from("fighter"));
         // println!("unsharing cloud");
         // unsharing::unshare_files(Hash40::from("fighter/cloud"));
@@ -564,6 +567,14 @@ fn initial_loading(_ctx: &InlineCtx) {
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
     }
+}
+
+#[skyline::hook(replace = skyline::nn::fs::OpenFile)]
+unsafe fn open_file(handle: u64, path: *const i8, open_mode: i32) -> u32 {
+    let string = ffi::CStr::from_ptr(path);
+    let string = string.to_str().unwrap();
+    println!("Reading file: {}", string);
+    original!()(handle, path, open_mode)
 }
 
 static mut LUCARIO_DIR_INFO: u32 = 0xFFFFFF;
@@ -709,6 +720,7 @@ pub fn main() {
     install_hooks!(
         res_loop_start,
         res_loop_refresh,
+        open_file,
         // null1,
         // null2,
         // before_read,

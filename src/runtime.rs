@@ -9,7 +9,7 @@ use smash_arc::{ArcLookup, FileInfo, FileInfoIndiceIdx, FilePath, FilePathIdx, L
 
 use smash_arc::LoadedSearchSection;
 
-use crate::{config::REGION, res_list::ResList};
+use crate::{config::REGION, hashes, res_list::ResList};
 
 use crate::cpp_vector::CppVector;
 
@@ -768,7 +768,9 @@ impl LoadedArcEx for LoadedArc {
             + self.get_file_section_offset()
             + ((orig_filedata.offset_in_folder as u64) << 2);
 
-        if self.get_shared_section_offset() < offset {
+        let name = hashes::get(self.get_file_paths()[fileinfo.file_path_index].path.hash40());
+
+        if self.get_shared_section_offset() < offset  && false {
             // Get every FileInfo that shares the same FileInfoIndice index
             let shared_fileinfos = self.get_shared_fileinfos(&file_path);
 
@@ -791,7 +793,7 @@ impl LoadedArcEx for LoadedArc {
                 filedata.decomp_size = size;
                 info!(
                     "[ARC::Patching] File '{}' has a new patched decompressed size: {:#x}",
-                    "temp",
+                    name,
                     filedata.decomp_size.bright_red()
                 );
             }
