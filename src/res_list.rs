@@ -58,11 +58,9 @@ impl ResList {
             None
         } else {
             let mut node = self.next;
-            // if idx != 0 {
-                for x in 0..idx {
-                    node = unsafe { (*node).next };
-                }
-            // }
+            for _ in 0..idx {
+                node = unsafe { (*node).next };
+            }
             unsafe {
                 Some(&*node)
             }
@@ -105,11 +103,9 @@ impl ResList {
             None
         } else {
             let mut node = self.next;
-            // if idx != 0 {
-                for x in 0..idx {
-                    node = unsafe { (*node).next };
-                }
-            // }
+            for _ in 0..idx {
+                node = unsafe { (*node).next };
+            }
             unsafe {
                 Some(&(*node).data)
             }
@@ -121,7 +117,7 @@ impl ResList {
             None
         } else {
             let mut node = self.next;
-            for x in 0..idx {
+            for _ in 0..idx {
                 node = unsafe { (*node).next };
             }
             unsafe {
@@ -157,20 +153,16 @@ pub struct ResListIterMut<'a> {
 impl<'a> Iterator for NodeIter<'a> {
     type Item = &'a ListNode;
     fn next(&mut self) -> Option<&'a ListNode> {
-        unsafe {
-            self.count += 1;
-            self.list.get_node(self.count - 1)
-        }
+        self.count += 1;
+        self.list.get_node(self.count - 1)
     }
 }
 
 impl<'a> Iterator for ResListIter<'a> {
     type Item = &'a LoadInfo;
     fn next(&mut self) -> Option<&'a LoadInfo> {
-        unsafe {
-            self.count += 1;
-            self.list.get(self.count - 1)
-        }
+        self.count += 1;
+        self.list.get(self.count - 1)
     }
 }
 

@@ -373,28 +373,6 @@ mod utils {
         check_directory(tables, index, pretty, unloaded, info_type, None, 0)
     }
 
-    pub fn handle_freeze() -> String {
-        unsafe {
-            if crate::RES_LOADING_THREAD_LOCK {
-                String::from("ResLoadingThread is already frozen.")
-            } else {
-                crate::RES_LOADING_THREAD_LOCK = true;
-                String::from("ResLoadingThread frozen.")
-            }
-        }
-    }
-
-    pub fn handle_unfreeze() -> String {
-        unsafe {
-            if crate::RES_LOADING_THREAD_LOCK {
-                crate::RES_LOADING_THREAD_LOCK = false;
-                String::from("ResLoadingThread unfrozen.")
-            } else {
-                String::from("ResLoadingThread is not frozen.")
-            }
-        }
-    }
-
     pub fn handle_get_broken_filepaths(tables: &LoadedTables, mut args: Vec<String>) -> String {
         use std::fmt::Write;
         #[derive(Debug)]
@@ -445,8 +423,6 @@ pub fn handle_command(mut args: Vec<String>) -> String {
         "get_loaded_data_table_entry" => lookups::handle_get_loaded_data_table_entry(tables, args),
         "get_loaded_directory_table_entry" => lookups::handle_get_loaded_directory_table_entry(tables, args),
         "check_directory" => utils::handle_check_directory(tables, args),
-        "freeze" => utils::handle_freeze(),
-        "unfreeze" => utils::handle_unfreeze(),
         "get_broken_filepaths" => utils::handle_get_broken_filepaths(tables, args),
         _ => String::from(USAGE)
     }

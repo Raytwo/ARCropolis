@@ -7,10 +7,9 @@ extern crate skyline_communicate as cli;
 #[macro_use]
 extern crate lazy_static;
 
-use arcropolis_api::load_original_file;
 use res_list::{LoadInfo, LoadType};
-use skyline::{hook, hooks::InlineCtx, install_hooks, libc::{c_char, malloc}, nn};
-use std::{ffi, io::prelude::*};
+use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
+use std::io::prelude::*;
 use std::net::IpAddr;
 use std::ffi::CStr;
 
@@ -33,11 +32,12 @@ mod unsharing;
 
 use config::{CONFIG, REGION};
 use replacement_files::{FileCtx, FileIndex, IncomingLoad, INCOMING_LOAD, MOD_FILES};
-use runtime::{FileState, LoadedTables, ResServiceState, Table2Entry};
+use runtime::{LoadedTables, ResServiceState, Table2Entry};
 
 use offsets::{
     INFLATE_DIR_FILE_OFFSET, INFLATE_OFFSET, INITIAL_LOADING_OFFSET, MANUAL_OPEN_OFFSET,
     MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, TITLE_SCREEN_VERSION_OFFSET,
+    PROCESS_RESOURCE_NODE, RES_LOAD_LOOP_START, RES_LOAD_LOOP_REFRESH
 };
 
 use api::EXT_CALLBACKS;
@@ -449,197 +449,52 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Discover files
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
-
-        // if let Some(handle) = LUT_LOADER_HANDLE.take() {
-        //     handle.join().unwrap();
-        //     let lut = UNSHARE_LUT.read();
-        //     if lut.is_none() {
-        //         skyline_web::DialogOk::ok("No valid unsharing lookup table found. One will be generated and the game will restart.");
-        //         let cache = cache::UnshareCache::new(LoadedTables::get_arc());
-        //         cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
-        //         nn::oe::RestartProgramNoArgs();
-        //     } else if lut.as_ref().unwrap().arc_version != (*LoadedTables::get_arc().fs_header).version {
-        //         skyline_web::DialogOk::ok("Found unsharing lookup table for a different game version. A new one will be generated and the game will restart.");
-        //         let cache = cache::UnshareCache::new(LoadedTables::get_arc());
-        //         cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
-        //         nn::oe::RestartProgramNoArgs();
-        //     }
-        // }
-
-        // unsharing::reshare_dir_info(Hash40::from("fighter/jack/c00"));
-        // unsharing::reshare_dir_info(Hash40::from("fighter/jack/c01"));
-        // unsharing::unshare_files_in_directory(Hash40::from("fighter/koopa/c01"), vec![
-        //     Hash40::from("fighter/koopa/model/body/c01/dark_model.numatb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/deyes_eye_koopa_d_col.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/deyes_eye_koopa_wd_col.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/eye_koopa_b_col.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/eye_koopa_g_col.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/eye_koopa_shell_col.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/eye_koopa_w_col.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/eye_koopa_w_nor.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/eye_koopa_w_prm.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/leyes_eye_koopa_l_col.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/light_model.numatb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/metal_koopa_001_col.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/metal_koopa_001_nor.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/metal_koopa_001_prm.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/metamon_model.numatb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/model.numatb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/model.numdlb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/model.numshb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/model.numshexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/model.nusrcmdlb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/skin_koopa_001_col.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/skin_koopa_001_nor.nutexb"),
-        //     Hash40::from("fighter/koopa/model/body/c01/skin_koopa_001_prm.nutexb"),
-        // ]);
-
-        // unsharing::unshare_files_in_directory(Hash40::from("fighter/lucario/c01"), vec![
-        //     Hash40::from("fighter/lucario/model/body/c01/alp_lucario_001_col.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c01/alp_lucario_001_nor.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c01/alp_lucario_001_prm.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c01/eye_lucario_b_col.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c01/eye_lucario_g_col.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c01/eye_lucario_w_col.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c01/eye_lucario_w_nor.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c01/eye_lucario_w_prm.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c01/model.numdlb"),
-        //     Hash40::from("fighter/lucario/model/body/c01/model.numshb"),
-        // ]);
-        // println!("unsharing lucario");
         ORIGINAL_SHARED_INDEX = LoadedTables::get_arc().get_shared_data_index();
+        unsharing::unshare_files(Hash40::from("fighter"));
         unsharing::unshare_files(Hash40::from("stage"));
-        // println!("unsharing cloud");
-        // unsharing::unshare_files(Hash40::from("fighter/cloud"));
-        // println!("unsharing bowser");
-        // unsharing::unshare_files(Hash40::from("fighter/koopa"));
-        // println!("unsharing battlefield");
-        // std::thread::sleep(std::time::Duration::from_millis(200));
-        // unsharing::unshare_files(Hash40::from("stage/battlefield"));
-        // unsharing::unshare_files_in_directory(Hash40::from("fighter/lucario/c00"), vec![
-        //     Hash40::from("fighter/lucario/model/body/c00/alp_lucario_001_col.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/alp_lucario_001_nor.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/alp_lucario_001_prm.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/deyes_eye_lucario_d_col.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/deyes_eye_lucario_wd_col.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/eye_lucario_b_col.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/eye_lucario_g_col.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/eye_lucario_w_col.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/eye_lucario_w_nor.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/eye_lucario_w_prm.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/eye_mario_w_nor.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/leyes_eye_lucario_l_col.nutexb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/model.numdlb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/model.numshb"),
-        //     Hash40::from("fighter/lucario/model/body/c00/model.numshexb"),
-        // ]);
-
-        for hti in LoadedTables::get_arc().get_dir_hash_to_info_index() {
-            if hti.hash40() == Hash40::from("fighter/lucario/c00") {
-                unsafe {
-                    LUCARIO_DIR_INFO = hti.index();
-                }
-            }
-            if hti.hash40() == Hash40::from("fighter/lucario/c01") {
-                unsafe {
-                    LUCARIO_DIR_INFO2 = hti.index();
-                }
-            }
-        }
-
-        // unsharing::unshare_file_in_directory(Hash40::from("fighter/jack/c01"), Hash40::from("fighter/jack/motion/body/c01/a00wait1.nuanmb"));
-        // unsharing::unshare_file_in_directory(Hash40::from("fighter/jack/c01"), Hash40::from("fighter/jack/motion/body/c01/a01turn.nuanmb"));
-        // unsharing::unshare_file_in_directory(Hash40::from("fighter/jack/c01"), Hash40::from("fighter/jack/motion/body/c01/a05squat.nuanmb"));
-        // unsharing::unshare_file_in_directory(Hash40::from("fighter/jack/c01"), Hash40::from("fighter/jack/motion/body/c01/a05squatwait.nuanmb"));
-        // unsharing::unshare_file_in_directory(Hash40::from("fighter/jack/c01"), Hash40::from("fighter/jack/motion/body/c01/c00attack11.nuanmb"));
-        // unsharing::unshare_file_in_directory(Hash40::from("fighter/jack/c01"), Hash40::from("fighter/jack/motion/body/c01/c00attack12.nuanmb"));
-        // unsharing::unshare_file_in_directory(Hash40::from("fighter/jack/c01"), Hash40::from("fighter/jack/motion/body/c01/c00attackdash.nuanmb"));
-        // unsharing::unshare_file_in_directory(Hash40::from("fighter/jack/c01"), Hash40::from("fighter/jack/motion/body/c01/c05attackairf.nuanmb"));
-        // unsharing::unshare_file_in_directory(Hash40::from("fighter/jack/c01"), Hash40::from("fighter/jack/motion/body/c01/c05attackairhi.nuanmb"));
-        // unsharing::reshare_dir_info(Hash40::from("fighter/jack/c02"));
-        // unsharing::reshare_dir_info(Hash40::from("fighter/jack/c03"));
-        // unsharing::reshare_dir_info(Hash40::from("fighter/jack/c04"));
-        // unsharing::reshare_dir_info(Hash40::from("fighter/jack/c05"));
-        // unsharing::reshare_dir_info(Hash40::from("fighter/jack/c06"));
-        // unsharing::reshare_dir_info(Hash40::from("fighter/jack/c07"));
-
         lazy_static::initialize(&MOD_FILES);
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
     }
 }
-
-#[skyline::hook(replace = skyline::nn::fs::OpenFile)]
-unsafe fn open_file(handle: u64, path: *const i8, open_mode: i32) -> u32 {
-    let string = ffi::CStr::from_ptr(path);
-    let string = string.to_str().unwrap();
-    println!("Reading file: {}", string);
-    original!()(handle, path, open_mode)
-}
-
-static mut LUCARIO_DIR_INFO: u32 = 0xFFFFFF;
-static mut LUCARIO_DIR_INFO2: u32 = 0xFFFFFF;
-
-#[skyline::hook(offset = 0x34e3e24, inline)]
-pub unsafe fn load_node(ctx: &mut skyline::hooks::InlineCtx) {
+#[skyline::hook(offset = PROCESS_RESOURCE_NODE, inline)]
+pub unsafe fn process_resource_node(ctx: &mut skyline::hooks::InlineCtx) {
     if *ctx.registers[26].x.as_ref() == *ctx.registers[8].x.as_ref() {
-        println!("Skipping this one");
         return;
     }
     let load_info = *ctx.registers[26].x.as_ref() as *mut res_list::ListNode;
     let load_info = &mut *load_info;
-    // for entry in list.iter() {
-    //     if entry.directory_index == 0x472 {
-    //         should = true;
-    //         break;
-    //     }
-    // }
-    // if should {
-    //     list.insert(LoadInfo { ty: LoadType::File, filepath_index: 0x10000, directory_index: 0xFFFFFF, directory_info: 0x0 });
-    // }
     match load_info.data.ty {
         res_list::LoadType::Directory => {
-            // if load_info.value.directory_index == 0x472 { // hardcode joker
-            //     let arc = LoadedTables::get_arc();
-            //     let file_info_range = arc.get_dir_infos()[load_info.value.directory_index as usize].file_info_range();
-            //     let filepath_indices: Vec<smash_arc::FilePathIdx> = arc.get_file_infos()[file_info_range].iter().map(|x| x.file_path_index).collect();
-
-            //     let mut curr = load_info as *mut ListNode;
-            //     for idx in filepath_indices.into_iter() {
-            //         (*(*curr).prev).next = ListNode::insert((*curr).next, (*curr).prev, LoadInfo { ty: LoadType::FilepathTable, directory_index: 0xFFFFFF, filepath_index: idx.0 });
-            //         (*(*curr).next).prev = (*(*curr).prev).next;
-            //     }
-            //     *ctx.registers[26].x.as_mut() = (*load_info.prev).next as u64;
-            // }
-            log::debug!("DirectoryEntry: {:#x}, DirectoryInfo: {:#x}", load_info.data.directory_index, load_info.data.directory_info);
+            log::debug!("[ResLoadingThread | Parsing Node Request] DirectoryEntry: {:#x}, DirectoryInfo: {:#x}", load_info.data.directory_index, load_info.data.directory_info);
         },
         res_list::LoadType::File => {
-            log::debug!("FilepathEntry: {:#x}", load_info.data.filepath_index);
-        },
-        _ => {
-            log::debug!("Unknown load type");
+            log::debug!("[ResLoadingThread | Parsing Node Request] FilepathEntry: {:#x}", load_info.data.filepath_index);
         }
     }
 }
 
-static mut RES_LOADING_THREAD_LOCK: bool = false;
-
-#[skyline::hook(offset = 0x34e42f8, inline)]
-unsafe fn res_loop_refresh(_ctx: &skyline::hooks::InlineCtx) {
-    res_loop_start(_ctx);
+// This hook is the same as below, but is found in a different part of the ResLoadingThread where it refills the local lists
+// with the contents of those found in the singleton.
+#[skyline::hook(offset = RES_LOAD_LOOP_REFRESH, inline)]
+unsafe fn res_loop_refresh(_: &skyline::hooks::InlineCtx) {
+    res_loop_common();
 }
 
-#[skyline::hook(offset = 0x34e34c4, inline)]
-unsafe fn res_loop_start(_: &skyline::hooks::InlineCtx) {
-    use unsharing::LoadedTableAdditions;
+// The positioning of this hook is very important. It runs before the ResLoadingThread swaps empty, local lists with the ones inside of
+// the singleton. It checks for anything we need to load as files instead of as directory entries, and then inserts those into the lists.
+#[skyline::hook(offset = RES_LOAD_LOOP_START, inline)]
+fn res_loop_start(_: &skyline::hooks::InlineCtx) {
+    res_loop_common();
+}
+
+fn res_loop_common() {
     use std::collections::HashMap;
     let unshared_dirs = unsharing::UNSHARED_FILES.lock();
-    while RES_LOADING_THREAD_LOCK {
-        std::thread::sleep(std::time::Duration::from_millis(100));
-    }
     let mut directories = HashMap::new();
-    for (x, list) in ResServiceState::get_instance().res_lists.iter_mut().enumerate() {
-        for entry in list.iter_mut() {
+    let res_service = ResServiceState::get_instance();
+    for (x, list) in res_service.res_lists.iter().enumerate() {
+        for entry in list.iter() {
             match entry.ty {
                 LoadType::Directory => {
                     if unshared_dirs.contains_key(&entry.directory_index) {
@@ -653,61 +508,11 @@ unsafe fn res_loop_start(_: &skyline::hooks::InlineCtx) {
     for (dir_index, list_index) in directories.iter() {
         let paths_to_load = unshared_dirs.get(dir_index).unwrap();
         for path in paths_to_load.iter() {
-            println!("adding: {:#x}", *path);
-            ResServiceState::get_instance().res_lists[*list_index].insert(LoadInfo {
+            res_service.res_lists[*list_index].insert(LoadInfo {
                 ty: LoadType::File, filepath_index: *path, directory_index: 0xFF_FFFF, directory_info: 0
             });
         }
     }
-}
-
-#[skyline::hook(offset = 0x38d03d0, inline)]
-unsafe fn insert_inline(ctx: &skyline::hooks::InlineCtx) {
-    insert_hook(std::mem::transmute(*ctx.registers[0].x.as_ref() as *const ()), std::mem::transmute(*ctx.registers[1].x.as_ref() as *const ()));
-}
-
-#[skyline::hook(offset = 0x34dfcdc, inline)]
-unsafe fn test(ctx: &skyline::hooks::InlineCtx) {
-    println!("{:#x}", *ctx.registers[0].x.as_ref());
-}
-
-#[skyline::hook(offset = 0x34e4e48, inline)]
-unsafe fn null1(_: &InlineCtx) {
-    log::debug!("Setting nullptr1");
-}
-
-#[skyline::hook(offset = 0x34e4e38, inline)]
-unsafe fn null2(ctx: &InlineCtx) {
-    if *ctx.registers[17].w.as_ref() != 0 {
-        log::debug!("Setting nullptr2");
-    }
-}
-
-#[skyline::hook(offset = 0x34e4e9c, inline)]
-unsafe fn flags(ctx: &InlineCtx) {
-    let t2_ptr = *ctx.registers[26].x.as_ref() as *mut Table2Entry;
-    if t2_ptr.is_null() {
-        println!("Table2Entry is Null!!!!!!");
-    } else {
-        let t2_ptr = t2_ptr as usize;
-        let table_ptr = LoadedTables::get_instance().table_2().as_ptr() as usize;
-        let index = (t2_ptr - table_ptr) / std::mem::size_of::<Table2Entry>();
-        println!("Table2 index: {:#x}", index);
-    }
-}
-
-// #[skyline::hook(offset = 0x34e4eec, inline)]
-// unsafe fn flags(ctx: &InlineCtx) {
-//     let t2_ptr = *ctx.registers[8].w.as_ref();
-//     if t2_ptr != 0 {
-//         println!("Skiping the file load!");
-//     }
-// }
-
-unsafe fn insert_hook(root: &[u64; 0x5], node: &[u64; 0x5]) {
-    println!("root: {:#x?}", root);
-    println!("node: {:#x?}", node);
-    // original!()(root, node)
 }
 
 #[skyline::main(name = "arcropolis")]
@@ -720,13 +525,7 @@ pub fn main() {
     install_hooks!(
         res_loop_start,
         res_loop_refresh,
-        open_file,
-        // null1,
-        // null2,
-        // before_read,
-        // flags,
-        // before_inflation,
-        // load_node,
+        process_resource_node,
         initial_loading,
         inflate_incoming,
         memcpy_uncompressed,
@@ -736,7 +535,6 @@ pub fn main() {
         manual_hook,
         change_version_string,
         stream::lookup_by_stream_hash,
-        load_node
     );
 
     fn receive(args: Vec<String>) {

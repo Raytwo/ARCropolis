@@ -162,6 +162,10 @@ static mut FILE_INFO_CAPACITY: Option<usize> = None;
 static mut INFO_TO_DATA_CAPACITY: Option<usize> = None;
 static mut DATA_CAPACITY: Option<usize> = None;
 
+// Old, unused functions being left in for reference
+#[allow(dead_code)]
+#[allow(unused_variables)]
+#[allow(unused_mut)]
 pub fn reshare_dir_info(hash: Hash40) {
     fn is_lowest_shared_file(info: &FileInfo, arc: &LoadedArc) -> bool {
         let file_paths = arc.get_file_paths();
@@ -330,13 +334,12 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
         return;
     }
 
-    let file_group_idx = arc.get_folder_offsets()[dir_info.path.index() as usize].directory_index;
     arc.get_file_groups_as_vec()[dir_info.path.index() as usize].directory_index = 0xFF_FFFF;
 
 
     let self_index = get_self_index(&dir_info, arc);
 
-    let mut unshared_filepaths = if let Some(filepaths) = unshared_files.get_mut(&self_index) {
+    let unshared_filepaths = if let Some(filepaths) = unshared_files.get_mut(&self_index) {
         filepaths
     } else {
         unshared_files.insert(self_index, HashSet::new());
@@ -380,14 +383,21 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
                 let new_fi = file_infos.last_mut().unwrap();
                 new_fi.file_path_index = current_path_idx;
                 new_fi.file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
-                if file_paths[new_fi.file_path_index.0].ext.hash40() == Hash40::from("nutexb") {
+                let extension = file_paths[new_fi.file_path_index.0].ext.hash40();
+                log::trace!(
+                    "[ARC::Unsharing] Unsharing file '{}' ({:#x}) from '{}' ({:#x})", 
+                    crate::hashes::get(file_paths[current_file_path.0].path.hash40()), file_paths[current_file_path.0].path.hash40().0,
+                    crate::hashes::get(file_paths[shared_file_path.0].path.hash40()), file_paths[shared_file_path.0].path.hash40().0
+                );
+                if extension == Hash40::from("nutexb") || extension == Hash40::from("nus3audio") {
+                    log::trace!("[ARC::Unsharing] This file requiures adding new ITD entries.");
                     info_to_datas.extend_from_within(new_fi.info_to_data_index.0 as usize, 1);
                     new_fi.info_to_data_index = InfoToDataIdx((info_to_datas.len() - 1) as u32);
                     let new_itd = info_to_datas.last_mut().unwrap();
                     datas.extend_from_within(new_itd.file_data_index.0 as usize, 1);
                     new_itd.file_data_index = FileDataIdx((datas.len() - 1) as u32);
                 }
-                    
+                
             }
             unshared_filepaths.insert(current_file_path.0);
         }
@@ -404,6 +414,10 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
     unshare_children(&dir_info, arc, loaded_tables, unshared_files);
 }
 
+// Old, unused functions being left in for reference
+#[allow(dead_code)]
+#[allow(unused_variables)]
+#[allow(unused_mut)]
 pub fn unshare_files_in_directory(directory: Hash40, files: Vec<Hash40>) {
     fn get_shared_hash(info: &FileInfo, arc: &LoadedArc) -> Hash40 {
         let file_paths = arc.get_file_paths();
@@ -488,6 +502,10 @@ pub fn unshare_files_in_directory(directory: Hash40, files: Vec<Hash40>) {
     loaded_tables.get_loaded_data_table_as_vec().set_len(info_indices.len());
 }
 
+// Old, unused functions being left in for reference
+#[allow(dead_code)]
+#[allow(unused_variables)]
+#[allow(unused_mut)]
 pub fn unshare_file_in_directory(directory: Hash40, file: Hash40) {
     fn get_shared_hash(info: &FileInfo, arc: &LoadedArc) -> Hash40 {
         let file_paths = arc.get_file_paths();
@@ -533,27 +551,5 @@ pub fn unshare_file_in_directory(directory: Hash40, file: Hash40) {
             }
         }
     }
-    // for (current_offset, info) in file_infos[file_info_range].iter_mut().enumerate() {
-    //     if file_paths[info.file_path_index.0].path.hash40() == file {
-    //         let shared_hash = get_shared_hash(info, arc);
-    //         if shared_hash != file {
-    //             info.file_info_indice_index = FileInfoIndiceIdx(info_indices.len() as u32);
-    //             info_indices.push_from_within(file_paths[info.file_path_index.0].path.index() as usize);
-    //             let new_ii = info_indices.last_mut().unwrap();
-    //             arc.get_file_infos_mut()[new_ii.file_info_index].file_info_indice_index = info.file_info_indice_index;
-    //             // new_ii.file_info_index = FileInfoIdx(dir_info.file_info_start_index + current_offset as u32);
-    //             // new_ii.dir_offset_index = 0x472;
-    //             drop(new_ii);
-    //             let shared_file_path_idx = arc.get_file_path_index_from_hash(shared_hash).unwrap();
-    //             file_paths[info.file_path_index.0].path.set_index((info_indices.len() - 1) as u32);
-    //             file_paths[shared_file_path_idx.0].path.set_index((info_indices.len() - 1) as u32);
-    //             // file_paths[info.file_path_index.0].ext.set_index(0x00);
-    //             // info.flags.set_unknown2(false);
-    //             // info.flags.set_unknown3(false);
-    //             info_to_datas[info.info_to_data_index.0].file_info_index_and_flag = info_to_datas[arc.get_file_infos()[info_indices[info.file_info_indice_index.0].file_info_index].info_to_data_index.0].file_info_index_and_flag;
-    //             info_to_datas[info.info_to_data_index.0].folder_offset_index = 0xca6;
-    //         }
-    //     }
-    // }
     loaded_tables.get_loaded_data_table_as_vec().set_len(info_indices.len());
 }
