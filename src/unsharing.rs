@@ -277,11 +277,13 @@ pub fn reshare_dir_info(hash: Hash40) {
 }
 
 pub fn unshare_files(directory: Hash40) {
-    unshare_recursively(directory);
+    let loaded_tables = LoadedTables::acquire_instance();
+    let mut unshared_files = UNSHARED_FILES.lock();
+    unshare_recursively(directory, &loaded_tables, &mut unshared_files);
     LoadedTables::get_instance().get_loaded_data_table_as_vec().set_len(LoadedTables::get_arc().get_file_info_indices().len());
 }
 
-pub fn unshare_recursively(directory: Hash40) {
+pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unshared_files: &mut HashMap<u32, HashSet<u32>>) {
     fn get_shared_file(info: &FileInfo, arc: &LoadedArc) -> FilePathIdx {
         let file_paths = arc.get_file_paths();
         let info_indices = arc.get_file_info_indices();
@@ -295,24 +297,28 @@ pub fn unshare_recursively(directory: Hash40) {
 
     fn get_self_index(info: &DirInfo, arc: &LoadedArc) -> u32 {
         let hash_index = arc.get_dir_hash_to_info_index();
+        let mut counter = 0;
         for hash in hash_index.iter() {
             if hash.hash40() == info.path.hash40() {
                 return hash.index();
+            }
+            if counter == 100 {
+                counter += 1;
+                std::thread::sleep(std::time::Duration::from_millis(100));
             }
         }
         0xFF_FFFF
     }
 
-    fn unshare_children(info: &DirInfo, arc: &LoadedArc) {
+    fn unshare_children(info: &DirInfo, arc: &LoadedArc, loaded_tables: &LoadedTables, unshared_files: &mut HashMap<u32, HashSet<u32>>) {
         for idx in info.children_range() {
             let next_hash = unsafe { (*arc.folder_child_hashes.add(idx)).hash40() };
-            unshare_recursively(next_hash);
+            unshare_recursively(next_hash, loaded_tables, unshared_files);
         }
     }
 
-    let loaded_tables = LoadedTables::acquire_instance();
     let arc = LoadedTables::get_arc();
-
+    
     let dir_info = if let Ok(info) = arc.get_dir_info_from_hash(directory) {
         info.clone()
     } else {
@@ -320,15 +326,15 @@ pub fn unshare_recursively(directory: Hash40) {
     };
 
     if !dir_info.flags.redirected() || dir_info.flags.is_symlink() {
-        unshare_children(&dir_info, arc);
+        unshare_children(&dir_info, arc, loaded_tables, unshared_files);
         return;
     }
 
     let file_group_idx = arc.get_folder_offsets()[dir_info.path.index() as usize].directory_index;
     arc.get_file_groups_as_vec()[dir_info.path.index() as usize].directory_index = 0xFF_FFFF;
 
+
     let self_index = get_self_index(&dir_info, arc);
-    let mut unshared_files = UNSHARED_FILES.lock();
 
     let mut unshared_filepaths = if let Some(filepaths) = unshared_files.get_mut(&self_index) {
         filepaths
@@ -357,9 +363,7 @@ pub fn unshare_recursively(directory: Hash40) {
     if let Some(cap) = unsafe { DATA_CAPACITY.clone() } {
         datas.set_capacity(cap);
     }
-
     let shared_data_idx = unsafe { crate::ORIGINAL_SHARED_INDEX };
-    cli::send(format!("{:#x}", shared_data_idx).as_str());
     for current_index in dir_info.file_info_range() {
         let current_file_path = file_infos[current_index].file_path_index;
         if !unshared_filepaths.contains(&current_file_path.0) {
@@ -380,7 +384,6 @@ pub fn unshare_recursively(directory: Hash40) {
                     info_to_datas.extend_from_within(new_fi.info_to_data_index.0 as usize, 1);
                     new_fi.info_to_data_index = InfoToDataIdx((info_to_datas.len() - 1) as u32);
                     let new_itd = info_to_datas.last_mut().unwrap();
-                    // new_itd.file_info_index_and_flag = 0x100_0000;
                     datas.extend_from_within(new_itd.file_data_index.0 as usize, 1);
                     new_itd.file_data_index = FileDataIdx((datas.len() - 1) as u32);
                 }
@@ -398,7 +401,7 @@ pub fn unshare_recursively(directory: Hash40) {
         DATA_CAPACITY = Some(datas.capacity());
     }
 
-    unshare_children(&dir_info, arc);
+    unshare_children(&dir_info, arc, loaded_tables, unshared_files);
 }
 
 pub fn unshare_files_in_directory(directory: Hash40, files: Vec<Hash40>) {

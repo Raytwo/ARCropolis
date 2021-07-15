@@ -508,7 +508,7 @@ fn initial_loading(_ctx: &InlineCtx) {
         // ]);
         // println!("unsharing lucario");
         ORIGINAL_SHARED_INDEX = LoadedTables::get_arc().get_shared_data_index();
-        unsharing::unshare_files(Hash40::from("fighter"));
+        unsharing::unshare_files(Hash40::from("stage"));
         // println!("unsharing cloud");
         // unsharing::unshare_files(Hash40::from("fighter/cloud"));
         // println!("unsharing bowser");
