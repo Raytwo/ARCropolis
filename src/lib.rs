@@ -466,7 +466,7 @@ pub unsafe fn process_resource_node(ctx: &mut skyline::hooks::InlineCtx) {
     let load_info = &mut *load_info;
     match load_info.data.ty {
         res_list::LoadType::Directory => {
-            log::debug!("[ResLoadingThread | Parsing Node Request] DirectoryEntry: {:#x}, DirectoryInfo: {:#x}", load_info.data.directory_index, load_info.data.directory_info);
+            log::debug!("[ResLoadingThread | Parsing Node Request] DirectoryEntry: {:#x}, Files to load: {:#x}", load_info.data.directory_index, load_info.data.files_to_load);
         },
         res_list::LoadType::File => {
             log::debug!("[ResLoadingThread | Parsing Node Request] FilepathEntry: {:#x}", load_info.data.filepath_index);
@@ -509,7 +509,7 @@ fn res_loop_common() {
         let paths_to_load = unshared_dirs.get(dir_index).unwrap();
         for path in paths_to_load.iter() {
             res_service.res_lists[*list_index].insert(LoadInfo {
-                ty: LoadType::File, filepath_index: *path, directory_index: 0xFF_FFFF, directory_info: 0
+                ty: LoadType::File, filepath_index: *path, directory_index: 0xFF_FFFF, files_to_load: 0
             });
         }
     }

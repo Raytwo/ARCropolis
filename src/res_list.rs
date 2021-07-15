@@ -11,7 +11,7 @@ pub struct LoadInfo {
     pub ty: LoadType,
     pub filepath_index: u32,
     pub directory_index: u32,
-    pub directory_info: u32
+    pub files_to_load: u32
 }
 
 #[repr(C)]
@@ -81,19 +81,11 @@ impl ResList {
 
     pub fn insert(&mut self, value: LoadInfo) {
         unsafe {
-            // println!("Self: {:#x?}", self);
-            // println!("Next: {:#x?}", &*self.next);
-            // println!("Prev: {:#x?}", &*self.end);
             let node = skyline::libc::malloc(std::mem::size_of::<ListNode>()) as *mut ListNode;
             (*node).prev = &mut self.next as *mut *mut ListNode as *mut ListNode;
             (*node).next = self.next;
             self.next = node;
             (*node).data = value;
-            // println!("post");
-            // println!("Self: {:#x?}", self);
-            // println!("Next: {:#x?}", &*self.next);
-            // println!("Prev: {:#x?}", &*self.end);
-            // println!("Node: {:#x?}", &*node);
             self.size += 1;
         }
     }
