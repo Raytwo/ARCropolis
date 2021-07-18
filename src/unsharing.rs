@@ -308,21 +308,19 @@ fn get_shared_file(info: &FileInfo, arc: &LoadedArc) -> FilePathIdx {
 }
 
 pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unshared_files: &mut HashMap<u32, HashSet<u32>>, to_unshare: &mut HashMap<Hash40, (u32, FileInfoIdx)>) {
+    // would be better as a bsearch, probably also better to have this in smash-arc
+    // will probably PR later
     fn get_self_index(info: &DirInfo, arc: &LoadedArc) -> u32 {
         let hash_index = arc.get_dir_hash_to_info_index();
-        let mut counter = 0;
         for hash in hash_index.iter() {
             if hash.hash40() == info.path.hash40() {
                 return hash.index();
-            }
-            if counter == 100 {
-                counter += 1;
-                std::thread::sleep(std::time::Duration::from_millis(100));
             }
         }
         0xFF_FFFF
     }
 
+    // Recursively unshare the children directories.
     fn unshare_children(info: &DirInfo, arc: &LoadedArc, loaded_tables: &LoadedTables, unshared_files: &mut HashMap<u32, HashSet<u32>>, to_unshare: &mut HashMap<Hash40, (u32, FileInfoIdx)>) {
         for idx in info.children_range() {
             let next_hash = unsafe { (*arc.folder_child_hashes.add(idx)).hash40() };
@@ -338,6 +336,7 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
         return;
     };
 
+    // Check if we actually need to unshare this directory
     if !dir_info.flags.redirected() || dir_info.flags.is_symlink() {
         unshare_children(&dir_info, arc, loaded_tables, unshared_files, to_unshare);
         return;
@@ -345,9 +344,9 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
 
     arc.get_file_groups_as_vec()[dir_info.path.index() as usize].directory_index = 0xFF_FFFF;
 
-
     let self_index = get_self_index(&dir_info, arc);
 
+    // Get or insert the unshared filepaths for this directory
     let unshared_filepaths = if let Some(filepaths) = unshared_files.get_mut(&self_index) {
         filepaths
     } else {
@@ -355,6 +354,7 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
         unshared_files.get_mut(&self_index).unwrap()
     };
 
+    // probably best to put this in arc-vector, but don't memleak the arc-vectors
     let mut file_paths = arc.get_file_paths_as_vec();
     if let Some(cap) = unsafe { FILE_PATH_CAPACITY.clone() } {
         file_paths.set_capacity(cap);
@@ -376,6 +376,7 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
         datas.set_capacity(cap);
     }
 
+    // Get the shared_data_idx 
     let shared_data_idx = unsafe { crate::ORIGINAL_SHARED_INDEX };
     for current_index in dir_info.file_info_range() {
         let current_file_path = file_infos[current_index].file_path_index;
@@ -383,34 +384,48 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
             let shared_file_path = get_shared_file(&file_infos[current_index], arc);
             let extension = file_paths[current_file_path.0].ext.hash40();
             if shared_file_path != current_file_path || arc.get_file_in_folder(&file_infos[current_index], Region::None).file_data_index.0 >= shared_data_idx {
+                // Check if the file shouldn't be unshared by default (audio files)
                 if crate::UNSHARE_ON_DISCOVERY.contains(&extension) {
                     to_unshare.insert(file_paths[current_file_path.0].path.hash40(), (self_index, FileInfoIdx(current_index as u32)));
                     continue;
                 }
+
+                // Needs to be fixed: FileInfo.clone() doesn't actually clone, and instead zeroes out the FileInfo
+                // extend_from_within uses memcpy instead, which is why it works
                 file_infos.extend_from_within(info_indices[file_paths[shared_file_path.0].path.index() as usize].file_info_index.0 as usize, 1);
+                // create new FileInfoIndex and modify where it points
                 info_indices.push_from_within(file_paths[shared_file_path.0].path.index() as usize);
                 let new_ii = info_indices.last_mut().unwrap();
                 new_ii.file_info_index = FileInfoIdx((file_infos.len() - 1) as u32);
                 drop(new_ii);
+
+                // Modify the directories FileInfo->FilePath->path.index to point to the new FileInfoIndex and also the FileInfo->FileInfoIndiceIdx
                 file_paths[file_infos[current_index].file_path_index.0].path.set_index((info_indices.len() - 1) as u32);
                 file_infos[current_index].file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
+                // backup current filepath idx so we don't break borrow checker
                 let current_path_idx = file_infos[current_index].file_path_index;
-                let new_fi = file_infos.last_mut().unwrap();
+                let new_fi = file_infos.last_mut().unwrap(); // get our new FileInfo that we cloned, modify the fields
                 new_fi.file_path_index = current_path_idx;
                 new_fi.file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
-                if extension == Hash40::from("nutexb") {
+                // clone the correct regional file and then disable the regional flag
+                if new_fi.flags.is_regional() {
+                    info_to_datas.extend_from_within((new_fi.info_to_data_index.0 as usize) + *crate::config::REGION as usize, 1);
+                    new_fi.flags.set_is_regional(false);
+                } else {
                     info_to_datas.extend_from_within(new_fi.info_to_data_index.0 as usize, 1);
-                    new_fi.info_to_data_index = InfoToDataIdx((info_to_datas.len() - 1) as u32);
-                    let new_itd = info_to_datas.last_mut().unwrap();
-                    datas.extend_from_within(new_itd.file_data_index.0 as usize, 1);
-                    new_itd.file_data_index = FileDataIdx((datas.len() - 1) as u32);
                 }
-                
+                // Clone the InfoToData and FileData
+                new_fi.info_to_data_index = InfoToDataIdx((info_to_datas.len() - 1) as u32);
+                let new_itd = info_to_datas.last_mut().unwrap();
+                datas.extend_from_within(new_itd.file_data_index.0 as usize, 1);
+                new_itd.file_data_index = FileDataIdx((datas.len() - 1) as u32);
             }
+            // Add filepath so we don't unshare again (if it comes up)
             unshared_filepaths.insert(current_file_path.0);
         }
     }
 
+    // update capacities so we don't memleak
     unsafe {
         FILE_PATH_CAPACITY = Some(file_paths.capacity());
         INFO_INDICE_CAPACITY = Some(info_indices.capacity());
@@ -422,6 +437,7 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
     unshare_children(&dir_info, arc, loaded_tables, unshared_files, to_unshare);
 }
 
+// This function is the same as above but for unshare-on-discovery files
 pub fn unshare_file(dir_index: u32, index: FileInfoIdx) {
     let loaded_tables = LoadedTables::get_instance();
     let arc = LoadedTables::get_arc();
@@ -463,7 +479,6 @@ pub fn unshare_file(dir_index: u32, index: FileInfoIdx) {
     let shared_data_idx = unsafe { crate::ORIGINAL_SHARED_INDEX };
     if !unshared_filepaths.contains(&current_file_path.0) {
         let shared_file_path = get_shared_file(&file_infos[index.0], arc);
-        let extension = file_paths[current_file_path.0].ext.hash40();
         if shared_file_path != current_file_path || arc.get_file_in_folder(&file_infos[index.0], Region::None).file_data_index.0 >= shared_data_idx {
             file_infos.extend_from_within(info_indices[file_paths[shared_file_path.0].path.index() as usize].file_info_index.0 as usize, 1);
             info_indices.push_from_within(file_paths[shared_file_path.0].path.index() as usize);
@@ -476,13 +491,16 @@ pub fn unshare_file(dir_index: u32, index: FileInfoIdx) {
             let new_fi = file_infos.last_mut().unwrap();
             new_fi.file_path_index = current_path_idx;
             new_fi.file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
-            if extension == Hash40::from("nutexb") {
+            if new_fi.flags.is_regional() {
+                info_to_datas.extend_from_within((new_fi.info_to_data_index.0 as usize) + *crate::config::REGION as usize, 1);
+                new_fi.flags.set_is_regional(false);
+            } else {
                 info_to_datas.extend_from_within(new_fi.info_to_data_index.0 as usize, 1);
-                new_fi.info_to_data_index = InfoToDataIdx((info_to_datas.len() - 1) as u32);
-                let new_itd = info_to_datas.last_mut().unwrap();
-                datas.extend_from_within(new_itd.file_data_index.0 as usize, 1);
-                new_itd.file_data_index = FileDataIdx((datas.len() - 1) as u32);
             }
+            new_fi.info_to_data_index = InfoToDataIdx((info_to_datas.len() - 1) as u32);
+            let new_itd = info_to_datas.last_mut().unwrap();
+            datas.extend_from_within(new_itd.file_data_index.0 as usize, 1);
+            new_itd.file_data_index = FileDataIdx((datas.len() - 1) as u32);
         }
     }
     unshared_filepaths.insert(current_file_path.0);

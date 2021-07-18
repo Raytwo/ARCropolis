@@ -228,35 +228,6 @@ fn replace_extension_callback(extension: Hash40, index: FileInfoIndiceIdx) {
     }
 }
 
-#[hook(offset = 0x34e3c0c, inline)]
-fn before_read(ctx: &InlineCtx) {
-    unsafe {
-        let data_idx = *ctx.registers[9].w.as_ref();
-        let dir_offset_idx = *ctx.registers[8].w.as_ref();
-        let arc = LoadedTables::get_arc();
-        let comp_size = arc.get_file_datas()[data_idx as usize].comp_size;
-        let decomp_size = arc.get_file_datas()[data_idx as usize].decomp_size;
-        trace!(
-            "[ResLoadingThread | #{} | #{}] Preparing to load file with compressed size {:#x} and decompressed size {:#x}.",
-            data_idx.green(),
-            dir_offset_idx.green(),
-            comp_size.red(),
-            decomp_size.yellow()
-        );
-    }
-}
-
-#[hook(offset = 0x34e3c94, inline)]
-fn before_inflation(ctx: &InlineCtx) {
-    unsafe {
-        let left_to_read = *ctx.registers[27].w.as_ref();
-        trace!(
-            "[ResLoadingThread] Left to read after this cycle: {:#x}.",
-            left_to_read.red()
-        );
-    }
-}
-
 #[hook(offset = INFLATE_OFFSET, inline)]
 fn inflate_incoming(ctx: &InlineCtx) {
     unsafe {
@@ -414,8 +385,6 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
 
 pub static mut ORIGINAL_SHARED_INDEX: u32 = 0;
 
-// static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
-
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     let config = CONFIG.read();
@@ -465,6 +434,7 @@ fn initial_loading(_ctx: &InlineCtx) {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
     }
 }
+
 #[skyline::hook(offset = PROCESS_RESOURCE_NODE, inline)]
 pub unsafe fn process_resource_node(ctx: &mut skyline::hooks::InlineCtx) {
     if *ctx.registers[26].x.as_ref() == *ctx.registers[8].x.as_ref() {
@@ -545,33 +515,18 @@ pub fn main() {
         stream::lookup_by_stream_hash,
     );
 
-    fn receive(args: Vec<String>) {
-        // println!("{:?}", remote::arc::Arc::from_iter(args.into_iter()));
-        let _ = cli::send(remote::handle_command(args).as_str());
+    // TODO: Put this behind a config flag
+    if false {
+        fn receive(args: Vec<String>) {
+            let _ = cli::send(remote::handle_command(args).as_str());
+        }
+
+        std::thread::spawn(|| {
+            skyline_communicate::set_on_receive(cli::Receiver::CLIStyle(receive));
+            skyline_communicate::start_server("ARCropolis", 6968);
+        });
     }
 
-    std::thread::spawn(|| {
-        skyline_communicate::set_on_receive(cli::Receiver::CLIStyle(receive));
-        skyline_communicate::start_server("ARCropolis", 6968);
-    });
-
-    // unsafe {
-    //     skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x346_36c4, &0x1400_0002);
-
-    //     LUT_LOADER_HANDLE = Some(std::thread::spawn(|| {
-    //         let mut unshare_lut = UNSHARE_LUT.write();
-    //         *unshare_lut = match std::fs::read("rom:/skyline/unshare_lut.bin") {
-    //             Ok(file_data) => {
-    //                 let mut reader = std::io::Cursor::new(file_data);
-    //                 match cache::UnshareCache::read(&mut reader) {
-    //                     Ok(lut) => Some(lut),
-    //                     Err(_) => None
-    //                 }
-    //             },
-    //             Err(_) => None
-    //         }
-    //     }));
-    // }
 
     println!(
         "ARCropolis v{} - File replacement plugin is now installed",
