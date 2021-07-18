@@ -1,7 +1,7 @@
 # ARCropolis
 
-A [Skyline](https://github.com/skyline-dev/skyline) plugin for replacing any file in [Super Smash Bros. Ultimate](https://www.smashbros.com/) by placing mods on your SD card.
-Made in equal parts by Raytwo and jam1garner, with lots of help from Shadow as well.
+A [Skyline](https://github.com/skyline-dev/skyline) plugin for replacing any file in Super Smash Bros. Ultimate by placing mods on your SD card.
+Made by Raytwo with help from jam1garner, blujay, Coolsonickirby, and Shadow. Currently maintained by jam1garner.
 
 ### Installation and usage
 A Wiki is available to help get you started with [setting up ARCropolis](https://github.com/Raytwo/ARCropolis/wiki/Overview-(Getting-started)).
@@ -24,6 +24,8 @@ Beta builds are sometimes posted there, too.
 ### Special thanks
 Here is a list of the multiple people who have contributed to ARCropolis over time
 
-Maintainers: ``Raytwo``, ``CoolSonicKirby``, ``blujay``  
-Contributors: ``jam1garner``, ``Shadow``, ``CoolSonicKirby``, ``blujay``, ``Genwald`` , ``Mowjoh``   
+Current Maintainer: ``jam1garner``
+Former Maintainer: ``Raytwo``
+Developers: ``Raytwo``, ``CoolSonicKirby``, ``blujay``, ``jam1garner``
+Additional Contributors: ``Shadow``, ``Genwald``
 Logo: ``Styley``  
