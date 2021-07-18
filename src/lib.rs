@@ -246,7 +246,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
         let ext_callbacks = EXT_CALLBACKS.read();
         if !ext_callbacks.is_empty() {
-            let ext = file_path.path.hash40();
+            let ext = file_path.ext.hash40();
             if ext_callbacks.contains_key(&ext) {
                 *incoming = IncomingLoad::ExtCallback(ext, info_indice_index);
                 return

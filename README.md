@@ -25,7 +25,11 @@ Beta builds are sometimes posted there, too.
 Here is a list of the multiple people who have contributed to ARCropolis over time
 
 Current Maintainer: ``jam1garner``
+
 Former Maintainer: ``Raytwo``
+
 Developers: ``Raytwo``, ``CoolSonicKirby``, ``blujay``, ``jam1garner``
+
 Additional Contributors: ``Shadow``, ``Genwald``
+
 Logo: ``Styley``  
