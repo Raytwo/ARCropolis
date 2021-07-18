@@ -46,6 +46,14 @@ use log::{info, trace, warn};
 use owo_colors::OwoColorize;
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
 
+lazy_static! {
+    static ref UNSHARE_ON_DISCOVERY: [Hash40; 3] = [
+        Hash40::from("nus3audio"),
+        Hash40::from("nus3bank"),
+        Hash40::from("tonelabel")
+    ];
+}
+
 fn get_filectx_by_index<'a>(
     file_index: FileIndex,
 ) -> Option<(

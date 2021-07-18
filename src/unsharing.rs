@@ -154,6 +154,7 @@ impl LoadedTableAdditions for LoadedTables {
 lazy_static! {
     static ref ALREADY_RESHARED: Mutex<Vec<u32>> = Mutex::new(Vec::new());
     static ref RESHARED_FILEPATHS: Mutex<HashMap<Hash40, FilePathIdx>> = Mutex::new(HashMap::new());
+    pub static ref TO_UNSHARE_ON_DISCOVERY: Mutex<HashMap<Hash40, (u32, FileInfoIdx)>> = Mutex::new(HashMap::new());
 }
 
 static mut FILE_PATH_CAPACITY: Option<usize> = None;
@@ -161,6 +162,7 @@ static mut INFO_INDICE_CAPACITY: Option<usize> = None;
 static mut FILE_INFO_CAPACITY: Option<usize> = None;
 static mut INFO_TO_DATA_CAPACITY: Option<usize> = None;
 static mut DATA_CAPACITY: Option<usize> = None;
+static mut LOADED_DATA_CAPACITY: Option<usize> = None;
 
 // Old, unused functions being left in for reference
 #[allow(dead_code)]
@@ -283,22 +285,29 @@ pub fn reshare_dir_info(hash: Hash40) {
 pub fn unshare_files(directory: Hash40) {
     let loaded_tables = LoadedTables::acquire_instance();
     let mut unshared_files = UNSHARED_FILES.lock();
-    unshare_recursively(directory, &loaded_tables, &mut unshared_files);
-    LoadedTables::get_instance().get_loaded_data_table_as_vec().set_len(LoadedTables::get_arc().get_file_info_indices().len());
+    let mut to_unshare = TO_UNSHARE_ON_DISCOVERY.lock();
+    unshare_recursively(directory, &loaded_tables, &mut unshared_files, &mut to_unshare);
+    unsafe {
+        let mut loaded_datas = loaded_tables.get_loaded_data_table_as_vec();
+        if let Some(cap) = LOADED_DATA_CAPACITY.clone() {
+            loaded_datas.set_capacity(cap);
+        }
+        loaded_datas.set_len(LoadedTables::get_arc().get_file_info_indices().len());
+    }
 }
 
-pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unshared_files: &mut HashMap<u32, HashSet<u32>>) {
-    fn get_shared_file(info: &FileInfo, arc: &LoadedArc) -> FilePathIdx {
-        let file_paths = arc.get_file_paths();
-        let info_indices = arc.get_file_info_indices();
-        let file_infos = arc.get_file_infos();
-        let mut last_file_path = file_infos[info_indices[file_paths[info.file_path_index].path.index() as usize].file_info_index].file_path_index;
-        while file_infos[info_indices[file_paths[last_file_path].path.index() as usize].file_info_index].file_path_index != last_file_path {
-            last_file_path = file_infos[info_indices[file_paths[last_file_path].path.index() as usize].file_info_index].file_path_index;
-        }
-        last_file_path
+fn get_shared_file(info: &FileInfo, arc: &LoadedArc) -> FilePathIdx {
+    let file_paths = arc.get_file_paths();
+    let info_indices = arc.get_file_info_indices();
+    let file_infos = arc.get_file_infos();
+    let mut last_file_path = file_infos[info_indices[file_paths[info.file_path_index].path.index() as usize].file_info_index].file_path_index;
+    while file_infos[info_indices[file_paths[last_file_path].path.index() as usize].file_info_index].file_path_index != last_file_path {
+        last_file_path = file_infos[info_indices[file_paths[last_file_path].path.index() as usize].file_info_index].file_path_index;
     }
+    last_file_path
+}
 
+pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unshared_files: &mut HashMap<u32, HashSet<u32>>, to_unshare: &mut HashMap<Hash40, (u32, FileInfoIdx)>) {
     fn get_self_index(info: &DirInfo, arc: &LoadedArc) -> u32 {
         let hash_index = arc.get_dir_hash_to_info_index();
         let mut counter = 0;
@@ -314,10 +323,10 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
         0xFF_FFFF
     }
 
-    fn unshare_children(info: &DirInfo, arc: &LoadedArc, loaded_tables: &LoadedTables, unshared_files: &mut HashMap<u32, HashSet<u32>>) {
+    fn unshare_children(info: &DirInfo, arc: &LoadedArc, loaded_tables: &LoadedTables, unshared_files: &mut HashMap<u32, HashSet<u32>>, to_unshare: &mut HashMap<Hash40, (u32, FileInfoIdx)>) {
         for idx in info.children_range() {
             let next_hash = unsafe { (*arc.folder_child_hashes.add(idx)).hash40() };
-            unshare_recursively(next_hash, loaded_tables, unshared_files);
+            unshare_recursively(next_hash, loaded_tables, unshared_files, to_unshare);
         }
     }
 
@@ -330,7 +339,7 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
     };
 
     if !dir_info.flags.redirected() || dir_info.flags.is_symlink() {
-        unshare_children(&dir_info, arc, loaded_tables, unshared_files);
+        unshare_children(&dir_info, arc, loaded_tables, unshared_files, to_unshare);
         return;
     }
 
@@ -366,12 +375,18 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
     if let Some(cap) = unsafe { DATA_CAPACITY.clone() } {
         datas.set_capacity(cap);
     }
+
     let shared_data_idx = unsafe { crate::ORIGINAL_SHARED_INDEX };
     for current_index in dir_info.file_info_range() {
         let current_file_path = file_infos[current_index].file_path_index;
         if !unshared_filepaths.contains(&current_file_path.0) {
             let shared_file_path = get_shared_file(&file_infos[current_index], arc);
+            let extension = file_paths[current_file_path.0].ext.hash40();
             if shared_file_path != current_file_path || arc.get_file_in_folder(&file_infos[current_index], Region::None).file_data_index.0 >= shared_data_idx {
+                if crate::UNSHARE_ON_DISCOVERY.contains(&extension) {
+                    to_unshare.insert(file_paths[current_file_path.0].path.hash40(), (self_index, FileInfoIdx(current_index as u32)));
+                    continue;
+                }
                 file_infos.extend_from_within(info_indices[file_paths[shared_file_path.0].path.index() as usize].file_info_index.0 as usize, 1);
                 info_indices.push_from_within(file_paths[shared_file_path.0].path.index() as usize);
                 let new_ii = info_indices.last_mut().unwrap();
@@ -383,14 +398,7 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
                 let new_fi = file_infos.last_mut().unwrap();
                 new_fi.file_path_index = current_path_idx;
                 new_fi.file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
-                let extension = file_paths[new_fi.file_path_index.0].ext.hash40();
-                log::trace!(
-                    "[ARC::Unsharing] Unsharing file '{}' ({:#x}) from '{}' ({:#x})", 
-                    crate::hashes::get(file_paths[current_file_path.0].path.hash40()), file_paths[current_file_path.0].path.hash40().0,
-                    crate::hashes::get(file_paths[shared_file_path.0].path.hash40()), file_paths[shared_file_path.0].path.hash40().0
-                );
-                if extension == Hash40::from("nutexb") || extension == Hash40::from("nus3audio") {
-                    log::trace!("[ARC::Unsharing] This file requiures adding new ITD entries.");
+                if extension == Hash40::from("nutexb") {
                     info_to_datas.extend_from_within(new_fi.info_to_data_index.0 as usize, 1);
                     new_fi.info_to_data_index = InfoToDataIdx((info_to_datas.len() - 1) as u32);
                     let new_itd = info_to_datas.last_mut().unwrap();
@@ -411,7 +419,82 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
         DATA_CAPACITY = Some(datas.capacity());
     }
 
-    unshare_children(&dir_info, arc, loaded_tables, unshared_files);
+    unshare_children(&dir_info, arc, loaded_tables, unshared_files, to_unshare);
+}
+
+pub fn unshare_file(dir_index: u32, index: FileInfoIdx) {
+    let loaded_tables = LoadedTables::get_instance();
+    let arc = LoadedTables::get_arc();
+
+    let mut unshared_files = UNSHARED_FILES.lock();
+
+    let unshared_filepaths = if let Some(filepaths) = unshared_files.get_mut(&dir_index) {
+        filepaths
+    } else {
+        unshared_files.insert(dir_index, HashSet::new());
+        unshared_files.get_mut(&dir_index).unwrap()
+    };
+
+    let mut file_paths = arc.get_file_paths_as_vec();
+    if let Some(cap) = unsafe { FILE_PATH_CAPACITY.clone() } {
+        file_paths.set_capacity(cap);
+    }
+    let mut info_indices = arc.get_file_info_indices_as_vec();
+    if let Some(cap) = unsafe { INFO_INDICE_CAPACITY.clone() } {
+        info_indices.set_capacity(cap);
+    }
+    let mut file_infos = arc.get_file_infos_as_vec();
+    if let Some(cap) = unsafe { FILE_INFO_CAPACITY.clone() } {
+        file_infos.set_capacity(cap);
+    }
+    let mut info_to_datas = arc.get_file_info_to_datas_as_vec();
+    if let Some(cap) = unsafe { INFO_TO_DATA_CAPACITY.clone() } {
+        info_to_datas.set_capacity(cap);
+    }
+    let mut datas = arc.get_file_datas_as_vec();
+    if let Some(cap) = unsafe { DATA_CAPACITY.clone() } {
+        datas.set_capacity(cap);
+    }
+    let mut loaded_datas = loaded_tables.get_loaded_data_table_as_vec();
+    if let Some(cap) = unsafe { LOADED_DATA_CAPACITY.clone() } {
+        loaded_datas.set_capacity(cap);
+    }
+    let current_file_path = file_infos[index.0].file_path_index;
+    let shared_data_idx = unsafe { crate::ORIGINAL_SHARED_INDEX };
+    if !unshared_filepaths.contains(&current_file_path.0) {
+        let shared_file_path = get_shared_file(&file_infos[index.0], arc);
+        let extension = file_paths[current_file_path.0].ext.hash40();
+        if shared_file_path != current_file_path || arc.get_file_in_folder(&file_infos[index.0], Region::None).file_data_index.0 >= shared_data_idx {
+            file_infos.extend_from_within(info_indices[file_paths[shared_file_path.0].path.index() as usize].file_info_index.0 as usize, 1);
+            info_indices.push_from_within(file_paths[shared_file_path.0].path.index() as usize);
+            let new_ii = info_indices.last_mut().unwrap();
+            new_ii.file_info_index = FileInfoIdx((file_infos.len() - 1) as u32);
+            drop(new_ii);
+            file_paths[file_infos[index.0].file_path_index.0].path.set_index((info_indices.len() - 1) as u32);
+            file_infos[index.0].file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
+            let current_path_idx = file_infos[index.0].file_path_index;
+            let new_fi = file_infos.last_mut().unwrap();
+            new_fi.file_path_index = current_path_idx;
+            new_fi.file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
+            if extension == Hash40::from("nutexb") {
+                info_to_datas.extend_from_within(new_fi.info_to_data_index.0 as usize, 1);
+                new_fi.info_to_data_index = InfoToDataIdx((info_to_datas.len() - 1) as u32);
+                let new_itd = info_to_datas.last_mut().unwrap();
+                datas.extend_from_within(new_itd.file_data_index.0 as usize, 1);
+                new_itd.file_data_index = FileDataIdx((datas.len() - 1) as u32);
+            }
+        }
+    }
+    unshared_filepaths.insert(current_file_path.0);
+    loaded_datas.set_len(info_indices.len());
+    unsafe {
+        FILE_PATH_CAPACITY = Some(file_paths.capacity());
+        INFO_INDICE_CAPACITY = Some(info_indices.capacity());
+        FILE_INFO_CAPACITY = Some(file_infos.capacity());
+        INFO_TO_DATA_CAPACITY = Some(info_to_datas.capacity());
+        DATA_CAPACITY = Some(datas.capacity());
+        LOADED_DATA_CAPACITY = Some(loaded_datas.capacity());
+    }
 }
 
 // Old, unused functions being left in for reference

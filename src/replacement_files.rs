@@ -110,6 +110,7 @@ impl ModFiles {
     fn process_mods(modfiles: &HashMap<Hash40, ModPath>) -> HashMap<FileIndex, FileCtx> {
         let arc = LoadedTables::get_arc_mut();
 
+        let mut to_unshare = crate::unsharing::TO_UNSHARE_ON_DISCOVERY.lock();
         let mut mods = modfiles
             .iter()
             .filter_map(|(hash, modpath)| {
@@ -125,6 +126,9 @@ impl ModFiles {
                     );
                     Some((FileIndex::Stream(filectx.hash), filectx))
                 } else {
+                    if let Some((dir_index, file_info_idx)) = to_unshare.remove(hash) {
+                        crate::unsharing::unshare_file(dir_index, file_info_idx);
+                    }
                     match arc.get_file_path_index_from_hash(*hash) {
                         Ok(index) => {
                             let file_info = arc.get_file_info_from_path_index(index);
