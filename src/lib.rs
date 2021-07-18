@@ -52,6 +52,11 @@ lazy_static! {
         Hash40::from("nus3bank"),
         Hash40::from("tonelabel")
     ];
+
+    static ref BLACKLISTED_FILES: [Hash40; 2] = [
+        Hash40::from("fighter/pacman/model/firehydrant/c00/firehydrant.lvd"),
+        Hash40::from("fighter/pickel/model/forge/c00/forge.lvd")
+    ];
 }
 
 fn get_filectx_by_index<'a>(
@@ -99,6 +104,8 @@ fn replace_file_by_index(file_index: FileIndex) {
             return;
         }
 
+
+
         let file_slice = file_ctx.get_file_content();
 
         info!(
@@ -113,6 +120,25 @@ fn replace_file_by_index(file_index: FileIndex) {
                 file_ctx.len() as usize,
             );
             data_slice.write_all(&file_slice).unwrap();
+        }
+
+        if file_ctx.extension() == Hash40::from("nus3bank") {
+            edit_nus3bank_id(file_ctx.hash, file_ctx.index);
+        }
+    }
+}
+
+fn edit_nus3bank_id(path: Hash40, index: FileInfoIndiceIdx) {
+    static GRP_BYTES: &[u8] = &[0x47, 0x52, 0x50, 0x20];
+    if let Some(id) = unsharing::UNSHARED_NUS3BANKS.lock().get(&path) {
+        let arc = LoadedTables::get_arc();
+        let buffer_size = arc.get_file_data_from_hash(path, *config::REGION).unwrap().decomp_size;
+        let table2_entry = LoadedTables::get_instance().get_t2_mut(index).unwrap();
+        if !table2_entry.data.is_null() {
+            let buffer = unsafe { std::slice::from_raw_parts_mut(table2_entry.data.add(0x30) as *mut u8, buffer_size as usize) };
+            if let Some(offset) = buffer.windows(GRP_BYTES.len()).position(|window| window == GRP_BYTES) {
+                unsafe { *(buffer.as_mut_ptr().add(offset - 4) as *mut u32) = *id; }
+            }
         }
     }
 }
@@ -515,7 +541,6 @@ pub fn main() {
         stream::lookup_by_stream_hash,
     );
 
-    // TODO: Put this behind a config flag
     if false {
         fn receive(args: Vec<String>) {
             let _ = cli::send(remote::handle_command(args).as_str());

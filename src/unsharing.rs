@@ -155,6 +155,7 @@ lazy_static! {
     static ref ALREADY_RESHARED: Mutex<Vec<u32>> = Mutex::new(Vec::new());
     static ref RESHARED_FILEPATHS: Mutex<HashMap<Hash40, FilePathIdx>> = Mutex::new(HashMap::new());
     pub static ref TO_UNSHARE_ON_DISCOVERY: Mutex<HashMap<Hash40, (u32, FileInfoIdx)>> = Mutex::new(HashMap::new());
+    pub static ref UNSHARED_NUS3BANKS: Mutex<HashMap<Hash40, u32>> = Mutex::new(HashMap::new());
 }
 
 static mut FILE_PATH_CAPACITY: Option<usize> = None;
@@ -389,7 +390,9 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
                     to_unshare.insert(file_paths[current_file_path.0].path.hash40(), (self_index, FileInfoIdx(current_index as u32)));
                     continue;
                 }
-
+                if crate::BLACKLISTED_FILES.contains(&file_paths[shared_file_path.0].path.hash40()) {
+                    continue;
+                }
                 // Needs to be fixed: FileInfo.clone() doesn't actually clone, and instead zeroes out the FileInfo
                 // extend_from_within uses memcpy instead, which is why it works
                 file_infos.extend_from_within(info_indices[file_paths[shared_file_path.0].path.index() as usize].file_info_index.0 as usize, 1);
@@ -439,6 +442,7 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
 
 // This function is the same as above but for unshare-on-discovery files
 pub fn unshare_file(dir_index: u32, index: FileInfoIdx) {
+    static mut UNSHARED_NUS3BANK_ID: u32 = 7420;
     let loaded_tables = LoadedTables::get_instance();
     let arc = LoadedTables::get_arc();
 
@@ -476,10 +480,18 @@ pub fn unshare_file(dir_index: u32, index: FileInfoIdx) {
         loaded_datas.set_capacity(cap);
     }
     let current_file_path = file_infos[index.0].file_path_index;
+    let mut unshared_banks = UNSHARED_NUS3BANKS.lock();
     let shared_data_idx = unsafe { crate::ORIGINAL_SHARED_INDEX };
     if !unshared_filepaths.contains(&current_file_path.0) {
         let shared_file_path = get_shared_file(&file_infos[index.0], arc);
         if shared_file_path != current_file_path || arc.get_file_in_folder(&file_infos[index.0], Region::None).file_data_index.0 >= shared_data_idx {
+            let extension = file_paths[current_file_path.0].ext.hash40();
+            if extension == Hash40::from("nus3bank") {
+                unsafe {
+                    unshared_banks.insert(file_paths[current_file_path.0].path.hash40(), UNSHARED_NUS3BANK_ID);
+                    UNSHARED_NUS3BANK_ID += 1;
+                }
+            }
             file_infos.extend_from_within(info_indices[file_paths[shared_file_path.0].path.index() as usize].file_info_index.0 as usize, 1);
             info_indices.push_from_within(file_paths[shared_file_path.0].path.index() as usize);
             let new_ii = info_indices.last_mut().unwrap();
