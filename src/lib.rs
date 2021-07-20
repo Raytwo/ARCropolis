@@ -46,6 +46,8 @@ use log::{info, trace, warn};
 use owo_colors::OwoColorize;
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
 
+pub const ARCROP_VERSION: u32 = (2 << 24) | (0 << 16) | (0 << 8) | 6;
+
 lazy_static! {
     static ref UNSHARE_ON_DISCOVERY: [Hash40; 3] = [
         Hash40::from("nus3audio"),
@@ -285,7 +287,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
         let ext_callbacks = EXT_CALLBACKS.read();
         if !ext_callbacks.is_empty() {
-            let ext = file_path.path.hash40();
+            let ext = file_path.ext.hash40();
             if ext_callbacks.contains_key(&ext) {
                 *incoming = IncomingLoad::ExtCallback(ext, info_indice_index);
                 return
@@ -419,6 +421,17 @@ fn initial_loading(_ctx: &InlineCtx) {
         println!("ARCropolis logger could not be initialized.")
     }
 
+    if config.misc.debug {
+        fn receive(args: Vec<String>) {
+            let _ = cli::send(remote::handle_command(args).as_str());
+        }
+
+        std::thread::spawn(|| {
+            skyline_communicate::set_on_receive(cli::Receiver::CLIStyle(receive));
+            skyline_communicate::start_server("ARCropolis", 6968);
+        });
+    }
+
     // Check if an update is available
     if skyline_update::check_update(
         IpAddr::V4(config.updater.unwrap().server_ip),
@@ -540,17 +553,6 @@ pub fn main() {
         change_version_string,
         stream::lookup_by_stream_hash,
     );
-
-    if false {
-        fn receive(args: Vec<String>) {
-            let _ = cli::send(remote::handle_command(args).as_str());
-        }
-
-        std::thread::spawn(|| {
-            skyline_communicate::set_on_receive(cli::Receiver::CLIStyle(receive));
-            skyline_communicate::start_server("ARCropolis", 6968);
-        });
-    }
 
 
     println!(

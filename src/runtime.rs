@@ -207,7 +207,6 @@ impl Drop for TableGuard {
     }
 }
 
-use smash_arc::*;
 #[derive(Debug)]
 pub struct ArrayLengths {
     pub dir_infos: u32,
@@ -253,98 +252,6 @@ impl LoadedTables {
     pub fn unlock(&mut self) {
         unsafe {
             nn::os::UnlockMutex(self.mutex);
-        }
-    }
-
-    #[inline(never)]
-    unsafe fn recreate_array<T: Sized>(
-        start: *const T,
-        length: usize,
-        new_entries: &[T],
-    ) -> *mut T {
-        if new_entries.len() == 0 {
-            return start as *mut T;
-        }
-        let arr_layout = std::alloc::Layout::from_size_align(
-            (length + new_entries.len()) * std::mem::size_of::<T>(),
-            0x10,
-        )
-        .unwrap();
-        let new_ptr = std::alloc::alloc(arr_layout) as *mut T;
-        std::ptr::copy_nonoverlapping(start, new_ptr, length);
-        std::ptr::copy_nonoverlapping(new_entries.as_ptr(), new_ptr.add(length), new_entries.len());
-        new_ptr
-    }
-
-    #[inline(never)]
-    unsafe fn extend_table<T: Sized>(start: *const T, length: usize, new_entries: usize) -> *mut T {
-        if new_entries == 0 {
-            return start as *mut T;
-        }
-        let arr_layout = std::alloc::Layout::from_size_align(
-            (length + new_entries) * std::mem::size_of::<T>(),
-            0x10,
-        )
-        .unwrap();
-        let new_ptr = std::alloc::alloc(arr_layout) as *mut T;
-        std::ptr::copy_nonoverlapping(start, new_ptr, length);
-        new_ptr
-    }
-
-    #[inline(never)]
-    fn duplicate_file_structure(
-        new_file_path_idx: FilePathIdx,
-        new_info_indice_idx: FileInfoIndiceIdx,
-        new_data_index: FileDataIdx,
-        new_mass_load_data_index: u32,
-        start_info: &FileInfo,
-        info_to_datas: &mut Vec<FileInfoToFileData>,
-        infos: &mut Vec<FileInfo>,
-        lengths: &ArrayLengths,
-    ) {
-        let arc = Self::get_arc();
-        let file_infos = arc.get_file_infos();
-        let file_info_to_datas = arc.get_file_info_to_datas();
-
-        let mut redirect_info = start_info;
-        let mut redirect_info_to_data = &file_info_to_datas[redirect_info.info_to_data_index];
-
-        let mut is_first = true;
-        loop {
-            if is_first {
-                is_first = false
-            } else {
-                let mut new_info = FileInfo {
-                    file_info_indice_index: new_info_indice_idx,
-                    file_path_index: new_file_path_idx,
-                    info_to_data_index: InfoToDataIdx(
-                        lengths.file_info_to_datas + info_to_datas.len() as u32,
-                    ),
-                    flags: redirect_info.flags,
-                };
-                new_info.flags.set_is_regional(false);
-                infos.push(new_info);
-            }
-
-            let new_info_idx = redirect_info_to_data.file_info_index_and_flag & 0xFF_FFFF;
-            redirect_info = &file_infos[new_info_idx as usize];
-            let (is_chain, idx_and_flag) = if redirect_info.flags.unknown1() {
-                (false, redirect_info_to_data.file_info_index_and_flag)
-            } else {
-                let flag = redirect_info_to_data.file_info_index_and_flag & 0xFF00_0000;
-                let info_idx = lengths.file_infos + infos.len() as u32;
-                (true, flag | info_idx)
-            };
-            let new_info_to_data = FileInfoToFileData {
-                file_info_index_and_flag: idx_and_flag,
-                file_data_index: new_data_index,
-                folder_offset_index: new_mass_load_data_index,
-            };
-            info_to_datas.push(new_info_to_data);
-            redirect_info_to_data = &file_info_to_datas[redirect_info.info_to_data_index];
-            if !is_chain {
-                break;
-            }
         }
     }
 
