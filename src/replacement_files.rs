@@ -7,7 +7,7 @@ use std::{
 use crate::{
     callbacks::CallbackKind,
     config::{CONFIG, REGION},
-    fs::visit::ModPath,
+    fs::ModFile,
     runtime,
 };
 
@@ -63,7 +63,7 @@ pub struct FileCtx {
 #[derive(Clone)]
 pub enum FileBacking {
     LoadFromArc,
-    Path(ModPath),
+    ModFile(ModFile),
     Callback {
         callback: CallbackKind,
         original: Box<FileBacking>,
@@ -83,22 +83,44 @@ impl ModFiles {
     fn new() -> Self {
         let config = CONFIG.read();
 
-        let mut modfiles: HashMap<Hash40, ModPath> = HashMap::new();
+        let arc = LoadedTables::get_arc();
+
+        let mut modfiles: HashMap<Hash40, ModFile> = HashMap::new();
+        let mut rejected = Vec::new();
 
         // ARC mods
         if config.paths.arc.exists() {
-            modfiles.extend(crate::fs::visit::discovery(&config.paths.arc));
+            crate::fs::visit::discovery(arc, &config.paths.arc, &mut modfiles, &mut rejected);
         }
         // UMM mods
         if config.paths.umm.exists() {
-            modfiles.extend(crate::fs::visit::umm_discovery(&config.paths.umm));
+            crate::fs::visit::umm_discovery(arc, &config.paths.umm, &mut modfiles, &mut rejected);
         }
 
         if let Some(extra_paths) = &config.paths.extra_paths {
             for path in extra_paths {
                 // Extra UMM mods
                 if path.exists() {
-                    modfiles.extend(crate::fs::visit::umm_discovery(path));
+                    crate::fs::visit::umm_discovery(arc, path, &mut modfiles, &mut rejected);
+                }
+            }
+        }
+
+        let rejected_exts = crate::api::REJECTED_EXT_CALLBACKS.read();
+        for (path, reason) in rejected.into_iter() {
+            if let crate::fs::RejectionReason::NotFound(smash_path) = reason {
+                let extension_hash = Hash40::from(path
+                    .extension()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                );
+                let filepath_slice = path.to_str().unwrap().as_bytes();
+                let arc_path_slice = smash_path.to_str().unwrap().as_bytes();
+                if let Some(callbacks) = rejected_exts.get(&extension_hash) {
+                    for cb in callbacks.iter() {
+                        cb(filepath_slice.as_ptr(), filepath_slice.len(), arc_path_slice.as_ptr(), arc_path_slice.len());
+                    }
                 }
             }
         }
@@ -107,7 +129,7 @@ impl ModFiles {
         Self(ModFiles::process_mods(&modfiles))
     }
 
-    fn process_mods(modfiles: &HashMap<Hash40, ModPath>) -> HashMap<FileIndex, FileCtx> {
+    fn process_mods(modfiles: &HashMap<Hash40, ModFile>) -> HashMap<FileIndex, FileCtx> {
         let arc = LoadedTables::get_arc_mut();
 
         let mut to_unshare = crate::unsharing::TO_UNSHARE_ON_DISCOVERY.lock();
@@ -116,7 +138,7 @@ impl ModFiles {
             .filter_map(|(hash, modpath)| {
                 let mut filectx = FileCtx::new();
 
-                filectx.file = FileBacking::Path(modpath.clone());
+                filectx.file = FileBacking::ModFile(modpath.clone());
                 filectx.hash = *hash;
 
                 if modpath.is_stream() {
@@ -353,7 +375,7 @@ impl FileCtx {
 
     pub fn extension(&self) -> Hash40 {
         match &self.file {
-            FileBacking::Path(modpath) => modpath.extension(),
+            FileBacking::ModFile(modpath) => modpath.extension(),
             _ => {
                 let arc = LoadedTables::get_arc();
                 let path_idx = arc.get_file_path_index_from_hash(self.hash).unwrap();
@@ -366,7 +388,7 @@ impl FileCtx {
 
     pub fn len(&self) -> u32 {
         match &self.file {
-            FileBacking::Path(modpath) => modpath.len() as u32,
+            FileBacking::ModFile(modpath) => modpath.size as u32,
             FileBacking::LoadFromArc => {
                 let user_region = *REGION;
 
@@ -389,7 +411,7 @@ impl FileCtx {
     // TODO: Eventually make this a Option<&Path> instead? Or just stop logging filepaths
     pub fn path(&self) -> Option<PathBuf> {
         match &self.file {
-            FileBacking::Path(modpath) => Some(modpath.to_path_buf()),
+            FileBacking::ModFile(modpath) => Some(modpath.to_path_buf()),
             // lol, lmao
             FileBacking::LoadFromArc => None,
             FileBacking::Callback {
@@ -407,7 +429,7 @@ impl FileCtx {
 pub fn recursive_file_backing_load(hash: Hash40, backing: &FileBacking) -> Vec<u8> {
     match backing {
         // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
-        FileBacking::Path(modpath) => fs::read(modpath).unwrap(),
+        FileBacking::ModFile(modpath) => fs::read(modpath.full_path()).unwrap(),
         FileBacking::LoadFromArc => {
             let user_region = *REGION;
 

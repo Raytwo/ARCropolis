@@ -56,7 +56,7 @@ fn lookup_by_stream_hash(
                 original!()(out_path, loaded_arc, size_out, offset_out, hash)
             }
             // Load the file from the SD
-            crate::replacement_files::FileBacking::Path(_) => {
+            crate::replacement_files::FileBacking::ModFile(_) => {
                 let path = match file_ctx.path() {
                     Some(path) => path,
                     None => {

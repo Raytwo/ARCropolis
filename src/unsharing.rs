@@ -28,7 +28,7 @@ pub trait LoadedTableAdditions {
 impl LoadedArcAdditions for LoadedArc {
     fn get_dir_infos_as_vec(&self) -> ArcVector<DirInfo> {
         let fs = unsafe { &mut *(self.fs_header as *mut FileSystemHeader) };
-        let ptr = &self.dir_infos as *const *const DirInfo;
+        let ptr = &self.dir_infos as *const *mut DirInfo;
         let ptr_size = &mut fs.folder_count as *mut u32;
         ArcVector::new(
             ptr as *mut *mut DirInfo,
@@ -97,7 +97,7 @@ impl LoadedArcAdditions for LoadedArc {
 
     fn get_file_groups_as_vec(&self) -> ArcVector<DirectoryOffset> {
         let fs = unsafe { &mut *(self.fs_header as *mut FileSystemHeader) };
-        let ptr = &self.folder_offsets as *const *const DirectoryOffset;
+        let ptr = &self.folder_offsets as *const *mut DirectoryOffset;
         let ptr_size = &mut fs.folder_offset_count_2 as *mut u32;
         let ptr_size2 = &mut fs.folder_offset_count_1 as *mut u32;
         ArcVector::new(
@@ -605,7 +605,7 @@ pub fn unshare_files_in_directory(directory: Hash40, files: Vec<Hash40>) {
                     new_fi.file_path_index = current_path_idx;
                     new_fi.file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
                     unshared_filepaths.insert(new_fi.file_path_index.0);
-                    info_to_datas[new_fi.info_to_data_index.0].file_info_index_and_flag = 0x0100_0000;
+                    // info_to_datas[new_fi.info_to_data_index.0].file_info_index_and_flag = 0x0100_0000;
                     drop(new_fi);
                     file_infos[current_index].file_info_indice_index = FileInfoIndiceIdx((info_indices.len() - 1) as u32);
                 }

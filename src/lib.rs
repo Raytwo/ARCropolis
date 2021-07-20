@@ -46,6 +46,8 @@ use log::{info, trace, warn};
 use owo_colors::OwoColorize;
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
 
+pub const ARCROP_VERSION: u32 = (2 << 24) | (0 << 16) | (0 << 8) | 6;
+
 lazy_static! {
     static ref UNSHARE_ON_DISCOVERY: [Hash40; 3] = [
         Hash40::from("nus3audio"),
@@ -285,7 +287,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
         let ext_callbacks = EXT_CALLBACKS.read();
         if !ext_callbacks.is_empty() {
-            let ext = file_path.path.hash40();
+            let ext = file_path.ext.hash40();
             if ext_callbacks.contains_key(&ext) {
                 *incoming = IncomingLoad::ExtCallback(ext, info_indice_index);
                 return
@@ -541,7 +543,7 @@ pub fn main() {
         stream::lookup_by_stream_hash,
     );
 
-    if false {
+    if true {
         fn receive(args: Vec<String>) {
             let _ = cli::send(remote::handle_command(args).as_str());
         }

@@ -1,9 +1,0 @@
-[submodule "smash-arc"]
-	path = smash-arc
-	url = https://github.com/jam1garner/smash-arc
-[submodule "cli"]
-	path = cli
-	url = https://github.com/blu-dev/skyline-communicate
-[submodule "arc-vector"]
-	path = arc-vector
-	url = https://github.com/blu-dev/arc-vector
