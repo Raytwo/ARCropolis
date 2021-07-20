@@ -1,6 +1,8 @@
 use std::{hash::{Hash, Hasher}, path::{Path, PathBuf}};
-use smash_arc::{Hash40, Region};
 use std::ops::Deref;
+
+use serde::{Serialize, Deserialize};
+use smash_arc::{Hash40, Region};
 
 #[derive(Debug)]
 pub enum RejectionReason {
@@ -55,13 +57,9 @@ impl SmashPath {
     pub fn hash40(&self) -> Result<Hash40, String> {
         let smash_path = self.to_smash_path();
 
-        match smash_path.to_str() {
-            Some(path) => Ok(Hash40::from(path)),
-            None => Err(format!(
-                "Couldn't convert {} to a &str",
-                self.as_path().display()
-            ))
-        }
+        smash_path.to_str()
+            .map(Hash40::from)
+            .ok_or_else(|| format!("Couldn't convert {} to an &str", self.as_path().display()))
     }
 
     pub fn to_smash_path(&self) -> PathBuf {
@@ -79,13 +77,11 @@ impl SmashPath {
             arc_path = format!("{}{}", ext, "webm");
         }
 
-        arc_path = arc_path.to_lowercase();
-
-        PathBuf::from(arc_path)
+        PathBuf::from(arc_path.to_lowercase())
     }
 
     pub fn is_stream(&self) -> bool {
-        self.0.to_str().unwrap().contains("stream")
+        self.0.to_str().map(|path| path.contains("stream")).unwrap_or(false)
     }
 
     pub fn extension(&self) -> Hash40 {
@@ -110,7 +106,9 @@ impl SmashPath {
         
         if let Some(region_marker) = filename.find('+') {
             Some(Region::from(
-                crate::replacement_files::get_region_id(&filename[region_marker + 1..region_marker + 6]).unwrap_or(0) + 1
+                crate::replacement_files::get_region_id(
+                    &filename[region_marker + 1..region_marker + 6]
+                ).unwrap_or(0) + 1
             ))
         } else {
             None
@@ -162,8 +160,6 @@ impl ModFile {
 }
 
 // Cache file structures
-use serde::{Serialize, Deserialize};
-
 #[derive(Serialize, Deserialize)]
 pub struct FileInformation {
     pub path: String,
@@ -190,18 +186,21 @@ impl CacheFile {
     pub fn open<P: AsRef<Path>>(path: P, arc_version: u32, mod_version: u32) -> Option<Self> {
         let data = std::fs::read(path).unwrap();
         let mut data = std::io::Cursor::new(data);
-        let cached_arc_version: u32 = bincode::deserialize_from(&mut data).expect("Failed to deserialize ARC version");
+        let cached_arc_version: u32 = bincode::deserialize_from(&mut data)
+            .expect("Failed to deserialize ARC version");
         if arc_version != cached_arc_version {
             return None;
         }
-        let cached_mod_version: u32 = bincode::deserialize_from(&mut data).expect("Failed to deserialize MOD version");
+        let cached_mod_version: u32 = bincode::deserialize_from(&mut data)
+            .expect("Failed to deserialize MOD version");
         if mod_version != cached_mod_version {
             return None;
         }
         Some(Self {
             arc_version: cached_arc_version,
             mod_version: cached_mod_version,
-            file_infos: bincode::deserialize_from(&mut data).expect("Failed to deserialize file information!")
+            file_infos: bincode::deserialize_from(&mut data)
+                .expect("Failed to deserialize file information!")
         })
     }
 

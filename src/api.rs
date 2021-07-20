@@ -175,13 +175,9 @@ pub extern "C" fn arcrop_get_decompressed_size(hash: Hash40, out_size: &mut usiz
     if unsafe { *(offset_to_addr(LOADED_TABLES_OFFSET) as *mut *mut ()) }.is_null() {
         false
     } else {
-        match LoadedTables::get_arc().get_file_data_from_hash(hash, *REGION) {
-            Ok(data) => {
-                *out_size = data.decomp_size as usize;
-                true
-            },
-            Err(_) => false
-        }
+        LoadedTables::get_arc().get_file_data_from_hash(hash, *REGION)
+            .map(|data| *out_size = data.decomp_size as usize)
+            .is_ok()
     }
 }
 

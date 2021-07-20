@@ -119,7 +119,12 @@ impl ModFiles {
                 let arc_path_slice = smash_path.to_str().unwrap().as_bytes();
                 if let Some(callbacks) = rejected_exts.get(&extension_hash) {
                     for cb in callbacks.iter() {
-                        cb(filepath_slice.as_ptr(), filepath_slice.len(), arc_path_slice.as_ptr(), arc_path_slice.len());
+                        cb(
+                            filepath_slice.as_ptr(),
+                            filepath_slice.len(),
+                            arc_path_slice.as_ptr(),
+                            arc_path_slice.len()
+                        );
                     }
                 }
             }
