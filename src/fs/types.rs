@@ -6,10 +6,13 @@ use smash_arc::{Hash40, Region};
 
 #[derive(Debug)]
 pub enum RejectionReason {
+    /// File was rejected because ARCropolis has already encountered another mod which replaces this same file
     DuplicateFile(PathBuf),
+    /// File was rejected because it was not found in data.arc
     NotFound(SmashPath),
     MissingExtension
 }
+
 
 #[repr(transparent)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
@@ -35,6 +38,21 @@ impl From<SmashPath> for PathBuf {
     }
 }
 
+use std::fmt;
+pub struct InvalidUtf8PathError;
+
+impl fmt::Display for InvalidUtf8PathError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Couldn't convert path to an &str")
+    }
+}
+
+impl fmt::Debug for InvalidUtf8PathError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Couldn't convert path to an &str")
+    }
+}
+
 impl SmashPath {
     pub fn new() -> Self {
         Self::default()
@@ -54,12 +72,12 @@ impl SmashPath {
         &self
     }
 
-    pub fn hash40(&self) -> Result<Hash40, String> {
+    pub fn hash40(&self) -> Result<Hash40, InvalidUtf8PathError> {
         let smash_path = self.to_smash_path();
 
         smash_path.to_str()
             .map(Hash40::from)
-            .ok_or_else(|| format!("Couldn't convert {} to an &str", self.as_path().display()))
+            .ok_or_else(|| InvalidUtf8PathError {})
     }
 
     pub fn to_smash_path(&self) -> PathBuf {

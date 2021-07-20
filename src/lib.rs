@@ -421,6 +421,17 @@ fn initial_loading(_ctx: &InlineCtx) {
         println!("ARCropolis logger could not be initialized.")
     }
 
+    if config.misc.debug {
+        fn receive(args: Vec<String>) {
+            let _ = cli::send(remote::handle_command(args).as_str());
+        }
+
+        std::thread::spawn(|| {
+            skyline_communicate::set_on_receive(cli::Receiver::CLIStyle(receive));
+            skyline_communicate::start_server("ARCropolis", 6968);
+        });
+    }
+
     // Check if an update is available
     if skyline_update::check_update(
         IpAddr::V4(config.updater.unwrap().server_ip),
@@ -542,17 +553,6 @@ pub fn main() {
         change_version_string,
         stream::lookup_by_stream_hash,
     );
-
-    if true {
-        fn receive(args: Vec<String>) {
-            let _ = cli::send(remote::handle_command(args).as_str());
-        }
-
-        std::thread::spawn(|| {
-            skyline_communicate::set_on_receive(cli::Receiver::CLIStyle(receive));
-            skyline_communicate::start_server("ARCropolis", 6968);
-        });
-    }
 
 
     println!(
