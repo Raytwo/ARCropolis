@@ -99,7 +99,7 @@ impl SmashPath {
     }
 
     pub fn is_stream(&self) -> bool {
-        self.0.to_str().map(|path| path.contains("stream")).unwrap_or(false)
+        self.0.to_str().map(|path| path.starts_with("stream;") || path.starts_with("stream:")).unwrap_or(false)
     }
 
     pub fn extension(&self) -> Hash40 {
