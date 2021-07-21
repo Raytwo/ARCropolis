@@ -4,12 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{
-    callbacks::CallbackKind,
-    config::{CONFIG, REGION},
-    fs::ModFile,
-    runtime,
-};
+use crate::{callbacks::CallbackKind, config::{CONFIG, REGION}, fs::{ModFile, RejectionReason}, runtime};
 
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
 
@@ -126,6 +121,28 @@ impl ModFiles {
                             arc_path_slice.len()
                         );
                     }
+                } else {
+                    warn!(
+                        "[ARC::Discovery] File '{}' rejected. Reason: Not found in data.arc",
+                        path.display().bright_yellow()
+                    );
+                }
+            } else {
+                match reason {
+                    RejectionReason::DuplicateFile(file) => {
+                        warn!(
+                            "[ARC::Discovery] File '{}' rejected. Reason: File already replaced by '{}'",
+                            path.display().bright_yellow(),
+                            file.display().bright_yellow()
+                        );
+                    },
+                    RejectionReason::MissingExtension => {
+                        warn!(
+                            "[ARC::Discovery] File '{}' rejected. Reason: Missing extension",
+                            path.display().bright_yellow()
+                        );
+                    },
+                    _ => {}
                 }
             }
         }
