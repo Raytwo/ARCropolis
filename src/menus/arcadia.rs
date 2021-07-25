@@ -123,14 +123,9 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                         }
                     }
                     Err(e) => {
-                        let possible_line_col = e.line_col()
-                            .map(|(line, col)| format!(" (line {}, column {})", line, col))
-                            .unwrap_or_default();
-
                         skyline_web::DialogOk::ok(&format!(
-                            "The following info.toml is not valid: \n\n* '{}'{}\n\nError: {}",
+                            "The following info.toml is not valid: \n\n* '{}'\n\nError: {}",
                             folder_name,
-                            possible_line_col,
                             e,
                         ));
                         default_entry()
