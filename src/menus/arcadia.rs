@@ -96,30 +96,48 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
 
             let info_path = format!("{}/info.toml", path_to_be_used);
             info!("Info Path: {}", info_path);
-            let mod_info: Entry = if std::fs::metadata(&info_path).is_ok() {
-                let mut res: Entry =
-                    toml::from_str(&std::fs::read_to_string(&info_path).unwrap()).unwrap();
-                res.id = Some(i as u32);
-                res.folder_name = Some(folder_name);
-                res.is_disabled = Some(disabled);
-                res.image = Some(format!("{}/preview.webp", path_to_be_used));
-                res.description = Some(
-                    res.description
-                        .unwrap_or_else(String::new)
-                        .replace("\n", "<br>"),
-                );
-                res
-            } else {
+            let default_entry = || {
                 Entry {
                     id: Some(i as u32),
                     folder_name: Some(folder_name.clone()),
                     is_disabled: Some(disabled),
-                    display_name: Some(folder_name),
+                    display_name: Some(folder_name.clone()),
                     version: Some("???".to_string()),
                     description: Some("".to_string()),
                     category: Some("Misc".to_string()),
                     image: Some(format!("{}/preview.webp", path_to_be_used)),
                 }
+            };
+            let mod_info: Entry = if Path::new(&info_path).exists() {
+                match toml::from_str::<Entry>(&std::fs::read_to_string(&info_path).unwrap()) {
+                    Ok(res) => {
+                        Entry {
+                            id: Some(i as u32),
+                            folder_name: Some(folder_name),
+                            is_disabled: Some(disabled),
+                            image: Some(format!("{}/preview.webp", path_to_be_used)),
+                            description: Some(res.description
+                                .unwrap_or_else(String::new)
+                                .replace("\n", "<br>")),
+                            ..res
+                        }
+                    }
+                    Err(e) => {
+                        let possible_line_col = e.line_col()
+                            .map(|(line, col)| format!(" (line {}, column {})", line, col))
+                            .unwrap_or_default();
+
+                        skyline_web::DialogOk::ok(&format!(
+                            "The following info.toml is not valid: \n\n* '{}'{}\n\nError: {}",
+                            folder_name,
+                            possible_line_col,
+                            e,
+                        ));
+                        default_entry()
+                    }
+                }
+            } else {
+                default_entry()
             };
 
             mod_info
