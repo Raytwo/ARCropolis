@@ -14,7 +14,7 @@ use super::{ModFile, SmashPath, RejectionReason};
 /// Discover every file in a directory and its sub-directories.  
 /// Files starting with a period are filtered out, and only the files with relevant regions are kept.  
 /// This signifies that if your goal is to simply get all the files, this is not the method to use.
-pub fn discovery<Arc: ArcLookup>(arc: &Arc, path: &PathBuf, accepted: &mut HashMap<Hash40, ModFile>, rejected: &mut Vec<(PathBuf, RejectionReason)>) {
+pub fn discovery<Arc: ArcLookup>(arc: &Arc, path: &PathBuf, accepted: &mut HashMap<Hash40, ModFile>, rejected: &mut Vec<(PathBuf, RejectionReason)>, stream: &mut HashMap<Hash40, ModFile>) {
     for mod_file in WalkDir::new(path)
         .min_depth(1)
         .into_iter()
@@ -40,7 +40,18 @@ pub fn discovery<Arc: ArcLookup>(arc: &Arc, path: &PathBuf, accepted: &mut HashM
                                 ));
                             },
                             Err(_) => {
-                                rejected.push((mod_file.path().to_path_buf(), RejectionReason::NotFound(smash_path)));
+                                if smash_path.is_stream() {
+                                    if let Some(previous) = stream.get(&hash) {
+                                        rejected.push((mod_file.path().to_path_buf(), RejectionReason::DuplicateFile(previous.path.to_path_buf())));
+                                    } else {
+                                        stream.insert(hash, ModFile::new(
+                                            path.to_path_buf(),
+                                            smash_path
+                                        ));
+                                    }
+                                } else {
+                                    rejected.push((mod_file.path().to_path_buf(), RejectionReason::NotFound(smash_path)));
+                                }
                             }
                         }
                     }
@@ -56,7 +67,7 @@ pub fn discovery<Arc: ArcLookup>(arc: &Arc, path: &PathBuf, accepted: &mut HashM
 /// Files starting with a period are filtered out, and only the files with relevant regions are kept.  
 /// This signifies that if your goal is to simply get all the files, this is not the method to use.  
 /// This method exists to support backward compatibility with Ultimate Mod Manager.  
-pub fn umm_discovery<Arc: ArcLookup>(arc: &Arc, dir: &PathBuf, accepted: &mut HashMap<Hash40, ModFile>, rejected: &mut Vec<(PathBuf, RejectionReason)>) {
+pub fn umm_discovery<Arc: ArcLookup>(arc: &Arc, dir: &PathBuf, accepted: &mut HashMap<Hash40, ModFile>, rejected: &mut Vec<(PathBuf, RejectionReason)>, stream: &mut HashMap<Hash40, ModFile>) {
     for mod_directory in WalkDir::new(dir)
         .min_depth(1)
         .max_depth(1)
@@ -64,7 +75,7 @@ pub fn umm_discovery<Arc: ArcLookup>(arc: &Arc, dir: &PathBuf, accepted: &mut Ha
         .filter_entry(|entry| !entry.file_name().to_str().unwrap().starts_with('.')) {
         if let Ok(mod_directory) = mod_directory {
             if mod_directory.file_type().is_dir() {
-                discovery(arc, &mod_directory.into_path(), accepted, rejected);
+                discovery(arc, &mod_directory.into_path(), accepted, rejected, stream);
             }
         }        
     }

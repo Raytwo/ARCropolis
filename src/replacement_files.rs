@@ -6,7 +6,7 @@ use std::{
 
 use crate::{callbacks::CallbackKind, config::{CONFIG, REGION}, fs::{ModFile, RejectionReason}, runtime};
 
-use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
+use smash_arc::{ArcLookup, FileDataIdx, FileInfoIndiceIdx, Hash40};
 
 use runtime::{LoadedArcEx, LoadedTables};
 
@@ -45,8 +45,8 @@ pub enum FileIndex {
     Stream(Hash40),
 }
 
-#[repr(transparent)]
-pub struct ModFiles(pub HashMap<FileIndex, FileCtx>);
+// FileIndex -> ModdedFile, FileIndex -> Vanilla file size
+pub struct ModFiles(pub HashMap<FileIndex, FileCtx>, pub Vec<(FileDataIdx, u32)>);
 
 #[derive(Clone)]
 pub struct FileCtx {
@@ -75,28 +75,32 @@ macro_rules! get_from_file_info_indice_index {
 }
 
 impl ModFiles {
-    fn new() -> Self {
+    pub fn reinitialize(&mut self) {
+        let arc = LoadedTables::get_arc_mut();
+        let datas = arc.get_file_datas_mut();
+        for (idx, size) in self.1.iter() {
+            datas[*idx].decomp_size = *size;
+        }
         let config = CONFIG.read();
-
-        let arc = LoadedTables::get_arc();
 
         let mut modfiles: HashMap<Hash40, ModFile> = HashMap::new();
         let mut rejected = Vec::new();
+        let mut stream = HashMap::new();
 
         // ARC mods
         if config.paths.arc.exists() {
-            crate::fs::visit::discovery(arc, &config.paths.arc, &mut modfiles, &mut rejected);
+            crate::fs::visit::discovery(arc, &config.paths.arc, &mut modfiles, &mut rejected, &mut stream);
         }
         // UMM mods
         if config.paths.umm.exists() {
-            crate::fs::visit::umm_discovery(arc, &config.paths.umm, &mut modfiles, &mut rejected);
+            crate::fs::visit::umm_discovery(arc, &config.paths.umm, &mut modfiles, &mut rejected, &mut stream);
         }
 
         if let Some(extra_paths) = &config.paths.extra_paths {
             for path in extra_paths {
                 // Extra UMM mods
                 if path.exists() {
-                    crate::fs::visit::umm_discovery(arc, path, &mut modfiles, &mut rejected);
+                    crate::fs::visit::umm_discovery(arc, path, &mut modfiles, &mut rejected, &mut stream);
                 }
             }
         }
@@ -148,10 +152,90 @@ impl ModFiles {
         }
 
         //Self::unshare(&modfiles);
-        Self(ModFiles::process_mods(&modfiles))
+        let (modded_files, original_sizes) = ModFiles::process_mods(&modfiles, &stream);
+        self.0 = modded_files;
+        self.1 = original_sizes;
     }
 
-    fn process_mods(modfiles: &HashMap<Hash40, ModFile>) -> HashMap<FileIndex, FileCtx> {
+    fn new() -> Self {
+        let config = CONFIG.read();
+
+        let arc = LoadedTables::get_arc();
+
+        let mut modfiles: HashMap<Hash40, ModFile> = HashMap::new();
+        let mut rejected = Vec::new();
+        let mut stream = HashMap::new();
+
+        // ARC mods
+        if config.paths.arc.exists() {
+            crate::fs::visit::discovery(arc, &config.paths.arc, &mut modfiles, &mut rejected, &mut stream);
+        }
+        // UMM mods
+        if config.paths.umm.exists() {
+            crate::fs::visit::umm_discovery(arc, &config.paths.umm, &mut modfiles, &mut rejected, &mut stream);
+        }
+
+        if let Some(extra_paths) = &config.paths.extra_paths {
+            for path in extra_paths {
+                // Extra UMM mods
+                if path.exists() {
+                    crate::fs::visit::umm_discovery(arc, path, &mut modfiles, &mut rejected, &mut stream);
+                }
+            }
+        }
+
+        let rejected_exts = crate::api::REJECTED_EXT_CALLBACKS.read();
+        for (path, reason) in rejected.into_iter() {
+            if let crate::fs::RejectionReason::NotFound(smash_path) = reason {
+                let extension_hash = Hash40::from(path
+                    .extension()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                );
+                let filepath_slice = path.to_str().unwrap().as_bytes();
+                let arc_path_slice = smash_path.to_str().unwrap().as_bytes();
+                if let Some(callbacks) = rejected_exts.get(&extension_hash) {
+                    for cb in callbacks.iter() {
+                        cb(
+                            filepath_slice.as_ptr(),
+                            filepath_slice.len(),
+                            arc_path_slice.as_ptr(),
+                            arc_path_slice.len()
+                        );
+                    }
+                } else {
+                    warn!(
+                        "[ARC::Discovery] File '{}' rejected. Reason: Not found in data.arc",
+                        path.display().bright_yellow()
+                    );
+                }
+            } else {
+                match reason {
+                    RejectionReason::DuplicateFile(file) => {
+                        warn!(
+                            "[ARC::Discovery] File '{}' rejected. Reason: File already replaced by '{}'",
+                            path.display().bright_yellow(),
+                            file.display().bright_yellow()
+                        );
+                    },
+                    RejectionReason::MissingExtension => {
+                        warn!(
+                            "[ARC::Discovery] File '{}' rejected. Reason: Missing extension",
+                            path.display().bright_yellow()
+                        );
+                    },
+                    _ => {}
+                }
+            }
+        }
+
+        //Self::unshare(&modfiles);
+        let (modded_files, original_sizes) = ModFiles::process_mods(&modfiles, &stream);
+        Self(modded_files, original_sizes)
+    }
+
+    fn process_mods(modfiles: &HashMap<Hash40, ModFile>, stream_files: &HashMap<Hash40, ModFile>) -> (HashMap<FileIndex, FileCtx>, Vec<(FileDataIdx, u32)>) {
         let arc = LoadedTables::get_arc_mut();
 
         let mut to_unshare = crate::unsharing::TO_UNSHARE_ON_DISCOVERY.lock();
@@ -162,36 +246,34 @@ impl ModFiles {
 
                 filectx.file = FileBacking::ModFile(modpath.clone());
                 filectx.hash = *hash;
+                if let Some((dir_index, file_info_idx)) = to_unshare.remove(hash) {
+                    crate::unsharing::unshare_file(dir_index, file_info_idx);
+                }
+                match arc.get_file_path_index_from_hash(*hash) {
+                    Ok(index) => {
+                        let file_info = arc.get_file_info_from_path_index(index);
 
-                if modpath.is_stream() {
-                    warn!(
-                        "[ARC::Patching] File '{}' added as a Stream",
-                        filectx.path().unwrap().display().bright_yellow()
-                    );
-                    Some((FileIndex::Stream(filectx.hash), filectx))
-                } else {
-                    if let Some((dir_index, file_info_idx)) = to_unshare.remove(hash) {
-                        crate::unsharing::unshare_file(dir_index, file_info_idx);
+                        filectx.index = file_info.file_info_indice_index;
+
+                        Some((FileIndex::Regular(filectx.index), filectx))
                     }
-                    match arc.get_file_path_index_from_hash(*hash) {
-                        Ok(index) => {
-                            let file_info = arc.get_file_info_from_path_index(index);
-
-                            filectx.index = file_info.file_info_indice_index;
-
-                            Some((FileIndex::Regular(filectx.index), filectx))
-                        }
-                        Err(_) => {
-                            warn!(
-                                "[ARC::Patching] File '{}' was not found in data.arc",
-                                modpath.to_smash_path().display().bright_yellow()
-                            );
-                            None
-                        }
+                    Err(_) => {
+                        warn!(
+                            "[ARC::Patching] File '{}' was not found in data.arc",
+                            modpath.to_smash_path().display().bright_yellow()
+                        );
+                        None
                     }
                 }
             })
             .collect::<HashMap<FileIndex, FileCtx>>();
+
+        for (hash, modpath) in stream_files.iter() {
+            let mut filectx = FileCtx::new();
+            filectx.file = FileBacking::ModFile(modpath.clone());
+            filectx.hash = *hash;
+            mods.insert(FileIndex::Stream(*hash), filectx);
+        }
 
         // Process callbacks here?
         let callbacks = CALLBACKS.read();
@@ -315,18 +397,23 @@ impl ModFiles {
             }
         });
 
-        mods.iter_mut()
+        let mut original_sizes = Vec::new();
+
+        let modded_files = mods.iter_mut()
             .map(|(index, ctx)| {
                 if let FileIndex::Regular(info_index) = index {
                     let info_index = arc.get_file_info_indices()[*info_index].file_info_index;
                     let file_info = arc.get_file_infos()[info_index];
 
-                    arc.patch_filedata(&file_info, ctx.len());
+                    let orig_decomp_size = arc.patch_filedata(&file_info, ctx.len());
+                    original_sizes.push((arc.get_file_in_folder(&file_info, *REGION).file_data_index, orig_decomp_size));
                 }
 
                 (*index, ctx.clone())
             })
-            .collect()
+            .collect();
+
+        (modded_files, original_sizes)
     }
 
     pub fn get(&self, file_index: FileIndex) -> Option<&FileCtx> {

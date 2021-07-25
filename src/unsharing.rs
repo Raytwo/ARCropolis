@@ -329,6 +329,10 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
         }
     }
 
+    if crate::BLACKLISTED_DIRECTORIES.contains(&directory) {
+        return;
+    }
+
     let arc = LoadedTables::get_arc();
     
     let dir_info = if let Ok(info) = arc.get_dir_info_from_hash(directory) {

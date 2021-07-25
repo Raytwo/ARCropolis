@@ -59,6 +59,10 @@ lazy_static! {
         Hash40::from("fighter/pacman/model/firehydrant/c00/firehydrant.lvd"),
         Hash40::from("fighter/pickel/model/forge/c00/forge.lvd")
     ];
+
+    static ref BLACKLISTED_DIRECTORIES: [Hash40; 1] = [
+        Hash40::from("fighter/samusd")
+    ];
 }
 
 fn get_filectx_by_index<'a>(

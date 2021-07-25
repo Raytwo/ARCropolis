@@ -236,11 +236,14 @@ pub fn show_arcadia() {
                 }
 
                 info!("[menus::show_arcadia] ---------------------------");
-
-                if modified_detected {
-                    skyline_web::DialogOk::ok("Mods have been toggled!<br>Please reboot Smash to refresh ARCropolis' cache to prevent the game from crashing.");
-                    // skyline::nn::oe::RestartProgramNoArgs();
-                }
+            }
+            if modified_detected {
+                let thread = std::thread::spawn(|| crate::replacement_files::MOD_FILES.write().reinitialize());
+                skyline_web::DialogOk::ok("Mods have been toggled!<br>Please be patient, ARCropolis is refreshing its cache.");
+                thread.join().unwrap();
+                skyline_web::DialogOk::ok("ARCropolis has refreshed its cache.");
+                // skyline_web::DialogOk::ok("Mods have been toggled!<br>Please reboot Smash to refresh ARCropolis' cache to prevent the game from crashing.");
+                // skyline::nn::oe::RestartProgramNoArgs();
             }
         }
     }

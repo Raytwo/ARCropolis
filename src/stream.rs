@@ -56,16 +56,11 @@ fn lookup_by_stream_hash(
                 original!()(out_path, loaded_arc, size_out, offset_out, hash)
             }
             // Load the file from the SD
-            crate::replacement_files::FileBacking::ModFile(_) => {
-                let path = match file_ctx.path() {
-                    Some(path) => path,
-                    None => {
-                        original!()(out_path, loaded_arc, size_out, offset_out, hash);
-                        return;
-                    }
-                };
+            crate::replacement_files::FileBacking::ModFile(modfile) => {
+                let path = modfile.full_path();
 
                 // Daily reminder that Raytwo did not write this so please don't blame him for it looking bad.
+                // blujay here, definitely going to blame Ray for the code looking like this
                 unsafe {
                     *size_out = path.metadata().unwrap().len() as usize;
                     *offset_out = 0;
