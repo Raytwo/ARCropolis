@@ -62,7 +62,7 @@ lazy_static! {
     ];
 
     static ref BLACKLISTED_DIRECTORIES: [Hash40; 1] = [
-        Hash40::from("fighter/samusd/c04"),
+        Hash40::from(""),
     ];
 
     static ref RESHARED_DIRECTORIES: [(Hash40, Hash40); 8] = [
