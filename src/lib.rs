@@ -1,5 +1,6 @@
 #![feature(proc_macro_hygiene)]
 #![feature(asm)]
+#![feature(llvm_asm)]
 #![feature(map_try_insert)]
 #![allow(dead_code)]
 #![allow(unaligned_references)]
@@ -57,7 +58,22 @@ lazy_static! {
 
     static ref BLACKLISTED_FILES: [Hash40; 2] = [
         Hash40::from("fighter/pacman/model/firehydrant/c00/firehydrant.lvd"),
-        Hash40::from("fighter/pickel/model/forge/c00/forge.lvd")
+        Hash40::from("fighter/pickel/model/forge/c00/forge.lvd"),
+    ];
+
+    static ref BLACKLISTED_DIRECTORIES: [Hash40; 1] = [
+        Hash40::from("fighter/samusd/c04"),
+    ];
+
+    static ref RESHARED_DIRECTORIES: [(Hash40, Hash40); 8] = [
+        (Hash40::from("fighter/samusd/result/c00"), Hash40::from("fighter/samusd/c00")),
+        (Hash40::from("fighter/samusd/result/c01"), Hash40::from("fighter/samusd/c01")),
+        (Hash40::from("fighter/samusd/result/c02"), Hash40::from("fighter/samusd/c02")),
+        (Hash40::from("fighter/samusd/result/c03"), Hash40::from("fighter/samusd/c03")),
+        (Hash40::from("fighter/samusd/result/c04"), Hash40::from("fighter/samusd/c04")),
+        (Hash40::from("fighter/samusd/result/c05"), Hash40::from("fighter/samusd/c05")),
+        (Hash40::from("fighter/samusd/result/c06"), Hash40::from("fighter/samusd/c06")),
+        (Hash40::from("fighter/samusd/result/c07"), Hash40::from("fighter/samusd/c07")),
     ];
 }
 
@@ -242,7 +258,7 @@ fn replace_extension_callback(extension: Hash40, index: FileInfoIndiceIdx) {
     }
 
     // if the file wasn't loaded by any of the callbacks, search for a fallback
-    if MOD_FILES.read().0.contains_key(&FileIndex::Regular(index)) {
+    if MOD_FILES.read().modded_files.contains_key(&FileIndex::Regular(index)) {
         replace_file_by_index(FileIndex::Regular(index));
     } else {
         // load vanilla
@@ -466,6 +482,9 @@ fn initial_loading(_ctx: &InlineCtx) {
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
         ORIGINAL_SHARED_INDEX = LoadedTables::get_arc().get_shared_data_index();
+        for (to_unshare, source) in RESHARED_DIRECTORIES.iter() {
+            unsharing::reshare_directory(*to_unshare, *source);
+        }
         unsharing::unshare_files(Hash40::from("fighter"));
         unsharing::unshare_files(Hash40::from("stage"));
         lazy_static::initialize(&MOD_FILES);
