@@ -49,7 +49,7 @@ fn lookup_by_stream_hash(
     hash: Hash40,
 ) {
     // If we have a FileCtx for this stream, use it
-    if let Some(file_ctx) = MOD_FILES.read().0.get(&FileIndex::Stream(hash)) {
+    if let Some(file_ctx) = MOD_FILES.read().modded_files.get(&FileIndex::Stream(hash)) {
         match &file_ctx.file {
             // Goes without saying
             crate::replacement_files::FileBacking::LoadFromArc => {

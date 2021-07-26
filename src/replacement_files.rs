@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{callbacks::CallbackKind, config::{CONFIG, REGION}, fs::{ModFile, RejectionReason}, runtime};
+use crate::{callbacks::CallbackKind, config::{CONFIG, REGION}, fs::{DiscoveryResults, ModFile, RejectionReason}, runtime};
 
 use smash_arc::{ArcLookup, FileDataIdx, FileInfoIndiceIdx, Hash40};
 
@@ -46,8 +46,11 @@ pub enum FileIndex {
 }
 
 // FileIndex -> ModdedFile, FileIndex -> Vanilla file size
-pub struct ModFiles(pub HashMap<FileIndex, FileCtx>, pub Vec<(FileDataIdx, u32)>);
-
+// pub struct ModFiles(pub HashMap<FileIndex, FileCtx>, pub Vec<(FileDataIdx, u32)>);
+pub struct ModFiles {
+    pub modded_files: HashMap<FileIndex, FileCtx>,
+    pub backup_sizes: Vec<(FileDataIdx, u32)>
+}
 #[derive(Clone)]
 pub struct FileCtx {
     pub file: FileBacking,
@@ -78,32 +81,36 @@ impl ModFiles {
     pub fn reinitialize(&mut self) {
         let arc = LoadedTables::get_arc_mut();
         let datas = arc.get_file_datas_mut();
-        for (idx, size) in self.1.iter() {
+        for (idx, size) in self.backup_sizes.iter() {
             datas[*idx].decomp_size = *size;
         }
         let config = CONFIG.read();
 
-        let mut modfiles: HashMap<Hash40, ModFile> = HashMap::new();
-        let mut rejected = Vec::new();
-        let mut stream = HashMap::new();
+        let mut discover_results = DiscoveryResults {
+            accepted: HashMap::new(),
+            rejected: Vec::new(),
+            stream: HashMap::new()
+        };
 
         // ARC mods
         if config.paths.arc.exists() {
-            crate::fs::visit::discovery(arc, &config.paths.arc, &mut modfiles, &mut rejected, &mut stream);
+            crate::fs::visit::discovery(arc, &config.paths.arc, &mut discover_results);
         }
         // UMM mods
         if config.paths.umm.exists() {
-            crate::fs::visit::umm_discovery(arc, &config.paths.umm, &mut modfiles, &mut rejected, &mut stream);
+            crate::fs::visit::umm_discovery(arc, &config.paths.umm, &mut discover_results);
         }
 
         if let Some(extra_paths) = &config.paths.extra_paths {
             for path in extra_paths {
                 // Extra UMM mods
                 if path.exists() {
-                    crate::fs::visit::umm_discovery(arc, path, &mut modfiles, &mut rejected, &mut stream);
+                    crate::fs::visit::umm_discovery(arc, path, &mut discover_results);
                 }
             }
         }
+
+        let DiscoveryResults { accepted, rejected, stream } = discover_results;
 
         let rejected_exts = crate::api::REJECTED_EXT_CALLBACKS.read();
         for (path, reason) in rejected.into_iter() {
@@ -152,9 +159,9 @@ impl ModFiles {
         }
 
         //Self::unshare(&modfiles);
-        let (modded_files, original_sizes) = ModFiles::process_mods(&modfiles, &stream);
-        self.0 = modded_files;
-        self.1 = original_sizes;
+        let (modded_files, original_sizes) = ModFiles::process_mods(&accepted, &stream);
+        self.modded_files = modded_files;
+        self.backup_sizes = original_sizes;
     }
 
     fn new() -> Self {
@@ -162,27 +169,31 @@ impl ModFiles {
 
         let arc = LoadedTables::get_arc();
 
-        let mut modfiles: HashMap<Hash40, ModFile> = HashMap::new();
-        let mut rejected = Vec::new();
-        let mut stream = HashMap::new();
+        let mut discover_results = DiscoveryResults {
+            accepted: HashMap::new(),
+            rejected: Vec::new(),
+            stream: HashMap::new()
+        };
 
         // ARC mods
         if config.paths.arc.exists() {
-            crate::fs::visit::discovery(arc, &config.paths.arc, &mut modfiles, &mut rejected, &mut stream);
+            crate::fs::visit::discovery(arc, &config.paths.arc, &mut discover_results);
         }
         // UMM mods
         if config.paths.umm.exists() {
-            crate::fs::visit::umm_discovery(arc, &config.paths.umm, &mut modfiles, &mut rejected, &mut stream);
+            crate::fs::visit::umm_discovery(arc, &config.paths.umm, &mut discover_results);
         }
 
         if let Some(extra_paths) = &config.paths.extra_paths {
             for path in extra_paths {
                 // Extra UMM mods
                 if path.exists() {
-                    crate::fs::visit::umm_discovery(arc, path, &mut modfiles, &mut rejected, &mut stream);
+                    crate::fs::visit::umm_discovery(arc, path, &mut discover_results);
                 }
             }
         }
+
+        let DiscoveryResults { accepted, rejected, stream } = discover_results;
 
         let rejected_exts = crate::api::REJECTED_EXT_CALLBACKS.read();
         for (path, reason) in rejected.into_iter() {
@@ -231,8 +242,11 @@ impl ModFiles {
         }
 
         //Self::unshare(&modfiles);
-        let (modded_files, original_sizes) = ModFiles::process_mods(&modfiles, &stream);
-        Self(modded_files, original_sizes)
+        let (modded_files, backup_sizes) = ModFiles::process_mods(&accepted, &stream);
+        Self {
+            modded_files,
+            backup_sizes
+        }
     }
 
     fn process_mods(modfiles: &HashMap<Hash40, ModFile>, stream_files: &HashMap<Hash40, ModFile>) -> (HashMap<FileIndex, FileCtx>, Vec<(FileDataIdx, u32)>) {
@@ -417,7 +431,7 @@ impl ModFiles {
     }
 
     pub fn get(&self, file_index: FileIndex) -> Option<&FileCtx> {
-        self.0.get(&file_index)
+        self.modded_files.get(&file_index)
     }
 
     // fn unshare(files: &HashMap<Hash40, ModPath>) {

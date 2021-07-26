@@ -17,6 +17,8 @@ trait LoadedArcAdditions {
     fn get_file_datas_as_vec(&self) -> ArcVector<FileData>;
     fn get_file_groups_as_vec(&self) -> ArcVector<DirectoryOffset>;
     fn get_path_to_index_as_vec(&self) -> ArcVector<HashToIndex>;
+    fn recreate_path_to_index(&mut self, bucket_count: usize);
+    fn recreate_dir_path_to_index(&mut self);
 }
 
 pub trait LoadedTableAdditions {
@@ -116,6 +118,59 @@ impl LoadedArcAdditions for LoadedArc {
             ptr_size,
             None
         )
+    }
+
+    fn recreate_path_to_index(&mut self, bucket_count: usize) {
+        // YES, I KNOW THIS MEMLEAKS
+        // IT'S WHY IT GOES UNUSED
+        use skyline::libc::*;
+
+        let mut buckets = Vec::with_capacity(bucket_count);
+        for _ in 0..bucket_count {
+            buckets.push(Vec::new());
+        }
+
+        let file_paths = self.get_file_paths();
+        for (idx, path) in file_paths.iter().enumerate() {
+            let bucket = path.path.hash40().as_u64() % (bucket_count as u64);
+            let bucket = &mut buckets[bucket as usize];
+            let mut hash_to_index = HashToIndex::default();
+            hash_to_index.set_hash(path.path.hash());
+            hash_to_index.set_length(path.path.length());
+            hash_to_index.set_index(idx as u32);
+            bucket.push(hash_to_index);
+        }
+
+        let mut new_buckets = Vec::with_capacity(bucket_count + 1);
+
+        let new_index_set = unsafe { 
+            let mem = malloc(file_paths.len() * std::mem::size_of::<HashToIndex>());
+            new_buckets.push(FileInfoBucket { start: 0, count: buckets.len() as u32 });
+            let mut start = 0;
+            for mut bucket in buckets.into_iter() {
+                bucket.sort_by(|a, b| a.hash40().as_u64().cmp(&b.hash40().as_u64()));
+                memcpy((mem as *mut HashToIndex).add(start as usize) as *mut c_void, bucket.as_ptr() as *const c_void, bucket.len() * std::mem::size_of::<HashToIndex>());
+                new_buckets.push(FileInfoBucket { start, count: bucket.len() as u32 });
+                start += bucket.len() as u32;
+            }
+            mem as *const HashToIndex
+        };
+
+        self.file_hash_to_path_index = new_index_set;
+        self.file_info_buckets = new_buckets.leak().as_ptr();
+    }
+
+    fn recreate_dir_path_to_index(&mut self) {
+        let mut new_index_set = Vec::new();
+        for (idx, info) in self.get_dir_infos().iter().enumerate() {
+            let mut hash_to_index = HashToIndex::default();
+            hash_to_index.set_hash(info.path.hash());
+            hash_to_index.set_length(info.path.length());
+            hash_to_index.set_index(idx as u32);
+            new_index_set.push(hash_to_index);
+        }
+        new_index_set.sort_by(|a, b| a.hash40().as_u64().cmp(&b.hash40().as_u64()));
+        self.dir_hash_to_info_index = new_index_set.leak().as_ptr();
     }
 }
 
@@ -278,6 +333,124 @@ pub fn reshare_dir_info(hash: Hash40) {
                 let new_ii_index = file_paths[usize::from(*path_idx)].path.index();
                 file_paths[usize::from(file_info.file_path_index)].path.set_index(new_ii_index);
                 file_info.file_info_indice_index = FileInfoIndiceIdx(new_ii_index);
+            }
+        }
+    }
+}
+
+#[allow(unused_variables)]
+#[allow(dead_code)]
+pub fn duplicate_file(source: Hash40, new: Hash40) {
+    let loaded_tables = LoadedTables::acquire_instance();
+    let arc = LoadedTables::get_arc_mut();
+
+    let mut file_paths = arc.get_file_paths_as_vec();
+    if let Some(cap) = unsafe { FILE_PATH_CAPACITY.clone() } {
+        file_paths.set_capacity(cap);
+    }
+    let mut info_indices = arc.get_file_info_indices_as_vec();
+    if let Some(cap) = unsafe { INFO_INDICE_CAPACITY.clone() } {
+        info_indices.set_capacity(cap);
+    }
+    let mut file_infos = arc.get_file_infos_as_vec();
+    if let Some(cap) = unsafe { FILE_INFO_CAPACITY.clone() } {
+        file_infos.set_capacity(cap);
+    }
+    let mut info_to_datas = arc.get_file_info_to_datas_as_vec();
+    if let Some(cap) = unsafe { INFO_TO_DATA_CAPACITY.clone() } {
+        info_to_datas.set_capacity(cap);
+    }
+    let mut file_datas = arc.get_file_datas_as_vec();
+    if let Some(cap) = unsafe { DATA_CAPACITY.clone() } {
+        file_datas.set_capacity(cap);
+    }
+
+
+    let source_idx = match arc.get_file_path_index_from_hash(source) {
+        Ok(idx) => idx.0,
+        Err(_) => {
+            return;
+        }
+    };
+
+    let mut new_file_path = FilePath {
+        path: HashToIndex::default(),
+        ext: HashToIndex::default(),
+        parent: HashToIndex::default(),
+        file_name: HashToIndex::default()
+    };
+
+    let old_file_path = file_paths[source_idx].clone();
+
+    let mut new_file_info_index = info_indices[old_file_path.path.index()].clone();
+
+    let new_file_info = FileInfo {
+        file_path_index: FilePathIdx(file_paths.len() as u32),
+        file_info_indice_index: FileInfoIndiceIdx(info_indices.len() as u32),
+        info_to_data_index: InfoToDataIdx(info_to_datas.len() as u32),
+        flags: file_infos[new_file_info_index.file_info_index.0].flags
+    };
+
+    let new_info_to_data = FileInfoToFileData {
+        folder_offset_index: info_to_datas[file_infos[new_file_info_index.file_info_index.0].info_to_data_index.0].folder_offset_index,
+        file_data_index: FileDataIdx(file_datas.len() as u32),
+        file_info_index_and_load_type: info_to_datas[file_infos[new_file_info_index.file_info_index.0].info_to_data_index.0].file_info_index_and_load_type
+    };
+
+    let new_file_data = file_datas[info_to_datas[file_infos[new_file_info_index.file_info_index.0].info_to_data_index.0].file_data_index.0].clone();
+
+    new_file_info_index.file_info_index = FileInfoIdx(file_infos.len() as u32);
+
+    new_file_path.path.set_hash(new.crc32());
+    new_file_path.path.set_length(new.len());
+    new_file_path.path.set_index(info_indices.len() as u32);
+    new_file_path.ext = old_file_path.ext;
+    new_file_path.parent = old_file_path.parent;
+    new_file_path.file_name = old_file_path.file_name;
+
+    file_paths.extend(&[new_file_path]);
+    info_indices.extend(&[new_file_info_index]);
+    file_infos.extend(&[new_file_info]);
+    info_to_datas.extend(&[new_info_to_data]);
+    file_datas.extend(&[new_file_data]);
+
+    LoadedTables::get_instance().get_filepath_table_as_vec().set_len(file_paths.len());
+    unsafe {
+        FILE_PATH_CAPACITY = Some(file_paths.capacity());
+        INFO_INDICE_CAPACITY = Some(info_indices.capacity());
+        FILE_INFO_CAPACITY = Some(file_infos.capacity());
+        INFO_TO_DATA_CAPACITY = Some(info_to_datas.capacity());
+        DATA_CAPACITY = Some(file_datas.capacity());
+    }
+    // LoadedTables::get_instance().get_loaded_data_table_as_vec().set_len(info_indices.len());
+
+    arc.recreate_path_to_index(arc.get_file_info_buckets().len());
+}
+
+pub fn reshare_directory(to_reshare: Hash40, source: Hash40) {
+    let _loaded_tables = LoadedTables::acquire_instance();
+    let arc = LoadedTables::get_arc();
+
+    let mut file_infos = arc.get_file_infos_as_vec();
+
+    let to_reshare = match arc.get_dir_info_from_hash(to_reshare) {
+        Ok(dir) => dir,
+        Err(_) => {
+            return;
+        }
+    };
+
+    let source = match arc.get_dir_info_from_hash(source) {
+        Ok(dir) => dir,
+        Err(_) => {
+            return;
+        }
+    };
+
+    for reshare_idx in to_reshare.file_info_range() {
+        for source_idx in source.file_info_range() {
+            if get_shared_file(&file_infos[reshare_idx], arc) == get_shared_file(&file_infos[source_idx], arc) {
+                file_infos[reshare_idx].file_path_index = file_infos[source_idx].file_path_index;
             }
         }
     }
