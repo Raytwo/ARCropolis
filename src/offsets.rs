@@ -186,6 +186,9 @@ pub fn search_offsets() {
             (RES_LOAD_LOOP_START, RES_LOAD_LOOP_START_SEARCH_CODE),
             (RES_LOAD_LOOP_REFRESH, RES_LOAD_LOOP_REFRESH_SEARCH_CODE)
         );
+        MEMCPY_1_OFFSET -= 0x4;
+        MEMCPY_2_OFFSET -= 0x4;
+        MEMCPY_3_OFFSET -= 0x4;
         PROCESS_RESOURCE_NODE += 0xC;
     }
 }

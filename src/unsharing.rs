@@ -481,6 +481,9 @@ fn get_shared_file(info: &FileInfo, arc: &LoadedArc) -> FilePathIdx {
     last_file_path
 }
 
+
+static mut UNSHARED_NUS3BANK_ID: u32 = 7420;
+
 pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unshared_files: &mut HashMap<u32, HashSet<u32>>, to_unshare: &mut HashMap<Hash40, (u32, FileInfoIdx)>) {
     // would be better as a bsearch, probably also better to have this in smash-arc
     // will probably PR later
@@ -554,6 +557,9 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
         datas.set_capacity(cap);
     }
 
+    
+    let mut unshared_banks = UNSHARED_NUS3BANKS.lock();
+
     // Get the shared_data_idx 
     let shared_data_idx = unsafe { crate::ORIGINAL_SHARED_INDEX };
     for current_index in dir_info.file_info_range() {
@@ -569,6 +575,12 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
                 }
                 if crate::BLACKLISTED_FILES.contains(&file_paths[shared_file_path.0].path.hash40()) {
                     continue;
+                }
+                if extension == Hash40::from("nus3bank") {
+                    unsafe {
+                        unshared_banks.insert(file_paths[current_file_path.0].path.hash40(), UNSHARED_NUS3BANK_ID);
+                        UNSHARED_NUS3BANK_ID += 1;
+                    }
                 }
                 // Needs to be fixed: FileInfo.clone() doesn't actually clone, and instead zeroes out the FileInfo
                 // extend_from_within uses memcpy instead, which is why it works
@@ -605,6 +617,8 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
         }
     }
 
+    drop(unshared_banks);
+
     // update capacities so we don't memleak
     unsafe {
         FILE_PATH_CAPACITY = Some(file_paths.capacity());
@@ -619,7 +633,6 @@ pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unsh
 
 // This function is the same as above but for unshare-on-discovery files
 pub fn unshare_file(dir_index: u32, index: FileInfoIdx) {
-    static mut UNSHARED_NUS3BANK_ID: u32 = 7420;
     let loaded_tables = LoadedTables::get_instance();
     let arc = LoadedTables::get_arc();
 

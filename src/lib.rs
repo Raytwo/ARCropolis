@@ -9,7 +9,7 @@ extern crate skyline_communicate as cli;
 extern crate lazy_static;
 
 use res_list::{LoadInfo, LoadType};
-use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
+use skyline::{hook, hooks::InlineCtx, install_hooks, libc::{c_void, memcpy}, nn};
 use std::io::prelude::*;
 use std::net::IpAddr;
 use std::ffi::CStr;
@@ -50,10 +50,11 @@ use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
 pub const ARCROP_VERSION: u32 = (2 << 24) | (0 << 16) | (0 << 8) | 6;
 
 lazy_static! {
-    static ref UNSHARE_ON_DISCOVERY: [Hash40; 3] = [
-        Hash40::from("nus3audio"),
-        Hash40::from("nus3bank"),
-        Hash40::from("tonelabel")
+    static ref UNSHARE_ON_DISCOVERY: [Hash40; 1] = [
+        Hash40::from(""),
+        // Hash40::from("nus3audio"),
+        // Hash40::from("nus3bank"),
+        // Hash40::from("tonelabel")
     ];
 
     static ref BLACKLISTED_FILES: [Hash40; 2] = [
@@ -251,6 +252,8 @@ fn replace_extension_callback(extension: Hash40, index: FileInfoIndiceIdx) {
                     // copy the footer to the end of the buffer
                     footer.copy_from_slice(original_footer);
                 }
+            } else if file_path.ext.hash40() == Hash40::from("nus3bank") {
+                edit_nus3bank_id(file_path.path.hash40(), index);
             }
 
             return
@@ -269,6 +272,10 @@ fn replace_extension_callback(extension: Hash40, index: FileInfoIndiceIdx) {
             }
             Err(_) => panic!("Failed to load fallback file {:#x?}", path_hash)
         }
+    }
+
+    if file_path.ext.hash40() == Hash40::from("nus3bank") {
+        edit_nus3bank_id(file_path.path.hash40(), index);
     }
 }
 
@@ -308,6 +315,9 @@ fn inflate_incoming(ctx: &InlineCtx) {
                 *incoming = IncomingLoad::ExtCallback(ext, info_indice_index);
                 return
             }
+        } else if file_path.ext.hash40() == Hash40::from("nus3bank") {
+            *incoming = IncomingLoad::ExtCallback(Hash40::from("nus3bank"), info_indice_index);
+            return
         }
 
         if let Ok(context) = get_from_file_info_indice_index!(info_indice_index) {
@@ -323,32 +333,36 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
 /// For small uncompressed files
 #[hook(offset = MEMCPY_1_OFFSET, inline)]
-fn memcpy_uncompressed(_ctx: &InlineCtx) {
+fn memcpy_uncompressed(ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy1] Entering function");
-    memcpy_impl();
+    memcpy_impl(ctx);
 }
 
 /// For uncompressed files a bit larger
 #[hook(offset = MEMCPY_2_OFFSET, inline)]
-fn memcpy_uncompressed_2(_ctx: &InlineCtx) {
+fn memcpy_uncompressed_2(ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy2] Entering function");
-    memcpy_impl();
+    memcpy_impl(ctx);
 }
 
 /// For uncompressed files being read in multiple chunks
 #[hook(offset = MEMCPY_3_OFFSET, inline)]
-fn memcpy_uncompressed_3(_ctx: &InlineCtx) {
+fn memcpy_uncompressed_3(ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy3] Entering function");
-    memcpy_impl();
+    memcpy_impl(ctx);
 }
 
-fn memcpy_impl() {
+fn memcpy_impl(ctx: &InlineCtx) {
     let incoming = INCOMING_LOAD.read();
 
     match *incoming {
         IncomingLoad::Index(index) => replace_file_by_index(index),
         IncomingLoad::ExtCallback(ext, index) => replace_extension_callback(ext, index),
-        IncomingLoad::None => (),
+        IncomingLoad::None => (
+            unsafe {
+                memcpy(*ctx.registers[0].x.as_ref() as *mut c_void, *ctx.registers[1].x.as_ref() as *const c_void, *ctx.registers[2].x.as_ref() as usize);
+            }
+        ),
     }
 }
 
@@ -557,6 +571,13 @@ pub fn main() {
     hashes::init();
     // Look for the offset of the various functions to hook
     offsets::search_offsets();
+
+    unsafe {
+        const NOP: u32 = 0xD503201F;
+        skyline::patching::patch_data(MEMCPY_1_OFFSET, &NOP).expect("Unable to patch Memcpy1");
+        skyline::patching::patch_data(MEMCPY_2_OFFSET, &NOP).expect("Unable to patch Memcpy2");
+        skyline::patching::patch_data(MEMCPY_3_OFFSET, &NOP).expect("Unable to patch Memcpy3");
+    }
 
     install_hooks!(
         res_loop_start,
