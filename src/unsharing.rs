@@ -482,7 +482,7 @@ fn get_shared_file(info: &FileInfo, arc: &LoadedArc) -> FilePathIdx {
 }
 
 
-static mut UNSHARED_NUS3BANK_ID: u32 = 7420;
+pub static mut UNSHARED_NUS3BANK_ID: u32 = 0x3000;
 
 pub fn unshare_recursively(directory: Hash40, loaded_tables: &LoadedTables, unshared_files: &mut HashMap<u32, HashSet<u32>>, to_unshare: &mut HashMap<Hash40, (u32, FileInfoIdx)>) {
     // would be better as a bsearch, probably also better to have this in smash-arc
