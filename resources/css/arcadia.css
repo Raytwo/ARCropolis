@@ -1,23 +1,23 @@
 .Fighter>.abstract-icon-back-decoration, .Fighter > div.abstract-button-border > div > div.abstract-icon-wrapper{
-    background: #DF1624 !important;
+    background: #FE3636 !important;
 }
 .Stage>.abstract-icon-back-decoration, .Stage > div.abstract-button-border > div > div.abstract-icon-wrapper{
-    background: #FF7F00 !important;
+    background: #28B448 !important;
 }
 .Effects>.abstract-icon-back-decoration, .Effects > div.abstract-button-border > div > div.abstract-icon-wrapper{
-    background: #FFFF00 !important;
+    background: #FFC124 !important;
 }
 .UI>.abstract-icon-back-decoration, .UI > div.abstract-button-border > div > div.abstract-icon-wrapper{
-    background: #00FF00 !important;
+    background: #0069F2 !important;
 }
 .Param>.abstract-icon-back-decoration, .Param > div.abstract-button-border > div > div.abstract-icon-wrapper{
-    background: #0000FF !important;
+    background: #1ACEE8 !important;
 }
 .Music>.abstract-icon-back-decoration, .Music > div.abstract-button-border > div > div.abstract-icon-wrapper{
-    background: #2E2B5F !important;
+    background: #F98636 !important;
 }
 .Misc>.abstract-icon-back-decoration, .Misc > div.abstract-button-border > div > div.abstract-icon-wrapper{
-    background: #8B00FF !important;
+    background: #713FD6 !important;
 }
 
 body{
