@@ -63,7 +63,7 @@ lazy_static! {
     ];
 
     static ref BLACKLISTED_DIRECTORIES: [Hash40; 1] = [
-        Hash40::from(""),
+        Hash40::from("stage/mario_maker"),
     ];
 
     static ref RESHARED_DIRECTORIES: [(Hash40, Hash40); 8] = [
