@@ -1,5 +1,5 @@
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)] // we are not making these, I am fine with allowing it to be copy
 pub struct CppVector<T> {
     start: *mut T,
     end: *mut T,
@@ -15,18 +15,9 @@ impl<T> CppVector<T> {
     pub fn iter_mut(&mut self) -> CppVectorIteratorMut<T> {
         self.into_iter()
     }
-}
 
-impl<T> Drop for CppVector<T> {
-    fn drop(&mut self) {
-        unsafe {
-            let dealloc_layout = std::alloc::Layout::from_size_align(
-                (self.eos.offset_from(self.start) as usize) * std::mem::size_of::<T>(),
-                1,
-            )
-            .unwrap();
-            std::alloc::dealloc(self.start as *mut u8, dealloc_layout);
-        }
+    pub fn len(&self) -> usize {
+        ((self.end as usize) - (self.start as usize)) / std::mem::size_of::<T>()
     }
 }
 

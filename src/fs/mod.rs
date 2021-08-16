@@ -1,6 +1,10 @@
 pub mod visit;
 pub use visit::*;
 
+pub mod types;
+pub use types::*;
+
+
 // use std::vec;
 
 // // Add a dependency to this-error and make custom error types?

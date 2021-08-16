@@ -1,17 +1,21 @@
 #![feature(proc_macro_hygiene)]
-#![feature(str_strip)]
 #![feature(asm)]
-#![feature(ptr_offset_from)]
-#![feature(slice_fill)]
+#![feature(llvm_asm)]
+#![feature(map_try_insert)]
+#![allow(dead_code)]
+#![allow(unaligned_references)]
+extern crate skyline_communicate as cli;
+#[macro_use]
+extern crate lazy_static;
 
-use callbacks::Callback;
-use skyline::{hook, hooks::InlineCtx, install_hooks, nn};
+use res_list::{LoadInfo, LoadType};
+use skyline::{hook, hooks::InlineCtx, install_hooks, libc::{c_void, memcpy}, nn};
 use std::io::prelude::*;
 use std::net::IpAddr;
-use std::{ffi::CStr, path::PathBuf};
+use std::ffi::CStr;
 
 mod api;
-mod cache;
+// mod cache;
 mod callbacks;
 mod config;
 mod cpp_vector;
@@ -20,26 +24,59 @@ mod hashes;
 mod logging;
 mod menus;
 mod offsets;
+mod res_list;
+mod remote;
 mod replacement_files;
 mod runtime;
 mod stream;
+mod unsharing;
 
 use config::{CONFIG, REGION};
-use replacement_files::{FileCtx, FileIndex, IncomingLoad, INCOMING_LOAD, MOD_FILES, UNSHARE_LUT};
+use replacement_files::{FileCtx, FileIndex, IncomingLoad, INCOMING_LOAD, MOD_FILES};
 use runtime::{LoadedTables, ResServiceState, Table2Entry};
 
 use offsets::{
     INFLATE_DIR_FILE_OFFSET, INFLATE_OFFSET, INITIAL_LOADING_OFFSET, MANUAL_OPEN_OFFSET,
     MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, TITLE_SCREEN_VERSION_OFFSET,
+    PROCESS_RESOURCE_NODE, RES_LOAD_LOOP_START, RES_LOAD_LOOP_REFRESH
 };
 
-use api::{ExtCallbackFn, EXT_CALLBACKS};
+use api::EXT_CALLBACKS;
 
-use arcropolis_api as arc_api;
-use binread::*;
 use log::{info, trace, warn};
 use owo_colors::OwoColorize;
 use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40};
+
+pub const ARCROP_VERSION: u32 = (2 << 24) | (0 << 16) | (0 << 8) | 6;
+
+lazy_static! {
+    static ref UNSHARE_ON_DISCOVERY: [Hash40; 1] = [
+        Hash40::from(""),
+        // Hash40::from("nus3audio"),
+        // Hash40::from("nus3bank"),
+        // Hash40::from("tonelabel")
+    ];
+
+    static ref BLACKLISTED_FILES: [Hash40; 2] = [
+        Hash40::from("fighter/pacman/model/firehydrant/c00/firehydrant.lvd"),
+        Hash40::from("fighter/pickel/model/forge/c00/forge.lvd"),
+    ];
+
+    static ref BLACKLISTED_DIRECTORIES: [Hash40; 1] = [
+        Hash40::from("stage/mario_maker"),
+    ];
+
+    static ref RESHARED_DIRECTORIES: [(Hash40, Hash40); 8] = [
+        (Hash40::from("fighter/samusd/result/c00"), Hash40::from("fighter/samusd/c00")),
+        (Hash40::from("fighter/samusd/result/c01"), Hash40::from("fighter/samusd/c01")),
+        (Hash40::from("fighter/samusd/result/c02"), Hash40::from("fighter/samusd/c02")),
+        (Hash40::from("fighter/samusd/result/c03"), Hash40::from("fighter/samusd/c03")),
+        (Hash40::from("fighter/samusd/result/c04"), Hash40::from("fighter/samusd/c04")),
+        (Hash40::from("fighter/samusd/result/c05"), Hash40::from("fighter/samusd/c05")),
+        (Hash40::from("fighter/samusd/result/c06"), Hash40::from("fighter/samusd/c06")),
+        (Hash40::from("fighter/samusd/result/c07"), Hash40::from("fighter/samusd/c07")),
+    ];
+}
 
 fn get_filectx_by_index<'a>(
     file_index: FileIndex,
@@ -86,6 +123,8 @@ fn replace_file_by_index(file_index: FileIndex) {
             return;
         }
 
+
+
         let file_slice = file_ctx.get_file_content();
 
         info!(
@@ -100,6 +139,25 @@ fn replace_file_by_index(file_index: FileIndex) {
                 file_ctx.len() as usize,
             );
             data_slice.write_all(&file_slice).unwrap();
+        }
+
+        if file_ctx.extension() == Hash40::from("nus3bank") {
+            edit_nus3bank_id(file_ctx.hash, file_ctx.index);
+        }
+    }
+}
+
+fn edit_nus3bank_id(path: Hash40, index: FileInfoIndiceIdx) {
+    static GRP_BYTES: &[u8] = &[0x47, 0x52, 0x50, 0x20];
+    if let Some(id) = unsharing::UNSHARED_NUS3BANKS.lock().get(&path) {
+        let arc = LoadedTables::get_arc();
+        let buffer_size = arc.get_file_data_from_hash(path, *config::REGION).unwrap().decomp_size;
+        let table2_entry = LoadedTables::get_instance().get_t2_mut(index).unwrap();
+        if !table2_entry.data.is_null() {
+            let buffer = unsafe { std::slice::from_raw_parts_mut(table2_entry.data.add(0x30) as *mut u8, buffer_size as usize) };
+            if let Some(offset) = buffer.windows(GRP_BYTES.len()).position(|window| window == GRP_BYTES) {
+                unsafe { *(buffer.as_mut_ptr().add(offset - 4) as *mut u32) = *id; }
+            }
         }
     }
 }
@@ -129,7 +187,7 @@ fn replace_textures_by_index(file_ctx: &FileCtx, table2entry: &mut Table2Entry) 
     // table2entry.data - pointer to the buffer allocated
     // ??? - size of the nutexb before extension
     // ??? - the file data needing extension
-    let mut data_out =
+    let data_out =
         unsafe { std::slice::from_raw_parts_mut(table2entry.data as *mut u8, buffer_size as _) };
 
     // Copy data into out buffer
@@ -194,6 +252,8 @@ fn replace_extension_callback(extension: Hash40, index: FileInfoIndiceIdx) {
                     // copy the footer to the end of the buffer
                     footer.copy_from_slice(original_footer);
                 }
+            } else if file_path.ext.hash40() == Hash40::from("nus3bank") {
+                edit_nus3bank_id(file_path.path.hash40(), index);
             }
 
             return
@@ -201,7 +261,7 @@ fn replace_extension_callback(extension: Hash40, index: FileInfoIndiceIdx) {
     }
 
     // if the file wasn't loaded by any of the callbacks, search for a fallback
-    if MOD_FILES.read().0.contains_key(&FileIndex::Regular(index)) {
+    if MOD_FILES.read().modded_files.contains_key(&FileIndex::Regular(index)) {
         replace_file_by_index(FileIndex::Regular(index));
     } else {
         // load vanilla
@@ -212,6 +272,10 @@ fn replace_extension_callback(extension: Hash40, index: FileInfoIndiceIdx) {
             }
             Err(_) => panic!("Failed to load fallback file {:#x?}", path_hash)
         }
+    }
+
+    if file_path.ext.hash40() == Hash40::from("nus3bank") {
+        edit_nus3bank_id(file_path.path.hash40(), index);
     }
 }
 
@@ -251,6 +315,9 @@ fn inflate_incoming(ctx: &InlineCtx) {
                 *incoming = IncomingLoad::ExtCallback(ext, info_indice_index);
                 return
             }
+        } else if file_path.ext.hash40() == Hash40::from("nus3bank") {
+            *incoming = IncomingLoad::ExtCallback(Hash40::from("nus3bank"), info_indice_index);
+            return
         }
 
         if let Ok(context) = get_from_file_info_indice_index!(info_indice_index) {
@@ -266,32 +333,36 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
 /// For small uncompressed files
 #[hook(offset = MEMCPY_1_OFFSET, inline)]
-fn memcpy_uncompressed(_ctx: &InlineCtx) {
+fn memcpy_uncompressed(ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy1] Entering function");
-    memcpy_impl();
+    memcpy_impl(ctx);
 }
 
 /// For uncompressed files a bit larger
 #[hook(offset = MEMCPY_2_OFFSET, inline)]
-fn memcpy_uncompressed_2(_ctx: &InlineCtx) {
+fn memcpy_uncompressed_2(ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy2] Entering function");
-    memcpy_impl();
+    memcpy_impl(ctx);
 }
 
 /// For uncompressed files being read in multiple chunks
 #[hook(offset = MEMCPY_3_OFFSET, inline)]
-fn memcpy_uncompressed_3(_ctx: &InlineCtx) {
+fn memcpy_uncompressed_3(ctx: &InlineCtx) {
     trace!("[ResInflateThread | Memcpy3] Entering function");
-    memcpy_impl();
+    memcpy_impl(ctx);
 }
 
-fn memcpy_impl() {
+fn memcpy_impl(ctx: &InlineCtx) {
     let incoming = INCOMING_LOAD.read();
 
     match *incoming {
         IncomingLoad::Index(index) => replace_file_by_index(index),
         IncomingLoad::ExtCallback(ext, index) => replace_extension_callback(ext, index),
-        IncomingLoad::None => (),
+        IncomingLoad::None => (
+            unsafe {
+                memcpy(*ctx.registers[0].x.as_ref() as *mut c_void, *ctx.registers[1].x.as_ref() as *const c_void, *ctx.registers[2].x.as_ref() as usize);
+            }
+        ),
     }
 }
 
@@ -370,7 +441,7 @@ unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, u
     }
 }
 
-static mut LUT_LOADER_HANDLE: Option<std::thread::JoinHandle<()>> = None;
+pub static mut ORIGINAL_SHARED_INDEX: u32 = 0;
 
 #[hook(offset = INITIAL_LOADING_OFFSET, inline)]
 fn initial_loading(_ctx: &InlineCtx) {
@@ -378,6 +449,17 @@ fn initial_loading(_ctx: &InlineCtx) {
 
     if logging::init(config.logger.unwrap().logger_level.into()).is_err() {
         println!("ARCropolis logger could not be initialized.")
+    }
+
+    if config.misc.debug {
+        fn receive(args: Vec<String>) {
+            let _ = cli::send(remote::handle_command(args).as_str());
+        }
+
+        std::thread::spawn(|| {
+            skyline_communicate::set_on_receive(cli::Receiver::CLIStyle(receive));
+            skyline_communicate::start_server("ARCropolis", 6968);
+        });
     }
 
     // Check if an update is available
@@ -413,26 +495,73 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Discover files
     unsafe {
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
-
-        // if let Some(handle) = LUT_LOADER_HANDLE.take() {
-        //     handle.join().unwrap();
-        //     let lut = UNSHARE_LUT.read();
-        //     if lut.is_none() {
-        //         skyline_web::DialogOk::ok("No valid unsharing lookup table found. One will be generated and the game will restart.");
-        //         let cache = cache::UnshareCache::new(LoadedTables::get_arc());
-        //         cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
-        //         nn::oe::RestartProgramNoArgs();
-        //     } else if lut.as_ref().unwrap().arc_version != (*LoadedTables::get_arc().fs_header).version {
-        //         skyline_web::DialogOk::ok("Found unsharing lookup table for a different game version. A new one will be generated and the game will restart.");
-        //         let cache = cache::UnshareCache::new(LoadedTables::get_arc());
-        //         cache::UnshareCache::write(LoadedTables::get_arc(), &cache, &PathBuf::from("sd:/atmosphere/contents/01006A800016E000/romfs/skyline/unshare_lut.bin")).unwrap();
-        //         nn::oe::RestartProgramNoArgs();
-        //     }
-        // }
-
+        ORIGINAL_SHARED_INDEX = LoadedTables::get_arc().get_shared_data_index();
+        for (to_unshare, source) in RESHARED_DIRECTORIES.iter() {
+            unsharing::reshare_directory(*to_unshare, *source);
+        }
+        unsharing::unshare_files(Hash40::from("fighter"));
+        unsharing::unshare_files(Hash40::from("stage"));
         lazy_static::initialize(&MOD_FILES);
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
+    }
+}
+
+#[skyline::hook(offset = PROCESS_RESOURCE_NODE, inline)]
+pub unsafe fn process_resource_node(ctx: &mut skyline::hooks::InlineCtx) {
+    if *ctx.registers[26].x.as_ref() == *ctx.registers[8].x.as_ref() {
+        return;
+    }
+    let load_info = *ctx.registers[26].x.as_ref() as *mut res_list::ListNode;
+    let load_info = &mut *load_info;
+    match load_info.data.ty {
+        res_list::LoadType::Directory => {
+            log::debug!("[ResLoadingThread | Parsing Node Request] DirectoryEntry: {:#x}, Files to load: {:#x}", load_info.data.directory_index, load_info.data.files_to_load);
+        },
+        res_list::LoadType::File => {
+            log::debug!("[ResLoadingThread | Parsing Node Request] FilepathEntry: {:#x}", load_info.data.filepath_index);
+        }
+    }
+}
+
+// This hook is the same as below, but is found in a different part of the ResLoadingThread where it refills the local lists
+// with the contents of those found in the singleton.
+#[skyline::hook(offset = RES_LOAD_LOOP_REFRESH, inline)]
+unsafe fn res_loop_refresh(_: &skyline::hooks::InlineCtx) {
+    res_loop_common();
+}
+
+// The positioning of this hook is very important. It runs before the ResLoadingThread swaps empty, local lists with the ones inside of
+// the singleton. It checks for anything we need to load as files instead of as directory entries, and then inserts those into the lists.
+#[skyline::hook(offset = RES_LOAD_LOOP_START, inline)]
+fn res_loop_start(_: &skyline::hooks::InlineCtx) {
+    res_loop_common();
+}
+
+fn res_loop_common() {
+    use std::collections::HashMap;
+    let unshared_dirs = unsharing::UNSHARED_FILES.lock();
+    let mut directories = HashMap::new();
+    let res_service = ResServiceState::get_instance();
+    for (x, list) in res_service.res_lists.iter().enumerate() {
+        for entry in list.iter() {
+            match entry.ty {
+                LoadType::Directory => {
+                    if unshared_dirs.contains_key(&entry.directory_index) {
+                        let _ = directories.try_insert(entry.directory_index, x);
+                    }
+                },
+                _ => {}
+            }
+        }
+    }
+    for (dir_index, list_index) in directories.iter() {
+        let paths_to_load = unshared_dirs.get(dir_index).unwrap();
+        for path in paths_to_load.iter() {
+            res_service.res_lists[*list_index].insert(LoadInfo {
+                ty: LoadType::File, filepath_index: *path, directory_index: 0xFF_FFFF, files_to_load: 0
+            });
+        }
     }
 }
 
@@ -443,7 +572,17 @@ pub fn main() {
     // Look for the offset of the various functions to hook
     offsets::search_offsets();
 
+    unsafe {
+        const NOP: u32 = 0xD503201F;
+        skyline::patching::patch_data(MEMCPY_1_OFFSET, &NOP).expect("Unable to patch Memcpy1");
+        skyline::patching::patch_data(MEMCPY_2_OFFSET, &NOP).expect("Unable to patch Memcpy2");
+        skyline::patching::patch_data(MEMCPY_3_OFFSET, &NOP).expect("Unable to patch Memcpy3");
+    }
+
     install_hooks!(
+        res_loop_start,
+        res_loop_refresh,
+        process_resource_node,
         initial_loading,
         inflate_incoming,
         memcpy_uncompressed,
@@ -455,23 +594,6 @@ pub fn main() {
         stream::lookup_by_stream_hash,
     );
 
-    // unsafe {
-    //     skyline::patching::patch_data_from_text(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8, 0x346_36c4, &0x1400_0002);
-
-    //     LUT_LOADER_HANDLE = Some(std::thread::spawn(|| {
-    //         let mut unshare_lut = UNSHARE_LUT.write();
-    //         *unshare_lut = match std::fs::read("rom:/skyline/unshare_lut.bin") {
-    //             Ok(file_data) => {
-    //                 let mut reader = std::io::Cursor::new(file_data);
-    //                 match cache::UnshareCache::read(&mut reader) {
-    //                     Ok(lut) => Some(lut),
-    //                     Err(_) => None
-    //                 }
-    //             },
-    //             Err(_) => None
-    //         }
-    //     }));
-    // }
 
     println!(
         "ARCropolis v{} - File replacement plugin is now installed",

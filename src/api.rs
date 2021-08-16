@@ -1,20 +1,13 @@
-use std::{ffi::CStr, io::Write, path::PathBuf};
+use std::io::Write;
 
 use arcropolis_api::{CallbackFn, StreamCallbackFn};
 use log::debug;
 use owo_colors::OwoColorize;
-use smash_arc::{ArcLookup, Hash40, Region};
+use smash_arc::{ArcLookup, Hash40};
 
-use crate::{
-    callbacks::{Callback, CallbackKind, StreamCallback},
-    config::REGION,
-    hashes,
-    replacement_files::{
+use crate::{callbacks::{Callback, CallbackKind, StreamCallback}, config::REGION, hashes, offsets::offset_to_addr, replacement_files::{
         recursive_file_backing_load, FileBacking, FileIndex, CALLBACKS, MOD_FILES,
-    },
-    runtime::LoadedTables,
-    CONFIG,
-};
+    }, runtime::{LOADED_TABLES_OFFSET, LoadedTables}};
 
 /// NOTE: THIS MUST BE BUMPED ANY TIME THE EXTERNALLY-FACING API IS CHANGED
 ///
@@ -24,7 +17,7 @@ use crate::{
 /// Do your changes only add new APIs in a backwards compatible way: Minor bump
 ///
 /// Are your changes only internal? No version bump
-static API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 2 };
+static API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 3 };
 
 use lazy_static::lazy_static;
 use parking_lot::RwLock;
@@ -34,6 +27,9 @@ pub use arcropolis_api::*;
 
 lazy_static! {
     pub static ref EXT_CALLBACKS: RwLock<HashMap<Hash40, Vec<ExtCallbackFn>>> =
+        RwLock::new(HashMap::new());
+    
+    pub static ref REJECTED_EXT_CALLBACKS: RwLock<HashMap<Hash40, Vec<RejectedExtFn>>> =
         RwLock::new(HashMap::new());
 }
 
@@ -163,6 +159,26 @@ pub extern "C" fn arcrop_register_extension_callback(hash: Hash40, cb: ExtCallba
         .entry(hash)
         .or_default()
         .push(cb)
+}
+
+#[no_mangle]
+pub extern "C" fn arcrop_register_rejected_extension(hash: Hash40, cb: RejectedExtFn) {
+    REJECTED_EXT_CALLBACKS
+        .write()
+        .entry(hash)
+        .or_default()
+        .push(cb)
+}
+
+#[no_mangle]
+pub extern "C" fn arcrop_get_decompressed_size(hash: Hash40, out_size: &mut usize) -> bool {
+    if unsafe { *(offset_to_addr(LOADED_TABLES_OFFSET) as *mut *mut ()) }.is_null() {
+        false
+    } else {
+        LoadedTables::get_arc().get_file_data_from_hash(hash, *REGION)
+            .map(|data| *out_size = data.decomp_size as usize)
+            .is_ok()
+    }
 }
 
 #[no_mangle]

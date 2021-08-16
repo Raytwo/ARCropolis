@@ -1,27 +1,19 @@
 use std::{
     collections::HashMap,
     fs,
-    io::Write,
-    path::{Path, PathBuf},
-    vec,
+    path::PathBuf,
 };
 
-use crate::{
-    api::ExtCallbackFn,
-    callbacks::{Callback, CallbackKind},
-    config::{CONFIG, REGION},
-    fs::visit::ModPath,
-    hashes, runtime,
-};
+use crate::{callbacks::CallbackKind, config::{CONFIG, REGION}, fs::{DiscoveryResults, ModFile, RejectionReason}, runtime};
 
-use smash_arc::{ArcLookup, FileInfoIndiceIdx, Hash40, HashToIndex, Region};
+use smash_arc::{ArcLookup, FileDataIdx, FileInfoIndiceIdx, Hash40};
 
 use runtime::{LoadedArcEx, LoadedTables};
 
 use log::{debug, warn};
 use owo_colors::OwoColorize;
 
-use crate::cache;
+// use crate::cache;
 
 lazy_static::lazy_static! {
     pub static ref MOD_FILES: parking_lot::RwLock<ModFiles> = parking_lot::RwLock::new(ModFiles::new());
@@ -33,7 +25,7 @@ lazy_static::lazy_static! {
     pub static ref CALLBACKS: parking_lot::RwLock<HashMap<Hash40, CallbackKind>> = parking_lot::RwLock::new(HashMap::new());
 
     // For unsharing the files :)
-    pub static ref UNSHARE_LUT: parking_lot::RwLock<Option<cache::UnshareCache>> = parking_lot::RwLock::new(None);
+    // pub static ref UNSHARE_LUT: parking_lot::RwLock<Option<cache::UnshareCache>> = parking_lot::RwLock::new(None);
 }
 
 const REGIONS: &[&str] = &[
@@ -53,9 +45,12 @@ pub enum FileIndex {
     Stream(Hash40),
 }
 
-#[repr(transparent)]
-pub struct ModFiles(pub HashMap<FileIndex, FileCtx>);
-
+// FileIndex -> ModdedFile, FileIndex -> Vanilla file size
+// pub struct ModFiles(pub HashMap<FileIndex, FileCtx>, pub Vec<(FileDataIdx, u32)>);
+pub struct ModFiles {
+    pub modded_files: HashMap<FileIndex, FileCtx>,
+    pub backup_sizes: Vec<(FileDataIdx, u32)>
+}
 #[derive(Clone)]
 pub struct FileCtx {
     pub file: FileBacking,
@@ -66,7 +61,7 @@ pub struct FileCtx {
 #[derive(Clone)]
 pub enum FileBacking {
     LoadFromArc,
-    Path(ModPath),
+    ModFile(ModFile),
     Callback {
         callback: CallbackKind,
         original: Box<FileBacking>,
@@ -83,70 +78,216 @@ macro_rules! get_from_file_info_indice_index {
 }
 
 impl ModFiles {
-    fn new() -> Self {
+    pub fn reinitialize(&mut self) {
+        let arc = LoadedTables::get_arc_mut();
+        let datas = arc.get_file_datas_mut();
+        for (idx, size) in self.backup_sizes.iter() {
+            datas[*idx].decomp_size = *size;
+        }
         let config = CONFIG.read();
 
-        let mut modfiles: HashMap<Hash40, ModPath> = HashMap::new();
+        let mut discover_results = DiscoveryResults {
+            accepted: HashMap::new(),
+            rejected: Vec::new(),
+            stream: HashMap::new()
+        };
 
         // ARC mods
         if config.paths.arc.exists() {
-            modfiles.extend(crate::fs::visit::discovery(&config.paths.arc));
+            crate::fs::visit::discovery(arc, &config.paths.arc, &mut discover_results);
         }
         // UMM mods
         if config.paths.umm.exists() {
-            modfiles.extend(crate::fs::visit::umm_discovery(&config.paths.umm));
+            crate::fs::visit::umm_discovery(arc, &config.paths.umm, &mut discover_results);
         }
 
         if let Some(extra_paths) = &config.paths.extra_paths {
             for path in extra_paths {
                 // Extra UMM mods
                 if path.exists() {
-                    modfiles.extend(crate::fs::visit::umm_discovery(path));
+                    crate::fs::visit::umm_discovery(arc, path, &mut discover_results);
+                }
+            }
+        }
+
+        let DiscoveryResults { accepted, rejected, stream } = discover_results;
+
+        let rejected_exts = crate::api::REJECTED_EXT_CALLBACKS.read();
+        for (path, reason) in rejected.into_iter() {
+            if let crate::fs::RejectionReason::NotFound(smash_path) = reason {
+                let extension_hash = Hash40::from(path
+                    .extension()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                );
+                let filepath_slice = path.to_str().unwrap().as_bytes();
+                let arc_path_slice = smash_path.to_str().unwrap().as_bytes();
+                if let Some(callbacks) = rejected_exts.get(&extension_hash) {
+                    for cb in callbacks.iter() {
+                        cb(
+                            filepath_slice.as_ptr(),
+                            filepath_slice.len(),
+                            arc_path_slice.as_ptr(),
+                            arc_path_slice.len()
+                        );
+                    }
+                } else {
+                    warn!(
+                        "[ARC::Discovery] File '{}' rejected. Reason: Not found in data.arc",
+                        path.display().bright_yellow()
+                    );
+                }
+            } else {
+                match reason {
+                    RejectionReason::DuplicateFile(file) => {
+                        warn!(
+                            "[ARC::Discovery] File '{}' rejected. Reason: File already replaced by '{}'",
+                            path.display().bright_yellow(),
+                            file.display().bright_yellow()
+                        );
+                    },
+                    RejectionReason::MissingExtension => {
+                        warn!(
+                            "[ARC::Discovery] File '{}' rejected. Reason: Missing extension",
+                            path.display().bright_yellow()
+                        );
+                    },
+                    _ => {}
                 }
             }
         }
 
         //Self::unshare(&modfiles);
-        Self(ModFiles::process_mods(&modfiles))
+        let (modded_files, original_sizes) = ModFiles::process_mods(&accepted, &stream);
+        self.modded_files = modded_files;
+        self.backup_sizes = original_sizes;
     }
 
-    fn process_mods(modfiles: &HashMap<Hash40, ModPath>) -> HashMap<FileIndex, FileCtx> {
+    fn new() -> Self {
+        let config = CONFIG.read();
+
+        let arc = LoadedTables::get_arc();
+
+        let mut discover_results = DiscoveryResults {
+            accepted: HashMap::new(),
+            rejected: Vec::new(),
+            stream: HashMap::new()
+        };
+
+        // ARC mods
+        if config.paths.arc.exists() {
+            crate::fs::visit::discovery(arc, &config.paths.arc, &mut discover_results);
+        }
+        // UMM mods
+        if config.paths.umm.exists() {
+            crate::fs::visit::umm_discovery(arc, &config.paths.umm, &mut discover_results);
+        }
+
+        if let Some(extra_paths) = &config.paths.extra_paths {
+            for path in extra_paths {
+                // Extra UMM mods
+                if path.exists() {
+                    crate::fs::visit::umm_discovery(arc, path, &mut discover_results);
+                }
+            }
+        }
+
+        let DiscoveryResults { accepted, rejected, stream } = discover_results;
+
+        let rejected_exts = crate::api::REJECTED_EXT_CALLBACKS.read();
+        for (path, reason) in rejected.into_iter() {
+            if let crate::fs::RejectionReason::NotFound(smash_path) = reason {
+                let extension_hash = Hash40::from(path
+                    .extension()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                );
+                let filepath_slice = path.to_str().unwrap().as_bytes();
+                let arc_path_slice = smash_path.to_str().unwrap().as_bytes();
+                if let Some(callbacks) = rejected_exts.get(&extension_hash) {
+                    for cb in callbacks.iter() {
+                        cb(
+                            filepath_slice.as_ptr(),
+                            filepath_slice.len(),
+                            arc_path_slice.as_ptr(),
+                            arc_path_slice.len()
+                        );
+                    }
+                } else {
+                    warn!(
+                        "[ARC::Discovery] File '{}' rejected. Reason: Not found in data.arc",
+                        path.display().bright_yellow()
+                    );
+                }
+            } else {
+                match reason {
+                    RejectionReason::DuplicateFile(file) => {
+                        warn!(
+                            "[ARC::Discovery] File '{}' rejected. Reason: File already replaced by '{}'",
+                            path.display().bright_yellow(),
+                            file.display().bright_yellow()
+                        );
+                    },
+                    RejectionReason::MissingExtension => {
+                        warn!(
+                            "[ARC::Discovery] File '{}' rejected. Reason: Missing extension",
+                            path.display().bright_yellow()
+                        );
+                    },
+                    _ => {}
+                }
+            }
+        }
+
+        //Self::unshare(&modfiles);
+        let (modded_files, backup_sizes) = ModFiles::process_mods(&accepted, &stream);
+        Self {
+            modded_files,
+            backup_sizes
+        }
+    }
+
+    fn process_mods(modfiles: &HashMap<Hash40, ModFile>, stream_files: &HashMap<Hash40, ModFile>) -> (HashMap<FileIndex, FileCtx>, Vec<(FileDataIdx, u32)>) {
         let arc = LoadedTables::get_arc_mut();
 
+        let mut to_unshare = crate::unsharing::TO_UNSHARE_ON_DISCOVERY.lock();
         let mut mods = modfiles
             .iter()
             .filter_map(|(hash, modpath)| {
                 let mut filectx = FileCtx::new();
 
-                filectx.file = FileBacking::Path(modpath.clone());
+                filectx.file = FileBacking::ModFile(modpath.clone());
                 filectx.hash = *hash;
+                if let Some((dir_index, file_info_idx)) = to_unshare.remove(hash) {
+                    crate::unsharing::unshare_file(dir_index, file_info_idx);
+                }
+                match arc.get_file_path_index_from_hash(*hash) {
+                    Ok(index) => {
+                        let file_info = arc.get_file_info_from_path_index(index);
 
-                if modpath.is_stream() {
-                    warn!(
-                        "[ARC::Patching] File '{}' added as a Stream",
-                        filectx.path().unwrap().display().bright_yellow()
-                    );
-                    Some((FileIndex::Stream(filectx.hash), filectx))
-                } else {
-                    match arc.get_file_path_index_from_hash(*hash) {
-                        Ok(index) => {
-                            let file_info = arc.get_file_info_from_path_index(index);
+                        filectx.index = file_info.file_info_indice_index;
 
-                            filectx.index = file_info.file_info_indice_index;
-
-                            Some((FileIndex::Regular(filectx.index), filectx))
-                        }
-                        Err(_) => {
-                            warn!(
-                                "[ARC::Patching] File '{}' was not found in data.arc",
-                                modpath.to_smash_path().display().bright_yellow()
-                            );
-                            None
-                        }
+                        Some((FileIndex::Regular(filectx.index), filectx))
+                    }
+                    Err(_) => {
+                        warn!(
+                            "[ARC::Patching] File '{}' was not found in data.arc",
+                            modpath.to_smash_path().display().bright_yellow()
+                        );
+                        None
                     }
                 }
             })
             .collect::<HashMap<FileIndex, FileCtx>>();
+
+        for (hash, modpath) in stream_files.iter() {
+            let mut filectx = FileCtx::new();
+            filectx.file = FileBacking::ModFile(modpath.clone());
+            filectx.hash = *hash;
+            mods.insert(FileIndex::Stream(*hash), filectx);
+        }
 
         // Process callbacks here?
         let callbacks = CALLBACKS.read();
@@ -174,7 +315,7 @@ impl ModFiles {
                                     let new_callback = callback;
 
                                     let new_backing =
-                                        if let FileBacking::Callback { callback, original } =
+                                        if let FileBacking::Callback { callback, original: _ } =
                                             &*callback.previous
                                         {
                                             FileBacking::Callback {
@@ -231,7 +372,7 @@ impl ModFiles {
                             // Update the FileCtx
                             let new_callback = callback;
 
-                            let new_backing = if let FileBacking::Callback { callback, original } =
+                            let new_backing = if let FileBacking::Callback { callback, original: _ } =
                                 &*callback.previous
                             {
                                 FileBacking::Callback {
@@ -270,22 +411,27 @@ impl ModFiles {
             }
         });
 
-        mods.iter_mut()
+        let mut original_sizes = Vec::new();
+
+        let modded_files = mods.iter_mut()
             .map(|(index, ctx)| {
                 if let FileIndex::Regular(info_index) = index {
                     let info_index = arc.get_file_info_indices()[*info_index].file_info_index;
                     let file_info = arc.get_file_infos()[info_index];
 
-                    arc.patch_filedata(&file_info, ctx.len());
+                    let orig_decomp_size = arc.patch_filedata(&file_info, ctx.len());
+                    original_sizes.push((arc.get_file_in_folder(&file_info, *REGION).file_data_index, orig_decomp_size));
                 }
 
                 (*index, ctx.clone())
             })
-            .collect()
+            .collect();
+
+        (modded_files, original_sizes)
     }
 
     pub fn get(&self, file_index: FileIndex) -> Option<&FileCtx> {
-        self.0.get(&file_index)
+        self.modded_files.get(&file_index)
     }
 
     // fn unshare(files: &HashMap<Hash40, ModPath>) {
@@ -352,7 +498,7 @@ impl FileCtx {
 
     pub fn extension(&self) -> Hash40 {
         match &self.file {
-            FileBacking::Path(modpath) => modpath.extension(),
+            FileBacking::ModFile(modpath) => modpath.extension(),
             _ => {
                 let arc = LoadedTables::get_arc();
                 let path_idx = arc.get_file_path_index_from_hash(self.hash).unwrap();
@@ -365,7 +511,7 @@ impl FileCtx {
 
     pub fn len(&self) -> u32 {
         match &self.file {
-            FileBacking::Path(modpath) => modpath.len() as u32,
+            FileBacking::ModFile(modpath) => modpath.size as u32,
             FileBacking::LoadFromArc => {
                 let user_region = *REGION;
 
@@ -375,7 +521,7 @@ impl FileCtx {
                     .unwrap()
                     .decomp_size
             }
-            FileBacking::Callback { callback, original } => {
+            FileBacking::Callback { callback, original: _ } => {
                 if let CallbackKind::Regular(cb) = callback {
                     cb.len
                 } else {
@@ -388,11 +534,11 @@ impl FileCtx {
     // TODO: Eventually make this a Option<&Path> instead? Or just stop logging filepaths
     pub fn path(&self) -> Option<PathBuf> {
         match &self.file {
-            FileBacking::Path(modpath) => Some(modpath.to_path_buf()),
+            FileBacking::ModFile(modpath) => Some(modpath.to_path_buf()),
             // lol, lmao
             FileBacking::LoadFromArc => None,
             FileBacking::Callback {
-                callback,
+                callback: _,
                 original: _,
             } => Some(PathBuf::from("Callback")),
         }
@@ -406,7 +552,7 @@ impl FileCtx {
 pub fn recursive_file_backing_load(hash: Hash40, backing: &FileBacking) -> Vec<u8> {
     match backing {
         // TODO: Add error handling in case the user deleted the file while running and reboot Smash if they did. But maybe this requires extract checks because of callbacks?
-        FileBacking::Path(modpath) => fs::read(modpath).unwrap(),
+        FileBacking::ModFile(modpath) => fs::read(modpath.full_path()).unwrap(),
         FileBacking::LoadFromArc => {
             let user_region = *REGION;
 
