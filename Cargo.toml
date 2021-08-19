@@ -20,23 +20,25 @@ parking_lot = "0.11.0"
 thiserror = "1.0.24"
 serde = { version = "1", features = ["derive"] }
 rand = { git = "https://github.com/skyline-rs/rand" }
-skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
-skyline-web = { git = "https://github.com/skyline-rs/skyline-web", optional = true }
-skyline-update = { git = "https://github.com/skyline-rs/skyline-update" }
-easy_flag = "0.1.2"
 smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd"]}
 arc-vector = { git = "https://github.com/blu-dev/arc-vector" }
-skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }
 binread = "2"
 percent-encoding = "2.1.0"
 walkdir = "2"
 arcropolis-api = { git = "https://github.com/blu-dev/arcropolis_api" }
 bincode = "1.3.3"
+cfg-if = "1.0.0"
+skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
+skyline-web = { git = "https://github.com/skyline-rs/skyline-web", optional = true }
+skyline-update = { git = "https://github.com/skyline-rs/skyline-update", optional = true }
+skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate", optional = true }
 
 [features]
-default = ["web"]
+default = ["server", "updater", "web", "config"]
 config = ["toml", "semver"]
+updater = ["skyline-update"]
 web = ["skyline-web", "toml"]
+server = ["skyline-communicate"]
 
 
 [profile.dev]

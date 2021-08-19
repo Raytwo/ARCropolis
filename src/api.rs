@@ -33,6 +33,16 @@ lazy_static! {
         RwLock::new(HashMap::new());
 }
 
+#[cfg(feature = "web")]
+pub fn show_dialog(text: &str) {
+    skyline_web::DialogOk::ok(text);
+}
+
+#[cfg(not(feature = "web"))]
+pub fn show_dialog(text: &str) {
+    skyline::error::show_error(69, text, text);
+}
+
 #[no_mangle]
 pub extern "C" fn arcrop_load_file(
     hash: Hash40,
@@ -189,7 +199,7 @@ pub extern "C" fn arcrop_api_version() -> &'static ApiVersion {
 }
 
 fn show_arcrop_update_prompt() -> ! {
-    skyline_web::DialogOk::ok(
+    show_dialog(
         "Your ARCropolis version is older than one of your plugins supports, an update is required",
     );
 
@@ -197,7 +207,7 @@ fn show_arcrop_update_prompt() -> ! {
 }
 
 fn show_plugin_update_prompt() -> ! {
-    skyline_web::DialogOk::ok(
+    show_dialog(
         "Your ARCropolis version is too new for one of your plugins, it must be updated to support this API version"
     );
 

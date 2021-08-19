@@ -4,12 +4,14 @@
 #![feature(map_try_insert)]
 #![allow(dead_code)]
 #![allow(unaligned_references)]
+
+#[cfg(feature = "server")]
 extern crate skyline_communicate as cli;
 #[macro_use]
 extern crate lazy_static;
 
 use res_list::{LoadInfo, LoadType};
-use skyline::{hook, hooks::InlineCtx, install_hooks, libc::{c_void, memcpy}, nn};
+use skyline::{hook, hooks::InlineCtx, install_hook, install_hooks, libc::{c_void, memcpy}, nn};
 use std::io::prelude::*;
 use std::net::IpAddr;
 use std::ffi::CStr;
@@ -24,14 +26,16 @@ mod cpp_vector;
 mod fs;
 mod hashes;
 mod logging;
-mod menus;
 mod offsets;
 mod res_list;
-mod remote;
 mod replacement_files;
 mod runtime;
 mod stream;
 mod unsharing;
+#[cfg(feature = "web")]
+mod menus;
+#[cfg(feature = "server")]
+mod remote;
 
 use config::{CONFIG, REGION};
 use replacement_files::{FileCtx, FileIndex, IncomingLoad, INCOMING_LOAD, MOD_FILES};
@@ -416,6 +420,7 @@ fn change_version_string(arg1: u64, string: *const u8) {
     }
 }
 
+#[cfg(feature = "web")]
 #[hook(offset = MANUAL_OPEN_OFFSET)]
 unsafe fn manual_hook(page_path: *const u8, unk2: *const u8, unk3: *const u64, unk4: u64) {
     let original_page = CStr::from_ptr(page_path as _).to_str().unwrap();
@@ -453,6 +458,7 @@ fn initial_loading(_ctx: &InlineCtx) {
         println!("ARCropolis logger could not be initialized.")
     }
 
+    #[cfg(feature = "server")]
     if config.misc.debug {
         fn receive(args: Vec<String>) {
             let _ = cli::send(remote::handle_command(args).as_str());
@@ -464,21 +470,24 @@ fn initial_loading(_ctx: &InlineCtx) {
         });
     }
 
+    #[cfg(feature = "updater")]
     let socket_addr = (config.updater.server_ip.as_str(), 69).to_socket_addrs().unwrap().next().unwrap();
     
     // Check if an update is available
+    #[cfg(feature = "updater")]
     if skyline_update::check_update(
         socket_addr.ip(),
         "ARCropolis",
         env!("CARGO_PKG_VERSION"),
         config.updater.beta_updates,
     ) {
-        skyline_web::DialogOk::ok(
+        api::show_dialog(
             "The update was downloaded successfully<br>ARCropolis will now reboot.",
         );
         skyline::nn::oe::RestartProgramNoArgs();
     }
 
+    #[cfg(feature = "web")]
     if let Ok(changelog) = std::fs::read_to_string(
         "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis/changelog.toml",
     ) {
@@ -593,10 +602,12 @@ pub fn main() {
         memcpy_uncompressed_2,
         memcpy_uncompressed_3,
         load_directory_hook,
-        manual_hook,
         change_version_string,
         stream::lookup_by_stream_hash,
     );
+
+    #[cfg(feature = "web")]
+    install_hook!(manual_hook);
 
 
     println!(
