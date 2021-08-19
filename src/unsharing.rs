@@ -836,10 +836,10 @@ pub fn unshare_file_in_directory(directory: Hash40, file: Hash40) {
     let file_info_range = dir_info.file_info_range();
     for current_index in file_info_range.clone() {
         if file_paths[file_infos[current_index].file_path_index.0].path.hash40() == file {
-            cli::send("inside of first test");
+            //cli::send("inside of first test");
             let shared_hash = get_shared_hash(&file_infos[current_index], arc);
             if shared_hash != file {
-                cli::send("inside of second test");
+                //cli::send("inside of second test");
                 // let file_info = file_infos[current_index];
                 // file_infos.push(file_info);
                 file_infos.extend_from_within(info_indices[file_paths[file_infos[current_index].file_path_index.0].path.index()].file_info_index.0 as usize, 1);

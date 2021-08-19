@@ -6,13 +6,13 @@
         {
             "label": "cargo skyline build",
             "type": "shell",
-            "command": "cargo skyline build",
+            "command": "cargo skyline build --release --no-default-features",
             "group": "build"
         },
         {
             "label": "cargo skyline run",
             "type": "shell",
-            "command": "cargo skyline run",
+            "command": "cargo skyline run --no-default-features",
             "group": {
                 "kind": "build",
                 "isDefault": true
