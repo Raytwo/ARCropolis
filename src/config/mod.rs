@@ -52,8 +52,8 @@ impl<'rwlock> Configuration {
 pub struct Config {
     pub infos: Infos,
     pub paths: Paths,
-    pub updater: Option<Updater>,
-    pub logger: Option<Logger>,
+    pub updater: Updater,
+    pub logger: Logger,
     pub misc: Miscellaneous,
 }
 
@@ -69,16 +69,16 @@ pub struct Paths {
     pub extra_paths: Option<Vec<PathBuf>>,
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Updater {
-    pub server_ip: Ipv4Addr,
+    pub server_ip: std::string::String,
     pub beta_updates: bool,
 }
 
 impl Updater {
     pub fn new() -> Updater {
         Updater {
-            server_ip: "104.248.50.215".parse().unwrap(),
+            server_ip: String::from("upd.arcropolis.com"),
             beta_updates: false,
         }
     }
@@ -112,6 +112,12 @@ pub struct Logger {
     pub logger_level: LoggerLevel,
 }
 
+impl Default for Logger {
+    fn default() -> Self {
+        Logger::new()
+    }
+}
+
 impl Logger {
     pub fn new() -> Logger {
         Logger {
@@ -137,8 +143,8 @@ impl Config {
                 umm: PathBuf::from("sd:/ultimate/mods"),
                 extra_paths: Some(vec![]),
             },
-            updater: Some(Updater::new()),
-            logger: Some(Logger::new()),
+            updater: Updater::new(),
+            logger: Logger::new(),
             misc: Miscellaneous {
                 debug: false,
                 region: Some(String::from("us_en")),
@@ -204,19 +210,8 @@ impl Config {
             None => self.paths.extra_paths = Some(vec![]),
         }
 
-        match &self.updater {
-            Some(_) => {}
-            None => self.updater = Some(Updater::new()),
-        }
-
-        match &self.logger {
-            Some(_) => {}
-            None => self.logger = Some(Logger::new()),
-        }
-
-        match &self.misc.region {
-            Some(_) => {}
-            None => self.misc.region = Some(String::from("us_en")),
+        if &self.updater.server_ip != "0.0.0.0" {
+            self.updater.server_ip = String::from("upd.arcropolis.com");
         }
     }
 

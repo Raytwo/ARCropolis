@@ -14,6 +14,8 @@ use std::io::prelude::*;
 use std::net::IpAddr;
 use std::ffi::CStr;
 
+use std::net::{ SocketAddr, ToSocketAddrs };
+
 mod api;
 // mod cache;
 mod callbacks;
@@ -447,7 +449,7 @@ pub static mut ORIGINAL_SHARED_INDEX: u32 = 0;
 fn initial_loading(_ctx: &InlineCtx) {
     let config = CONFIG.read();
 
-    if logging::init(config.logger.unwrap().logger_level.into()).is_err() {
+    if logging::init(config.logger.logger_level.into()).is_err() {
         println!("ARCropolis logger could not be initialized.")
     }
 
@@ -462,12 +464,14 @@ fn initial_loading(_ctx: &InlineCtx) {
         });
     }
 
+    let socket_addr = (config.updater.server_ip.as_str(), 69).to_socket_addrs().unwrap().next().unwrap();
+    
     // Check if an update is available
     if skyline_update::check_update(
-        IpAddr::V4(config.updater.unwrap().server_ip),
+        socket_addr.ip(),
         "ARCropolis",
         env!("CARGO_PKG_VERSION"),
-        config.updater.unwrap().beta_updates,
+        config.updater.beta_updates,
     ) {
         skyline_web::DialogOk::ok(
             "The update was downloaded successfully<br>ARCropolis will now reboot.",
