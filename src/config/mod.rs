@@ -8,6 +8,7 @@ use std::{fs, vec};
 
 use skyline::error::show_error;
 
+#[cfg(feature = "config")]
 use semver::Version;
 
 use serde::{Deserialize, Serialize};
@@ -132,6 +133,7 @@ pub struct Miscellaneous {
     pub region: Option<String>,
 }
 
+#[cfg(feature = "config")]
 impl Config {
     pub fn new() -> Self {
         Config {
@@ -230,6 +232,43 @@ impl Config {
         }
 
         println!("[ARC::Config] Configuration file successfully created");
+        Ok(())
+    }
+}
+
+#[cfg(not(feature = "config"))]
+impl Config {
+    pub fn new() -> Self {
+        Config {
+            infos: Infos {
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            },
+            paths: Paths {
+                arc: PathBuf::from("rom:/arc"),
+                umm: PathBuf::from("sd:/ultimate/mods"),
+                extra_paths: Some(vec![]),
+            },
+            updater: Updater::new(),
+            logger: Logger::new(),
+            misc: Miscellaneous {
+                debug: false,
+                region: Some(String::from("us_en")),
+            },
+        }
+    }
+
+    pub fn open() -> Result<Config, String> {
+        Ok(Config::new())
+    }
+
+    /// Should initialize missing fields in the struct when they get added
+    fn update(&mut self) {
+        
+    }
+
+    /// Automatically called when the WriteableConfig gets out of scope
+    fn save(&self) -> Result<(), std::io::Error> {
+        println!("[ARC::Config::stub] Configuration file successfully created");
         Ok(())
     }
 }
