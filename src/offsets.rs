@@ -17,6 +17,11 @@ pub static mut INITIAL_LOADING_OFFSET: usize = 0x35c_6474;
 pub static mut PROCESS_RESOURCE_NODE: usize = 0x34e_3e24; // 12.0.0
 pub static mut RES_LOAD_LOOP_START: usize = 0x34e_34c4; // 12.0.0
 pub static mut RES_LOAD_LOOP_REFRESH: usize = 0x34e_42f8; // 12.0.0
+pub static mut ONLINE_MODE_ACCESS: usize = 0x36a_e2f4; // 12.0.0
+
+static ONLINE_MODE_ACCESS_SEARCH_CODE: &[u8] = &[
+    0x27, 0x00, 0x00, 0x14, 0x88, 0x02, 0x40, 0xf9, 0x08, 0x0d, 0x40, 0xf9, 0xe0, 0x03, 0x14, 0xaa, 0x00, 0x01, 0x3f, 0xd6,
+];
 
 static LOADED_TABLES_ADRP_SEARCH_CODE: &[u8] = &[
     0xf3, 0x03, 0x00, 0xaa, 0x1f, 0x01, 0x09, 0x6b, 0xe0, 0x04, 0x00, 0x54,
@@ -184,8 +189,10 @@ pub fn search_offsets() {
             (INITIAL_LOADING_OFFSET, INITIAL_LOADING_SEARCH_CODE),
             (PROCESS_RESOURCE_NODE, PROCESS_RESOURCE_NODE_SEARCH_CODE),
             (RES_LOAD_LOOP_START, RES_LOAD_LOOP_START_SEARCH_CODE),
-            (RES_LOAD_LOOP_REFRESH, RES_LOAD_LOOP_REFRESH_SEARCH_CODE)
+            (RES_LOAD_LOOP_REFRESH, RES_LOAD_LOOP_REFRESH_SEARCH_CODE),
+            (ONLINE_MODE_ACCESS, ONLINE_MODE_ACCESS_SEARCH_CODE)
         );
+        
         MEMCPY_1_OFFSET -= 0x4;
         MEMCPY_2_OFFSET -= 0x4;
         MEMCPY_3_OFFSET -= 0x4;

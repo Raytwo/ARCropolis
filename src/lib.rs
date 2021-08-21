@@ -44,7 +44,7 @@ use runtime::{LoadedTables, ResServiceState, Table2Entry};
 use offsets::{
     INFLATE_DIR_FILE_OFFSET, INFLATE_OFFSET, INITIAL_LOADING_OFFSET, MANUAL_OPEN_OFFSET,
     MEMCPY_1_OFFSET, MEMCPY_2_OFFSET, MEMCPY_3_OFFSET, TITLE_SCREEN_VERSION_OFFSET,
-    PROCESS_RESOURCE_NODE, RES_LOAD_LOOP_START, RES_LOAD_LOOP_REFRESH
+    PROCESS_RESOURCE_NODE, RES_LOAD_LOOP_START, RES_LOAD_LOOP_REFRESH, ONLINE_MODE_ACCESS,
 };
 
 use api::EXT_CALLBACKS;
@@ -578,6 +578,12 @@ fn res_loop_common() {
     }
 }
 
+#[skyline::hook(offset = ONLINE_MODE_ACCESS, inline)]
+fn online_mode_access(ctx: &InlineCtx) {
+    skyline::error::show_error(69, "Online use of ARCropolis is restricted for this release.\nThe game will now be closed.\0", "This release of ARCropolis is restricted from being used in online modes.\nIt could be that a game breaking bug has been discovered and measures have been taken to protect you.\nPlease refer to the Releases page on git.arcropolis.com for further explanations.\n\nThe game will now be closed to prevent you from connecting to the servers.");
+    unsafe { skyline::nn::oe::ExitApplication() };
+}
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Load hashes from rom:/skyline/hashes.txt if the file is present
@@ -604,6 +610,7 @@ pub fn main() {
         load_directory_hook,
         change_version_string,
         stream::lookup_by_stream_hash,
+        online_mode_access,
     );
 
     #[cfg(feature = "web")]
