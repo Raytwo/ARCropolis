@@ -68,8 +68,9 @@ lazy_static! {
         Hash40::from("fighter/pickel/model/forge/c00/forge.lvd"),
     ];
 
-    static ref BLACKLISTED_DIRECTORIES: [Hash40; 1] = [
+    static ref BLACKLISTED_DIRECTORIES: [Hash40; 2] = [
         Hash40::from("stage/mario_maker"),
+        Hash40::from("fighter/kamui"),
     ];
 
     static ref RESHARED_DIRECTORIES: [(Hash40, Hash40); 8] = [
