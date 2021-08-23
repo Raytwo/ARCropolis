@@ -69,7 +69,7 @@ lazy_static! {
         Hash40::from("fighter/kamui/motion/ryusensya/c00/motion_list.bin"),
     ];
 
-    static ref BLACKLISTED_DIRECTORIES: [Hash40; 2] = [
+    static ref BLACKLISTED_DIRECTORIES: [Hash40; 1] = [
         Hash40::from("stage/mario_maker"),
     ];
 
