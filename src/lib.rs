@@ -12,7 +12,7 @@ extern crate lazy_static;
 
 use res_list::{LoadInfo, LoadType};
 use skyline::{hook, hooks::InlineCtx, install_hook, install_hooks, libc::{c_void, memcpy}, nn};
-use std::io::prelude::*;
+use std::{io::prelude::*, str::FromStr};
 use std::net::IpAddr;
 use std::ffi::CStr;
 
@@ -472,7 +472,10 @@ fn initial_loading(_ctx: &InlineCtx) {
     }
 
     #[cfg(feature = "updater")]
-    let socket_addr = (config.updater.server_ip.as_str(), 69).to_socket_addrs().unwrap().next().unwrap();
+    let socket_addr = match (config.updater.server_ip.as_str(), 69).to_socket_addrs() {
+        Ok(mut ip) => ip.next().unwrap(),
+        Err(_) => SocketAddr::new(IpAddr::from_str("0.0.0.0").unwrap(), 6969),
+    };
     
     // Check if an update is available
     #[cfg(feature = "updater")]
