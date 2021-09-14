@@ -575,8 +575,8 @@ pub struct ResServiceState {
     unk4: *const (),
     pub res_lists: [ResList; 5],
     pub loaded_tables: *mut LoadedTables,
-    pub unk_region_idx: u32,
-    pub game_region_idx: u32,
+    pub region_idx: u32,
+    pub language_idx: u32,
     pub unk9: u32,
     pub state: i16,
     pub is_loader_thread_running: bool,
@@ -603,8 +603,8 @@ pub struct ResServiceState {
 
 impl ResServiceState {
     #[allow(dead_code)]
-    pub fn get_region_id() -> u32 {
-        ResServiceState::get_instance().game_region_idx
+    pub fn get_language() -> u32 {
+        ResServiceState::get_instance().language_idx + 1
     }
 
     pub fn get_instance() -> &'static mut Self {
