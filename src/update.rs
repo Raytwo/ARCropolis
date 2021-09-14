@@ -1,0 +1,84 @@
+use gh_updater::ReleaseFinderConfig;
+use skyline::nn;
+use std::fmt;
+use zip::ZipArchive;
+use semver::Version;
+
+pub enum VersionDifference {
+    ChangeToStable,
+    ChangeToBeta,
+    Regular
+}
+
+impl fmt::Display for VersionDifference {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ChangeToStable => write!(f, "An uninstalled stable version of ARCropolis"),
+            Self::ChangeToBeta => write!(f, "A new beta version of ARCropolis"),
+            Self::Regular => write!(f, "A new update for ARCropolis")
+        }
+    }
+}
+
+fn compare_tags(current: &str, target: &str) -> Result<Option<VersionDifference>, semver::Error> {
+    let current = Version::parse(current)?;
+    let target = Version::parse(target)?;
+
+    if current.pre.is_empty() && !target.pre.is_empty() {
+        Ok(Some(VersionDifference::ChangeToBeta))
+    } else if !current.pre.is_empty() && target.pre.is_empty() {
+        Ok(Some(VersionDifference::ChangeToStable))
+    } else if target.gt(&current) {
+        Ok(Some(VersionDifference::Regular))
+    } else {
+        Ok(None)
+    }
+}
+
+pub fn check_for_updates<F>(beta_enabled: bool, f: F)
+where
+    F: Fn(VersionDifference) -> bool,
+{
+    let release = ReleaseFinderConfig::new("ARCropolis")
+        .with_author("Raytwo")
+        .with_repository("ARCropolis")
+        .with_prereleases(beta_enabled)
+        .find_release();
+
+    let release = match release {
+        Ok(r) => r,
+        Err(e) => {
+            println!("[ARC::Updater] Failed to check for updates: {:?}", e);
+            return;
+        }
+    };
+
+    let version_difference = match compare_tags(env!("CARGO_PKG_VERSION"), release.get_release_tag().trim_start_matches("v")) {
+        Ok(diff) => diff,
+        Err(e) => {
+            println!("[ARC::Updater] Failed to parse version strings: {:?}", e);
+            return;
+        }
+    };
+
+    if let Some(update_kind) = version_difference {
+        if !f(update_kind) {
+            return;
+        }
+        if let Some(release) = release.get_asset_by_name("release.zip") {
+            let mut zip = match ZipArchive::new(std::io::Cursor::new(release)) {
+                Ok(zip) => zip,
+                Err(e) => {
+                    println!("[ARC::Updater] Failed to parse zip data: {:?}", e);
+                    return;
+                }
+            };
+
+            if let Err(e) = zip.extract("sd:/") {
+                panic!("ARCropolis failed to automatically update. Reason: {:?}", e);
+            }
+
+            nn::oe::RestartProgramNoArgs();
+        }
+    }
+}
