@@ -1,4 +1,8 @@
 #![feature(proc_macro_hygiene)]
+
+#[macro_use]
+extern crate lazy_static;
+
 // #![feature(asm)]
 // #![feature(llvm_asm)]
 // #![feature(map_try_insert)]
@@ -32,6 +36,7 @@
 // mod runtime;
 // mod stream;
 // mod unsharing;
+mod config;
 mod update;
 // #[cfg(feature = "web")]
 // mod menus;
@@ -623,9 +628,11 @@ pub fn main() {
     std::thread::Builder::new()
         .stack_size(0x40000)
         .spawn(|| {
-            update::check_for_updates(true, |update_kind| {
-                skyline_web::Dialog::yes_no(format!("{} has been detected. Do you want to install it?", update_kind))
-            })
+            if config::auto_update_enabled() {
+                update::check_for_updates(true, |update_kind| {
+                    skyline_web::Dialog::yes_no(format!("{} has been detected. Do you want to install it?", update_kind))
+                })
+            }
         })
         .unwrap()
         .join()
