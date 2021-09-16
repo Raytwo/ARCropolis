@@ -1,7 +1,6 @@
 use serde_derive::{Deserialize, Serialize};
 
-static CONFIG_PATH: &'static str = "rom:/arcropolis.toml";
-static CONFIG_WRITE_PATH: &'static str = "sd:/atmosphere/contents/01006A800016E000/romfs/arcropolis.toml";
+static CONFIG_PATH: &'static str = "sd:/ultimate/arcropolis/config.toml";
 
 lazy_static! {
     static ref GLOBAL_CONFIG: Config = {
@@ -10,25 +9,25 @@ lazy_static! {
                 match toml::de::from_str(toml.as_str()) {
                     Ok(config) => Config::from_intermediate(config),
                     Err(_) => {
-                        println!("[arcropolis::config] Unable to read config file, generating new one.");
+                        warn!("Unable to read config file, generating new one.");
                         Config::new()
                     }
                 }
             },
             Err(_) => {
-                println!("[arcropolis::config] Unable to read config file, generating new one.");
+                warn!("Unable to read config file, generating new one.");
                 Config::new()
             }
         };
 
         match toml::ser::to_string_pretty(&config) {
             Ok(string) => {
-                match std::fs::write(CONFIG_WRITE_PATH, string.as_bytes()) {
-                    Err(_) => println!("[arcropolis::config] Unable to write config file."),
+                match std::fs::write(CONFIG_PATH, string.as_bytes()) {
+                    Err(_) => warn!("Unable to write config file."),
                     _ => {}
                 }
             },
-            Err(_) => println!("[arcropolis::config] Failed to serialize config data.")
+            Err(_) => warn!("Failed to serialize config data.")
         }
 
         config
@@ -136,7 +135,7 @@ struct ConfigLogger {
 impl ConfigLogger {
     pub fn new() -> Self {
         Self {
-            logger_level: String::from("Warning"),
+            logger_level: String::from("Warn"),
             log_to_file: false
         }
     }
@@ -146,7 +145,7 @@ impl FromIntermediate<IConfigLogger> for ConfigLogger {
     fn from_intermediate(int: IConfigLogger) -> Self {
         let IConfigLogger { logger_level, log_to_file } = int;
 
-        let logger_level = logger_level.unwrap_or(String::from("Warning"));
+        let logger_level = logger_level.unwrap_or(String::from("Warn"));
         let log_to_file = log_to_file.unwrap_or(false);
 
         Self {
