@@ -1,13 +1,13 @@
 use gh_updater::ReleaseFinderConfig;
+use semver::Version;
 use skyline::nn;
 use std::fmt;
 use zip::ZipArchive;
-use semver::Version;
 
 pub enum VersionDifference {
     ChangeToStable,
     ChangeToBeta,
-    Regular
+    Regular,
 }
 
 impl fmt::Display for VersionDifference {
@@ -15,7 +15,7 @@ impl fmt::Display for VersionDifference {
         match self {
             Self::ChangeToStable => write!(f, "An uninstalled stable version of ARCropolis"),
             Self::ChangeToBeta => write!(f, "A new beta version of ARCropolis"),
-            Self::Regular => write!(f, "A new update for ARCropolis")
+            Self::Regular => write!(f, "A new update for ARCropolis"),
         }
     }
 }
@@ -48,15 +48,18 @@ where
     let release = match release {
         Ok(r) => r,
         Err(e) => {
-            println!("[ARC::Updater] Failed to check for updates: {:?}", e);
+            error!("Failed to check for updates: {:?}", e);
             return;
         }
     };
 
-    let version_difference = match compare_tags(env!("CARGO_PKG_VERSION"), release.get_release_tag().trim_start_matches("v")) {
+    let version_difference = match compare_tags(
+        env!("CARGO_PKG_VERSION"),
+        release.get_release_tag().trim_start_matches("v"),
+    ) {
         Ok(diff) => diff,
         Err(e) => {
-            println!("[ARC::Updater] Failed to parse version strings: {:?}", e);
+            error!("Failed to parse version strings: {:?}", e);
             return;
         }
     };
@@ -69,13 +72,13 @@ where
             let mut zip = match ZipArchive::new(std::io::Cursor::new(release)) {
                 Ok(zip) => zip,
                 Err(e) => {
-                    println!("[ARC::Updater] Failed to parse zip data: {:?}", e);
+                    error!("Failed to parse zip data: {:?}", e);
                     return;
                 }
             };
 
             if let Err(e) = zip.extract("sd:/") {
-                panic!("ARCropolis failed to automatically update. Reason: {:?}", e);
+                panic!("ARCropolis failed to extract update ZIP. Reason: {:?}", e);
             }
 
             nn::oe::RestartProgramNoArgs();

@@ -1,18 +1,22 @@
-use std::{fs::File, io::{BufWriter, Write}, ops::Deref, path::PathBuf, time::SystemTime};
 use log::{LevelFilter, Metadata, Record, SetLoggerError};
 use parking_lot::Mutex;
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
+    ops::Deref,
+    path::PathBuf,
+    time::SystemTime,
+};
 
 use crate::config;
 use regex::Regex;
 
 fn format_time_string(seconds: u64) -> String {
-    let leapyear = |year| -> bool {
-        year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
-    };
+    let leapyear = |year| -> bool { year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) };
 
     static YEAR_TABLE: [[u64; 12]; 2] = [
-        [ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 ],
-        [ 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 ]
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
     ];
 
     let mut year = 1970;
@@ -24,11 +28,7 @@ fn format_time_string(seconds: u64) -> String {
     let min = (seconds_in_day % 3600) / 60;
     let hours = seconds_in_day / 3600;
     loop {
-        let year_length = if leapyear(year) {
-            366
-        } else {
-            365
-        };
+        let year_length = if leapyear(year) { 366 } else { 365 };
 
         if day_number >= year_length {
             day_number -= year_length;
@@ -42,7 +42,15 @@ fn format_time_string(seconds: u64) -> String {
         day_number -= YEAR_TABLE[if leapyear(year) { 1 } else { 0 }][month];
         month += 1;
     }
-    format!("{:04}-{:02}-{:02}_{:02}-{:02}-{:02}", year, month + 1, day_number + 1, hours, min, sec)
+    format!(
+        "{:04}-{:02}-{:02}_{:02}-{:02}-{:02}",
+        year,
+        month + 1,
+        day_number + 1,
+        hours,
+        min,
+        sec
+    )
 }
 
 fn strip_color<S: AsRef<str>>(string: S) -> String {
@@ -76,18 +84,20 @@ lazy_static! {
         let seconds = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .expect("Clock may have gone backwards!");
-        let path = PathBuf::from(LOG_PATH).join(format!(
-            "{}.log",
-            format_time_string(seconds.as_secs())
-        ));
-        std::fs::File::create(path)
-            .map_or_else(
-                |_| {
-                    error!(target: "std", "Unable to initialize the file logger!");
-                    FileLogger(None)
-                },
-                |file| FileLogger(Some(Mutex::new(BufWriter::with_capacity(FILE_LOG_BUFFER, file))))
-            )
+        let path =
+            PathBuf::from(LOG_PATH).join(format!("{}.log", format_time_string(seconds.as_secs())));
+        std::fs::File::create(path).map_or_else(
+            |_| {
+                error!(target: "std", "Unable to initialize the file logger!");
+                FileLogger(None)
+            },
+            |file| {
+                FileLogger(Some(Mutex::new(BufWriter::with_capacity(
+                    FILE_LOG_BUFFER,
+                    file,
+                ))))
+            },
+        )
     };
 }
 
@@ -111,19 +121,25 @@ impl log::Log for ArcLogger {
 
         let module_path = match record.module_path() {
             Some(path) => path,
-            None => return
+            None => return,
         };
 
         let message = if record.level() == LevelFilter::Debug {
             let file = match record.file() {
                 Some(file) => file,
-                None => "???"
+                None => "???",
             };
             let number = match record.line() {
                 Some(no) => format!("{}", no),
-                None => "???".to_string()
+                None => "???".to_string(),
             };
-            format!("[{} | {}:{}] {}\n", module_path, file, number, record.args())
+            format!(
+                "[{} | {}:{}] {}\n",
+                module_path,
+                file,
+                number,
+                record.args()
+            )
         } else {
             format!("[{}] {}\n", module_path, record.args())
         };
@@ -131,12 +147,12 @@ impl log::Log for ArcLogger {
         match record.target() {
             "std" => {
                 print!("{}", message);
-            },
+            }
             "file" => {
                 if config::file_logging_enabled() {
                     FILE_WRITER.write(strip_color(message));
                 }
-            },
+            }
             _ => {
                 print!("{}", message);
                 if config::file_logging_enabled() {

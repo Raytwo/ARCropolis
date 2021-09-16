@@ -23,6 +23,8 @@ lazy_static = "1.4.0"
 log = "0.4.14"
 parking_lot = "0.11"
 regex = "1.5.4"
+orbits = { path = "../../orbits" }
+smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd"] }
 
 [patch.crates-io]
 ring = { git = "https://github.com/skyline-rs/ring", rev = "9b5eaee" }
@@ -30,6 +32,9 @@ webpki = { git = "https://github.com/skyline-rs/webpki" }
 
 [patch.'https://github.com/ultimate-research/nnsdk-rs']
 nnsdk = { git = "https://github.com/blu-dev/nnsdk-rs", branch = "patch-4" }
+
+[patch.'https://github.com/jam1garner/smash-arc']
+smash-arc = { git = 'https://github.com/blu-dev/smash-arc' }
 
 [profile.dev]
 panic = "abort"

@@ -133,7 +133,7 @@ macro_rules! find_offsets {
             if let Some(offset) = find_subsequence(text, $search_pattern) {
                 $out_variable = offset
             } else {
-                println!("Error: no offset found for '{}'. Defaulting to 9.0.2 offset. This most likely won't work.", stringify!($out_variable));
+                error!("No offset found for '{}'. Defaulting to 9.0.2 offset. This most likely won't work.", stringify!($out_variable));
             }
         )*
     };
@@ -141,33 +141,33 @@ macro_rules! find_offsets {
 
 pub fn search_offsets() {
     unsafe {
-        crate::runtime::LOADED_TABLES_OFFSET = 0x505_67a0;
-        crate::runtime::RES_SERVICE_OFFSET = 0x505_67a8;
+        // crate::runtime::LOADED_TABLES_OFFSET = 0x505_67a0;
+        // crate::runtime::RES_SERVICE_OFFSET = 0x505_67a8;
 
         let text_ptr = getRegionAddress(Region::Text) as *const u8;
         let text_size = (getRegionAddress(Region::Rodata) as usize) - (text_ptr as usize);
 
         let text = std::slice::from_raw_parts(text_ptr, text_size);
 
-        if let Some(offset) = find_subsequence(text, LOADED_TABLES_ADRP_SEARCH_CODE) {
-            LOADED_TABLES_ADRP_OFFSET = offset + 12;
+        // if let Some(offset) = find_subsequence(text, LOADED_TABLES_ADRP_SEARCH_CODE) {
+        //     LOADED_TABLES_ADRP_OFFSET = offset + 12;
 
-            let adrp_offset = offset_from_adrp(LOADED_TABLES_ADRP_OFFSET);
-            let ldr_offset = offset_from_ldr(LOADED_TABLES_ADRP_OFFSET + 4);
-            crate::runtime::LOADED_TABLES_OFFSET = adrp_offset + ldr_offset;
-        } else {
-            println!("Error: no offset found for 'loaded_tables_adrp'. Defaulting to 9.0.2 offset. This likely won't work.");
-        }
+        //     let adrp_offset = offset_from_adrp(LOADED_TABLES_ADRP_OFFSET);
+        //     let ldr_offset = offset_from_ldr(LOADED_TABLES_ADRP_OFFSET + 4);
+        //     crate::runtime::LOADED_TABLES_OFFSET = adrp_offset + ldr_offset;
+        // } else {
+        //     error!("No offset found for 'loaded_tables_adrp'. Defaulting to 9.0.2 offset. This likely won't work.");
+        // }
 
-        if let Some(offset) = find_subsequence(text, RES_SERVICE_ADRP_SEARCH_CODE) {
-            RES_SERVICE_ADRP_OFFSET = offset + 16;
+        // if let Some(offset) = find_subsequence(text, RES_SERVICE_ADRP_SEARCH_CODE) {
+        //     RES_SERVICE_ADRP_OFFSET = offset + 16;
 
-            let adrp_offset = offset_from_adrp(RES_SERVICE_ADRP_OFFSET);
-            let ldr_offset = offset_from_ldr(RES_SERVICE_ADRP_OFFSET + 4);
-            crate::runtime::RES_SERVICE_OFFSET = adrp_offset + ldr_offset;
-        } else {
-            println!("Error: no offset found for 'res_service_adrp'. Defaulting to 9.0.2 offset. This likely won't work.");
-        }
+        //     let adrp_offset = offset_from_adrp(RES_SERVICE_ADRP_OFFSET);
+        //     let ldr_offset = offset_from_ldr(RES_SERVICE_ADRP_OFFSET + 4);
+        //     crate::runtime::RES_SERVICE_OFFSET = adrp_offset + ldr_offset;
+        // } else {
+        //     error!("No offset found for 'res_service_adrp'. Defaulting to 9.0.2 offset. This likely won't work.");
+        // }
 
         find_offsets!(
             (LOOKUP_STREAM_HASH_OFFSET, LOOKUP_STREAM_HASH_SEARCH_CODE),
