@@ -1,6 +1,6 @@
 [package]
 name = "arcropolis"
-version = "3.0.0-beta1"
+version = "3.0.0-beta.1"
 authors = ["Raytwo <raytwo@arcropolis.com>, jam1garner <jam@jam1.re>, blujay <the.blu.dev@gmail.com>, CoolSonicKirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
@@ -16,10 +16,20 @@ skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
 zip = { version = "0.5", default-features = false, features = ["deflate"] }
 gh-updater = { git = "https://github.com/blu-dev/gh-updater" }
+toml = "0.5.8"
+serde = "1.0.130"
+serde_derive = "1.0.130"
+lazy_static = "1.4.0"
+log = "0.4.14"
+parking_lot = "0.11"
+regex = "1.5.4"
 
 [patch.crates-io]
 ring = { git = "https://github.com/skyline-rs/ring", rev = "9b5eaee" }
 webpki = { git = "https://github.com/skyline-rs/webpki" }
+
+[patch.'https://github.com/ultimate-research/nnsdk-rs']
+nnsdk = { git = "https://github.com/blu-dev/nnsdk-rs", branch = "patch-4" }
 
 [profile.dev]
 panic = "abort"
