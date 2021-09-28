@@ -1,22 +1,53 @@
+use serde_derive::{Deserialize, Serialize};
 use skyline::hooks::{getRegionAddress, Region};
 
+use crate::config::FromIntermediate;
+
+lazy_static! {
+    static ref OFFSETS: Offsets = {
+        let path = crate::CACHE_PATH.join("offsets.toml");
+        let offsets = match std::fs::read_to_string(&path) {
+            Ok(string) => match toml::de::from_str(string.as_str()) {
+                Ok(offsets) => offsets,
+                Err(err) => { 
+                    error!("Unable to parse 'offsets.toml'. Reason: {:?}", err);
+                    Offsets::new()
+                }
+            },
+            Err(err) => {
+                error!("Unable to read 'offsets.toml'. Reason: {:?}", err);
+                Offsets::new()
+            }
+        };
+
+        match toml::ser::to_string_pretty(&offsets) {
+            Ok(string) => match std::fs::write(path, string.as_bytes()) {
+                Err(_) => error!("Unable to write 'offsets.toml'."),
+                _ => {}
+            },
+            Err(_) => error!("Failed to serialize offsets."),
+        }
+        offsets
+    };
+}
+
 // default 9.0.2 offsets
-pub static mut LOADED_TABLES_ADRP_OFFSET: usize = 0x35b_b1f8;
-pub static mut RES_SERVICE_ADRP_OFFSET: usize = 0x335_a860;
+// pub static mut LOADED_TABLES_ADRP_OFFSET: usize = 0x35b_b1f8;
+// pub static mut RES_SERVICE_ADRP_OFFSET: usize = 0x335_a860;
 
-pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x335_A7F0;
-pub static mut TITLE_SCREEN_VERSION_OFFSET: usize = 0x35B_AE00;
+// pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x335_A7F0;
+// pub static mut TITLE_SCREEN_VERSION_OFFSET: usize = 0x35B_AE00;
 
-pub static mut INFLATE_OFFSET: usize = 0x33b_71e8;
-pub static mut MEMCPY_1_OFFSET: usize = 0x33b_7d08;
-pub static mut MEMCPY_2_OFFSET: usize = 0x33b_78f8;
-pub static mut MEMCPY_3_OFFSET: usize = 0x33b_7988;
-pub static mut INFLATE_DIR_FILE_OFFSET: usize = 0x381_6230;
-pub static mut MANUAL_OPEN_OFFSET: usize = 0x35c_93b0;
-pub static mut INITIAL_LOADING_OFFSET: usize = 0x35c_6474;
-pub static mut PROCESS_RESOURCE_NODE: usize = 0x34e_3e24; // 12.0.0
-pub static mut RES_LOAD_LOOP_START: usize = 0x34e_34c4; // 12.0.0
-pub static mut RES_LOAD_LOOP_REFRESH: usize = 0x34e_42f8; // 12.0.0
+// pub static mut INFLATE_OFFSET: usize = 0x33b_71e8;
+// pub static mut MEMCPY_1_OFFSET: usize = 0x33b_7d08;
+// pub static mut MEMCPY_2_OFFSET: usize = 0x33b_78f8;
+// pub static mut MEMCPY_3_OFFSET: usize = 0x33b_7988;
+// pub static mut INFLATE_DIR_FILE_OFFSET: usize = 0x381_6230;
+// pub static mut MANUAL_OPEN_OFFSET: usize = 0x35c_93b0;
+// pub static mut INITIAL_LOADING_OFFSET: usize = 0x35c_6474;
+// pub static mut PROCESS_RESOURCE_NODE: usize = 0x34e_3e24; // 12.0.0
+// pub static mut RES_LOAD_LOOP_START: usize = 0x34e_34c4; // 12.0.0
+// pub static mut RES_LOAD_LOOP_REFRESH: usize = 0x34e_42f8; // 12.0.0
 
 static LOADED_TABLES_ADRP_SEARCH_CODE: &[u8] = &[
     0xf3, 0x03, 0x00, 0xaa, 0x1f, 0x01, 0x09, 0x6b, 0xe0, 0x04, 0x00, 0x54,
@@ -72,19 +103,18 @@ static INITIAL_LOADING_SEARCH_CODE: &[u8] = &[
 
 static PROCESS_RESOURCE_NODE_SEARCH_CODE: &[u8] = &[
     0x5f, 0x05, 0x00, 0x31, 0xea, 0x03, 0x8a, 0x1a, 0x29, 0x01, 0x0a, 0x0b, 0x29, 0x05, 0x00, 0x11,
-    0x6a, 0x3f, 0x40, 0xf9, 0x29, 0x21, 0xad, 0x9b
+    0x6a, 0x3f, 0x40, 0xf9, 0x29, 0x21, 0xad, 0x9b,
 ];
 
 static RES_LOAD_LOOP_START_SEARCH_CODE: &[u8] = &[
     0x2a, 0x05, 0x09, 0x8b, 0x6e, 0x62, 0x01, 0x91, 0xdf, 0x01, 0x1b, 0xeb, 0x4d, 0xf1, 0x7d, 0xd3,
-    0xca, 0x01, 0x0d, 0x8b, 0x6d, 0x03, 0x0d, 0x8b
+    0xca, 0x01, 0x0d, 0x8b, 0x6d, 0x03, 0x0d, 0x8b,
 ];
 
 static RES_LOAD_LOOP_REFRESH_SEARCH_CODE: &[u8] = &[
     0x68, 0x32, 0x40, 0xf9, 0xee, 0x1b, 0x40, 0xf9, 0xdf, 0x01, 0x08, 0xeb, 0xec, 0x3f, 0x40, 0xf9,
-    0xed, 0x37, 0x40, 0xf9
+    0xed, 0x37, 0x40, 0xf9,
 ];
-
 
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack
@@ -139,6 +169,14 @@ macro_rules! find_offsets {
     };
 }
 
+fn get_text() -> &'static [u8] {
+    unsafe {
+        let ptr = getRegionAddress(Region::Text) as *const u8;
+        let size = (getRegionAddress(Region::Rodata) as usize) - (ptr as usize);
+        std::slice::from_raw_parts(ptr, size)
+    }
+}
+
 pub fn search_offsets() {
     unsafe {
         // crate::runtime::LOADED_TABLES_OFFSET = 0x505_67a0;
@@ -168,27 +206,55 @@ pub fn search_offsets() {
         // } else {
         //     error!("No offset found for 'res_service_adrp'. Defaulting to 9.0.2 offset. This likely won't work.");
         // }
-
-        find_offsets!(
-            (LOOKUP_STREAM_HASH_OFFSET, LOOKUP_STREAM_HASH_SEARCH_CODE),
-            (
-                TITLE_SCREEN_VERSION_OFFSET,
-                TITLE_SCREEN_VERSION_SEARCH_CODE
-            ),
-            (INFLATE_OFFSET, INFLATE_SEARCH_CODE),
-            (MEMCPY_1_OFFSET, MEMCPY_1_SEARCH_CODE),
-            (MEMCPY_2_OFFSET, MEMCPY_2_SEARCH_CODE),
-            (MEMCPY_3_OFFSET, MEMCPY_3_SEARCH_CODE),
-            (INFLATE_DIR_FILE_OFFSET, INFLATE_DIR_FILE_SEARCH_CODE),
-            (MANUAL_OPEN_OFFSET, MANUAL_OPEN_SEARCH_CODE),
-            (INITIAL_LOADING_OFFSET, INITIAL_LOADING_SEARCH_CODE),
-            (PROCESS_RESOURCE_NODE, PROCESS_RESOURCE_NODE_SEARCH_CODE),
-            (RES_LOAD_LOOP_START, RES_LOAD_LOOP_START_SEARCH_CODE),
-            (RES_LOAD_LOOP_REFRESH, RES_LOAD_LOOP_REFRESH_SEARCH_CODE)
-        );
-        MEMCPY_1_OFFSET -= 0x4;
-        MEMCPY_2_OFFSET -= 0x4;
-        MEMCPY_3_OFFSET -= 0x4;
-        PROCESS_RESOURCE_NODE += 0xC;
     }
+    lazy_static::initialize(&OFFSETS);
+}
+
+#[derive(Serialize, Deserialize)]
+struct Offsets {
+    pub lookup_stream_hash: usize,
+    pub inflate: usize,
+    pub memcpy_1: usize,
+    pub memcpy_2: usize,
+    pub memcpy_3: usize,
+    pub inflate_dir_file: usize,
+    pub manual_open: usize,
+    pub initial_loading: usize,
+    pub process_resource_node: usize,
+    pub res_load_loop_start: usize,
+    pub res_load_loop_refresh: usize,
+}
+
+impl Offsets {
+    pub fn new() -> Self {
+        let text = get_text();
+        let lookup_stream_hash = find_subsequence(text, LOOKUP_STREAM_HASH_SEARCH_CODE).expect("Unable to find subsequence");
+        let inflate = find_subsequence(text, INFLATE_SEARCH_CODE).expect("Unable to find subsequence");
+        let memcpy_1 = find_subsequence(text, MEMCPY_1_SEARCH_CODE).expect("Unable to find subsequence") - 4;
+        let memcpy_2 = find_subsequence(text, MEMCPY_2_SEARCH_CODE).expect("Unable to find subsequence") - 4;
+        let memcpy_3 = find_subsequence(text, MEMCPY_3_SEARCH_CODE).expect("Unable to find subsequence") - 4;
+        let inflate_dir_file = find_subsequence(text, INFLATE_DIR_FILE_SEARCH_CODE).expect("Unable to find subsequence");
+        let manual_open = find_subsequence(text, MANUAL_OPEN_SEARCH_CODE).expect("Unable to find subsequence");
+        let initial_loading = find_subsequence(text, INITIAL_LOADING_SEARCH_CODE).expect("Unable to find subsequence");
+        let process_resource_node = find_subsequence(text, PROCESS_RESOURCE_NODE_SEARCH_CODE).expect("Unable to find subsequence") + 0xC;
+        let res_load_loop_start = find_subsequence(text, RES_LOAD_LOOP_START_SEARCH_CODE).expect("Unable to find subsequence");
+        let res_load_loop_refresh = find_subsequence(text, RES_LOAD_LOOP_REFRESH_SEARCH_CODE).expect("Unable to find subsequence");
+        Self {
+            lookup_stream_hash,
+            inflate,
+            memcpy_1,
+            memcpy_2,
+            memcpy_3,
+            inflate_dir_file,
+            manual_open,
+            initial_loading,
+            process_resource_node,
+            res_load_loop_start,
+            res_load_loop_refresh,
+        }
+    }
+}
+
+pub fn initial_loading() -> usize {
+    OFFSETS.initial_loading
 }

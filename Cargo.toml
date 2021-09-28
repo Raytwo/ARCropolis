@@ -23,7 +23,7 @@ lazy_static = "1.4.0"
 log = "0.4.14"
 parking_lot = "0.11"
 regex = "1.5.4"
-orbits = { path = "../../orbits" }
+orbits = { git = "https://github.com/blu-dev/orbits" }
 smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd"] }
 
 [patch.crates-io]
