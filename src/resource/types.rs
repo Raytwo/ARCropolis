@@ -2,7 +2,6 @@ use skyline::nn;
 use smash_arc::{LoadedArc, LoadedSearchSection};
 use std::{
     ops::{Index, IndexMut},
-    process::Output,
     sync::atomic::AtomicU32,
 };
 
@@ -87,6 +86,7 @@ pub struct FileNX {
     unk4: u32,
 }
 
+#[allow(dead_code)]
 #[repr(u32)]
 pub enum LoadingType {
     Directory = 0,
@@ -96,6 +96,7 @@ pub enum LoadingType {
     File = 4,
 }
 
+#[allow(dead_code)]
 #[repr(C)]
 pub struct ResServiceNX {
     pub mutex: *mut nn::os::MutexType,

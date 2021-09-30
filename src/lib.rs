@@ -1,3 +1,4 @@
+#![allow(incomplete_features)] // for if_let_guard
 #![feature(proc_macro_hygiene)]
 #![feature(if_let_guard)]
 #![feature(path_try_exists)]
@@ -12,13 +13,8 @@ extern crate lazy_static;
 #[macro_use]
 extern crate log;
 
-use orbits::{
-    orbit::LaunchPad, ConflictHandler, ConflictKind, DiscoverSystem, FileLoader, Orbit,
-    StandardLoader,
-};
 use parking_lot::RwLock;
 use skyline::{hooks::InlineCtx, nn};
-use std::fmt;
 
 mod config;
 mod fs;
@@ -28,9 +24,6 @@ mod resource;
 mod update;
 
 use fs::GlobalFilesystem;
-
-use config::FromIntermediate;
-use smash_arc::LoadedArc;
 
 lazy_static! {
     pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> =
@@ -65,11 +58,22 @@ fn get_version_string() -> String {
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     let mut filesystem = GLOBAL_FILESYSTEM.write();
+    *filesystem = filesystem.take().finish(resource::arc()).unwrap();
 }
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
-    skyline::install_hooks!(initial_loading);
+    
+    init_time();
+
+    if let Err(err) = logging::init(
+        LevelFilter::from_str(config::logger_level()).unwrap_or(LevelFilter::Warn),
+    ) {
+        println!(
+            "[arcropolis] Failed to initialize logger. Reason: {:?}",
+            err
+        );
+    }
 
     let mut filesystem = GLOBAL_FILESYSTEM.write();
 
@@ -77,33 +81,26 @@ pub fn main() {
         std::thread::Builder::new()
             .stack_size(0x40000)
             .spawn(|| {
-                init_time();
-                let mut version = nn::oe::DisplayVersion { name: [0x00; 16] };
-                unsafe {
-                    nn::oe::GetDisplayVersion(&mut version);
-                    println!("{}", skyline::from_c_str(version.name.as_ptr()));
-                }
-
-                if let Err(err) = logging::init(
-                    LevelFilter::from_str(config::logger_level()).unwrap_or(LevelFilter::Warn),
-                ) {
-                    println!(
-                        "[arcropolis] Failed to initialize logger. Reason: {:?}",
-                        err
-                    );
-                }
-
-                if config::auto_update_enabled() {
-                    update::check_for_updates(true, |update_kind| {
-                        skyline_web::Dialog::yes_no(format!(
-                            "{} has been detected. Do you want to install it?",
-                            update_kind
-                        ))
-                    });
-                }
-
                 fs::perform_discovery()
             })
             .unwrap(),
     );
+
+    let updater = std::thread::Builder::new()
+    .stack_size(0x40000)
+    .spawn(|| {
+        if config::auto_update_enabled() {
+            update::check_for_updates(true, |update_kind| {
+                skyline_web::Dialog::yes_no(format!(
+                    "{} has been detected. Do you want to install it?",
+                    update_kind
+                ))
+            });
+        }
+    })
+    .unwrap();
+        
+    skyline::install_hooks!(initial_loading);
+
+    let _ = updater.join();
 }

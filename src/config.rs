@@ -6,7 +6,7 @@ lazy_static! {
     static ref CONFIG_PATH: PathBuf = {
         let path = PathBuf::from("sd:/ultimate/arcropolis");
         match std::fs::create_dir_all(&path) {
-            Err(err) => panic!("ARCropolis failed to find/create required directory 'sd:/ultimate/arcropolis'"),
+            Err(_) => panic!("ARCropolis failed to find/create required directory 'sd:/ultimate/arcropolis'"),
             _ => {}
         }
         path.join("config.toml")

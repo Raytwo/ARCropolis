@@ -1,8 +1,6 @@
 use serde_derive::{Deserialize, Serialize};
 use skyline::hooks::{getRegionAddress, Region};
 
-use crate::config::FromIntermediate;
-
 lazy_static! {
     static ref OFFSETS: Offsets = {
         let path = crate::CACHE_PATH.join("offsets.toml");
@@ -31,25 +29,7 @@ lazy_static! {
     };
 }
 
-// default 9.0.2 offsets
-// pub static mut LOADED_TABLES_ADRP_OFFSET: usize = 0x35b_b1f8;
-// pub static mut RES_SERVICE_ADRP_OFFSET: usize = 0x335_a860;
-
-// pub static mut LOOKUP_STREAM_HASH_OFFSET: usize = 0x335_A7F0;
-// pub static mut TITLE_SCREEN_VERSION_OFFSET: usize = 0x35B_AE00;
-
-// pub static mut INFLATE_OFFSET: usize = 0x33b_71e8;
-// pub static mut MEMCPY_1_OFFSET: usize = 0x33b_7d08;
-// pub static mut MEMCPY_2_OFFSET: usize = 0x33b_78f8;
-// pub static mut MEMCPY_3_OFFSET: usize = 0x33b_7988;
-// pub static mut INFLATE_DIR_FILE_OFFSET: usize = 0x381_6230;
-// pub static mut MANUAL_OPEN_OFFSET: usize = 0x35c_93b0;
-// pub static mut INITIAL_LOADING_OFFSET: usize = 0x35c_6474;
-// pub static mut PROCESS_RESOURCE_NODE: usize = 0x34e_3e24; // 12.0.0
-// pub static mut RES_LOAD_LOOP_START: usize = 0x34e_34c4; // 12.0.0
-// pub static mut RES_LOAD_LOOP_REFRESH: usize = 0x34e_42f8; // 12.0.0
-
-static LOADED_TABLES_ADRP_SEARCH_CODE: &[u8] = &[
+static FILESYSTEM_INFO_ADRP_SEARCH_CODE: &[u8] = &[
     0xf3, 0x03, 0x00, 0xaa, 0x1f, 0x01, 0x09, 0x6b, 0xe0, 0x04, 0x00, 0x54,
 ];
 
@@ -148,66 +128,12 @@ pub fn offset_to_addr(offset: usize) -> *const () {
     unsafe { (getRegionAddress(Region::Text) as *const u8).add(offset) as _ }
 }
 
-macro_rules! find_offsets {
-    (
-        $(
-            ($out_variable:expr, $search_pattern:expr)
-        ),*
-        $(,)?
-    ) => {
-        $(
-            let text_ptr = getRegionAddress(Region::Text) as *const u8;
-            let text_size = (getRegionAddress(Region::Rodata) as usize) - (text_ptr as usize);
-            let text = std::slice::from_raw_parts(text_ptr, text_size);
-
-            if let Some(offset) = find_subsequence(text, $search_pattern) {
-                $out_variable = offset
-            } else {
-                error!("No offset found for '{}'. Defaulting to 9.0.2 offset. This most likely won't work.", stringify!($out_variable));
-            }
-        )*
-    };
-}
-
 fn get_text() -> &'static [u8] {
     unsafe {
         let ptr = getRegionAddress(Region::Text) as *const u8;
         let size = (getRegionAddress(Region::Rodata) as usize) - (ptr as usize);
         std::slice::from_raw_parts(ptr, size)
     }
-}
-
-pub fn search_offsets() {
-    unsafe {
-        // crate::runtime::LOADED_TABLES_OFFSET = 0x505_67a0;
-        // crate::runtime::RES_SERVICE_OFFSET = 0x505_67a8;
-
-        let text_ptr = getRegionAddress(Region::Text) as *const u8;
-        let text_size = (getRegionAddress(Region::Rodata) as usize) - (text_ptr as usize);
-
-        let text = std::slice::from_raw_parts(text_ptr, text_size);
-
-        // if let Some(offset) = find_subsequence(text, LOADED_TABLES_ADRP_SEARCH_CODE) {
-        //     LOADED_TABLES_ADRP_OFFSET = offset + 12;
-
-        //     let adrp_offset = offset_from_adrp(LOADED_TABLES_ADRP_OFFSET);
-        //     let ldr_offset = offset_from_ldr(LOADED_TABLES_ADRP_OFFSET + 4);
-        //     crate::runtime::LOADED_TABLES_OFFSET = adrp_offset + ldr_offset;
-        // } else {
-        //     error!("No offset found for 'loaded_tables_adrp'. Defaulting to 9.0.2 offset. This likely won't work.");
-        // }
-
-        // if let Some(offset) = find_subsequence(text, RES_SERVICE_ADRP_SEARCH_CODE) {
-        //     RES_SERVICE_ADRP_OFFSET = offset + 16;
-
-        //     let adrp_offset = offset_from_adrp(RES_SERVICE_ADRP_OFFSET);
-        //     let ldr_offset = offset_from_ldr(RES_SERVICE_ADRP_OFFSET + 4);
-        //     crate::runtime::RES_SERVICE_OFFSET = adrp_offset + ldr_offset;
-        // } else {
-        //     error!("No offset found for 'res_service_adrp'. Defaulting to 9.0.2 offset. This likely won't work.");
-        // }
-    }
-    lazy_static::initialize(&OFFSETS);
 }
 
 #[derive(Serialize, Deserialize)]
@@ -223,6 +149,10 @@ struct Offsets {
     pub process_resource_node: usize,
     pub res_load_loop_start: usize,
     pub res_load_loop_refresh: usize,
+    pub title_screen_version: usize,
+
+    pub filesystem_info: usize,
+    pub res_service: usize
 }
 
 impl Offsets {
@@ -239,6 +169,21 @@ impl Offsets {
         let process_resource_node = find_subsequence(text, PROCESS_RESOURCE_NODE_SEARCH_CODE).expect("Unable to find subsequence") + 0xC;
         let res_load_loop_start = find_subsequence(text, RES_LOAD_LOOP_START_SEARCH_CODE).expect("Unable to find subsequence");
         let res_load_loop_refresh = find_subsequence(text, RES_LOAD_LOOP_REFRESH_SEARCH_CODE).expect("Unable to find subsequence");
+        let title_screen_version = find_subsequence(text, TITLE_SCREEN_VERSION_SEARCH_CODE).expect("Unable to find subsequence!");
+
+        let filesystem_info = {
+            let adrp = find_subsequence(text, FILESYSTEM_INFO_ADRP_SEARCH_CODE).expect("Unable to find subsequence") + 12;
+            let adrp_offset = offset_from_adrp(adrp);
+            let ldr_offset = offset_from_ldr(adrp + 4);
+            adrp_offset + ldr_offset
+        };
+        let res_service = {
+            let adrp = find_subsequence(text, RES_SERVICE_ADRP_SEARCH_CODE).expect("Unable to find subsequence") + 16;
+            let adrp_offset = offset_from_adrp(adrp);
+            let ldr_offset = offset_from_ldr(adrp + 4);
+            adrp_offset + ldr_offset
+        };
+
         Self {
             lookup_stream_hash,
             inflate,
@@ -251,10 +196,18 @@ impl Offsets {
             process_resource_node,
             res_load_loop_start,
             res_load_loop_refresh,
+            title_screen_version,
+            
+            filesystem_info,
+            res_service
         }
     }
 }
 
 pub fn initial_loading() -> usize {
     OFFSETS.initial_loading
+}
+
+pub fn filesystem_info() -> usize {
+    OFFSETS.filesystem_info
 }

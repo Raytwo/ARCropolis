@@ -6,7 +6,7 @@ use smash_arc::{ArcLookup, Hash40, LoadedArc, LookupError, Region, SearchLookup}
 
 use crate::config;
 use std::{
-    ops::{Deref, DerefMut},
+    ops::Deref,
     path::Path,
 };
 
@@ -37,6 +37,12 @@ impl GlobalFilesystem {
             Self::Initialized(filesystem) => Ok(Self::Initialized(filesystem)),
         }
     }
+
+    pub fn take(&mut self) -> Self {
+        let mut out = GlobalFilesystem::Uninitialized;
+        std::mem::swap(self, &mut out);
+        out
+    }
 }
 
 #[repr(transparent)]
@@ -52,7 +58,6 @@ impl Deref for ArcLoader {
         self.0
     }
 }
-
 impl FileLoader for ArcLoader {
     type ErrorType = LookupError;
 
@@ -160,7 +165,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
         }
     }
 
-    for conflict in conflicts {
+    for conflict in conflicts.into_iter() {
         match conflict {
             ConflictKind::StandardConflict(error, kept) => warn!(
                 "File '{}' was rejected for file '{}' during discovery.",
@@ -170,7 +175,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
             ConflictKind::RootConflict(errors, kept) => {
                 for error in errors {
                     warn!(
-                        "File '{}' was rejected due to a root conflict with file '{}' during discover.",
+                        "File '{}' was rejected due to a root conflict with file '{}' during discovery.",
                         error.display(),
                         kept.display()
                     );

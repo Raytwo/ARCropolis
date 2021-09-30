@@ -92,6 +92,10 @@ lazy_static! {
                 FileLogger(None)
             },
             |file| {
+                let _ = std::thread::spawn(|| {
+                    std::thread::sleep(std::time::Duration::from_millis(2000));
+                    log::logger().flush();
+                });
                 FileLogger(Some(Mutex::new(BufWriter::with_capacity(
                     FILE_LOG_BUFFER,
                     file,
@@ -121,7 +125,9 @@ impl log::Log for ArcLogger {
 
         let module_path = match record.module_path() {
             Some(path) => path,
-            None => return,
+            None => {
+                return
+            },
         };
 
         let message = if record.level() == LevelFilter::Debug {
