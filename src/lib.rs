@@ -63,10 +63,12 @@ lazy_static! {
         // Hash40::from("tonelabel")
     ];
 
-    static ref BLACKLISTED_FILES: [Hash40; 3] = [
+    static ref BLACKLISTED_FILES: [Hash40; 5] = [
         Hash40::from("fighter/pacman/model/firehydrant/c00/firehydrant.lvd"),
         Hash40::from("fighter/pickel/model/forge/c00/forge.lvd"),
         Hash40::from("fighter/kamui/motion/ryusensya/c00/motion_list.bin"),
+        Hash40::from("fighter/samusd/motion/bunshin/c00/motion_list.bin"),
+        Hash40::from("fighter/samusd/motion/bunshin/c00/j02win2.nuanmb"),
     ];
 
     static ref BLACKLISTED_DIRECTORIES: [Hash40; 1] = [
