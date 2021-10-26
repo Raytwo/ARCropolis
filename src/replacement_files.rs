@@ -179,7 +179,7 @@ impl ModFiles {
         if config.paths.arc.exists() {
             crate::fs::visit::discovery(arc, &config.paths.arc, &mut discover_results);
         } else {
-            std::fs::create_dir_all(&config.paths.arc);
+            std::fs::create_dir_all("sd:/atmosphere/contents/01006A800016E000/romfs/arc");
         }
         // UMM mods
         if config.paths.umm.exists() {
