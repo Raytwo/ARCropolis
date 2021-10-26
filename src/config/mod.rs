@@ -176,7 +176,7 @@ impl Config {
                     < Version::parse(&env!("CARGO_PKG_VERSION").to_string())
                 {
                     println!("[ARC::Config] Configuration file version mismatch");
-                    skyline_web::DialogOk::ok("Updating configuration file to latest format");
+                    crate::api::show_dialog("Updating configuration file to latest format");
                     println!("[ARC::Config] Changing version number...");
 
                     config.infos.version = env!("CARGO_PKG_VERSION").to_string();
@@ -192,7 +192,7 @@ impl Config {
             }
             // File does not exist, generate it
             Err(_) => {
-                skyline_web::DialogOk::ok("Thank you for installing ARCropolis!\n\nConfiguration file will now be generated");
+                crate::api::show_dialog("Thank you for installing ARCropolis!\n\nConfiguration file will now be generated");
                 println!("[ARC::Config] Configuration file not found. Generating a new one...");
 
                 let config = Config::new();
