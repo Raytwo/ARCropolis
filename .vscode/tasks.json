@@ -12,7 +12,7 @@
         {
             "label": "cargo skyline run",
             "type": "shell",
-            "command": "cargo skyline run --no-default-features",
+            "command": "cargo skyline run --no-default-features --features \"config\"",
             "group": {
                 "kind": "build",
                 "isDefault": true
