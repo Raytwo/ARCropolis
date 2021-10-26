@@ -8,6 +8,7 @@ use skyline::nn;
 use skyline_web::{ramhorns, Webpage};
 use std::ffi::CString;
 use std::path::Path;
+use std::path::PathBuf;
 
 #[derive(Debug, ramhorns::Content)]
 pub struct Entries {
@@ -141,10 +142,15 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
 }
 
 pub fn show_arcadia() {
-    let workspace = CONFIG.read().paths.umm.to_str().unwrap().to_string();
+    let workspace = PathBuf::from(CONFIG.read().paths.umm.to_str().unwrap());
+
+    if !workspace.exists() {
+        crate::api::show_dialog("It seems the directory specified in your configuration does not exist.");
+        return;
+    }
 
     let mut mods: Entries = Entries {
-        entries: get_mods(&workspace),
+        entries: get_mods(&workspace.to_str().unwrap()),
         workspace: Path::new(&workspace)
             .file_name()
             .unwrap()

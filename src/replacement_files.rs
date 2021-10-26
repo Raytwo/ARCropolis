@@ -178,10 +178,15 @@ impl ModFiles {
         // ARC mods
         if config.paths.arc.exists() {
             crate::fs::visit::discovery(arc, &config.paths.arc, &mut discover_results);
+        } else {
+            std::fs::create_dir_all(&config.paths.arc);
         }
         // UMM mods
         if config.paths.umm.exists() {
             crate::fs::visit::umm_discovery(arc, &config.paths.umm, &mut discover_results);
+        } else {
+            std::fs::create_dir_all(&config.paths.umm);
+
         }
 
         if let Some(extra_paths) = &config.paths.extra_paths {
