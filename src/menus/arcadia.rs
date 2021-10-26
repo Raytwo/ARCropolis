@@ -22,6 +22,7 @@ pub struct Entry {
     folder_name: Option<String>,
     is_disabled: Option<bool>,
     display_name: Option<String>,
+    authors: Option<Vec<String>>,
     version: Option<String>,
     description: Option<String>,
     category: Option<String>,
@@ -104,6 +105,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                     is_disabled: Some(disabled),
                     display_name: Some(folder_name.clone()),
                     version: Some("???".to_string()),
+                    authors: Some(vec![String::new()]),
                     description: Some("".to_string()),
                     category: Some("Misc".to_string()),
                     image: Some(format!("{}/preview.webp", path_to_be_used)),
@@ -114,9 +116,11 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                     Ok(res) => {
                         Entry {
                             id: Some(i as u32),
-                            folder_name: Some(folder_name),
+                            folder_name: Some(folder_name.clone()),
                             is_disabled: Some(disabled),
+                            display_name: Some(folder_name.clone()),
                             image: Some(format!("{}/preview.webp", path_to_be_used)),
+                            authors: res.authors,
                             description: Some(res.description
                                 .unwrap_or_else(String::new)
                                 .replace("\n", "<br>")),
@@ -163,7 +167,7 @@ pub fn show_arcadia() {
     mods.entries.sort_by(|a, b| {
         a.display_name
             .as_ref()
-            .unwrap()
+            .unwrap_or(a.folder_name.as_ref().unwrap())
             .to_ascii_lowercase()
             .cmp(&b.display_name.as_ref().unwrap().to_ascii_lowercase())
     });
@@ -214,7 +218,15 @@ pub fn show_arcadia() {
     match response.get_last_url().unwrap() {
         "http://localhost/" => {}
         url => {
-            let res = percent_decode_str(&url[LOCALHOST.len()..])
+            match url {
+                "http://localhost/refresh" => {
+                    let thread = std::thread::spawn(|| crate::replacement_files::MOD_FILES.write().reinitialize());
+                    skyline_web::DialogOk::ok("Please be patient, ARCropolis is refreshing its cache.");
+                    thread.join().unwrap();
+                    skyline_web::DialogOk::ok("ARCropolis has refreshed its cache.");
+                }
+                _ => {
+                    let res = percent_decode_str(&url[LOCALHOST.len()..])
                 .decode_utf8_lossy()
                 .into_owned();
 
@@ -250,6 +262,8 @@ pub fn show_arcadia() {
                 skyline_web::DialogOk::ok("ARCropolis has refreshed its cache.");
                 // skyline_web::DialogOk::ok("Mods have been toggled!<br>Please reboot Smash to refresh ARCropolis' cache to prevent the game from crashing.");
                 // skyline::nn::oe::RestartProgramNoArgs();
+            }
+                }
             }
         }
     }
