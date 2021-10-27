@@ -1,50 +1,76 @@
+use std::path::PathBuf;
+
 use serde_derive::{Deserialize, Serialize};
 
-static CONFIG_PATH: &'static str = "sd:/ultimate/arcropolis/config.toml";
+lazy_static! {
+    static ref CONFIG_PATH: PathBuf = {
+        let path = PathBuf::from("sd:/ultimate/arcropolis");
+        match std::fs::create_dir_all(&path) {
+            Err(_) => panic!("ARCropolis failed to find/create required directory 'sd:/ultimate/arcropolis'"),
+            _ => {}
+        }
+        path.join("config.toml")
+    };
+}
+
+
+fn arcropolis_version() -> String { env!("CARGO_PKG_VERSION").to_string() }
+const fn always_true() -> bool { true }
+const fn always_false() -> bool { false }
+fn default_arc_path() -> String { "rom:/arc".to_string() }
+fn default_umm_path() -> String { "sd:/ultimate/mods".to_string() }
+fn default_logger_level() -> String { "Warn".to_string() }
 
 lazy_static! {
     static ref GLOBAL_CONFIG: Config = {
-        let config = match std::fs::read_to_string(CONFIG_PATH) {
-            Ok(toml) => {
-                match toml::de::from_str(toml.as_str()) {
-                    Ok(config) => Config::from_intermediate(config),
-                    Err(_) => {
-                        warn!("Unable to read config file, generating new one.");
-                        Config::new()
-                    }
+
+        let config = match std::fs::read_to_string(&*CONFIG_PATH) {
+            Ok(toml) => match toml::de::from_str(toml.as_str()) {
+                Ok(config) => config,
+                Err(_) => {
+                    error!("Unable to read config file, generating new one.");
+                    Config::new()
                 }
             },
             Err(_) => {
-                warn!("Unable to read config file, generating new one.");
+                error!("Unable to read config file, generating new one.");
                 Config::new()
             }
         };
 
         match toml::ser::to_string_pretty(&config) {
-            Ok(string) => {
-                match std::fs::write(CONFIG_PATH, string.as_bytes()) {
-                    Err(_) => warn!("Unable to write config file."),
-                    _ => {}
-                }
+            Ok(string) => match std::fs::write(&*CONFIG_PATH, string.as_bytes()) {
+                Err(_) => error!("Unable to write config file."),
+                _ => {}
             },
-            Err(_) => warn!("Failed to serialize config data.")
+            Err(_) => error!("Failed to serialize config data."),
         }
 
         config
     };
 }
 
-trait FromIntermediate<I> {
+pub trait FromIntermediate<I> {
     fn from_intermediate(int: I) -> Self;
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct Config {
+    #[serde(skip_deserializing)]
+    #[serde(default = "arcropolis_version")]
     pub version: String,
+
+    #[serde(default = "always_false")]
     pub debug: bool,
+    
+    #[serde(default = "always_true")]
     pub auto_update: bool,
+    
+    #[serde(default = "ConfigPaths::new")]
     pub paths: ConfigPaths,
-    pub logger: ConfigLogger
+
+    #[serde(default = "ConfigLogger::new")]
+    pub logger: ConfigLogger,
 }
 
 impl Config {
@@ -54,45 +80,20 @@ impl Config {
             debug: false,
             auto_update: true,
             paths: ConfigPaths::new(),
-            logger: ConfigLogger::new()
+            logger: ConfigLogger::new(),
         }
     }
 }
-
-impl FromIntermediate<IConfig> for Config {
-    fn from_intermediate(int: IConfig) -> Self {
-        let version = String::from(env!("CARGO_PKG_VERSION")); // We don't care what the previous version was
-        let IConfig { debug, auto_update, paths, logger, ..} = int;
-        let debug = debug.unwrap_or(false);
-        let auto_update = auto_update.unwrap_or(true);
-        let paths = paths
-            .map_or(ConfigPaths::new(), |x| ConfigPaths::from_intermediate(x));
-        let logger = logger
-            .map_or(ConfigLogger::new(), |x| ConfigLogger::from_intermediate(x));
-        Self {
-            version,
-            debug,
-            auto_update,
-            paths,
-            logger
-        }
-    }
-}
-
-#[derive(Deserialize)]
-struct IConfig {
-    pub version: Option<String>,
-    pub debug: Option<bool>,
-    pub auto_update: Option<bool>,
-    pub paths: Option<IConfigPaths>,
-    pub logger: Option<IConfigLogger>
-}
-
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct ConfigPaths {
+    #[serde(default = "default_arc_path")]
     pub arc: String,
+
+    #[serde(default = "default_umm_path")]
     pub umm: String,
-    pub extra_paths: Vec<String>
+
+    #[serde(default)]
+    pub extra_paths: Vec<String>,
 }
 
 impl ConfigPaths {
@@ -100,65 +101,27 @@ impl ConfigPaths {
         Self {
             arc: String::from("rom:/arc"),
             umm: String::from("sd:/ultimate/mods"),
-            extra_paths: Vec::new()
+            extra_paths: Vec::new(),
         }
     }
 }
 
-impl FromIntermediate<IConfigPaths> for ConfigPaths {
-    fn from_intermediate(int: IConfigPaths) -> Self {
-        let IConfigPaths { arc, umm, extra_paths } = int;
-        let arc = arc.unwrap_or(String::from("rom:/arc"));
-        let umm = umm.unwrap_or(String::from("sd:/ultimate/mods"));
-        let extra_paths = extra_paths.unwrap_or(Vec::new());
-        Self {
-            arc,
-            umm,
-            extra_paths
-        }
-    }
-}
-
-#[derive(Deserialize)]
-struct IConfigPaths {
-    pub arc: Option<String>,
-    pub umm: Option<String>,
-    pub extra_paths: Option<Vec<String>>
-}
-
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 struct ConfigLogger {
+    #[serde(default = "default_logger_level")]
     pub logger_level: String,
-    pub log_to_file: bool
+
+    #[serde(default = "always_true")]
+    pub log_to_file: bool,
 }
 
 impl ConfigLogger {
     pub fn new() -> Self {
         Self {
             logger_level: String::from("Warn"),
-            log_to_file: false
+            log_to_file: false,
         }
     }
-}
-
-impl FromIntermediate<IConfigLogger> for ConfigLogger {
-    fn from_intermediate(int: IConfigLogger) -> Self {
-        let IConfigLogger { logger_level, log_to_file } = int;
-
-        let logger_level = logger_level.unwrap_or(String::from("Warn"));
-        let log_to_file = log_to_file.unwrap_or(false);
-
-        Self {
-            logger_level,
-            log_to_file
-        }
-    }
-}
-
-#[derive(Deserialize, Serialize)]
-struct IConfigLogger {
-    pub logger_level: Option<String>,
-    pub log_to_file: Option<bool>
 }
 
 pub fn auto_update_enabled() -> bool {
