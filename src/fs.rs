@@ -171,15 +171,11 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
                 error.display(),
                 kept.display()
             ),
-            ConflictKind::RootConflict(errors, kept) => {
-                for error in errors {
-                    warn!(
-                        "File '{}' was rejected due to a root conflict with file '{}' during discovery.",
-                        error.display(),
-                        kept.display()
-                    );
-                }
-            }
+            ConflictKind::RootConflict(root_path, kept) => warn!(
+                "Mod root '{}' was rejected for a file conflict with '{}' during discovery.",
+                root_path.display(),
+                kept.display()
+            )
         }
     }
 

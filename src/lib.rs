@@ -64,7 +64,7 @@ fn initial_loading(_ctx: &InlineCtx) {
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     
-    // init_time();
+    init_time();
 
     if let Err(err) = logging::init(
         LevelFilter::from_str(config::logger_level()).unwrap_or(LevelFilter::Warn),
