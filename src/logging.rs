@@ -9,7 +9,6 @@ use std::{
 };
 
 use crate::config;
-use regex::Regex;
 
 fn format_time_string(seconds: u64) -> String {
     let leapyear = |year| -> bool { year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) };
@@ -54,8 +53,19 @@ fn format_time_string(seconds: u64) -> String {
 }
 
 fn strip_color<S: AsRef<str>>(string: S) -> String {
-    let re = Regex::new("\x1b\\[.[^m]*.").unwrap();
-    re.replace_all(string.as_ref(), "").to_string()
+    let mut string = string.as_ref().to_string();
+    loop {
+        if let Some(index) = string.find("\x1b[") {
+            if let Some(index2) = string.split_at(index).1.find("m") {
+                string.replace_range(index..=index2, "");
+            } else {
+                break;
+            }
+        } else {
+            break;
+        }
+    }
+    string
 }
 
 static LOG_PATH: &'static str = "sd:/ultimate/arcropolis/logs";

@@ -105,7 +105,6 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
             Some(name) if let Some(name) = name.to_str() => {
                 static RESERVED_NAMES: &[&'static str] = &[
                     "info.toml",
-                    ".cache"
                 ];
                 RESERVED_NAMES.contains(&name)
             },
