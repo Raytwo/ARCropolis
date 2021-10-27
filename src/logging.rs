@@ -1,4 +1,3 @@
-use std::{fs::File, io::{BufWriter, Write}, ops::Deref, path::PathBuf, time::SystemTime};
 use log::{LevelFilter, Metadata, Record, SetLoggerError};
 use parking_lot::Mutex;
 use std::{
