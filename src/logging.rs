@@ -1,3 +1,4 @@
+use std::{fs::File, io::{BufWriter, Write}, ops::Deref, path::PathBuf, time::SystemTime};
 use log::{LevelFilter, Metadata, Record, SetLoggerError};
 use parking_lot::Mutex;
 use std::{
@@ -41,6 +42,7 @@ fn format_time_string(seconds: u64) -> String {
         day_number -= YEAR_TABLE[if leapyear(year) { 1 } else { 0 }][month];
         month += 1;
     }
+  
     format!(
         "{:04}-{:02}-{:02}_{:02}-{:02}-{:02}",
         year,
