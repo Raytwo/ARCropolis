@@ -21,6 +21,7 @@ mod fs;
 mod logging;
 mod offsets;
 mod resource;
+mod replacement;
 mod update;
 
 use fs::GlobalFilesystem;
@@ -111,6 +112,7 @@ pub fn main() {
     
 
     skyline::install_hooks!(initial_loading);
+    replacement::install();
 
     // Wait on updater since we don't want to crash if we have to restart (can happen I suppose)
     let _ = updater.join();

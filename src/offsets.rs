@@ -211,3 +211,15 @@ pub fn initial_loading() -> usize {
 pub fn filesystem_info() -> usize {
     OFFSETS.filesystem_info
 }
+
+pub fn memcpy_1() -> usize {
+    OFFSETS.memcpy_1
+}
+
+pub fn memcpy_2() -> usize {
+    OFFSETS.memcpy_2
+}
+
+pub fn memcpy_3() -> usize {
+    OFFSETS.memcpy_3
+}
