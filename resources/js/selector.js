@@ -45,9 +45,8 @@ function getCurrentActiveContainer() {
 }
 
 function changeDivFromTo(from, to, workspace) {
-    selected_workspace = workspace;
-    
-    if(from == "workspaces"){
+    if(from == "workspaces") {
+        selected_workspace = workspace;
         var umm_exists = document.getElementById(workspace).classList.contains("umm_exists");
         var arc_exists = document.getElementById(workspace).classList.contains("arc_exists");
         var both_exists = umm_exists && arc_exists;
@@ -60,7 +59,13 @@ function changeDivFromTo(from, to, workspace) {
     $(`#${from}`).fadeOut(200);
     $(`#${from}`).promise().done(function () {
         $(`#${to}`).fadeIn(200);
-        $(`#${to}`).find("button").get(0).focus();
+        
+
+        if(to == "workspaces") {
+            $(`#${to}`).find($("button")[parseInt(selected_workspace) + 1]).get(0).focus();
+        } else {
+            $(`#${to}`).find("button").get(0).focus();
+        }
         // document.getElementById("test").innerHTML = $(`#${to}`).find("button").length;
     });
 }
