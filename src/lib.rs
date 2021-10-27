@@ -28,6 +28,7 @@ use fs::GlobalFilesystem;
 lazy_static! {
     pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> =
         RwLock::new(GlobalFilesystem::Uninitialized);
+    
     pub static ref CACHE_PATH: PathBuf = {
         let version_string = get_version_string();
         let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(version_string);
@@ -39,6 +40,7 @@ lazy_static! {
     };
 }
 
+/// Initializes the `nn::time` library, for creating a log file based off of the current time. For some reason Smash does not initialize this
 fn init_time() {
     unsafe {
         if !nn::time::IsInitialized() {
@@ -47,6 +49,7 @@ fn init_time() {
     }
 }
 
+/// Wrapper function for getting the version string of the game from nnSdk
 fn get_version_string() -> String {
     unsafe {
         let mut version_string = nn::oe::DisplayVersion { name: [0x00; 16] };
@@ -55,6 +58,8 @@ fn get_version_string() -> String {
     }
 }
 
+/// The core functionality of ARCropolis, this is where we ensure the filesystem has finished being loaded and combine it with the data.arc
+/// to create one cohesive Orbits layeredfs.
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     let mut filesystem = GLOBAL_FILESYSTEM.write();
@@ -64,8 +69,10 @@ fn initial_loading(_ctx: &InlineCtx) {
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     
+    // Initialize the time for the logger
     init_time();
 
+    // Attempt to initialize the logger, and if we fail we will just do a regular println
     if let Err(err) = logging::init(
         LevelFilter::from_str(config::logger_level()).unwrap_or(LevelFilter::Warn),
     ) {
@@ -75,6 +82,7 @@ pub fn main() {
         );
     }
 
+    // Acquire the filesystem and promise it to the initial_loading hook
     let mut filesystem = GLOBAL_FILESYSTEM.write();
 
     *filesystem = GlobalFilesystem::Promised(
@@ -86,6 +94,7 @@ pub fn main() {
             .unwrap(),
     );
 
+    // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
     let updater = std::thread::Builder::new()
     .stack_size(0x40000)
     .spawn(|| {
@@ -99,8 +108,10 @@ pub fn main() {
         }
     })
     .unwrap();
-        
+    
+
     skyline::install_hooks!(initial_loading);
 
+    // Wait on updater since we don't want to crash if we have to restart (can happen I suppose)
     let _ = updater.join();
 }
