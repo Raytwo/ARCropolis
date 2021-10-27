@@ -26,7 +26,7 @@ fn compare_tags(current: &str, target: &str) -> Result<Option<VersionDifference>
 
     if current.pre.is_empty() && !target.pre.is_empty() {
         Ok(Some(VersionDifference::ChangeToBeta))
-    } else if !current.pre.is_empty() && target.pre.is_empty() {
+    } else if !current.pre.is_empty() && target.pre.is_empty() && current < target {
         Ok(Some(VersionDifference::ChangeToStable))
     } else if target.gt(&current) {
         Ok(Some(VersionDifference::Regular))
