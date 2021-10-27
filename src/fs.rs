@@ -7,7 +7,7 @@ use smash_arc::{ArcLookup, Hash40, LoadedArc, LookupError, Region, SearchLookup}
 use crate::config;
 use std::{
     ops::Deref,
-    path::Path,
+    path::Path
 };
 
 use std::fmt;
@@ -42,6 +42,20 @@ impl GlobalFilesystem {
         let mut out = GlobalFilesystem::Uninitialized;
         std::mem::swap(self, &mut out);
         out
+    }
+
+    pub fn get(&self) -> &Orbit<ArcLoader, StandardLoader, StandardLoader> {
+        match self {
+            Self::Initialized(loader) => loader,
+            _ => panic!("Global Filesystem is not initialized!")
+        }
+    }
+
+    pub fn get_mut(&mut self) -> &mut Orbit<ArcLoader, StandardLoader, StandardLoader> {
+        match self {
+            Self::Initialized(loader) => loader,
+            _ => panic!("Global Filesystem is not initialized!")
+        }
     }
 }
 
@@ -164,6 +178,8 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
         }
     }
 
+    let should_prompt = !conflicts.is_empty();
+
     for conflict in conflicts.into_iter() {
         match conflict {
             ConflictKind::StandardConflict(error, kept) => warn!(
@@ -176,6 +192,14 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
                 root_path.display(),
                 kept.display()
             )
+        }
+    }
+
+    if should_prompt {
+        if config::file_logging_enabled() {
+            skyline_web::DialogOk::ok("During file discovery, ARCropolis encountered file conflicts.<br>See the latest log for more information.");
+        } else {
+            skyline_web::DialogOk::ok("During file discovery, ARCropolis encountered file conflicts.<br>Enable file logging and run again for more information.");
         }
     }
 
