@@ -4,6 +4,7 @@ use orbits::{
 };
 use smash_arc::{ArcLookup, Hash40, LoadedArc, LookupError, Region, SearchLookup};
 
+use crate::chainloader::{self, NrrBuilder};
 use crate::config;
 use std::{
     ops::Deref,
@@ -123,14 +124,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
             _ => false
         };
 
-        if !is_config {
-            match x.extension() {
-                Some(ext) if let Some(ext) = ext.to_str() => ext == "nro",
-                _ => false
-            }
-        } else {
-            is_config
-        }
+        is_config || x == Path::new("plugin.nro")
     };
 
     let mut launchpad = LaunchPad::new(
@@ -178,6 +172,31 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
             )
         }
     }
+
+    let fighter_nro_parent = Path::new("prebuilt;/nro/release");
+    let mut fighter_nro_nrr = NrrBuilder::new();
+
+    launchpad.patch.tree.walk_paths(|node, entry_type| {
+        match node.get_local().parent() {
+            Some(parent) if parent == fighter_nro_parent => {
+                info!("Reading '{}' for module registration.", node.full_path().display());
+                if let Ok(data) = std::fs::read(node.full_path()) {
+                    fighter_nro_nrr.add_module(data.as_slice());
+                }
+            },
+            _ => {}
+        }
+    });
+
+    match fighter_nro_nrr.register() {
+        Ok(_) => info!("Successfully registered fighter modules."),
+        Err(e) => {
+            error!("{:?}", e);
+            crate::dialog_error("ARCropolis failed to register module information for fighter modules.<br>You may experience infinite loading on some fighters.");
+        }
+    }
+
+    chainloader::load_and_run_plugins(&launchpad.patch.collected);
 
     launchpad
 }

@@ -10,6 +10,7 @@ use std::{
 
 use crate::config;
 
+/// Since we can't rely on most time based libraries, this is a seconds -> date/time string based on the `chrono` crates implementation
 fn format_time_string(seconds: u64) -> String {
     let leapyear = |year| -> bool { year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) };
 
@@ -53,6 +54,7 @@ fn format_time_string(seconds: u64) -> String {
     )
 }
 
+/// Removes ASCII escape sequences from our logging statements so that they don't look ugly when written to a file
 fn strip_color<S: AsRef<str>>(string: S) -> String {
     let mut string = string.as_ref().to_string();
     loop {
@@ -70,7 +72,7 @@ fn strip_color<S: AsRef<str>>(string: S) -> String {
 }
 
 static LOG_PATH: &'static str = "sd:/ultimate/arcropolis/logs";
-static FILE_LOG_BUFFER: usize = 0x2000;
+static FILE_LOG_BUFFER: usize = 0x2000; // Room for 0x2000 characters, might have performance issues if the logger level is "Info" or "Trace"
 struct FileLogger(Option<Mutex<BufWriter<File>>>);
 
 impl Deref for FileLogger {
@@ -91,6 +93,7 @@ impl FileLogger {
 }
 
 lazy_static! {
+    // Summon the file logger and create a file for it based on the current time (requires time to be initialized)
     static ref FILE_WRITER: FileLogger = {
         let seconds = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -103,6 +106,8 @@ lazy_static! {
                 FileLogger(None)
             },
             |file| {
+                // Spawn a log flusher, since we don't have the ability to flush the logger on application close, home button press,
+                // or crash (crashing technically can be done but ARCropolis is not the place to implement)
                 let _ = std::thread::spawn(|| {
                     std::thread::sleep(std::time::Duration::from_millis(2000));
                     log::logger().flush();
@@ -125,6 +130,7 @@ pub fn init(filter: LevelFilter) -> Result<(), SetLoggerError> {
 }
 
 impl log::Log for ArcLogger {
+    // Always log what we tell it to log
     fn enabled(&self, _metadata: &Metadata) -> bool {
         true
     }
@@ -161,6 +167,8 @@ impl log::Log for ArcLogger {
             format!("[{}] {}\n", module_path, record.args())
         };
 
+        // We allow two different log targets, one for specifically logging to the skyline logger and the other for specifically
+        // logging to a file. If no target is mentioned (or one that doesn't exist) we log to both.
         match record.target() {
             "std" => {
                 print!("{}", message);
@@ -179,6 +187,7 @@ impl log::Log for ArcLogger {
         }
     }
 
+    // Only matters for writing to a file
     fn flush(&self) {
         if config::file_logging_enabled() {
             if let Some(writer) = &**FILE_WRITER {
