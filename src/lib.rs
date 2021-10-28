@@ -16,6 +16,7 @@ extern crate log;
 use parking_lot::RwLock;
 use skyline::{hooks::InlineCtx, nn};
 
+mod chainloader;
 mod config;
 mod fs;
 mod logging;
@@ -38,6 +39,15 @@ lazy_static! {
         }
         path
     };
+}
+
+/// Basic code for displaying an ARCropolis dialog error informing the user to check their logs, or enable them if they don't currently.
+fn dialog_error<S: AsRef<str>>(msg: S) {
+    if config::file_logging_enabled() {
+        skyline_web::DialogOk::ok(format!("{}<br>See the latest log for more information.", msg.as_ref()));
+    } else {
+        skyline_web::DialogOk::ok(format!("{}<br>Enable file logging and run again for more information.", msg.as_ref()));
+    }
 }
 
 /// Initializes the `nn::time` library, for creating a log file based off of the current time. For some reason Smash does not initialize this
