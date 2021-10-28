@@ -1,10 +1,12 @@
+use orbits::Tree;
 use orbits::{
     orbit::LaunchPad, ConflictHandler, ConflictKind, DiscoverSystem, FileEntryType, FileLoader,
     Orbit, StandardLoader,
 };
+use skyline::nn::ro::RegistrationInfo;
 use smash_arc::{ArcLookup, Hash40, LoadedArc, LookupError, Region, SearchLookup};
 
-use crate::chainloader::{self, NrrBuilder};
+use crate::chainloader::{self, NrrBuilder, NrrRegistrationFailedError};
 use crate::config;
 use std::{
     ops::Deref,
@@ -105,6 +107,26 @@ impl FileLoader for ArcLoader {
     }
 }
 
+fn mount_prebuilt_nrr<A: FileLoader>(tree: &Tree<A>) -> Result<RegistrationInfo, NrrRegistrationFailedError>
+where <A as FileLoader>::ErrorType: std::fmt::Debug {
+    let fighter_nro_parent = Path::new("prebuilt;/nro/release");
+    let mut fighter_nro_nrr = NrrBuilder::new();
+
+    tree.walk_paths(|node, entry_type| {
+        match node.get_local().parent() {
+            Some(parent) if parent == fighter_nro_parent => {
+                info!("Reading '{}' for module registration.", node.full_path().display());
+                if let Ok(data) = std::fs::read(node.full_path()) {
+                    fighter_nro_nrr.add_module(data.as_slice());
+                }
+            },
+            _ => {}
+        }
+    });
+
+    fighter_nro_nrr.register()
+}
+
 pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
     let filter = |x: &Path| {
         match x.file_name() {
@@ -197,22 +219,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
         }
     }
 
-    let fighter_nro_parent = Path::new("prebuilt;/nro/release");
-    let mut fighter_nro_nrr = NrrBuilder::new();
-
-    launchpad.patch.tree.walk_paths(|node, entry_type| {
-        match node.get_local().parent() {
-            Some(parent) if parent == fighter_nro_parent => {
-                info!("Reading '{}' for module registration.", node.full_path().display());
-                if let Ok(data) = std::fs::read(node.full_path()) {
-                    fighter_nro_nrr.add_module(data.as_slice());
-                }
-            },
-            _ => {}
-        }
-    });
-
-    match fighter_nro_nrr.register() {
+    match mount_prebuilt_nrr(&launchpad.patch.tree) {
         Ok(_) => info!("Successfully registered fighter modules."),
         Err(e) => {
             error!("{:?}", e);
