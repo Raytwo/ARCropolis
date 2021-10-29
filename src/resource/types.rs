@@ -69,7 +69,7 @@ pub struct FilesystemInfo {
     pub unk3: u8,
     pub unk4: [u8; 7],
     pub addr: *const (),
-    pub path_info: PathInformation,
+    pub path_info: &'static mut PathInformation,
     pub version: u32,
 }
 

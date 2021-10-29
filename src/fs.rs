@@ -7,7 +7,7 @@ use skyline::nn::{self, ro::{Module, RegistrationInfo}};
 use smash_arc::{ArcLookup, Hash40, LoadedArc, LookupError, Region, SearchLookup};
 
 use crate::chainloader::{NroBuilder, NrrBuilder, NrrRegistrationFailedError};
-use crate::config;
+use crate::{config, hashes};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{
@@ -55,6 +55,11 @@ impl GlobalFilesystem {
                             } else {
                                 error!("Failed to generate smash hash for path '{}' -- this file will not be replaced.", node.full_path().display());
                             }
+                        }
+
+                        // Add all hashes from our file discovery to the global hashes, so that added files also get logged correctly when they are loaded
+                        if let Some(path) = node.get_local().as_os_str().to_str() { 
+                            hashes::add(path);
                         }
                     });
                     Ok(Self::Initialized(CachedFilesystem {
@@ -109,6 +114,7 @@ impl Deref for ArcLoader {
         self.0
     }
 }
+
 impl FileLoader for ArcLoader {
     type ErrorType = LookupError;
 
@@ -313,6 +319,8 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
     }).collect();
 
     unsafe {
+        // Unfortunately, without unregistering this it will cause the game to crash, cause is unknown, but likely due to page alignment I'd guess
+        // It does not matter if we use only one NRR for both the prebuilt modules and the plugins, it will still cause a crash
         nn::ro::UnregisterModuleInfo(&mut registration_info);
     }
 
