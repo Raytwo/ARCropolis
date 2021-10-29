@@ -130,3 +130,11 @@ pub fn initialize(arc: Option<&LoadedArc>) {
     };
     *lookup_state = lookup;
 }
+
+pub fn get_dir_entry_for_file<H: Into<Hash40>>(hash: H) -> Option<(Hash40, usize)> {
+    let lut = UNSHARE_LOOKUP.read();
+    match &*lut {
+        UnshareLookupState::Generated(lut) => lut.get(&hash.into()).map(|x| *x),
+        _ => None,
+    }
+}
