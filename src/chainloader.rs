@@ -5,7 +5,6 @@ use std::ops::Deref;
 use skyline::{nn, libc};
 use nn::ro::{self, NrrHeader, RegistrationInfo, Module};
 use std::mem::MaybeUninit;
-use crate::config;
 
 macro_rules! align_up {
     ($x:expr, $a:expr) => {

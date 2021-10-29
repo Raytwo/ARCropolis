@@ -8,12 +8,16 @@ use smash_arc::{ArcLookup, Hash40, LoadedArc, LookupError, Region, SearchLookup}
 
 use crate::chainloader::{self, NrrBuilder, NrrRegistrationFailedError};
 use crate::config;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::{
     ops::Deref,
     path::Path
 };
 
 use std::fmt;
+
+type ApiLoader = StandardLoader; // temporary until an actual ApiLoader is implemented
 
 pub struct FilesystemUninitializedError;
 
@@ -23,10 +27,15 @@ impl fmt::Debug for FilesystemUninitializedError {
     }
 }
 
+pub struct CachedFilesystem {
+    loader: Orbit<ArcLoader, StandardLoader, ApiLoader>,
+    hash_lookup: HashMap<Hash40, PathBuf>
+}
+
 pub enum GlobalFilesystem {
     Uninitialized,
     Promised(std::thread::JoinHandle<LaunchPad<StandardLoader, StandardLoader>>),
-    Initialized(Orbit<ArcLoader, StandardLoader, StandardLoader>),
+    Initialized(CachedFilesystem),
 }
 
 impl GlobalFilesystem {
@@ -34,7 +43,24 @@ impl GlobalFilesystem {
         match self {
             Self::Uninitialized => Err(FilesystemUninitializedError),
             Self::Promised(promise) => match promise.join() {
-                Ok(launchpad) => Ok(Self::Initialized(launchpad.launch(ArcLoader(arc)))),
+                Ok(launchpad) => {
+                    let mut hashed_paths = HashMap::new();
+                    launchpad.patch.tree.walk_paths(|node, entry_type| {
+                        if entry_type.is_file() {
+                            if let Ok(hash) = crate::get_smash_hash(node.get_local()) {
+                                if let Some(previous_path) = hashed_paths.insert(hash, node.get_local().to_path_buf()) {
+                                    error!("Found duplicate file path in the filesystem: {}", previous_path.display());
+                                }
+                            } else {
+                                error!("Failed to generate smash hash for path '{}' -- this file will not be replaced.", node.full_path().display());
+                            }
+                        }
+                    });
+                    Ok(Self::Initialized(CachedFilesystem {
+                        loader: launchpad.launch(ArcLoader(arc)),
+                        hash_lookup: hashed_paths
+                    }))
+                },
                 Err(_) => Err(FilesystemUninitializedError),
             },
             Self::Initialized(filesystem) => Ok(Self::Initialized(filesystem)),
@@ -49,15 +75,22 @@ impl GlobalFilesystem {
 
     pub fn get(&self) -> &Orbit<ArcLoader, StandardLoader, StandardLoader> {
         match self {
-            Self::Initialized(loader) => loader,
+            Self::Initialized(fs) => &fs.loader,
             _ => panic!("Global Filesystem is not initialized!")
         }
     }
 
     pub fn get_mut(&mut self) -> &mut Orbit<ArcLoader, StandardLoader, StandardLoader> {
         match self {
-            Self::Initialized(loader) => loader,
+            Self::Initialized(fs) => &mut fs.loader,
             _ => panic!("Global Filesystem is not initialized!")
+        }
+    }
+
+    pub fn hash(&self, hash: Hash40) -> Option<&PathBuf> {
+        match self {
+            Self::Initialized(fs) => fs.hash_lookup.get(&hash),
+            _ => None
         }
     }
 }

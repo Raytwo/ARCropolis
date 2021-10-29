@@ -3,7 +3,7 @@
 #![feature(if_let_guard)]
 #![feature(path_try_exists)]
 
-use std::{path::PathBuf, str::FromStr};
+use std::{fmt, path::{Path, PathBuf}, str::FromStr};
 
 use log::LevelFilter;
 
@@ -26,6 +26,7 @@ mod replacement;
 mod update;
 
 use fs::GlobalFilesystem;
+use smash_arc::Hash40;
 
 lazy_static! {
     pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> =
@@ -49,6 +50,27 @@ fn dialog_error<S: AsRef<str>>(msg: S) {
     } else {
         skyline_web::DialogOk::ok(format!("{}<br>Enable file logging and run again for more information.", msg.as_ref()));
     }
+}
+
+pub struct InvalidOsStrError;
+
+impl fmt::Debug for InvalidOsStrError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Failed to convert from OsStr to &str")
+    }
+}
+
+/// Basic code for getting a hash40 from a path, ignoring things like if it exists
+fn get_smash_hash<P: AsRef<Path>>(path: P) -> Result<Hash40, InvalidOsStrError> {
+    let path = path
+        .as_ref()
+        .as_os_str()
+        .to_str()
+        .map_or(Err(InvalidOsStrError), |x| Ok(x))?
+        .to_lowercase()
+        .replace(";", ":");
+
+    Ok(Hash40::from(path.trim_start_matches("/")))
 }
 
 /// Initializes the `nn::time` library, for creating a log file based off of the current time. For some reason Smash does not initialize this
