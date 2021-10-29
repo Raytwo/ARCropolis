@@ -3,10 +3,10 @@ use orbits::{
     orbit::LaunchPad, ConflictHandler, ConflictKind, DiscoverSystem, FileEntryType, FileLoader,
     Orbit, StandardLoader,
 };
-use skyline::nn::ro::RegistrationInfo;
+use skyline::nn::{self, ro::{Module, RegistrationInfo}};
 use smash_arc::{ArcLookup, Hash40, LoadedArc, LookupError, Region, SearchLookup};
 
-use crate::chainloader::{self, NrrBuilder, NrrRegistrationFailedError};
+use crate::chainloader::{NroBuilder, NrrBuilder, NrrRegistrationFailedError};
 use crate::config;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -141,7 +141,7 @@ impl FileLoader for ArcLoader {
     }
 }
 
-fn mount_prebuilt_nrr<A: FileLoader>(tree: &Tree<A>) -> Result<RegistrationInfo, NrrRegistrationFailedError>
+fn mount_prebuilt_nrr<A: FileLoader>(tree: &Tree<A>) -> Result<Option<RegistrationInfo>, NrrRegistrationFailedError>
 where <A as FileLoader>::ErrorType: std::fmt::Debug {
     let fighter_nro_parent = Path::new("prebuilt;/nro/release");
     let mut fighter_nro_nrr = NrrBuilder::new();
@@ -250,14 +250,94 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
     }
 
     match mount_prebuilt_nrr(&launchpad.patch.tree) {
-        Ok(_) => info!("Successfully registered fighter modules."),
+        Ok(Some(_)) => info!("Successfully registered fighter modules."),
+        Ok(_) => info!("No fighter modules found to register."),
         Err(e) => {
             error!("{:?}", e);
             crate::dialog_error("ARCropolis failed to register module information for fighter modules.<br>You may experience infinite loading on some fighters.");
         }
     }
 
-    chainloader::load_and_run_plugins(&launchpad.patch.collected);
+    load_and_run_plugins(&launchpad.patch.collected);
 
     launchpad
+}
+
+pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
+    let mut plugin_nrr = NrrBuilder::new();
+
+    let modules: Vec<NroBuilder> = plugins.iter().filter_map(|(root, local)| {
+        let full_path = root.join(local);
+
+        if full_path.exists() && full_path.ends_with("plugin.nro") {
+            match NroBuilder::open(&full_path) {
+                Ok(builder) => {
+                    info!("Loaded plugin at '{}' for chainloading.", full_path.display());
+                    plugin_nrr.add_module(&builder);
+                    Some(builder)
+                },
+                Err(e) => {
+                    error!("Failed to load plugin at '{}'. {:?}", full_path.display(), e);
+                    None
+                }
+            }
+        } else {
+            error!("File discovery collected path '{}' but it does not exist and/or is invalid!", full_path.display());
+            None
+        }
+    }).collect();
+
+    if modules.is_empty() {
+        info!("No plugins found for chainloading.");
+        return;
+    }
+
+    let mut registration_info = match plugin_nrr.register() {
+        Ok(Some(info)) => info,
+        Ok(_) => return,
+        Err(e) => {
+            error!("{:?}", e);
+            crate::dialog_error("ARCropolis failed to register plugin module info.");
+            return;
+        }
+    };
+
+    let modules: Vec<Module> = modules.into_iter().filter_map(|x| {
+        match x.mount() {
+            Ok(module) => Some(module),
+            Err(e) => {
+                error!("Failed to mount chainloaded plugin. {:?}", e);
+                None
+            }
+        }
+    }).collect();
+
+    unsafe {
+        nn::ro::UnregisterModuleInfo(&mut registration_info);
+    }
+
+    if modules.len() < plugins.len() {
+        crate::dialog_error("ARCropolis failed to load/mount some plugins.");
+    } else {
+        info!("Successfully chainloaded all collected plugins.");
+    }
+
+    for module in modules.into_iter() {
+        let callable = unsafe {
+            let mut sym_loc = 0usize;
+            let rc = nn::ro::LookupModuleSymbol(&mut sym_loc, &module, "main\0".as_ptr() as _);
+            if rc != 0 {
+                warn!("Failed to find symbol 'main' in chainloaded plugin.");
+                None
+            } else {
+                Some(std::mem::transmute::<usize, extern "C" fn()>(sym_loc))
+            }
+        };
+
+        if let Some(entrypoint) = callable {
+            info!("Calling 'main' in chainloaded plugin"); 
+            entrypoint();
+            info!("Finished calling 'main' in chainloaded plugin");
+        }
+    }
 }
