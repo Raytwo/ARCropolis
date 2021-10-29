@@ -2,6 +2,7 @@
 #![feature(proc_macro_hygiene)]
 #![feature(if_let_guard)]
 #![feature(path_try_exists)]
+#![feature(map_try_insert)] // for not overwriting previously stored hashes
 
 use std::{fmt, path::{Path, PathBuf}, str::FromStr};
 
@@ -19,6 +20,7 @@ use skyline::{hooks::InlineCtx, nn};
 mod chainloader;
 mod config;
 mod fs;
+mod hashes;
 mod logging;
 mod offsets;
 mod resource;
@@ -95,8 +97,10 @@ fn get_version_string() -> String {
 /// to create one cohesive Orbits layeredfs.
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
+    let arc = resource::arc();
+    replacement::lookup::initialize(Some(arc));
     let mut filesystem = GLOBAL_FILESYSTEM.write();
-    *filesystem = filesystem.take().finish(resource::arc()).unwrap();
+    *filesystem = filesystem.take().finish(arc).unwrap();
 }
 
 #[skyline::main(name = "arcropolis")]
@@ -127,20 +131,28 @@ pub fn main() {
             .unwrap(),
     );
 
+    let resources = std::thread::Builder::new()
+        .stack_size(0x40000)
+        .spawn(|| {
+            hashes::init();
+            replacement::lookup::initialize(None);
+        })
+        .unwrap();
+
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
     let updater = std::thread::Builder::new()
-    .stack_size(0x40000)
-    .spawn(|| {
-        if config::auto_update_enabled() {
-            update::check_for_updates(true, |update_kind| {
-                skyline_web::Dialog::yes_no(format!(
-                    "{} has been detected. Do you want to install it?",
-                    update_kind
-                ))
-            });
-        }
-    })
-    .unwrap();
+        .stack_size(0x40000)
+        .spawn(|| {
+            if config::auto_update_enabled() {
+                update::check_for_updates(true, |update_kind| {
+                    skyline_web::Dialog::yes_no(format!(
+                        "{} has been detected. Do you want to install it?",
+                        update_kind
+                    ))
+                });
+            }
+        })
+        .unwrap();
     
 
     skyline::install_hooks!(initial_loading);
@@ -148,4 +160,6 @@ pub fn main() {
 
     // Wait on updater since we don't want to crash if we have to restart (can happen I suppose)
     let _ = updater.join();
+    // Wait on hashes/lut to finish
+    let _ = resources.join();
 }
