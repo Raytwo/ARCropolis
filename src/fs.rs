@@ -212,11 +212,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
     }
 
     if should_prompt {
-        if config::file_logging_enabled() {
-            skyline_web::DialogOk::ok("During file discovery, ARCropolis encountered file conflicts.<br>See the latest log for more information.");
-        } else {
-            skyline_web::DialogOk::ok("During file discovery, ARCropolis encountered file conflicts.<br>Enable file logging and run again for more information.");
-        }
+        crate::dialog_error("During file discovery, ARCropolis encountered file conflicts.");
     }
 
     match mount_prebuilt_nrr(&launchpad.patch.tree) {
