@@ -230,7 +230,7 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
         match x.mount() {
             Ok(module) => Some(module),
             Err(e) => {
-                error!("Failed to mount chainloaded plugin.");
+                error!("Failed to mount chainloaded plugin. {:?}", e);
                 None
             }
         }

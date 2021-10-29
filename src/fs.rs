@@ -17,7 +17,8 @@ use std::{
 
 use std::fmt;
 
-type ApiLoader = StandardLoader; // temporary until an actual ApiLoader is implemented
+pub type ApiLoader = StandardLoader; // temporary until an actual ApiLoader is implemented
+pub type ArcropolisOrbit = Orbit<ArcLoader, StandardLoader, ApiLoader>;
 
 pub struct FilesystemUninitializedError;
 
@@ -28,13 +29,13 @@ impl fmt::Debug for FilesystemUninitializedError {
 }
 
 pub struct CachedFilesystem {
-    loader: Orbit<ArcLoader, StandardLoader, ApiLoader>,
+    loader: ArcropolisOrbit,
     hash_lookup: HashMap<Hash40, PathBuf>
 }
 
 pub enum GlobalFilesystem {
     Uninitialized,
-    Promised(std::thread::JoinHandle<LaunchPad<StandardLoader, StandardLoader>>),
+    Promised(std::thread::JoinHandle<LaunchPad<StandardLoader, ApiLoader>>),
     Initialized(CachedFilesystem),
 }
 
@@ -73,14 +74,14 @@ impl GlobalFilesystem {
         out
     }
 
-    pub fn get(&self) -> &Orbit<ArcLoader, StandardLoader, StandardLoader> {
+    pub fn get(&self) -> &ArcropolisOrbit {
         match self {
             Self::Initialized(fs) => &fs.loader,
             _ => panic!("Global Filesystem is not initialized!")
         }
     }
 
-    pub fn get_mut(&mut self) -> &mut Orbit<ArcLoader, StandardLoader, StandardLoader> {
+    pub fn get_mut(&mut self) -> &mut ArcropolisOrbit {
         match self {
             Self::Initialized(fs) => &mut fs.loader,
             _ => panic!("Global Filesystem is not initialized!")
@@ -147,7 +148,7 @@ where <A as FileLoader>::ErrorType: std::fmt::Debug {
 
     tree.walk_paths(|node, entry_type| {
         match node.get_local().parent() {
-            Some(parent) if parent == fighter_nro_parent => {
+            Some(parent) if entry_type.is_file() && parent == fighter_nro_parent => {
                 info!("Reading '{}' for module registration.", node.full_path().display());
                 if let Ok(data) = std::fs::read(node.full_path()) {
                     fighter_nro_nrr.add_module(data.as_slice());
