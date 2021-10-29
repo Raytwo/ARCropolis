@@ -4,7 +4,7 @@ use std::{
     fs::File,
     io::{BufWriter, Write},
     ops::Deref,
-    path::PathBuf,
+    path::Path,
     time::SystemTime,
 };
 
@@ -98,8 +98,8 @@ lazy_static! {
         let seconds = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .expect("Clock may have gone backwards!");
-        let path =
-            PathBuf::from(LOG_PATH).join(format!("{}.log", format_time_string(seconds.as_secs())));
+        let path = Path::new(LOG_PATH).join(format!("{}.log", format_time_string(seconds.as_secs())));
+        let _ = std::fs::create_dir_all(&path);
         std::fs::File::create(path).map_or_else(
             |_| {
                 error!(target: "std", "Unable to initialize the file logger!");
