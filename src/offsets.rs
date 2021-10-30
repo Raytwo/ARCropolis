@@ -212,6 +212,18 @@ pub fn filesystem_info() -> usize {
     OFFSETS.filesystem_info
 }
 
+pub fn res_service() -> usize {
+    OFFSETS.res_service
+}
+
+pub fn inflate() -> usize {
+    OFFSETS.inflate
+}
+
+pub fn inflate_dir_file() -> usize {
+    OFFSETS.inflate_dir_file
+}
+
 pub fn memcpy_1() -> usize {
     OFFSETS.memcpy_1
 }

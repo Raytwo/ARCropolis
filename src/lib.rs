@@ -28,7 +28,7 @@ mod replacement;
 mod update;
 
 use fs::GlobalFilesystem;
-use smash_arc::Hash40;
+use smash_arc::{Hash40, Region};
 
 lazy_static! {
     pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> =
@@ -43,6 +43,20 @@ lazy_static! {
         }
         path
     };
+}
+
+#[macro_export]
+macro_rules! reg_x {
+    ($ctx:ident, $no:expr) => {
+        unsafe { *$ctx.registers[$no].x.as_ref() }
+    }
+}
+
+#[macro_export]
+macro_rules! reg_w {
+    ($ctx:ident, $no:expr) => {
+        unsafe { *$ctx.registers[$no].w.as_ref() }
+    }
 }
 
 /// Basic code for displaying an ARCropolis dialog error informing the user to check their logs, or enable them if they don't currently.
@@ -93,8 +107,6 @@ fn get_version_string() -> String {
     }
 }
 
-/// The core functionality of ARCropolis, this is where we ensure the filesystem has finished being loaded and combine it with the data.arc
-/// to create one cohesive Orbits layeredfs.
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     let arc = resource::arc();
