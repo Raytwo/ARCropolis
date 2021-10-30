@@ -30,7 +30,8 @@ impl fmt::Debug for FilesystemUninitializedError {
 
 pub struct CachedFilesystem {
     loader: ArcropolisOrbit,
-    hash_lookup: HashMap<Hash40, PathBuf>
+    hash_lookup: HashMap<Hash40, PathBuf>,
+    incoming_load: Option<Hash40>
 }
 
 pub enum GlobalFilesystem {
@@ -64,7 +65,9 @@ impl GlobalFilesystem {
                     });
                     Ok(Self::Initialized(CachedFilesystem {
                         loader: launchpad.launch(ArcLoader(arc)),
-                        hash_lookup: hashed_paths
+                        hash_lookup: hashed_paths,
+                        incoming_load: None
+
                     }))
                 },
                 Err(_) => Err(FilesystemUninitializedError),
@@ -97,6 +100,57 @@ impl GlobalFilesystem {
         match self {
             Self::Initialized(fs) => fs.hash_lookup.get(&hash),
             _ => None
+        }
+    }
+
+    pub fn load_into(&self, hash: Hash40, buffer: &mut [u8]) -> bool {
+        if let Some(data) = self.load(hash) {
+            if data.len() <= buffer.len() {
+                error!("The size of the file data is larger than the size of the provided buffer when loading file '{}' ({:#x}).", hashes::find(hash), hash.0);
+                false
+            } else {
+                unsafe {
+                    std::ptr::copy_nonoverlapping(data.as_ptr(), buffer.as_mut_ptr(), data.len());
+                }
+                true
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn load(&self, hash: Hash40) -> Option<Vec<u8>> {
+        match self {
+            Self::Initialized(fs) if let Some(path) = fs.hash_lookup.get(&hash) => {
+                match fs.loader.load(path) {
+                    Ok(data) => Some(data),
+                    Err(e) => {
+                        error!("Failed to load data for '{}' ({:#x}). Reason: {:?}", path.display(), hash.0, e);
+                        None
+                    }
+                }
+            },
+            _ => {
+                error!("Cannot load data for '{}' ({:#x}) because the filesystem is not initialized!", hashes::find(hash), hash.0);
+                None
+            }
+        }
+    }
+
+    pub fn set_incoming(&mut self, hash: Hash40) {
+        match self {
+            Self::Initialized(fs) => fs.incoming_load = Some(hash),
+            _ => error!("Cannot set the incoming load to '{}' ({:#x}) because the filesystem is not initialized!", hashes::find(hash), hash.0)
+        }
+    }
+
+    pub fn take_incoming(&mut self) -> Option<Hash40> {
+        match self {
+            Self::Initialized(fs) => fs.incoming_load.take(),
+            _ => {
+                error!("Cannot get the incoming load because the filesystem is not initialized!");
+                None
+            }
         }
     }
 }
@@ -140,9 +194,9 @@ impl FileLoader for ArcLoader {
     }
 
     fn load_path(&self, _: &Path, local_path: &Path) -> Result<Vec<u8>, Self::ErrorType> {
-        match local_path.as_os_str().to_str() {
-            Some(path) => self.get_file_contents(Hash40::from(path), Region::None),
-            None => Err(LookupError::Missing),
+        match crate::get_smash_hash(local_path) {
+            Ok(path) => self.get_file_contents(path, Region::None),
+            Err(_) => Err(LookupError::Missing),
         }
     }
 }

@@ -25,19 +25,28 @@ fn memcpy_uncompressed_fix(ctx: &InlineCtx) {
 
 #[hook(offset = offsets::memcpy_1(), inline)]
 fn memcpy_1(ctx: &InlineCtx) {
-    trace!("Entering ResInflateThread::Memcpy1");
+    trace!(
+        target: "no-mod-path",
+        "[ResInflateThread::Memcpy1] Entering function"
+    );
     memcpy_uncompressed_fix(ctx)
 }
 
 #[hook(offset = offsets::memcpy_2(), inline)]
 fn memcpy_2(ctx: &InlineCtx) {
-    trace!("Entering ResInflateThread::Memcpy2");
+    trace!(
+        target: "no-mod-path",
+        "[ResInflateThread::Memcpy2] Entering function"
+    );
     memcpy_uncompressed_fix(ctx)
 }
 
 #[hook(offset = offsets::memcpy_3(), inline)]
 fn memcpy_3(ctx: &InlineCtx) {
-    trace!("Entering ResInflateThread::Memcpy3");
+    trace!(
+        target: "no-mod-path",
+        "[ResInflateThread::Memcpy3] Entering function"
+    );
     memcpy_uncompressed_fix(ctx)
 }
 

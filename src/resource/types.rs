@@ -114,7 +114,7 @@ pub struct ResServiceNX {
     pub filesystem_info: *mut FilesystemInfo,
     pub region_idx: u32,
     pub language_idx: u32,
-    unk4: *const (),
+    unk4: u32,
     pub state: i16,
     pub is_loader_thread_running: bool,
     unk5: u8,
@@ -136,6 +136,24 @@ pub struct ResServiceNX {
     pub current_index: u32,
     pub current_dir_index: u32,
     //Still need to add some
+}
+
+#[repr(C)]
+pub struct InflateFile {
+    pub content: *const u8,
+    pub size: usize
+}
+
+impl InflateFile {
+    pub fn len(&self) -> usize {
+        self.size
+    }
+
+    pub fn as_slice(&self) -> &[u8] {
+        unsafe {
+            std::slice::from_raw_parts(self.content, self.size)
+        }
+    }
 }
 
 impl Index<LoadedFilepath> for [LoadedData] {

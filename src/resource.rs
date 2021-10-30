@@ -21,3 +21,8 @@ pub fn filesystem_info() -> &'static FilesystemInfo {
 pub fn arc() -> &'static LoadedArc {
     filesystem_info().path_info.arc
 }
+
+pub fn res_service() -> &'static ResServiceNX {
+    let addr = offset_to_addr::<&'static ResServiceNX>(offsets::res_service());
+    unsafe { *addr }
+}
