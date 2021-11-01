@@ -1,4 +1,4 @@
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use skyline::hooks::{getRegionAddress, Region};
 
 lazy_static! {

@@ -10,7 +10,10 @@ use crate::offsets;
 /// the game will not crash and we won't get a mem read access violation
 fn memcpy_uncompressed_fix(ctx: &InlineCtx) {
     // For now, we will leave this as an unconditionally true if statement
-    if true {
+    let hash = crate::GLOBAL_FILESYSTEM.write().get_incoming();
+    if let Some(hash) = hash {
+        super::threads::handle_file_replace(hash);
+    } else {
         unsafe {
             memcpy(
                 *ctx.registers[0].x.as_ref() as *mut c_void,
@@ -18,8 +21,6 @@ fn memcpy_uncompressed_fix(ctx: &InlineCtx) {
                 *ctx.registers[2].x.as_ref() as usize
             );
         }
-    } else {
-        // some code for loading the data and storing it in the buffer provided
     }
 }
 

@@ -28,7 +28,7 @@ mod replacement;
 mod update;
 
 use fs::GlobalFilesystem;
-use smash_arc::{Hash40, Region};
+use smash_arc::Hash40;
 
 lazy_static! {
     pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> =
@@ -113,6 +113,8 @@ fn initial_loading(_ctx: &InlineCtx) {
     replacement::lookup::initialize(Some(arc));
     let mut filesystem = GLOBAL_FILESYSTEM.write();
     *filesystem = filesystem.take().finish(arc).unwrap();
+    filesystem.share_hashes(arc);
+    filesystem.patch_sizes(resource::arc_mut());
 }
 
 #[skyline::main(name = "arcropolis")]
@@ -156,13 +158,14 @@ pub fn main() {
         .stack_size(0x40000)
         .spawn(|| {
             if config::auto_update_enabled() {
-                update::check_for_updates(true, |update_kind| {
+                update::check_for_updates(config::beta_updates(), |update_kind| {
                     skyline_web::Dialog::yes_no(format!(
                         "{} has been detected. Do you want to install it?",
                         update_kind
                     ))
                 });
             }
+            println!("{:#x?}", serde_json::from_str::<replacement::config::ModConfig>(std::fs::read_to_string("sd:/test.json").unwrap().as_str()));
         })
         .unwrap();
     
