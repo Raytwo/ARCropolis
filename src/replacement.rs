@@ -1,6 +1,11 @@
+pub mod extensions;
 pub mod lookup;
-mod uncompressed;
+
+pub mod config;
 mod threads;
+mod uncompressed;
+
+pub use extensions::*;
 
 pub fn install() {
     uncompressed::install();

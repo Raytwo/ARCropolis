@@ -1,5 +1,5 @@
 use skyline::nn;
-use smash_arc::{LoadedArc, LoadedSearchSection};
+use smash_arc::{LoadedArc, LoadedSearchSection, Region};
 use std::{
     ops::{Index, IndexMut},
     sync::atomic::AtomicU32,
@@ -17,12 +17,14 @@ pub enum LoadState {
 }
 
 #[repr(packed)]
+#[derive(Copy, Clone, Debug)]
 pub struct LoadedFilepath {
     pub loaded_data_index: u32,
     pub is_loaded: u32,
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct LoadedData {
     pub data: *const u8,
     pub ref_count: AtomicU32,
@@ -73,6 +75,32 @@ pub struct FilesystemInfo {
     pub version: u32,
 }
 
+impl FilesystemInfo {
+    pub fn get_loaded_filepaths(&self) -> &[LoadedFilepath] {
+        unsafe {
+            std::slice::from_raw_parts(self.loaded_filepaths, self.loaded_filepath_len as usize)
+        }
+    }
+
+    pub fn get_loaded_filepaths_mut(&mut self) -> &mut [LoadedFilepath] {
+        unsafe {
+            std::slice::from_raw_parts_mut(self.loaded_filepaths, self.loaded_filepath_len as usize)
+        }
+    }
+
+    pub fn get_loaded_datas(&self) -> &[LoadedData] {
+        unsafe {
+            std::slice::from_raw_parts(self.loaded_datas, self.loaded_data_len as usize)
+        }
+    }
+
+    pub fn get_loaded_datas_mut(&mut self) -> &mut [LoadedData] {
+        unsafe {
+            std::slice::from_raw_parts_mut(self.loaded_datas, self.loaded_data_len as usize)
+        }
+    }
+}
+
 #[repr(C)]
 pub struct FileNX {
     vtable: *const (),
@@ -113,7 +141,7 @@ pub struct ResServiceNX {
     pub res_lists: [ResList; 5],
     pub filesystem_info: *mut FilesystemInfo,
     pub region_idx: u32,
-    pub language_idx: u32,
+    pub language_idx: Region,
     unk4: u32,
     pub state: i16,
     pub is_loader_thread_running: bool,
@@ -140,7 +168,7 @@ pub struct ResServiceNX {
 
 #[repr(C)]
 pub struct InflateFile {
-    pub content: *const u8,
+    pub content: *mut u8,
     pub size: usize
 }
 
@@ -152,6 +180,12 @@ impl InflateFile {
     pub fn as_slice(&self) -> &[u8] {
         unsafe {
             std::slice::from_raw_parts(self.content, self.size)
+        }
+    }
+    
+    pub fn as_slice_mut(&mut self) -> &mut [u8] {
+        unsafe {
+            std::slice::from_raw_parts_mut(self.content, self.size)
         }
     }
 }
