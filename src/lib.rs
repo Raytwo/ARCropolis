@@ -24,6 +24,7 @@ mod fs;
 mod hashes;
 mod logging;
 mod offsets;
+mod remote;
 mod resource;
 mod replacement;
 mod update;
@@ -175,8 +176,15 @@ pub fn main() {
     skyline::install_hooks!(initial_loading);
     replacement::install();
 
-    // Wait on updater since we don't want to crash if we have to restart (can happen I suppose)
-    let _ = updater.join();
+    // let _ = updater.join();
     // Wait on hashes/lut to finish
     let _ = resources.join();
+
+    let _ = std::thread::spawn(|| {
+        fn receive(args: Vec<String>) {
+            let _ = skyline_communicate::send(remote::handle_command(args).as_str());
+        }
+        skyline_communicate::set_on_receive(skyline_communicate::Receiver::CLIStyle(receive));
+        skyline_communicate::start_server("ARCropolis", 6968);
+    });
 }

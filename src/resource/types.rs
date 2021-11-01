@@ -36,6 +36,7 @@ pub struct LoadedData {
     pub unk: u8,
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct LoadedDirectory {
     pub file_group_index: u32,
@@ -97,6 +98,12 @@ impl FilesystemInfo {
     pub fn get_loaded_datas_mut(&mut self) -> &mut [LoadedData] {
         unsafe {
             std::slice::from_raw_parts_mut(self.loaded_datas, self.loaded_data_len as usize)
+        }
+    }
+
+    pub fn get_loaded_directories(&self) -> &[LoadedDirectory] {
+        unsafe {
+            std::slice::from_raw_parts(self.loaded_directories, self.loaded_directory_len as usize)
         }
     }
 }

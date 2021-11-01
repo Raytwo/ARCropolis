@@ -1,5 +1,6 @@
 use std::{alloc::Layout, ops::{Index, IndexMut, Range}, ptr::null};
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct CppVector<T> {
     start: *mut T,

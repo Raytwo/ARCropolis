@@ -24,7 +24,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
     info!(
         target: "no-mod-path",
-        "[ResInflateThread::inflate_incoming | #{:#06X} | Type: {} | {:>3} / {:>3}] Incoming '{}'",
+        "[ResInflateThread::inflate_incoming | #{:#08X} | Type: {} | {:>3} / {:>3}] Incoming '{}'",
         usize::from(file_info.file_path_index).green(),
         reg_w!(ctx, 21).green(),
         reg_x!(ctx, 27).yellow(),
