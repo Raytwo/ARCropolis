@@ -6,6 +6,11 @@ use crate::config;
 use crate::hashes;
 
 fn unshare_file(ctx: &mut AdditionContext, hash: Hash40) {
+    if !lookup::is_shared_file(hash) {
+        trace!("File '{}' ({:#x}) did not need to be unshared.", hashes::find(hash), hash.0);
+        return;
+    }
+
     let shared_file = match ctx.get_shared_file(hash) {
         Ok(filepath_idx) => filepath_idx,
         Err(e) => {
@@ -13,11 +18,6 @@ fn unshare_file(ctx: &mut AdditionContext, hash: Hash40) {
             return;
         }   
     };
-
-    if ctx.filepaths[usize::from(shared_file)].path.hash40() == hash {
-        trace!("File '{}' ({:#x})did not need to be unshared.", hashes::find(hash), hash.0);
-        return;
-    }
     
     let (dir_hash, idx) = match lookup::get_dir_entry_for_file(hash) {
         Some(val) => val,
@@ -46,8 +46,9 @@ fn unshare_file(ctx: &mut AdditionContext, hash: Hash40) {
         ctx.file_infos[usize::from(shared_info_idx)]
     };
 
-    let info_to_data_index = if new_file_info.flags.is_localized() {
-        usize::from(new_file_info.info_to_data_index) + 1 + config::region() as usize
+    let info_to_data_index = if new_file_info.flags.is_regional() {
+        new_file_info.flags.set_is_regional(false);
+        usize::from(new_file_info.info_to_data_index) + config::region() as usize
     } else {
         usize::from(new_file_info.info_to_data_index)
     };
@@ -70,7 +71,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash: Hash40) {
 
     dir_file_info.file_info_indice_index = new_info_indice_idx;
     dir_file_info.info_to_data_index = new_info_to_data_idx;
-    dir_file_info.flags.set_standalone_file(true);
+    dir_file_info.flags = new_file_info.flags;
 
     ctx.file_infos[dir_info.file_info_range()][idx] = dir_file_info;
 

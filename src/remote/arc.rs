@@ -1,4 +1,4 @@
-use crate::runtime::LoadedTables;
+use crate::resource::{self, FilesystemInfo};
 
 static USAGE: &'static str = 
 r#"arc: Commands to help scan data.arc tables/entries at runtime.
@@ -201,8 +201,6 @@ mod directory {
 
 
 mod files {
-    use crate::replacement_files::get_region_id;
-
     use super::super::*;
     use smash_arc::{ArcLookup, LoadedArc, Region};
     pub static USAGE: &'static str = r#"File Lookups:
@@ -355,12 +353,7 @@ mod files {
                     if region == "none" {
                         Region::None
                     } else {
-                        match get_region_id(region.as_str()) {
-                            Some(region_id) => region_id.into(),
-                            None => {
-                                return String::from(USAGE);
-                            }
-                        }
+                        Region::None
                     }
                 },
                 None => Region::None
@@ -399,12 +392,7 @@ mod files {
                     if region == "none" {
                         Region::None
                     } else {
-                        match get_region_id(region.as_str()) {
-                            Some(region_id) => region_id.into(),
-                            None => {
-                                return String::from(USAGE);
-                            }
-                        }
+                        Region::None
                     }
                 },
                 None => Region::None
@@ -458,9 +446,9 @@ mod utils {
             current
         } else {
             if pretty {
-                format!("'{}' ({:#x}):\n", hashes::get(info.path.hash40()).bright_blue(), info.path.hash40().0)
+                format!("'{}' ({:#x}):\n", hashes::find(info.path.hash40()).bright_blue(), info.path.hash40().0)
             } else {
-                format!("'{}' ({:#x}):\n", hashes::get(info.path.hash40()), info.path.hash40().0)
+                format!("'{}' ({:#x}):\n", hashes::find(info.path.hash40()), info.path.hash40().0)
             }
         };
 
@@ -479,9 +467,9 @@ mod utils {
             write_indent(&mut output, indent + 1);
             let hash = file_paths[file_infos[x].file_path_index].path.hash40();
             if pretty {
-                let _ = write!(&mut output, "| '{}' ({:#x})", hashes::get(hash).bright_red(), hash.0);
+                let _ = write!(&mut output, "| '{}' ({:#x})", hashes::find(hash).bright_red(), hash.0);
             } else {
-                let _ = write!(&mut output, "| '{}' ({:#x})", hashes::get(hash), hash.0);
+                let _ = write!(&mut output, "| '{}' ({:#x})", hashes::find(hash), hash.0);
             }
             if shared {
                 let _ = write!(&mut output, ": {}\n", shared_str);
@@ -496,9 +484,9 @@ mod utils {
                     write_indent(&mut output, indent + 1);
                     let hash = dir_info.path.hash40();
                     if pretty {
-                        let _ = write!(&mut output, "| '{}' ({:#x}):\n", hashes::get(hash).bright_green(), hash.0);
+                        let _ = write!(&mut output, "| '{}' ({:#x}):\n", hashes::find(hash).bright_green(), hash.0);
                     } else {
-                        let _ = write!(&mut output, "| Redirect: '{}' ({:#x}):\n", hashes::get(hash), hash.0);
+                        let _ = write!(&mut output, "| Redirect: '{}' ({:#x}):\n", hashes::find(hash), hash.0);
                     }
                     output = walk_directory(arc, &dir_info, pretty, recursive, shared, Some(output), indent + 1);
                 },
@@ -520,9 +508,9 @@ mod utils {
                         write_indent(&mut output, indent + 2);
                         let hash = file_paths[file_infos[x].file_path_index].path.hash40();
                         if pretty {
-                            let _ = write!(&mut output, "| '{}' ({:#x})", hashes::get(hash).bright_red(), hash.0);
+                            let _ = write!(&mut output, "| '{}' ({:#x})", hashes::find(hash).bright_red(), hash.0);
                         } else {
-                            let _ = write!(&mut output, "| '{}' ({:#x})", hashes::get(hash), hash.0);
+                            let _ = write!(&mut output, "| '{}' ({:#x})", hashes::find(hash), hash.0);
                         }
                         if shared {
                             let _ = write!(&mut output, ": {}\n", shared_str);
@@ -541,9 +529,9 @@ mod utils {
                 let hash = child_info.path.hash40();
                 write_indent(&mut output, indent + 1);
                 if pretty {
-                    let _ = write!(&mut output, "| '{}' ({:#x}):\n", hashes::get(hash).bright_yellow(), hash.0);
+                    let _ = write!(&mut output, "| '{}' ({:#x}):\n", hashes::find(hash).bright_yellow(), hash.0);
                 } else {
-                    let _ = write!(&mut output, "| Child: '{}' ({:#x}):\n", hashes::get(hash), hash.0);
+                    let _ = write!(&mut output, "| Child: '{}' ({:#x}):\n", hashes::find(hash), hash.0);
                 }
                 output = walk_directory(arc, child_info, pretty, recursive, shared, Some(output), indent + 1);
             }
@@ -666,7 +654,7 @@ mod utils {
                 if shared_hash == file_path.path.hash40() {
                     String::from("File is the source file")
                 } else {
-                    format!("File is shared with '{}' ({:#x})", hashes::get(shared_hash), shared_hash.0)
+                    format!("File is shared with '{}' ({:#x})", hashes::find(shared_hash), shared_hash.0)
                 }
             } else {
                 let file_paths = arc.get_file_paths();
@@ -681,7 +669,7 @@ mod utils {
                         }
                         current_file_path = next_file_path;
                     }
-                    format!("File is shared with '{}' ({:#x})", hashes::get(current_file_path.path.hash40()), current_file_path.path.hash40().0)
+                    format!("File is shared with '{}' ({:#x})", hashes::find(current_file_path.path.hash40()), current_file_path.path.hash40().0)
                 }
             }
         } else {
@@ -695,7 +683,7 @@ mod utils {
 }
 
 pub fn handle_command(mut args: Vec<String>) -> String {
-    let arc = LoadedTables::get_arc();
+    let arc = resource::arc();
     if args.len() == 0 {
         return String::from(USAGE);
     }
