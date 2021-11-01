@@ -2,7 +2,7 @@ use smash_arc::{ArcLookup, Hash40, LoadedArc};
 use std::collections::HashMap;
 use parking_lot::RwLock;
 use std::ops::{Deref, DerefMut};
-use serde::{Deserialize, Serialize, de::Visitor, ser::SerializeMap};
+use serde::{Deserialize, Serialize};
 
 // FilePath -> (DirInfo, child_index)
 #[derive(Deserialize, Serialize)]
@@ -21,48 +21,6 @@ impl DerefMut for UnshareLookup {
         &mut self.0
     }
 }
-
-// impl Serialize for UnshareLookup {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//             S: serde::Serializer {
-//         let mut map = serializer.serialize_map(Some(self.len()))?;
-//         for (path, (dir, idx)) in self.iter() {
-//             map.serialize_entry(&path.0, &(dir.0, *idx))?;
-//         }
-//         map.end()
-//     }
-// }
-
-// struct UnshareLookupVisitor;
-
-// impl<'de> Visitor<'de> for UnshareLookupVisitor {
-//     type Value = UnshareLookup;
-
-//     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         formatter.write_str("An Unshare LUT")
-//     }
-
-//     fn visit_map<A>(self, mut access: A) -> Result<Self::Value, A::Error>
-//     where
-//             A: serde::de::MapAccess<'de>, {
-//         let mut map = UnshareLookup(HashMap::with_capacity(access.size_hint().unwrap_or(0)));
-
-//         while let Some((path, (dir, idx))) = access.next_entry::<u64, (u64, usize)>()? {
-//             map.insert(Hash40(path), (Hash40(dir), idx));
-//         }
-
-//         Ok(map)
-//     }
-// }
-
-// impl<'de> Deserialize<'de> for UnshareLookup {
-//     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-//     where
-//             D: serde::Deserializer<'de> {
-//         deserializer.deserialize_map(UnshareLookupVisitor)
-//     }
-// }
 
 enum UnshareLookupState {
     Missing,

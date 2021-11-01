@@ -235,3 +235,11 @@ pub fn memcpy_2() -> usize {
 pub fn memcpy_3() -> usize {
     OFFSETS.memcpy_3
 }
+
+pub fn res_load_loop_start() -> usize {
+    OFFSETS.res_load_loop_start
+}
+
+pub fn res_load_loop_refresh() -> usize {
+    OFFSETS.res_load_loop_refresh
+}

@@ -35,3 +35,8 @@ pub fn res_service() -> &'static ResServiceNX {
     let addr = offset_to_addr::<&'static ResServiceNX>(offsets::res_service());
     unsafe { *addr }
 }
+
+pub fn res_service_mut() -> &'static mut ResServiceNX {
+    let addr = offset_to_addr::<&'static mut ResServiceNX>(offsets::res_service());
+    unsafe { *addr }
+}

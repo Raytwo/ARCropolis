@@ -3,6 +3,7 @@
 #![feature(if_let_guard)]
 #![feature(path_try_exists)]
 #![feature(map_try_insert)] // for not overwriting previously stored hashes
+#![feature(vec_into_raw_parts)]
 
 use std::{fmt, path::{Path, PathBuf}, str::FromStr};
 
@@ -15,7 +16,7 @@ extern crate lazy_static;
 extern crate log;
 
 use parking_lot::RwLock;
-use skyline::{hooks::InlineCtx, nn};
+use skyline::{hooks::InlineCtx, libc::{c_void, free, malloc, memcpy}, nn};
 
 mod chainloader;
 mod config;
@@ -113,6 +114,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     replacement::lookup::initialize(Some(arc));
     let mut filesystem = GLOBAL_FILESYSTEM.write();
     *filesystem = filesystem.take().finish(arc).unwrap();
+    filesystem.unshare(resource::arc_mut());
     filesystem.share_hashes(arc);
     filesystem.patch_sizes(resource::arc_mut());
 }

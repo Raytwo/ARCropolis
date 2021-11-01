@@ -13,13 +13,5 @@
         "fighter/samusd/result/c05": "fighter/samusd/c05",
         "fighter/samusd/result/c06": "fighter/samusd/c06",
         "fighter/samusd/result/c07": "fighter/samusd/c07"
-    },
-    "new-files": {
-        "fighter/falco/model/body/c00/swing.prc": [
-            "fighter/falco/model/body/c01/swing.prc"
-        ],
-        "fighter/falco/model/body/c01/swing.prc": [
-            "fighter/falco/model/body/c02/swing.prc"
-        ]
     }
 }
