@@ -22,6 +22,15 @@ pub struct ModConfig {
 }
 
 impl ModConfig {
+    pub fn new() -> Self {
+        Self {
+            unshare_blacklist: HashSet::new(),
+            new_files: HashMap::new(),
+            preprocess_reshare: HashMap::new(),
+            new_dir_files: HashMap::new()
+        }
+    }
+
     pub fn merge(&mut self, other: ModConfig) {
         let Self { unshare_blacklist, new_files, preprocess_reshare, new_dir_files } = other;
 

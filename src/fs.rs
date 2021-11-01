@@ -4,11 +4,12 @@ use orbits::{
     Orbit, StandardLoader,
 };
 use skyline::nn::{self, ro::{Module, RegistrationInfo}};
+use smash_arc::serde::Hash40String;
 use smash_arc::{ArcLookup, Hash40, LoadedArc, LookupError, SearchLookup};
 use owo_colors::OwoColorize;
 
 use crate::chainloader::{NroBuilder, NrrBuilder, NrrRegistrationFailedError};
-use crate::replacement::LoadedArcEx;
+use crate::replacement::{self, LoadedArcEx};
 use crate::{config, hashes};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -18,6 +19,8 @@ use std::{
 };
 
 use std::fmt;
+
+static DEFAULT_CONFIG: &'static str = include_str!("../resources/override.json");
 
 pub type ApiLoader = StandardLoader; // temporary until an actual ApiLoader is implemented
 pub type ArcropolisOrbit = Orbit<ArcLoader, StandardLoader, ApiLoader>;
@@ -32,6 +35,7 @@ impl fmt::Debug for FilesystemUninitializedError {
 
 pub struct CachedFilesystem {
     loader: ArcropolisOrbit,
+    config: replacement::config::ModConfig,
     hash_lookup: HashMap<Hash40, PathBuf>,
     incoming_load: Option<Hash40>
 }
@@ -65,11 +69,35 @@ impl GlobalFilesystem {
                             hashes::add(path);
                         }
                     });
+                    let mut config = match serde_json::from_str(DEFAULT_CONFIG) {
+                        Ok(cfg) => cfg,
+                        Err(e) => {
+                            error!("Failed to deserialize the default config.");
+                            replacement::config::ModConfig::new()
+                        }
+                    };
+                    for (root, local) in launchpad.patch.collected.iter() {
+                        let full_path = root.join(local);
+                        if !full_path.exists() {
+                            warn!("Mod config at '{}' does not exist.", full_path.display());
+                            continue;
+                        }
+                        match std::fs::read_to_string(&full_path) {
+                            Ok(contents) => match serde_json::from_str(contents.as_str()) {
+                                Ok(mod_cfg) => {
+                                    config.merge(mod_cfg);
+                                    info!("Merged config '{}' into main config.", full_path.display());
+                                },
+                                Err(e) => warn!("Failed to deserialize mod config at '{}'. Reason: {:?}", full_path.display(), e)
+                            },
+                            Err(e) => warn!("Failed to read mod config at '{}'. Reason: {:?}", full_path.display(), e)
+                        }
+                    }
                     Ok(Self::Initialized(CachedFilesystem {
                         loader: launchpad.launch(ArcLoader(arc)),
+                        config,
                         hash_lookup: hashed_paths,
                         incoming_load: None
-
                     }))
                 },
                 Err(_) => Err(FilesystemUninitializedError),
@@ -210,6 +238,25 @@ impl GlobalFilesystem {
             }
         }
     }
+
+    pub fn unshare(&mut self, arc: &'static mut LoadedArc) {
+        match self {
+            Self::Initialized(fs) => {
+                let mut context = LoadedArc::make_addition_context();
+                replacement::unshare::unshare_files(&mut context, fs.hash_lookup.iter().filter_map(|(hash, _)| {
+                    if !fs.config.unshare_blacklist.contains(&Hash40String(*hash)) {
+                        Some(*hash)
+                    } else {
+                        None
+                    }
+                }));
+                arc.take_context(context);
+            },
+            _ => {
+                error!("Cannot unshare files because the filesystem is not initialized!");
+            }
+        }
+    }
 }
 
 #[repr(transparent)]
@@ -295,26 +342,26 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
         match x.file_name() {
             Some(name) if let Some(name) = name.to_str() => {
                 static RESERVED_NAMES: &[&'static str] = &[
-                    "info.toml",
+                    "config.json",
+                    "plugin.nro",
                 ];
-                RESERVED_NAMES.contains(&name)
+                x.parent().is_none() && !RESERVED_NAMES.contains(&name) // ignore everything in the root
             },
             _ => false
         }
     };
 
     let collect = |x: &Path| {
-        let is_config = match x.file_name() {
+        match x.file_name() {
             Some(name) if let Some(name) = name.to_str() => {
                 static RESERVED_NAMES: &[&'static str] = &[
-                    "config.json"
+                    "config.json",
+                    "plugin.nro",
                 ];
                 RESERVED_NAMES.contains(&name)
             },
             _ => false
-        };
-
-        is_config || x == Path::new("plugin.nro")
+        }
     };
 
     let mut launchpad = LaunchPad::new(

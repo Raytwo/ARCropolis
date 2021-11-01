@@ -7,17 +7,9 @@ use skyline::{
     hooks::InlineCtx
 };
 
-use crate::{
-    reg_x,
-    reg_w,
-    GLOBAL_FILESYSTEM,
-    offsets,
-    resource::{
-        self,
-        InflateFile
-    },
-    hashes
-};
+use crate::{GLOBAL_FILESYSTEM, hashes, offsets, reg_w, reg_x, resource::{self, InflateFile, LoadInfo, LoadType}};
+
+use super::FileInfoFlagsExt;
 
 #[hook(offset = offsets::inflate(), inline)]
 fn inflate_incoming(ctx: &InlineCtx) {
@@ -32,8 +24,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
     info!(
         target: "no-mod-path",
-        "[ResInflateThread::inflate_incoming | #{}{:06X} | Type: {} | {:>3} / {:>3}] Incoming '{}'",
-        "0x".green(),
+        "[ResInflateThread::inflate_incoming | #{:#06X} | Type: {} | {:>3} / {:>3}] Incoming '{}'",
         usize::from(file_info.file_path_index).green(),
         reg_w!(ctx, 21).green(),
         reg_x!(ctx, 27).yellow(),
@@ -139,9 +130,58 @@ pub fn handle_file_replace(hash: Hash40) {
 
 }
 
+// handles submitting files to be loaded manually
+#[hook(offset = offsets::res_load_loop_start(), inline)]
+fn res_loop_start(_: &InlineCtx) {
+    res_loop_common();
+}
+
+#[hook(offset = offsets::res_load_loop_refresh(), inline)]
+fn res_loop_refresh(_: &InlineCtx) {
+    res_loop_common();
+}
+
+fn res_loop_common() {
+    let arc = resource::arc();
+    let service = resource::res_service_mut();
+    let file_infos = arc.get_file_infos();
+    let dir_infos = arc.get_dir_infos();
+
+    let mut standalone_files = vec![Vec::new(); 5];
+
+    for (list_idx, list) in service.res_lists.iter().enumerate() {
+        for entry in list.iter() {
+            match entry.ty {
+                LoadType::Directory => {
+                    for info in file_infos[dir_infos[entry.directory_index as usize].file_info_range()].iter() {
+                        if info.flags.standalone_file() {
+                            standalone_files[list_idx].push(info.file_path_index);
+                        }
+                    }
+                },
+                _ => {}
+            }
+        }
+    }
+
+    for (idx, vec) in standalone_files.into_iter().enumerate() {
+        for path_idx in vec.into_iter() {
+            service.res_lists[idx].insert(LoadInfo {
+                ty: LoadType::File,
+                filepath_index: path_idx.0,
+                directory_index: 0xFF_FFFF,
+                files_to_load: 0
+            });
+        }
+    }
+}
+
 pub fn install() {
     skyline::install_hooks!(
         inflate_incoming,
-        inflate_dir_file
+        inflate_dir_file,
+
+        res_loop_start,
+        res_loop_refresh
     );
 }
