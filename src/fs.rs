@@ -12,6 +12,7 @@ use crate::chainloader::{NroBuilder, NrrBuilder, NrrRegistrationFailedError};
 use crate::replacement::{self, LoadedArcEx};
 use crate::{config, hashes};
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::PathBuf;
 use std::{
     ops::Deref,
@@ -37,7 +38,9 @@ pub struct CachedFilesystem {
     loader: ArcropolisOrbit,
     config: replacement::config::ModConfig,
     hash_lookup: HashMap<Hash40, PathBuf>,
-    incoming_load: Option<Hash40>
+    hash_size_cache: HashMap<Hash40, usize>,
+    incoming_load: Option<Hash40>,
+    bytes_remaining: usize,
 }
 
 pub enum GlobalFilesystem {
@@ -53,11 +56,19 @@ impl GlobalFilesystem {
             Self::Promised(promise) => match promise.join() {
                 Ok(launchpad) => {
                     let mut hashed_paths = HashMap::new();
+                    let mut hashed_sizes = HashMap::new();
                     launchpad.patch.tree.walk_paths(|node, entry_type| {
                         if entry_type.is_file() {
                             if let Ok(hash) = crate::get_smash_hash(node.get_local()) {
-                                if let Some(previous_path) = hashed_paths.insert(hash, node.get_local().to_path_buf()) {
-                                    error!("Found duplicate file path in the filesystem: {}", previous_path.display());
+                                let full_path = node.full_path();
+                                match std::fs::metadata(&full_path) {
+                                    Ok(md) => {
+                                        let _ = hashed_sizes.insert(hash, md.len() as usize);
+                                        let _ = hashed_paths.insert(hash, node.get_local().to_path_buf());
+                                    },
+                                    Err(e) => {
+                                        error!("Failed to stat file '{}' ({:#x}) -- this file will not be replaced.", hashes::find(hash), hash.0);
+                                    }
                                 }
                             } else {
                                 error!("Failed to generate smash hash for path '{}' -- this file will not be replaced.", node.full_path().display());
@@ -97,7 +108,9 @@ impl GlobalFilesystem {
                         loader: launchpad.launch(ArcLoader(arc)),
                         config,
                         hash_lookup: hashed_paths,
-                        incoming_load: None
+                        hash_size_cache: hashed_sizes,
+                        incoming_load: None,
+                        bytes_remaining: 0
                     }))
                 },
                 Err(_) => Err(FilesystemUninitializedError),
@@ -133,15 +146,13 @@ impl GlobalFilesystem {
         }
     }
 
-    pub fn load_into(&self, hash: Hash40, buffer: &mut [u8]) -> Option<usize> {
+    pub fn load_into(&self, hash: Hash40, mut buffer: &mut [u8]) -> Option<usize> {
         if let Some(data) = self.load(hash) {
             if buffer.len() < data.len() {
                 error!("The size of the file data is larger than the size of the provided buffer when loading file '{}' ({:#x}).", hashes::find(hash), hash.0);
                 None
             } else {
-                unsafe {
-                    std::ptr::copy_nonoverlapping(data.as_ptr(), buffer.as_mut_ptr(), data.len());
-                }
+                buffer.write_all(&data).unwrap();
                 Some(data.len())
             }
         } else {
@@ -174,15 +185,43 @@ impl GlobalFilesystem {
 
     pub fn set_incoming(&mut self, hash: Option<Hash40>) {
         match self {
-            Self::Initialized(fs) => fs.incoming_load = hash,
+            Self::Initialized(fs) => {
+                if let Some(hash) = fs.incoming_load.take() {
+                    warn!("Removing file '{}' ({:#x}) from incoming load before using it.", hashes::find(hash), hash.0);
+                }
+                fs.incoming_load = hash;
+                if let Some(hash) = hash {
+                    fs.bytes_remaining = *fs.hash_size_cache.get(&hash).unwrap_or(&0);
+                } else {
+                    fs.bytes_remaining = 0;
+                }
+            },
             _ if let Some(hash) = hash => error!("Cannot set the incoming load to '{}' ({:#x}) because the filesystem is not initialized!", hashes::find(hash), hash.0),
             _ => error!("Cannot null out the incoming load because the filesystem is not initialized!")
         }
     }
 
+    pub fn sub_remaining_byes(&mut self, count: usize) -> Option<Hash40> {
+        match self {
+            Self::Initialized(fs) => {
+                if count >= fs.bytes_remaining {
+                    fs.bytes_remaining = 0;
+                    self.get_incoming()
+                } else {
+                    fs.bytes_remaining -= count;
+                    None
+                }
+            },
+            _ => {
+                error!("Cannot subtract reamining bytes because the filesystem is not initialized!");
+                None
+            }
+        }
+    }
+
     pub fn get_incoming(&mut self) -> Option<Hash40> {
         match self {
-            Self::Initialized(fs) => fs.incoming_load,
+            Self::Initialized(fs) => fs.incoming_load.take(),
             _ => {
                 error!("Cannot get the incoming load because the filesystem is not initialized!");
                 None
@@ -190,26 +229,37 @@ impl GlobalFilesystem {
         }
     }
 
-    pub fn patch_sizes(&self, arc: &'static mut LoadedArc) {
+    pub fn patch_sizes(&mut self, arc: &'static mut LoadedArc) {
         match self {
             Self::Initialized(fs) => {
                 let region = config::region();
-                for (hash, path) in fs.hash_lookup.iter() {
-                    let layered_size = fs.loader.query_max_layered_filesize(path);
-                    if layered_size.is_some() && layered_size > fs.loader.physical_filesize(path) {
-                        let new_size = layered_size.unwrap();
-                        match arc.patch_filedata(*hash, new_size as u32, region) {
-                            Ok(old_size) => info!(
-                                "File '{}' has a new decompressed filesize! {:#x} -> {:#x}",
-                                path.display().bright_yellow(),
-                                old_size.red(),
-                                new_size.green()
-                            ),
-                            Err(_) => warn!(
-                                "Failed to patch '{}' filesize! It should be {:#x}.",
-                                path.display().bright_yellow(),
-                                new_size.green()
-                            )
+                for (hash, size) in fs.hash_size_cache.iter_mut() {
+                    let hash = *hash;
+                    let decomp_size = match arc.get_file_data_from_hash(hash, region) {
+                        Ok(data) => data.decomp_size as usize,
+                        Err(e) => {
+                            warn!(
+                                "Failed to patch '{}' ({:#x}) filesize! It should be {:#x}.",
+                                hashes::find(hash).bright_yellow(),
+                                hash.0,
+                                size.green()
+                            );
+                            continue;
+                        }
+                    };
+                    if *size > decomp_size {
+                        match arc.patch_filedata(hash, *size as u32, region) {
+                            Ok(old_size) => {
+                                info!(
+                                    "File '{}' ({:#x}) has a new decompressed filesize! {:#x} -> {:#x}",
+                                    hashes::find(hash).bright_yellow(),
+                                    hash.0,
+                                    decomp_size.red(),
+                                    size.green()
+                                );
+                                *size = decomp_size;
+                            },
+                            Err(_) => {}
                         }
                     }
                 }
@@ -364,6 +414,8 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
         }
     };
 
+    let timer = switch_timer::SwitchTimer::new();
+
     let mut launchpad = LaunchPad::new(
         DiscoverSystem::new(StandardLoader, ConflictHandler::NoRoot),
         DiscoverSystem::new(StandardLoader, ConflictHandler::NoRoot),
@@ -412,9 +464,13 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
         }
     }
 
+    let elapsed = timer.elapsed().as_secs_f32();
+
     if should_prompt {
         crate::dialog_error("During file discovery, ARCropolis encountered file conflicts.");
     }
+
+    crate::dialog_error(format!("File discovery took {}s", elapsed));
 
     match mount_prebuilt_nrr(&launchpad.patch.tree) {
         Ok(Some(_)) => info!("Successfully registered fighter modules."),

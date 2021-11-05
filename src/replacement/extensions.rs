@@ -1,10 +1,10 @@
-use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx, FileSystemHeader, Hash40, LoadedArc, LookupError, Region};
-use std::{iter::FromIterator, ops::Deref};
+use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx, FileSystemHeader, Hash40, HashToIndex, LoadedArc, LookupError, Region};
+use std::{iter::FromIterator, ops::{Deref, DerefMut}};
 
-use crate::resource::{self, CppVector, FilesystemInfo, LoadedData, LoadedFilepath};
+use crate::{hashes, resource::{self, CppVector, FilesystemInfo, LoadedData, LoadedFilepath}};
 
 pub struct AdditionContext {
-    pub arc: &'static LoadedArc,
+    pub arc: &'static mut LoadedArc,
     pub filesystem_info: &'static FilesystemInfo,
 
     pub filepaths: CppVector<FilePath>,
@@ -25,17 +25,51 @@ impl Deref for AdditionContext {
     }
 }
 
+impl DerefMut for AdditionContext {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.arc
+    }
+}
+
 pub trait LoadedArcEx {
+    fn get_file_hash_to_path_index_mut(&mut self)-> &mut [HashToIndex];
+    fn get_bucket_for_hash_mut(&mut self, hash: Hash40) -> &mut [HashToIndex];
     fn patch_filedata(&mut self, hash: Hash40, size: u32, region: Region) -> Result<u32, LookupError>;
+    fn change_hash_lookup(&mut self, hash: Hash40, index: FilePathIdx) -> Result<(), LookupError> ;
     fn get_shared_file(&self, hash: Hash40) -> Result<FilePathIdx, LookupError>;
     fn make_addition_context() -> AdditionContext;
     fn take_context(&mut self, ctx: AdditionContext);
 }
 
 impl LoadedArcEx for LoadedArc {
+    fn get_file_hash_to_path_index_mut(&mut self) -> &mut [HashToIndex] {
+        unsafe {
+            let fs = *self.fs_header;
+            let table_size = fs.file_info_path_count;
+            std::slice::from_raw_parts_mut(self.file_hash_to_path_index as *mut HashToIndex, table_size as _)
+        }
+    }
+
+    fn get_bucket_for_hash_mut(&mut self, hash: Hash40) -> &mut [HashToIndex] {
+        let range = {
+            let file_info_buckets = self.get_file_info_buckets();
+            let bucket_index = (hash.as_u64() % (file_info_buckets.len() as u64)) as usize;
+            let bucket = &file_info_buckets[bucket_index];
+            (bucket.start as usize)..((bucket.start + bucket.count) as usize)
+        };
+        
+        &mut self.get_file_hash_to_path_index_mut()[range]
+    }
+
     fn patch_filedata(&mut self, hash: Hash40, size: u32, region: Region) -> Result<u32, LookupError> {
         let file_info = *self.get_file_info_from_hash(hash)?;
-        let region = if file_info.flags.is_localized() {
+        let region = if file_info.flags.is_regional() {
+            info!(
+                "Patching file '{}' ({:#x}) and it is regional. Patching region {:?}",
+                hashes::find(hash),
+                hash.0,
+                region
+            );
             region
         } else {
             Region::None
@@ -45,6 +79,16 @@ impl LoadedArcEx for LoadedArc {
         let old_size = file_data.decomp_size;
         file_data.decomp_size = size;
         Ok(old_size)
+    }
+
+    fn change_hash_lookup(&mut self, hash: Hash40, index: FilePathIdx) -> Result<(), LookupError> {
+        let bucket = self.get_bucket_for_hash_mut(hash);
+
+        let index_in_bucket = bucket.binary_search_by_key(&hash, |group| group.hash40())
+            .map_err(|_| LookupError::Missing)?;
+
+        bucket[index_in_bucket].set_index(index.0);
+        Ok(())
     }
 
     fn get_shared_file(&self, hash: Hash40) -> Result<FilePathIdx, LookupError> {
@@ -58,7 +102,7 @@ impl LoadedArcEx for LoadedArc {
     }
 
     fn make_addition_context() -> AdditionContext {
-        let arc = resource::arc();
+        let arc = resource::arc_mut();
         let filesystem_info = resource::filesystem_info();
         
         let filepaths = CppVector::from_slice(arc.get_file_paths());

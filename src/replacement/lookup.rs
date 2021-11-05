@@ -4,12 +4,19 @@ use parking_lot::RwLock;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
+use crate::hashes;
+
+use super::LoadedArcEx;
+
 // FilePath -> (DirInfo, child_index)
 #[derive(Deserialize, Serialize)]
 pub struct UnshareLookup(HashMap<Hash40, (Hash40, usize)>);
 
 #[derive(Deserialize, Serialize)]
-pub struct ShareLookup(HashSet<Hash40>);
+pub struct ShareLookup {
+    pub is_shared_search: HashSet<Hash40>,
+    pub shared_file_lookup: HashMap<Hash40, Vec<Hash40>>
+}
 
 impl Deref for UnshareLookup {
     type Target = HashMap<Hash40, (Hash40, usize)>;
@@ -20,20 +27,6 @@ impl Deref for UnshareLookup {
 }
 
 impl DerefMut for UnshareLookup {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl Deref for ShareLookup {
-    type Target = HashSet<Hash40>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for ShareLookup {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -143,26 +136,43 @@ pub fn initialize_share(arc: Option<&LoadedArc>) {
     let mut lookup_state = SHARE_LOOKUP.write();
     let lookup = match *lookup_state {
         ShareLookupState::Missing => {
-            let mut lookup = ShareLookup(HashSet::new());
+            let mut path_shared: HashMap<Hash40, Vec<Hash40>> = HashMap::new();
 
-            let mut info_index_ref_count: HashMap<u32, usize> = HashMap::new();
+            let mut shared_files = HashSet::new();
 
-            for file_path in arc.get_file_paths().iter() {
-                if let Some(count) = info_index_ref_count.get_mut(&file_path.path.index()) {
-                    *count += 1;
-                } else {
-                    info_index_ref_count.insert(file_path.path.index(), 1);
-                }
-            }
+            let filepaths = arc.get_file_paths();
 
-            for file_path in arc.get_file_paths().iter() {
-                match info_index_ref_count.get(&file_path.path.index()) {
-                    Some(count) if *count > 1 => {
-                        lookup.insert(file_path.path.hash40());
+            for (current_index, file_path) in filepaths.iter().enumerate() {
+                let hash = file_path.path.hash40();
+                
+                let shared_file_index = match arc.get_shared_file(hash) {
+                    Ok(idx) => {
+                        if usize::from(idx) == current_index {
+                            continue;
+                        } 
+                        idx
                     },
-                    _ => {}
+                    Err(e) => {
+                        error!("Failed to get shared file for '{}' ({:#x}) while generating share.lut", hashes::find(hash), hash.0);
+                        continue;
+                    }
+                };
+
+                let shared_hash = filepaths[shared_file_index].path.hash40();
+
+                if let Some(shared_file_hashes) = path_shared.get_mut(&shared_hash) {
+                    shared_file_hashes.push(hash);
+                } else {
+                    shared_files.insert(shared_hash);
+                    let _ = path_shared.insert(shared_hash, vec![hash]);
                 }
+                shared_files.insert(hash);
             }
+
+            let lookup = ShareLookup {
+                is_shared_search: shared_files,
+                shared_file_lookup: path_shared
+            };
 
             match bincode::serialize(&lookup) {
                 Ok(data) => {
@@ -201,7 +211,23 @@ pub fn get_dir_entry_for_file<H: Into<Hash40>>(hash: H) -> Option<(Hash40, usize
 pub fn is_shared_file<H: Into<Hash40>>(hash: H) -> bool {
     let lut = SHARE_LOOKUP.read();
     match &*lut {
-        ShareLookupState::Generated(lut) => lut.contains(&hash.into()),
+        ShareLookupState::Generated(lut) => lut.is_shared_search.contains(&hash.into()),
         _ => false
+    }
+}
+
+pub fn get_shared_file_count<H: Into<Hash40>>(hash: H) -> usize {
+    let lut = SHARE_LOOKUP.read();
+    match &*lut {
+        ShareLookupState::Generated(lut) => lut.shared_file_lookup.get(&hash.into()).map_or_else(|| 0, |hashes| hashes.len()),
+        _ => 0
+    }
+}
+
+pub fn get_shared_file<H: Into<Hash40>>(hash: H, index: usize) -> Option<Hash40> {
+    let lut = SHARE_LOOKUP.read();
+    match &*lut {
+        ShareLookupState::Generated(lut) => lut.shared_file_lookup.get(&hash.into()).map_or_else(|| None, |hashes| hashes.get(index).map(|hash| *hash)),
+        _ => None
     }
 }

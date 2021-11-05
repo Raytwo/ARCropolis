@@ -29,6 +29,7 @@ orbits = { git = "https://github.com/blu-dev/orbits" }
 smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd"] }
 owo-colors = "3.0.1"
 skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }
+switch_timer = { path = "../../switch_timer" }
 
 [patch.crates-io]
 ring = { git = "https://github.com/skyline-rs/ring", branch = "0.16.20" }
@@ -41,7 +42,7 @@ nnsdk = { git = "https://github.com/blu-dev/nnsdk-rs", branch = "patch-4" }
 smash-arc = { git = 'https://github.com/blu-dev/smash-arc' }
 
 [patch.'https://github.com/blu-dev/orbits']
-orbits = { path = "../orbits" }
+orbits = { path = "../../orbits" }
 
 [profile.dev]
 panic = "abort"

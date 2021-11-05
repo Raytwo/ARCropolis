@@ -115,9 +115,21 @@ fn initial_loading(_ctx: &InlineCtx) {
     replacement::lookup::initialize(Some(arc));
     let mut filesystem = GLOBAL_FILESYSTEM.write();
     *filesystem = filesystem.take().finish(arc).unwrap();
+    let timer = switch_timer::SwitchTimer::new();
     filesystem.unshare(resource::arc_mut());
+    crate::dialog_error(format!("Unsharing took {}s", timer.elapsed().as_secs_f32()));
+    let timer = switch_timer::SwitchTimer::new();
     filesystem.share_hashes(arc);
+    crate::dialog_error(format!("Resharing hashes took {}s", timer.elapsed().as_secs_f32()));
+    unsafe {
+        nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
+    }
+    let timer = switch_timer::SwitchTimer::new();
     filesystem.patch_sizes(resource::arc_mut());
+    crate::dialog_error(format!("File patching took {}s. Region: {:?}", timer.elapsed().as_secs_f32(), config::region()));
+    unsafe {
+        nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
+    }
 }
 
 #[skyline::main(name = "arcropolis")]
@@ -125,6 +137,7 @@ pub fn main() {
     
     // Initialize the time for the logger
     init_time();
+    switch_timer::SwitchTimer::setup();
 
     // Attempt to initialize the logger, and if we fail we will just do a regular println
     if let Err(err) = logging::init(
@@ -143,6 +156,7 @@ pub fn main() {
         std::thread::Builder::new()
             .stack_size(0x40000)
             .spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(5000));
                 fs::perform_discovery()
             })
             .unwrap(),
@@ -168,7 +182,6 @@ pub fn main() {
                     ))
                 });
             }
-            println!("{:#x?}", serde_json::from_str::<replacement::config::ModConfig>(std::fs::read_to_string("sd:/test.json").unwrap().as_str()));
         })
         .unwrap();
     
