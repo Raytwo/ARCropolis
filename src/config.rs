@@ -152,7 +152,7 @@ pub fn region() -> Region {
         "eu_ru", "kr_ko", "zh_cn", "zh_tw",
     ];
 
-    Region::from(REGIONS.iter().position(|x| x == &GLOBAL_CONFIG.region).map(|x| x as u32).unwrap_or(0))
+    Region::from(REGIONS.iter().position(|x| x == &GLOBAL_CONFIG.region).map(|x| (x + 1) as u32).unwrap_or(0))
 }
 
 pub fn version() -> &'static str {

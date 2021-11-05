@@ -148,7 +148,7 @@ pub struct ResServiceNX {
     pub res_lists: [ResList; 5],
     pub filesystem_info: *mut FilesystemInfo,
     pub region_idx: u32,
-    pub language_idx: Region,
+    pub language_idx: u32,
     unk4: u32,
     pub state: i16,
     pub is_loader_thread_running: bool,
@@ -171,6 +171,12 @@ pub struct ResServiceNX {
     pub current_index: u32,
     pub current_dir_index: u32,
     //Still need to add some
+}
+
+impl ResServiceNX {
+    pub fn get_region(&self) -> Region {
+        Region::from(self.language_idx + 1)
+    }
 }
 
 #[repr(C)]

@@ -1,5 +1,5 @@
 use skyline::{hook, hooks::InlineCtx, libc::{c_void, memcpy}, patching::patch_data};
-use crate::offsets;
+use crate::{offsets, reg_x, reg_w};
 
 /// Fixes the issue where files originally stored as uncompressed in the data.arc
 /// would crash if you replaced them with a file of a larger size.
@@ -10,15 +10,16 @@ use crate::offsets;
 /// the game will not crash and we won't get a mem read access violation
 fn memcpy_uncompressed_fix(ctx: &InlineCtx) {
     // For now, we will leave this as an unconditionally true if statement
-    let hash = crate::GLOBAL_FILESYSTEM.write().get_incoming();
+    let buffer_size = reg_x!(ctx, 2) as usize;
+    let hash = crate::GLOBAL_FILESYSTEM.write().sub_remaining_byes(buffer_size);
     if let Some(hash) = hash {
         super::threads::handle_file_replace(hash);
     } else {
         unsafe {
             memcpy(
-                *ctx.registers[0].x.as_ref() as *mut c_void,
-                *ctx.registers[1].x.as_ref() as *const c_void,
-                *ctx.registers[2].x.as_ref() as usize
+                reg_x!(ctx, 0) as *mut c_void,
+                reg_x!(ctx, 1) as *const c_void,
+                buffer_size
             );
         }
     }

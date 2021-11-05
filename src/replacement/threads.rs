@@ -7,7 +7,7 @@ use skyline::{
     hooks::InlineCtx
 };
 
-use crate::{GLOBAL_FILESYSTEM, hashes, offsets, reg_w, reg_x, resource::{self, InflateFile, LoadInfo, LoadType}};
+use crate::{config, GLOBAL_FILESYSTEM, hashes, offsets, reg_w, reg_x, resource::{self, InflateFile, LoadInfo, LoadType}};
 
 use super::FileInfoFlagsExt;
 
@@ -61,10 +61,11 @@ fn inflate_dir_file(arg: u64, out_decomp_data: &mut InflateFile, comp_data: &Inf
 
     let result = call_original!(arg, out_decomp_data, comp_data);
 
-    let hash = crate::GLOBAL_FILESYSTEM.write().get_incoming();
-
-    if let Some(hash) = hash {
-        handle_file_replace(hash);
+    if result == 0x0 { // returns 0x0 on the very last read, since they can be read in chunks
+        let hash = crate::GLOBAL_FILESYSTEM.write().get_incoming();
+        if let Some(hash) = hash {
+            handle_file_replace(hash);
+        }
     }
 
     result
@@ -85,7 +86,8 @@ pub fn handle_file_replace(hash: Hash40) {
     let filepath_index = usize::from(file_info.file_path_index);
     let file_info_indice_index = usize::from(file_info.file_info_indice_index);
 
-    let decompressed_size = arc.get_file_data(file_info, resource::res_service().language_idx).decomp_size;
+    let decompressed_size = arc.get_file_data(file_info, config::region()).decomp_size;
+    
 
     if filesystem_info.get_loaded_filepaths()[filepath_index].is_loaded == 0 {
         warn!(
@@ -109,14 +111,16 @@ pub fn handle_file_replace(hash: Hash40) {
         return;
     }
 
+    let fs = crate::GLOBAL_FILESYSTEM.read();
+
+    let buffer_size = fs.get().query_max_filesize(fs.hash(hash).unwrap()).unwrap();
+
     let buffer = unsafe {
         std::slice::from_raw_parts_mut(
             filesystem_info.get_loaded_datas()[file_info_indice_index].data as *mut u8,
             decompressed_size as usize
         )
     };
-
-    let fs = crate::GLOBAL_FILESYSTEM.read();
 
     if let Some(size) = fs.load_into(hash, buffer) {
         if arc.get_file_paths()[filepath_index].ext.hash40() == Hash40::from("nutexb") {
@@ -125,7 +129,21 @@ pub fn handle_file_replace(hash: Hash40) {
                 footer.copy_from_slice(&contents[(size - 0xb0)..size]);
             }
         }
-        info!("Replaced file '{}' ({:#x}).", hashes::find(hash), hash.0);
+        info!(
+            "Replaced file '{}' ({:#x}) with buffer size {:#x} and file size {:#x}. Game buffer size: {:#x}", 
+            hashes::find(hash),
+            hash.0,
+            buffer.len(),
+            size,
+            resource::res_service().buffer_size
+        );
+    } else {
+        warn!(
+            "Failed to load file '{}' ({:#x}) into buffer with size {:#X}",
+            hashes::find(hash),
+            hash.0,
+            decompressed_size
+        );
     }
 
 }
