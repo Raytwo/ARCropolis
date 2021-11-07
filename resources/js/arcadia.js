@@ -337,14 +337,14 @@ window.onload = function () {
     });
     
     // Loop through each mod and resize the text to fit
-    [].forEach.call(mods, function (i) {
-        $(".mod-name", i).first().textfill({
-            explicitWidth: 508,
-            explicitHeight: 40,
-            maxFontPixels: 23,
-            changeLineHeight: 0.2
-        });
-    });
+    // [].forEach.call(mods, function (i) {
+    //     $(".mod-name", i).first().textfill({
+    //         explicitWidth: 508,
+    //         explicitHeight: 40,
+    //         maxFontPixels: 23,
+    //         changeLineHeight: 0.2
+    //     });
+    // });
 
     // Listen to the gamepadconnected event
     window.addEventListener("gamepadconnected", function (e) {
