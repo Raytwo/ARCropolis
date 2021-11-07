@@ -304,7 +304,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
         let file_path = &arc.get_file_paths()[path_idx];
         let hash = file_path.path.hash40();
 
-        info!(
+        trace!(
             "[ResInflateThread | #{} | Type: {} | {} / {}] Incoming '{}'",
             path_idx.green(),
             (*ctx.registers[21].w.as_ref()).green(),
