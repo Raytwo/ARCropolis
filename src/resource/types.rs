@@ -17,7 +17,7 @@ pub enum LoadState {
 }
 
 #[repr(packed)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct LoadedFilepath {
     pub loaded_data_index: u32,
     pub is_loaded: u32,
@@ -83,21 +83,9 @@ impl FilesystemInfo {
         }
     }
 
-    pub fn get_loaded_filepaths_mut(&mut self) -> &mut [LoadedFilepath] {
-        unsafe {
-            std::slice::from_raw_parts_mut(self.loaded_filepaths, self.loaded_filepath_len as usize)
-        }
-    }
-
     pub fn get_loaded_datas(&self) -> &[LoadedData] {
         unsafe {
             std::slice::from_raw_parts(self.loaded_datas, self.loaded_data_len as usize)
-        }
-    }
-
-    pub fn get_loaded_datas_mut(&mut self) -> &mut [LoadedData] {
-        unsafe {
-            std::slice::from_raw_parts_mut(self.loaded_datas, self.loaded_data_len as usize)
         }
     }
 
@@ -188,18 +176,6 @@ pub struct InflateFile {
 impl InflateFile {
     pub fn len(&self) -> usize {
         self.size
-    }
-
-    pub fn as_slice(&self) -> &[u8] {
-        unsafe {
-            std::slice::from_raw_parts(self.content, self.size)
-        }
-    }
-    
-    pub fn as_slice_mut(&mut self) -> &mut [u8] {
-        unsafe {
-            std::slice::from_raw_parts_mut(self.content, self.size)
-        }
     }
 }
 

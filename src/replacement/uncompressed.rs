@@ -1,5 +1,5 @@
 use skyline::{hook, hooks::InlineCtx, libc::{c_void, memcpy}, patching::patch_data};
-use crate::{offsets, reg_x, reg_w};
+use crate::{offsets, reg_x};
 
 /// Fixes the issue where files originally stored as uncompressed in the data.arc
 /// would crash if you replaced them with a file of a larger size.
@@ -15,10 +15,12 @@ fn memcpy_uncompressed_fix(ctx: &InlineCtx) {
     if let Some(hash) = hash {
         super::threads::handle_file_replace(hash);
     } else {
+        let dest = reg_x!(ctx, 0) as *mut c_void;
+        let src = reg_x!(ctx, 1) as *const c_void;
         unsafe {
             memcpy(
-                reg_x!(ctx, 0) as *mut c_void,
-                reg_x!(ctx, 1) as *const c_void,
+                dest,
+                src,
                 buffer_size
             );
         }

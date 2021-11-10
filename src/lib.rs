@@ -4,6 +4,7 @@
 #![feature(path_try_exists)]
 #![feature(map_try_insert)] // for not overwriting previously stored hashes
 #![feature(vec_into_raw_parts)]
+#![allow(unaligned_references)]
 
 use std::{fmt, path::{Path, PathBuf}, str::FromStr};
 
@@ -16,7 +17,7 @@ extern crate lazy_static;
 extern crate log;
 
 use parking_lot::RwLock;
-use skyline::{hooks::InlineCtx, libc::{c_void, free, malloc, memcpy}, nn};
+use skyline::{hooks::InlineCtx, nn};
 
 mod chainloader;
 mod config;
@@ -24,7 +25,6 @@ mod fs;
 mod hashes;
 mod logging;
 mod offsets;
-mod remote;
 mod resource;
 mod replacement;
 mod update;
@@ -115,21 +115,9 @@ fn initial_loading(_ctx: &InlineCtx) {
     replacement::lookup::initialize(Some(arc));
     let mut filesystem = GLOBAL_FILESYSTEM.write();
     *filesystem = filesystem.take().finish(arc).unwrap();
-    let timer = switch_timer::SwitchTimer::new();
     filesystem.unshare(resource::arc_mut());
-    crate::dialog_error(format!("Unsharing took {}s", timer.elapsed().as_secs_f32()));
-    let timer = switch_timer::SwitchTimer::new();
     filesystem.share_hashes(arc);
-    crate::dialog_error(format!("Resharing hashes took {}s", timer.elapsed().as_secs_f32()));
-    unsafe {
-        nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost);
-    }
-    let timer = switch_timer::SwitchTimer::new();
     filesystem.patch_sizes(resource::arc_mut());
-    crate::dialog_error(format!("File patching took {}s. Region: {:?}", timer.elapsed().as_secs_f32(), config::region()));
-    unsafe {
-        nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
-    }
 }
 
 #[skyline::main(name = "arcropolis")]
@@ -137,7 +125,6 @@ pub fn main() {
     
     // Initialize the time for the logger
     init_time();
-    switch_timer::SwitchTimer::setup();
 
     // Attempt to initialize the logger, and if we fail we will just do a regular println
     if let Err(err) = logging::init(
@@ -171,7 +158,7 @@ pub fn main() {
         .unwrap();
 
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
-    let updater = std::thread::Builder::new()
+    let _ = std::thread::Builder::new()
         .stack_size(0x40000)
         .spawn(|| {
             if config::auto_update_enabled() {
@@ -192,12 +179,4 @@ pub fn main() {
     // let _ = updater.join();
     // Wait on hashes/lut to finish
     let _ = resources.join();
-
-    let _ = std::thread::spawn(|| {
-        fn receive(args: Vec<String>) {
-            let _ = skyline_communicate::send(remote::handle_command(args).as_str());
-        }
-        skyline_communicate::set_on_receive(skyline_communicate::Receiver::CLIStyle(receive));
-        skyline_communicate::start_server("ARCropolis", 6968);
-    });
 }

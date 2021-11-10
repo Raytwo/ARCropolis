@@ -99,6 +99,7 @@ pub fn initialize_unshare(arc: Option<&LoadedArc>) {
 
             let file_paths = arc.get_file_paths();
         
+
             for dir_info in arc.get_dir_infos() {
                 for (child_index, file_info) in arc.get_file_infos()[dir_info.file_info_range()].iter().enumerate() {
                     lookup.insert(file_paths[file_info.file_path_index].path.hash40(), (dir_info.path.hash40(), child_index));
@@ -152,7 +153,7 @@ pub fn initialize_share(arc: Option<&LoadedArc>) {
                         } 
                         idx
                     },
-                    Err(e) => {
+                    Err(_) => {
                         error!("Failed to get shared file for '{}' ({:#x}) while generating share.lut", hashes::find(hash), hash.0);
                         continue;
                     }
@@ -163,10 +164,15 @@ pub fn initialize_share(arc: Option<&LoadedArc>) {
                 if let Some(shared_file_hashes) = path_shared.get_mut(&shared_hash) {
                     shared_file_hashes.push(hash);
                 } else {
-                    shared_files.insert(shared_hash);
                     let _ = path_shared.insert(shared_hash, vec![hash]);
                 }
-                shared_files.insert(hash);
+            }
+
+            for (src, shared) in path_shared.iter() {
+                shared_files.insert(*src);
+                for share in shared {
+                    shared_files.insert(*share);
+                }
             }
 
             let lookup = ShareLookup {
@@ -212,6 +218,14 @@ pub fn is_shared_file<H: Into<Hash40>>(hash: H) -> bool {
     let lut = SHARE_LOOKUP.read();
     match &*lut {
         ShareLookupState::Generated(lut) => lut.is_shared_search.contains(&hash.into()),
+        _ => false
+    }
+}
+
+pub fn remove_shared_file<H: Into<Hash40>>(hash: H) -> bool {
+    let mut lut = SHARE_LOOKUP.write();
+    match &mut *lut {
+        ShareLookupState::Generated(lut) => lut.is_shared_search.remove(&hash.into()),
         _ => false
     }
 }

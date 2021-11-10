@@ -13,16 +13,14 @@ impl<T> CppVector<T> {
         let current_capacity = self.eos.offset_from(self.start) as usize;
         let current_len = self.end.offset_from(self.start) as usize;
         let layout = Layout::from_size_align(current_capacity * 2 * std::mem::size_of::<T>(), 1).unwrap();
-        let (new_start, new_eos) = unsafe {
+        let (new_start, new_eos) = {
             let start = std::alloc::alloc(layout) as *mut T;
             (start, start.add(current_capacity * 2))
         };
-        unsafe {
-            std::ptr::copy_nonoverlapping(self.start, new_start, current_len);
-            std::alloc::dealloc(self.start as _, Layout::from_size_align(current_capacity * std::mem::size_of::<T>(), 1).unwrap());
-        }
+        std::ptr::copy_nonoverlapping(self.start, new_start, current_len);
+        std::alloc::dealloc(self.start as _, Layout::from_size_align(current_capacity * std::mem::size_of::<T>(), 1).unwrap());
         self.start = new_start;
-        self.end = unsafe { self.start.add(current_len) };
+        self.end = self.start.add(current_len);
         self.eos = new_eos;
         
     }

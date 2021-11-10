@@ -412,7 +412,7 @@ mod files {
 }
 
 mod utils {
-    use crate::hashes;
+    use crate::{hashes, replacement::LoadedArcEx};
 
     use super::super::*;
     use smash_arc::{ArcLookup, DirInfo, FilePathIdx, LoadedArc, RedirectionType, Region};
@@ -458,11 +458,17 @@ mod utils {
         let shared_index = arc.get_shared_data_index();
         for x in info.file_info_range() {
             let shared_str = if !shared {
-                ""
-            } else if arc.get_file_in_folder(&file_infos[x], Region::None).file_data_index.0 >= shared_index {
-                "Shared"
+                "".to_string()
             } else {
-                "Unshared"
+                let shared_file_path = arc.get_shared_file(file_paths[file_infos[x].file_path_index].path.hash40()).unwrap_or(FilePathIdx(0xFF_FFFF));
+                if shared_file_path.0 == 0xFF_FFFF {
+                    "Invalid".to_string()
+                } else if shared_file_path == file_infos[x].file_path_index {
+                    "Unshared".to_string()
+                } else {
+                    let hash = file_paths[shared_file_path].path.hash40();
+                    format!("Shared with '{}' ({:#x})", hashes::find(hash), hash.0)
+                }
             };
             write_indent(&mut output, indent + 1);
             let hash = file_paths[file_infos[x].file_path_index].path.hash40();
@@ -499,11 +505,15 @@ mod utils {
                     }
                     for x in folder.range() {
                         let shared_str = if !shared {
-                            ""
-                        } else if arc.get_file_in_folder(&file_infos[x], Region::None).file_data_index.0 >= shared_index {
-                            "Shared"
+                            "".to_string()
                         } else {
-                            "Unshared"
+                            let shared_file_path = arc.get_shared_file(file_paths[file_infos[x].file_path_index].path.hash40()).unwrap_or(FilePathIdx(0xFF_FFFF));
+                            if shared_file_path == file_infos[x].file_path_index {
+                                "Unshared".to_string()
+                            } else {
+                                let hash = file_paths[shared_file_path].path.hash40();
+                                format!("Shared with '{}' ({:#x})", hashes::find(hash), hash.0)
+                            }
                         };
                         write_indent(&mut output, indent + 2);
                         let hash = file_paths[file_infos[x].file_path_index].path.hash40();

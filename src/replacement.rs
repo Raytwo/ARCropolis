@@ -5,6 +5,7 @@ pub mod config;
 mod threads;
 mod uncompressed;
 pub mod unshare;
+mod preprocess;
 
 pub use extensions::*;
 

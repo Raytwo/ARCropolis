@@ -24,7 +24,7 @@ Utilities:
 
 mod lookups {
     use super::super::*;
-    use crate::resource::{self, FilesystemInfo};
+    use crate::{config, resource::{self, FilesystemInfo}};
     use smash_arc::ArcLookup;
     static USAGE: &'static str =
     r#"Entry Lookups:
@@ -105,7 +105,13 @@ mod lookups {
                     let info_idx_idx = arc.get_file_paths()[idx].path.index() as usize;
                     match tables.get_loaded_datas().get(info_idx_idx) {
                         Some(entry) => {
-                            format!("{:#x?}", entry)
+                            if check_for_flag("-d", &mut args) && !entry.data.is_null() {
+                                let decomp_size = arc.get_file_data(&arc.get_file_infos()[arc.get_file_info_indices()[info_idx_idx].file_info_index], config::region()).decomp_size;
+                                let slice = unsafe { std::slice::from_raw_parts(entry.data, decomp_size as usize) };
+                                format!("{:x?}", slice)
+                            } else {
+                                format!("{:#x?}", entry)
+                            }
                         },
                         None => {
                             String::from("File path points out of bounds of loaded data table")
@@ -189,7 +195,7 @@ mod utils {
               Pass -u to only print unloaded file infos
               Pass --ref-count or --pointer to only see those fields of the loaded data table entries for each file (the default is the loaded state)"#;
 
-    fn check_directory(tables: &FilesystemInfo, index: u32, pretty: bool, unloaded: bool, info_type: CheckInfoType, current: Option<String>, indent: usize) -> String {
+    fn check_directory(tables: &FilesystemInfo, index: u32, data_idx: bool, pretty: bool, unloaded: bool, info_type: CheckInfoType, current: Option<String>, indent: usize) -> String {
         use std::fmt::Write;
         fn write_indent(output: &mut String, indent: usize) {
             for _ in 0..indent {
@@ -234,14 +240,10 @@ mod utils {
 
         for path_idx in loaded_dir.child_path_indices.iter() {
             let t2_entry = {
-                if table1[*path_idx as usize].is_loaded == 0 {
+                if data_idx || table1[*path_idx as usize].is_loaded == 0 {
                     None
                 } else {
-                    if table1[*path_idx as usize].loaded_data_index == 0xFFFFFF {
-                        None
-                    } else {
-                        Some(&table2[table1[*path_idx as usize].loaded_data_index as usize])
-                    }
+                    table2.get(table1[*path_idx as usize].loaded_data_index as usize)
                 }
             };
             if let Some(entry) = t2_entry.as_ref() {
@@ -256,6 +258,8 @@ mod utils {
                     CheckInfoType::State => {
                         if let Some(entry) = t2_entry {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {:?}\n", hashes::find(hash).bright_red(), hash.0, entry.state);
+                        } else if data_idx {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {:#x}\n", hashes::find(hash).bright_red(), hash.0, table1[*path_idx as usize].loaded_data_index);
                         } else {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash).bright_red(), hash.0, "Error! Invalid filepath table state!".red());
                         }
@@ -263,6 +267,8 @@ mod utils {
                     CheckInfoType::RefCount => {
                         if let Some(entry) = t2_entry {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash).bright_red(), hash.0, entry.ref_count.load(std::sync::atomic::Ordering::SeqCst));
+                        } else if data_idx {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {:#x}\n", hashes::find(hash).bright_red(), hash.0, table1[*path_idx as usize].loaded_data_index);
                         } else {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash).bright_red(), hash.0, "Error! Invalid filepath table state!".red());
                         }
@@ -270,6 +276,8 @@ mod utils {
                     CheckInfoType::Pointer => {
                         if let Some(entry) = t2_entry {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {:x}\n", hashes::find(hash).bright_red(), hash.0, entry.data as u64);
+                        } else if data_idx {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {:#x}\n", hashes::find(hash).bright_red(), hash.0, table1[*path_idx as usize].loaded_data_index);
                         } else {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash).bright_red(), hash.0, "Error! Invalid filepath table state!".red());
                         }
@@ -280,6 +288,8 @@ mod utils {
                     CheckInfoType::State => {
                         if let Some(entry) = t2_entry {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {:?}\n", hashes::find(hash), hash.0, entry.state);
+                        } else if data_idx {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {:#x}\n", hashes::find(hash), hash.0, table1[*path_idx as usize].loaded_data_index);
                         } else {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash), hash.0, "Error! Invalid filepath table state!".red());
                         }
@@ -287,6 +297,8 @@ mod utils {
                     CheckInfoType::RefCount => {
                         if let Some(entry) = t2_entry {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash), hash.0, entry.ref_count.load(std::sync::atomic::Ordering::SeqCst));
+                        } else if data_idx {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {:#x}\n", hashes::find(hash), hash.0, table1[*path_idx as usize].loaded_data_index);
                         } else {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash), hash.0, "Error! Invalid filepath table state!".red());
                         }
@@ -294,6 +306,8 @@ mod utils {
                     CheckInfoType::Pointer => {
                         if let Some(entry) = t2_entry {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {:x}\n", hashes::find(hash), hash.0, entry.data as u64);
+                        } else if data_idx {
+                            let _ = write!(&mut output, "| '{}' ({:#x}): {:#x}\n", hashes::find(hash), hash.0, table1[*path_idx as usize].loaded_data_index);
                         } else {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash), hash.0, "Error! Invalid filepath table state!".red());
                         }
@@ -311,7 +325,7 @@ mod utils {
                 } else {
                     let _ = write!(&mut output, "| Child: '{}' ({:#x}): {:?}\n", hashes::find(child_dir_info.path.hash40()), child_dir_info.path.hash40().0, directories[index as usize].state);
                 }
-                output = check_directory(tables, index, pretty, unloaded, info_type, Some(output), indent + 1);
+                output = check_directory(tables, index, data_idx, pretty, unloaded, info_type, Some(output), indent + 1);
             }
         }
         output
@@ -360,6 +374,7 @@ mod utils {
             }
         };
 
+        let data_idx = check_for_flag("-d", &mut args);
         let pretty = check_for_flag("-p", &mut args);
         let unloaded = check_for_flag("-u", &mut args);
         let info_type = if check_for_flag("--ref-count", &mut args) {
@@ -370,7 +385,7 @@ mod utils {
             CheckInfoType::State
         };
 
-        check_directory(tables, index, pretty, unloaded, info_type, None, 0)
+        check_directory(tables, index, data_idx, pretty, unloaded, info_type, None, 0)
     }
 
     pub fn handle_get_broken_filepaths(tables: &FilesystemInfo, mut args: Vec<String>) -> String {
