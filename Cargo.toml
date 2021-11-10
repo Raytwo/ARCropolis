@@ -1,6 +1,6 @@
 [package]
 name = "arcropolis"
-version = "3.0.0-beta.1"
+version = "3.0.0-beta.0"
 authors = ["Raytwo <raytwo@arcropolis.com>, jam1garner <jam@jam1.re>, blujay <the.blu.dev@gmail.com>, CoolSonicKirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
@@ -28,8 +28,6 @@ bincode = "1.3.3"
 orbits = { git = "https://github.com/blu-dev/orbits" }
 smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd"] }
 owo-colors = "3.0.1"
-skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }
-switch_timer = { path = "../../switch_timer" }
 
 [patch.crates-io]
 ring = { git = "https://github.com/skyline-rs/ring", branch = "0.16.20" }

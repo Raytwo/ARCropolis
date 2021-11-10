@@ -1,5 +1,5 @@
-use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx, FileSystemHeader, Hash40, HashToIndex, LoadedArc, LookupError, Region};
-use std::{iter::FromIterator, ops::{Deref, DerefMut}};
+use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx, FileSystemHeader, Hash40, HashToIndex, LoadedArc, LookupError, Region};
+use std::ops::{Deref, DerefMut};
 
 use crate::{hashes, resource::{self, CppVector, FilesystemInfo, LoadedData, LoadedFilepath}};
 
@@ -28,6 +28,17 @@ impl Deref for AdditionContext {
 impl DerefMut for AdditionContext {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.arc
+    }
+}
+
+impl AdditionContext {
+    pub fn get_shared_info_index(&self, current_index: FileInfoIdx) -> FileInfoIdx {
+        let shared_idx = self.file_info_indices[usize::from(self.file_infos[usize::from(current_index)].file_info_indice_index)].file_info_index;
+        if shared_idx == current_index {
+            shared_idx
+        } else {
+            self.get_shared_info_index(shared_idx)
+        }
     }
 }
 

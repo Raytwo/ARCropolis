@@ -118,7 +118,7 @@ pub fn handle_file_replace(hash: Hash40) {
     let buffer = unsafe {
         std::slice::from_raw_parts_mut(
             filesystem_info.get_loaded_datas()[file_info_indice_index].data as *mut u8,
-            decompressed_size as usize
+            buffer_size
         )
     };
 
@@ -145,7 +145,6 @@ pub fn handle_file_replace(hash: Hash40) {
             decompressed_size
         );
     }
-
 }
 
 // handles submitting files to be loaded manually
