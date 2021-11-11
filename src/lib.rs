@@ -17,7 +17,7 @@ extern crate lazy_static;
 extern crate log;
 
 use parking_lot::RwLock;
-use skyline::{hooks::InlineCtx, nn};
+use skyline::{hooks::InlineCtx, libc::c_char, nn};
 
 mod chainloader;
 mod config;
@@ -120,6 +120,23 @@ fn initial_loading(_ctx: &InlineCtx) {
     filesystem.patch_sizes(resource::arc_mut());
 }
 
+#[skyline::hook(offset = offsets::title_screen_version())]
+fn change_version_string(arg: u64, string: *const c_char) {
+    let original_str = unsafe { skyline::from_c_str(string) };
+
+    if original_str.contains("Ver.") {
+        let new_str = format!(
+            "Smash {}\nARCropolis Ver. {}\0",
+            original_str,
+            env!("CARGO_PKG_VERSION")
+        );
+
+        original!()(arg, skyline::c_str(&new_str))
+    } else {
+        original!()(arg, string)
+    }
+}
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     
@@ -173,10 +190,21 @@ pub fn main() {
         .unwrap();
     
 
-    skyline::install_hooks!(initial_loading);
+    skyline::install_hooks!(
+        initial_loading,
+        change_version_string
+    );
     replacement::install();
 
     // let _ = updater.join();
     // Wait on hashes/lut to finish
     let _ = resources.join();
+
+    // let _ = std::thread::spawn(|| {
+    //     fn receive(args: Vec<String>) {
+    //         let _ = skyline_communicate::send(remote::handle_command(args).as_str());
+    //     }
+    //     skyline_communicate::set_on_receive(skyline_communicate::Receiver::CLIStyle(receive));
+    //     skyline_communicate::start_server("ARCropolis", 6968);
+    // });
 }

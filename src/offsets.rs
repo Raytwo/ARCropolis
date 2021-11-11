@@ -243,3 +243,11 @@ pub fn res_load_loop_start() -> usize {
 pub fn res_load_loop_refresh() -> usize {
     OFFSETS.res_load_loop_refresh
 }
+
+pub fn title_screen_version() -> usize {
+    OFFSETS.title_screen_version
+}
+
+pub fn lookup_stream_hash() -> usize {
+    OFFSETS.lookup_stream_hash
+}

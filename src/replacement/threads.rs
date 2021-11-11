@@ -111,14 +111,12 @@ pub fn handle_file_replace(hash: Hash40) {
         return;
     }
 
-    let fs = crate::GLOBAL_FILESYSTEM.read();
-
-    let buffer_size = fs.get().query_max_filesize(fs.hash(hash).unwrap()).unwrap();
+    let mut fs = crate::GLOBAL_FILESYSTEM.write();
 
     let buffer = unsafe {
         std::slice::from_raw_parts_mut(
             filesystem_info.get_loaded_datas()[file_info_indice_index].data as *mut u8,
-            buffer_size
+            decompressed_size as usize
         )
     };
 
@@ -127,6 +125,14 @@ pub fn handle_file_replace(hash: Hash40) {
             if size < decompressed_size as usize {
                 let (contents, footer) = buffer.split_at_mut((decompressed_size - 0xb0) as usize);
                 footer.copy_from_slice(&contents[(size - 0xb0)..size]);
+            }
+        } else if file_info.flags.unshared_nus3bank() {
+            static GRP_BYTES: &[u8] = &[0x47, 0x52, 0x50, 0x20];
+            if let Some(id) = fs.get_bank_id(hash) {
+                let buffer = &mut buffer[0x30..];
+                if let Some(offset) = buffer.windows(GRP_BYTES.len()).position(|window| window == GRP_BYTES) {
+                    buffer[(offset - 4)..offset].copy_from_slice(&id.to_le_bytes());
+                }
             }
         }
         info!(

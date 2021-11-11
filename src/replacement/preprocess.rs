@@ -1,16 +1,16 @@
-use smash_arc::{ArcLookup, FilePathIdx, Hash40};
-use std::collections::HashMap;
+use smash_arc::{ArcLookup, FileInfoIdx, FilePathIdx, Hash40};
+use std::collections::{HashMap, HashSet};
 
 use crate::hashes;
 
 use super::{AdditionContext, LoadedArcEx};
 
-pub fn reshare_contained_files(ctx: &mut AdditionContext, source: Hash40, dependent: Hash40) {
+pub fn reshare_contained_files(ctx: &mut AdditionContext, dependent: Hash40, source: Hash40) -> HashSet<Hash40> {
     let source_range = match ctx.get_dir_info_from_hash(source) {
         Ok(dir_info) => dir_info.file_info_range(),
         Err(_) => {
             error!("Failed to find source directory '{}' ({:#x}) when attempting to reshare their contained files.", hashes::find(source), source.0);
-            return;
+            return HashSet::new();
         }
     };
 
@@ -18,7 +18,7 @@ pub fn reshare_contained_files(ctx: &mut AdditionContext, source: Hash40, depend
         Ok(dir_info) => dir_info.file_info_range(),
         Err(_) => {
             error!("Failed to find dependent directory '{}' ({:#x}) when attempting to reshare their contained files.", hashes::find(dependent), dependent.0);
-            return;
+            return HashSet::new();
         }
     };
 
@@ -36,13 +36,14 @@ pub fn reshare_contained_files(ctx: &mut AdditionContext, source: Hash40, depend
         })
         .collect();
 
-    let filepaths = ctx.arc.get_file_paths();
-    for info in ctx.file_infos[dependent_range].iter_mut() {
-        let hash = filepaths[usize::from(info.file_path_index)].path.hash40();
-        if let Ok(shared_idx) = &ctx.arc.get_shared_file(hash) {
-            if let Some(new_index) = filepath_to_index.get(&shared_idx) {
-                info.file_path_index = *new_index;
-            }
+    dependent_range.into_iter().filter_map(|dep_idx| {
+        let shared_file_idx = ctx.get_shared_info_index(FileInfoIdx(dep_idx as u32));
+        if let Some(new_path_idx) = filepath_to_index.get(&ctx.file_infos[usize::from(shared_file_idx)].file_path_index) {
+            let hash = ctx.filepaths[usize::from(ctx.file_infos[dep_idx].file_path_index)].path.hash40();
+            ctx.file_infos[dep_idx].file_path_index = *new_path_idx;
+            Some(hash)
+        } else {
+            None
         }
-    }
+    }).collect()
 }

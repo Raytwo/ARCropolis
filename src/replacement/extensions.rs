@@ -194,7 +194,9 @@ impl LoadedArcEx for LoadedArc {
 
 pub trait FileInfoFlagsExt {
     fn standalone_file(&self) -> bool;
+    fn unshared_nus3bank(&self) -> bool;
     fn set_standalone_file(&mut self, x: bool);
+    fn set_unshared_nus3bank(&mut self, x: bool);
 }
 
 impl FileInfoFlagsExt for FileInfoFlags {
@@ -207,6 +209,18 @@ impl FileInfoFlagsExt for FileInfoFlags {
             self.set_unused4(self.unused4() | 1);
         } else {
             self.set_unused4(self.unused4() & !1);
+        }
+    }
+
+    fn unshared_nus3bank(&self) -> bool {
+        self.unused4() & 2 != 0
+    }
+
+    fn set_unshared_nus3bank(&mut self, x: bool) {
+        if x {
+            self.set_unused4(self.unused4() | 2);
+        } else {
+            self.set_unused4(self.unused4() & !2);
         }
     }
 }
