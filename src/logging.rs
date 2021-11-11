@@ -178,9 +178,10 @@ impl log::Log for ArcLogger {
     fn flush(&self) {
         if config::file_logging_enabled() {
             if let Some(writer) = &**FILE_WRITER {
-                let mut writer = writer.lock();
-                if let Err(err) = writer.flush() {
-                    error!(target: "std", "Failed to flush file logger! Reason: {:?}", err)
+                if let Some(mut writer) = writer.try_lock() {
+                    if let Err(err) = writer.flush() {
+                        error!(target: "std", "Failed to flush file logger! Reason: {:?}", err)
+                    }
                 }
             }
         }

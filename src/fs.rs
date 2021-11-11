@@ -483,6 +483,8 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
                 static RESERVED_NAMES: &[&'static str] = &[
                     "config.json",
                     "plugin.nro",
+                    "info.toml",
+                    "preview.webp"
                 ];
                 x.parent().is_none() && !RESERVED_NAMES.contains(&name) // ignore everything in the root
             },
