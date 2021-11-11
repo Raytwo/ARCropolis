@@ -41,6 +41,8 @@ pub struct CachedFilesystem {
     hash_size_cache: HashMap<Hash40, usize>,
     incoming_load: Option<Hash40>,
     bytes_remaining: usize,
+    current_nus3bank_id: u32,
+    nus3banks: HashMap<Hash40, u32>
 }
 
 pub enum GlobalFilesystem {
@@ -110,7 +112,9 @@ impl GlobalFilesystem {
                         hash_lookup: hashed_paths,
                         hash_size_cache: hashed_sizes,
                         incoming_load: None,
-                        bytes_remaining: 0
+                        bytes_remaining: 0,
+                        current_nus3bank_id: 7420,
+                        nus3banks: HashMap::new()
                     }))
                 },
                 Err(_) => Err(FilesystemUninitializedError),
@@ -139,7 +143,18 @@ impl GlobalFilesystem {
         }
     }
 
-    pub fn hash(&self, hash: Hash40) -> Option<&PathBuf> {
+    pub fn hash(&self, hash: Hash40) -> Option<PathBuf> {
+        match self {
+            Self::Initialized(fs) => {
+                self
+                    .local_hash(hash)
+                    .map_or(None, |x| fs.loader.query_actual_path(x))
+            },
+            _ => None
+        }
+    }
+
+    pub fn local_hash(&self, hash: Hash40) -> Option<&PathBuf> {
         match self {
             Self::Initialized(fs) => fs.hash_lookup.get(&hash),
             _ => None
@@ -293,8 +308,12 @@ impl GlobalFilesystem {
         match self {
             Self::Initialized(fs) => {
                 let mut context = LoadedArc::make_addition_context();
+                let mut hash_ignore = HashSet::new();
+                for (dep, source) in fs.config.preprocess_reshare.iter() {
+                    hash_ignore.extend(replacement::preprocess::reshare_contained_files(&mut context, dep.0, source.0).into_iter());
+                }
                 replacement::unshare::reshare_file_groups(&mut context);
-                replacement::unshare::unshare_files(&mut context, fs.hash_lookup.iter().filter_map(|(hash, _)| {
+                replacement::unshare::unshare_files(&mut context, hash_ignore, fs.hash_lookup.iter().filter_map(|(hash, _)| {
                     if !fs.config.unshare_blacklist.contains(&Hash40String(*hash)) {
                         Some(*hash)
                     } else {
@@ -314,6 +333,22 @@ impl GlobalFilesystem {
             Self::Initialized(fs) => &fs.config,
             _ => panic!("Global Filesystem is not initialized!")
         }   
+    }
+
+    pub fn get_bank_id(&mut self, hash: Hash40) -> Option<u32> {
+        match self {
+            Self::Initialized(fs) => {
+                if let Some(id) = fs.nus3banks.get(&hash) {
+                    Some(*id)
+                } else {
+                    let id = fs.current_nus3bank_id;
+                    fs.current_nus3bank_id += 1;
+                    fs.nus3banks.insert(hash, id);
+                    Some(id)
+                }
+            },
+            _ => None
+        }
     }
 
     pub fn log_info_indices(&self) {
