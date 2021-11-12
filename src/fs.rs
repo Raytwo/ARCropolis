@@ -480,18 +480,14 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
     let ignore = |x: &Path| {
         match x.file_name() {
             Some(name) if let Some(name) = name.to_str() => {
-                static RESERVED_NAMES: &[&'static str] = &[
-                    "info.toml",
-                    "preview.webp",
-                ];
-                let is_reserved = RESERVED_NAMES.contains(&name);
+                let is_root_file = x.parent().is_none() || x.parent().unwrap().as_os_str().is_empty();
                 let is_out_of_region = if let Some(index) = name.find("+") {
                     let (_, end) = name.split_at(index + 1);
                     !end.starts_with(config::region_str())
                 } else {
                     false
                 };
-                is_reserved || is_out_of_region
+                is_root_file || is_out_of_region
             },
             _ => false
         }
@@ -545,10 +541,10 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
 
     for conflict in conflicts.into_iter() {
         match conflict {
-            ConflictKind::StandardConflict(error, kept) => warn!(
+            ConflictKind::StandardConflict { error_root, source_root, local } => warn!(
                 "File '{}' was rejected for file '{}' during discovery.",
-                error.display(),
-                kept.display()
+                error_root.join(&local).display(),
+                source_root.join(local).display()
             ),
             ConflictKind::RootConflict(root_path, kept) => warn!(
                 "Mod root '{}' was rejected for a file conflict with '{}' during discovery.",
@@ -591,33 +587,46 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
                 }
             }
 
-            match std::fs::File::create("sd:/ultimate/arcropolis/conflicts.txt") {
-                Ok(file) => {
-                    let mut writer = std::io::BufWriter::new(file);
-                    for conflict in conflicts.into_iter() {
-                        match conflict {
-                            ConflictKind::StandardConflict(error, kept) => {
-                                let _ = write!(writer, "File '{}' conflicts with file '{}'.\n", kept.display(), error.display());
-                            },
-                            _ => {}
+            let mut conflict_map: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
+
+            for conflict in conflicts.into_iter() {
+                match conflict {
+                    ConflictKind::StandardConflict { error_root, local, source_root } => {
+                        if let Some(conflicting_mods) = conflict_map.get_mut(&local) {
+                            conflicting_mods.push(error_root);
+                        } else {
+                            conflict_map.insert(local, vec![source_root, error_root]);
                         }
-                    }
-                    crate::dialog_error("Please check sd:/ultimate/arcropolis/conflicts.txt for all of the file conflicts.");
-                },
-                Err(_) => {
-                    for conflict in conflicts.into_iter() {
-                        match conflict {
-                            ConflictKind::StandardConflict(error, kept) => {
-                                error!("File '{}' conflicts with file '{}'.", kept.display(), error.display());
-                            },
-                            _ => {}
-                        }
-                    }
-                    crate::dialog_error("ARCropolis failed to write the conflicts file.");
+                    },
+                    _ => {}
                 }
             }
 
-            
+            let should_log = match serde_json::to_string_pretty(&conflict_map) {
+                Ok(json) => match std::fs::write("sd:/ultimate/arcropolis/conflicts.json", json.as_bytes()) {
+                    Ok(_) => {
+                        crate::dialog_error("Please check sd:/ultimate/arcropolis/conflicts.json for all of the file conflicts.");
+                        false
+                    },
+                    Err(e) => {
+                        crate::dialog_error(format!("Failed to write conflict map to sd:/ultimate/arcropolis/conflicts.json<br>{:?}", e));
+                        true
+                    }
+                },
+                Err(e) => {
+                    crate::dialog_error(format!("Failed to serialize conflict map to JSON. {:?}", e));
+                    true
+                }
+            };
+
+            if should_log {
+                for (local, roots) in conflict_map {
+                    error!("The file {} is used by the following roots:", local.display());
+                    for root in roots {
+                        error!("{}", root.display());
+                    }
+                }
+            }
         }
     }
 
