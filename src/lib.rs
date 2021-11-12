@@ -201,15 +201,7 @@ pub fn main() {
     replacement::install();
 
     // wait on updater to finish
-    let _ = updater.join();
+    // let _ = updater.join();
     // Wait on hashes/lut to finish
     let _ = resources.join();
-
-    // let _ = std::thread::spawn(|| {
-    //     fn receive(args: Vec<String>) {
-    //         let _ = skyline_communicate::send(remote::handle_command(args).as_str());
-    //     }
-    //     skyline_communicate::set_on_receive(skyline_communicate::Receiver::CLIStyle(receive));
-    //     skyline_communicate::start_server("ARCropolis", 6968);
-    // });
 }

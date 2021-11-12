@@ -237,9 +237,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     new_file_info.info_to_data_index = new_info_to_data_idx;
 
     dir_file_info.file_info_indice_index = new_info_indice_idx;
-    // dir_file_info.flags.set_standalone_file(true);
-    // dir_file_info.flags.set_is_regional(new_file_info.flags.is_regional());
-
+    dir_file_info.flags.set_standalone_file(true);
 
     ctx.file_infos[dir_info.file_info_range()][idx] = dir_file_info;
 
