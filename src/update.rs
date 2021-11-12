@@ -5,17 +5,17 @@ use std::fmt;
 use zip::ZipArchive;
 
 pub enum VersionDifference {
-    ChangeToStable,
-    ChangeToBeta,
-    Regular,
+    ChangeToStable(String),
+    ChangeToBeta(String),
+    Regular(String),
 }
 
 impl fmt::Display for VersionDifference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ChangeToStable => write!(f, "An uninstalled stable version of ARCropolis"),
-            Self::ChangeToBeta => write!(f, "A new beta version of ARCropolis"),
-            Self::Regular => write!(f, "A new update for ARCropolis"),
+            Self::ChangeToStable(ver) => write!(f, "An uninstalled stable version of ARCropolis ({})", ver),
+            Self::ChangeToBeta(ver) => write!(f, "A new beta version of ARCropolis ({})", ver),
+            Self::Regular(ver) => write!(f, "A new update for ARCropolis ({})", ver),
         }
     }
 }
@@ -25,11 +25,11 @@ fn compare_tags(current: &str, target: &str) -> Result<Option<VersionDifference>
     let target = Version::parse(target)?;
 
     if current.pre.is_empty() && !target.pre.is_empty() {
-        Ok(Some(VersionDifference::ChangeToBeta))
+        Ok(Some(VersionDifference::ChangeToBeta(target.to_string())))
     } else if !current.pre.is_empty() && target.pre.is_empty() && current < target {
-        Ok(Some(VersionDifference::ChangeToStable))
-    } else if target.gt(&current) {
-        Ok(Some(VersionDifference::Regular))
+        Ok(Some(VersionDifference::ChangeToStable(target.to_string())))
+    } else if target > current {
+        Ok(Some(VersionDifference::Regular(target.to_string())))
     } else {
         Ok(None)
     }
@@ -45,11 +45,32 @@ where
         .with_prereleases(beta_enabled)
         .find_release();
 
-    let release = match release {
+    let (release, prerelease) = match release {
         Ok(r) => r,
         Err(e) => {
             error!("Failed to check for updates: {:?}", e);
             return;
+        }
+    };
+
+    let prerelease_tag = prerelease
+        .as_ref()
+        .map(|x| Version::parse(x.get_release_tag().trim_start_matches("v")).expect("Failed to parse version strings!"));
+    let release_tag = release
+        .as_ref()
+        .map(|x| Version::parse(x.get_release_tag().trim_start_matches("v")).expect("Failed to parse version strings!"));
+
+    let release = match (prerelease_tag, release_tag) {
+        (None, None) => {
+            error!("No github releases were found!");
+            return;
+        },
+        (prerelease_tag, release_tag) => {
+            if prerelease_tag > release_tag {
+                prerelease.unwrap()
+            } else { // even if they are equal it won't matter
+                release.unwrap()
+            }
         }
     };
 

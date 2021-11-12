@@ -481,12 +481,17 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
         match x.file_name() {
             Some(name) if let Some(name) = name.to_str() => {
                 static RESERVED_NAMES: &[&'static str] = &[
-                    "config.json",
-                    "plugin.nro",
                     "info.toml",
-                    "preview.webp"
+                    "preview.webp",
                 ];
-                x.parent().is_none() && !RESERVED_NAMES.contains(&name) // ignore everything in the root
+                let is_reserved = RESERVED_NAMES.contains(&name);
+                let is_out_of_region = if let Some(index) = name.find("+") {
+                    let (_, end) = name.split_at(index + 1);
+                    !end.starts_with(config::region_str())
+                } else {
+                    false
+                };
+                is_reserved || is_out_of_region
             },
             _ => false
         }
