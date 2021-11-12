@@ -155,6 +155,10 @@ pub fn region() -> Region {
     Region::from(REGIONS.iter().position(|x| x == &GLOBAL_CONFIG.region).map(|x| (x + 1) as u32).unwrap_or(0))
 }
 
+pub fn region_str() -> &'static str {
+    GLOBAL_CONFIG.region.as_str()
+}
+
 pub fn version() -> &'static str {
     GLOBAL_CONFIG.version.as_str()
 }

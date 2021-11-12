@@ -80,13 +80,17 @@ impl fmt::Debug for InvalidOsStrError {
 
 /// Basic code for getting a hash40 from a path, ignoring things like if it exists
 fn get_smash_hash<P: AsRef<Path>>(path: P) -> Result<Hash40, InvalidOsStrError> {
-    let path = path
+    let mut path = path
         .as_ref()
         .as_os_str()
         .to_str()
         .map_or(Err(InvalidOsStrError), |x| Ok(x))?
         .to_lowercase()
         .replace(";", ":");
+
+    if let Some(regional_idx) = path.find("+") {
+        path.replace_range(regional_idx..regional_idx+6, "")
+    }
 
     Ok(Hash40::from(path.trim_start_matches("/")))
 }
@@ -175,7 +179,7 @@ pub fn main() {
         .unwrap();
 
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
-    let _ = std::thread::Builder::new()
+    let updater = std::thread::Builder::new()
         .stack_size(0x40000)
         .spawn(|| {
             if config::auto_update_enabled() {
@@ -196,7 +200,8 @@ pub fn main() {
     );
     replacement::install();
 
-    // let _ = updater.join();
+    // wait on updater to finish
+    let _ = updater.join();
     // Wait on hashes/lut to finish
     let _ = resources.join();
 
