@@ -9,6 +9,7 @@
 use std::{fmt, path::{Path, PathBuf}, str::FromStr};
 
 use log::LevelFilter;
+use thiserror::Error;
 
 #[macro_use]
 extern crate lazy_static;
@@ -70,29 +71,60 @@ fn dialog_error<S: AsRef<str>>(msg: S) {
     }
 }
 
+#[derive(Error, Debug)]
 pub struct InvalidOsStrError;
 
-impl fmt::Debug for InvalidOsStrError {
+impl fmt::Display for InvalidOsStrError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Failed to convert from OsStr to &str")
     }
 }
 
-/// Basic code for getting a hash40 from a path, ignoring things like if it exists
-fn get_smash_hash<P: AsRef<Path>>(path: P) -> Result<Hash40, InvalidOsStrError> {
-    let mut path = path
-        .as_ref()
-        .as_os_str()
-        .to_str()
-        .map_or(Err(InvalidOsStrError), |x| Ok(x))?
-        .to_lowercase()
-        .replace(";", ":");
+pub trait PathExtension {
+    fn is_stream(&self) -> bool;
+    fn has_extension<S: AsRef<str>>(&self, ext: S) -> bool;
+    fn smash_hash(&self) -> Result<Hash40, InvalidOsStrError>;
+}
 
-    if let Some(regional_idx) = path.find("+") {
-        path.replace_range(regional_idx..regional_idx+6, "")
+impl PathExtension for Path {
+    fn is_stream(&self) -> bool {
+        static VALID_PREFIXES: &[&str] = &[
+            "/stream;",
+            "/stream:",
+            "stream;",
+            "stream:"
+        ];
+
+        VALID_PREFIXES.iter().any(|x| self.starts_with(*x))
     }
 
-    Ok(Hash40::from(path.trim_start_matches("/")))
+    fn has_extension<S: AsRef<str>>(&self, ext: S) -> bool {
+        self.extension()
+            .map(|x| x.to_str())
+            .flatten()
+            .map(|x| x == ext.as_ref())
+            .unwrap_or(false)
+    }
+
+    fn smash_hash(&self) -> Result<Hash40, InvalidOsStrError> {
+        let mut path = self
+            .as_os_str()
+            .to_str()
+            .map_or(Err(InvalidOsStrError), |x| Ok(x))?
+            .to_lowercase()
+            .replace(";", ":");
+
+        if let Some(regional_idx) = path.find("+") {
+            path.replace_range(regional_idx..regional_idx+6, "")
+        }
+
+        Ok(Hash40::from(path.trim_start_matches("/")))
+    }
+}
+
+/// Basic code for getting a hash40 from a path, ignoring things like if it exists
+fn get_smash_hash<P: AsRef<Path>>(path: P) -> Result<Hash40, InvalidOsStrError> {
+    path.as_ref().smash_hash()
 }
 
 /// Initializes the `nn::time` library, for creating a log file based off of the current time. For some reason Smash does not initialize this
@@ -119,6 +151,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     replacement::lookup::initialize(Some(arc));
     let mut filesystem = GLOBAL_FILESYSTEM.write();
     *filesystem = filesystem.take().finish(arc).unwrap();
+    filesystem.hash(Hash40::from("sound/bank/fighter_voice/vc_master_c07.nus3bank")).unwrap();
     filesystem.unshare(resource::arc_mut());
     filesystem.share_hashes(arc);
     filesystem.patch_sizes(resource::arc_mut());

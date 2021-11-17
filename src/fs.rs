@@ -10,7 +10,7 @@ use owo_colors::OwoColorize;
 
 use crate::chainloader::{NroBuilder, NrrBuilder, NrrRegistrationFailedError};
 use crate::replacement::{self, LoadedArcEx};
-use crate::{config, hashes, resource};
+use crate::{PathExtension, config, hashes, resource};
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
@@ -18,12 +18,119 @@ use std::{
     ops::Deref,
     path::Path
 };
+use thiserror::Error;
 
 use std::fmt;
 
 static DEFAULT_CONFIG: &'static str = include_str!("../resources/override.json");
 
-pub type ApiLoader = StandardLoader; // temporary until an actual ApiLoader is implemented
+// pub type ApiLoader = StandardLoader; // temporary until an actual ApiLoader is implemented
+
+#[derive(Error, Debug)]
+pub enum ApiLoaderError {
+    #[error("Error loading file from the data.arc.")]
+    Arc(#[from] LookupError),
+    #[error("Unable to generate hash from path.")]
+    Hash(#[from] crate::InvalidOsStrError),
+    #[error("{0}")]
+    Other(String)
+}
+
+#[derive(Copy, Clone, Debug)]
+enum ApiLoadType {
+    Nus3bankPatch,
+}
+
+impl ApiLoadType {
+    pub fn from_root(root: &Path) -> Result<Self, ApiLoaderError> {
+        if root.starts_with("patch-nus3bank:/") {
+            Ok(ApiLoadType::Nus3bankPatch)
+        } else {
+            Err(ApiLoaderError::Other(format!("Cannot find ApiLoadType for root {}", root.display())))
+        }
+    }
+
+    pub fn path_exists(self, local: &Path) -> bool {
+        match self {
+            ApiLoadType::Nus3bankPatch => true,
+            _ => false
+        }
+    }
+
+    pub fn get_file_size(self, local: &Path) -> Option<usize> {
+        match self {
+            ApiLoadType::Nus3bankPatch => {
+                let arc = resource::arc();
+                crate::get_smash_hash(local)
+                    .ok()
+                    .map(|hash| arc.get_file_data_from_hash(hash, config::region()).ok())
+                    .flatten()
+                    .map(|x| x.decomp_size as usize)
+            },
+            _ => None
+        }
+    }
+
+    pub fn get_path_type(self, local: &Path) -> Result<FileEntryType, ApiLoaderError> {
+        match self {
+            ApiLoadType::Nus3bankPatch => {
+                let search = resource::search();
+                let hash = crate::get_smash_hash(local)?;
+                if search.get_path_list_entry_from_hash(hash)?.is_directory() {
+                    Ok(FileEntryType::Directory)
+                } else {
+                    Ok(FileEntryType::File)
+                }
+            },
+            _ => Err(ApiLoaderError::Other("Unimplemented ApiLoadType!".to_string()))
+        }
+    }
+
+    pub fn load_path(self, local: &Path) -> Result<Vec<u8>, ApiLoaderError> {
+        match self {
+            ApiLoadType::Nus3bankPatch => ApiLoader::handle_load_vanilla_file(local),
+            _ => Err(ApiLoaderError::Other("Unimplemented ApiLoadType!".to_string()))
+        }
+    }
+}
+
+pub struct ApiLoader;
+
+impl ApiLoader {
+    pub fn handle_load_vanilla_file(local: &Path) -> Result<Vec<u8>, ApiLoaderError> {
+        let arc = resource::arc();
+        let hash = crate::get_smash_hash(local)?;
+        Ok(arc.get_file_contents(hash, config::region())?)
+    }
+}
+
+impl FileLoader for ApiLoader {
+    type ErrorType = ApiLoaderError;
+
+    fn path_exists(&self, root_path: &Path, local_path: &Path) -> bool {
+        ApiLoadType::from_root(root_path)
+            .map(|x| x.path_exists(local_path))
+            .unwrap_or(false)
+    }
+
+    fn get_file_size(&self, root_path: &Path, local_path: &Path) -> Option<usize> {
+        ApiLoadType::from_root(root_path)
+            .ok()
+            .map(|x| x.get_file_size(local_path))
+            .flatten()
+    }
+
+    fn get_path_type(&self, root_path: &Path, local_path: &Path) -> Result<FileEntryType, Self::ErrorType> {
+        ApiLoadType::from_root(root_path)?
+            .get_path_type(local_path)
+    }
+
+    fn load_path(&self, root_path: &Path, local_path: &Path) -> Result<Vec<u8>, Self::ErrorType> {
+        ApiLoadType::from_root(root_path)?
+            .load_path(local_path)
+    }
+}
+
 pub type ArcropolisOrbit = Orbit<ArcLoader, StandardLoader, ApiLoader>;
 
 pub struct FilesystemUninitializedError;
@@ -56,7 +163,7 @@ impl GlobalFilesystem {
         match self {
             Self::Uninitialized => Err(FilesystemUninitializedError),
             Self::Promised(promise) => match promise.join() {
-                Ok(launchpad) => {
+                Ok(mut launchpad) => {
                     let mut hashed_paths = HashMap::new();
                     let mut hashed_sizes = HashMap::new();
                     launchpad.patch.tree.walk_paths(|node, entry_type| {
@@ -104,6 +211,30 @@ impl GlobalFilesystem {
                                 Err(e) => warn!("Failed to deserialize mod config at '{}'. Reason: {:?}", full_path.display(), e)
                             },
                             Err(e) => warn!("Failed to read mod config at '{}'. Reason: {:?}", full_path.display(), e)
+                        }
+                    }
+                    let mut nus3banks = HashSet::new();
+                    let mut nus3audio_requires = HashSet::new();
+                    launchpad.patch.tree.walk_paths(|node, ty| {
+                        if ty.is_file() {
+                            let local = node.get_local();
+                            if !local.is_stream() && local.has_extension("nus3audio") {
+                                nus3audio_requires.insert(local.with_extension("nus3bank"));
+                            }
+                            if !local.is_stream() && local.has_extension("nus3bank") {
+                                nus3banks.insert(local.to_path_buf());
+                            }
+                        }
+                    });
+                    for bank in nus3banks {
+                        nus3audio_requires.remove(&bank);
+                    }
+                    let nus3bank_patch_root = Path::new("patch-nus3bank:/");
+                    for required in nus3audio_requires {
+                        launchpad.virt.tree.insert_file(nus3bank_patch_root, &required);
+                        if let Ok(hash) = crate::get_smash_hash(&required) {
+                            hashed_paths.insert(hash, required);
+                            hashed_sizes.insert(hash, 0); // use vanilla size regardless
                         }
                     }
                     Ok(Self::Initialized(CachedFilesystem {
@@ -467,7 +598,7 @@ where <A as FileLoader>::ErrorType: std::fmt::Debug {
     fighter_nro_nrr.register()
 }
 
-pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
+pub fn perform_discovery() -> LaunchPad<StandardLoader, ApiLoader> {
     let filter = |x: &Path| {
         match x.file_name() {
             Some(name) if let Some(name) = name.to_str() => {
@@ -508,7 +639,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, StandardLoader> {
 
     let mut launchpad = LaunchPad::new(
         DiscoverSystem::new(StandardLoader, ConflictHandler::NoRoot),
-        DiscoverSystem::new(StandardLoader, ConflictHandler::NoRoot),
+        DiscoverSystem::new(ApiLoader, ConflictHandler::NoRoot),
     );
 
     let arc_path = config::arc_path();
