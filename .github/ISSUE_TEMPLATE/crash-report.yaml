@@ -1,4 +1,4 @@
-name: Crash Report v2
+name: Crash Report
 description: If you did everything right and get a crash, fill this template
 title: "[Crash] [ARCropolis version]: Brief description of the issue"
 labels: ["bug", "crash"]
