@@ -1,13 +1,16 @@
 name: Crash Report v2
-description: File a bug report
+description: If you did everything right and get a crash, fill this template
 title: "[Crash] [ARCropolis version]: Brief description of the issue"
 labels: ["bug", "crash"]
 body:
   - type: markdown
     attributes:
       value: |
+        # DISCLAIMER
         Before posting, make sure to check if the ARCropolis version appears on the title screen. If it does not, you did not install it properly and should not open an issue.  
+        
         Please make sure the issue comes from ARCropolis itself by disabling any other plugin you may have and confirming you still can reproduce the crash.  
+        
         Finally, any issues where the user is using SX OS or ReiNX are not considered and issues with said CFW should not be submitted.
   - type: input
     id: sys-ver
