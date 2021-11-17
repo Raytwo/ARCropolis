@@ -34,14 +34,6 @@ body:
     validations:
       required: true
   - type: input
-    id: smash-ver
-    attributes:
-      label: Smash Version
-      description: The version of Smash Ultimate currently installed on your Nintendo Switch (Press + on the icon on the home menu).
-      placeholder: ex. 13.0.0
-    validations:
-      required: true
-  - type: input
     id: arc-ver
     attributes:
       label: ARCropolis Version
