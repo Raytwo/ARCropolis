@@ -91,7 +91,7 @@ impl GlobalFilesystem {
                     };
                     for (root, local) in launchpad.patch.collected.iter() {
                         let full_path = root.join(local);
-                        if !full_path.exists() {
+                        if !full_path.exists() && full_path.ends_with("config.json") {
                             warn!("Mod config at '{}' does not exist.", full_path.display());
                             continue;
                         }
