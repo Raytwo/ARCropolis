@@ -12,6 +12,12 @@ body:
         Please make sure the issue comes from ARCropolis itself by disabling any other plugin you may have and confirming you still can reproduce the crash.  
         
         Finally, any issues where the user is using SX OS or ReiNX are not considered and issues with said CFW should not be submitted.
+  - type: checkboxes
+    id: disclaimer-read
+    attributes:
+      options:
+        - label: I have read the disclaimer.
+          required: true
   - type: input
     id: sys-ver
     attributes:
