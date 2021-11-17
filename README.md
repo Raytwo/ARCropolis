@@ -10,7 +10,7 @@ A Wiki is available to help get you started with [setting up ARCropolis](https:/
 ARCropolis comes built-in with a few features such as:
 * [Auto-updater](https://github.com/Raytwo/ARCropolis/wiki/Auto-updater)
 * [File logger](https://github.com/Raytwo/ARCropolis/wiki/File-logging) (soon!)
-* [Workspace manager](https://github.com/Raytwo/ARCropolis/wiki/Workspace-selector)
+* [Workspace manager](https://github.com/Raytwo/ARCropolis/wiki/Workspaces-and-Workspace-Selector)
 * [Mod manager](https://github.com/Raytwo/ARCropolis/wiki/Mod-manager)
 
 ### Backward compatible with Ultimate Mod Manager
