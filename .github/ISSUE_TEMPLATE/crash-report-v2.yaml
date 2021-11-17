@@ -65,7 +65,7 @@ body:
     attributes:
       label: Can the crash be consistently reproduced?
       options:
-        - Yes
+        - "Yes"
         - No
     validations:
       required: true
