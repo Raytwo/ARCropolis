@@ -101,3 +101,10 @@ body:
     attributes:
       label: Configuration
       description: Copy/paste the content of your configuration file here
+    validations:
+      required: true
+  - type: input
+    id: modpack
+    attributes:
+      label: Minimal modpack to observe the issue
+      description: If the incorrect behavior is consistent, please provide a link to download a modpack containing the strict minimum files to reproduce it.
