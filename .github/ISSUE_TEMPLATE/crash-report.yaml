@@ -76,7 +76,22 @@ body:
     id: modpack
     attributes:
       label: Minimal modpack to reproduce the crash
-      description: If the crash is consistent, please provide a modpack containing the strict minimum files to reproduce it.
+      description: If the crash is consistent, please provide a link to download a modpack containing the strict minimum files to reproduce it.
+  - type: checkboxes
+    id: crash-timing
+    attributes:
+      label: At what moment does the crash happen?
+      description: You may select more than one. Please provide more information in the Context field below.
+      options:
+        - label: Before the Switch boot animation
+        - label: After the Switch boot animation
+        - label: During the Smash ball loading on boot
+        - label: Before the opening cutscene, but only sometimes
+        - label: On the Stage Select Screen
+        - label: On the Character Select Screen
+        - label: During the loading for a battle
+        - label: At random
+        - label: After a long time playing
   - type: textarea
     id: context
     attributes:
