@@ -72,6 +72,11 @@ body:
         - "No"
     validations:
       required: true
+  - type: input
+    id: modpack
+    attributes:
+      label: Minimal modpack to reproduce the crash
+      description: If the crash is consistent, please provide a modpack containing the strict minimum files to reproduce it.
   - type: textarea
     id: context
     attributes:
