@@ -24,7 +24,7 @@ Beta builds are sometimes posted there, too.
 ### Special thanks
 Here is a list of the multiple people who have contributed to ARCropolis over time
 
-Current Maintainer: ``Raytwo, blujay``
+Current maintainers: ``Raytwo``, ``blujay``
 
 Developers: ``Raytwo``, ``CoolSonicKirby``, ``blujay``, ``jam1garner``
 
