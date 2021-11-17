@@ -1,13 +1,3 @@
----
-name: Panic
-about: A window showed up telling you a plugin has panicked
-title: "[Panic][ARCropolis version] Panic on the Vs. screen when using textures smaller
-  than the original one"
-labels: bug, panic
-assignees: ''
-
----
-
 name: Panic
 description: A window showed up telling you a plugin has panicked
 title: "[Panic][ARCropolis version]: Brief description of the issue"
