@@ -11,9 +11,11 @@ use owo_colors::OwoColorize;
 use crate::chainloader::{NroBuilder, NrrBuilder, NrrRegistrationFailedError};
 use crate::replacement::{self, LoadedArcEx};
 use crate::{PathExtension, config, hashes, resource};
+use std::cell::UnsafeCell;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
     ops::Deref,
     path::Path
@@ -22,114 +24,15 @@ use thiserror::Error;
 
 use std::fmt;
 
-static DEFAULT_CONFIG: &'static str = include_str!("../resources/override.json");
+pub mod api;
 
+pub mod loaders;
+pub use loaders::*;
+
+static DEFAULT_CONFIG: &'static str = include_str!("../resources/override.json");
+static IS_INIT: AtomicBool = AtomicBool::new(false);
 // pub type ApiLoader = StandardLoader; // temporary until an actual ApiLoader is implemented
 
-#[derive(Error, Debug)]
-pub enum ApiLoaderError {
-    #[error("Error loading file from the data.arc.")]
-    Arc(#[from] LookupError),
-    #[error("Unable to generate hash from path.")]
-    Hash(#[from] crate::InvalidOsStrError),
-    #[error("{0}")]
-    Other(String)
-}
-
-#[derive(Copy, Clone, Debug)]
-enum ApiLoadType {
-    Nus3bankPatch,
-}
-
-impl ApiLoadType {
-    pub fn from_root(root: &Path) -> Result<Self, ApiLoaderError> {
-        if root.starts_with("patch-nus3bank:/") {
-            Ok(ApiLoadType::Nus3bankPatch)
-        } else {
-            Err(ApiLoaderError::Other(format!("Cannot find ApiLoadType for root {}", root.display())))
-        }
-    }
-
-    pub fn path_exists(self, local: &Path) -> bool {
-        match self {
-            ApiLoadType::Nus3bankPatch => true,
-            _ => false
-        }
-    }
-
-    pub fn get_file_size(self, local: &Path) -> Option<usize> {
-        match self {
-            ApiLoadType::Nus3bankPatch => {
-                let arc = resource::arc();
-                crate::get_smash_hash(local)
-                    .ok()
-                    .map(|hash| arc.get_file_data_from_hash(hash, config::region()).ok())
-                    .flatten()
-                    .map(|x| x.decomp_size as usize)
-            },
-            _ => None
-        }
-    }
-
-    pub fn get_path_type(self, local: &Path) -> Result<FileEntryType, ApiLoaderError> {
-        match self {
-            ApiLoadType::Nus3bankPatch => {
-                let search = resource::search();
-                let hash = crate::get_smash_hash(local)?;
-                if search.get_path_list_entry_from_hash(hash)?.is_directory() {
-                    Ok(FileEntryType::Directory)
-                } else {
-                    Ok(FileEntryType::File)
-                }
-            },
-            _ => Err(ApiLoaderError::Other("Unimplemented ApiLoadType!".to_string()))
-        }
-    }
-
-    pub fn load_path(self, local: &Path) -> Result<Vec<u8>, ApiLoaderError> {
-        match self {
-            ApiLoadType::Nus3bankPatch => ApiLoader::handle_load_vanilla_file(local),
-            _ => Err(ApiLoaderError::Other("Unimplemented ApiLoadType!".to_string()))
-        }
-    }
-}
-
-pub struct ApiLoader;
-
-impl ApiLoader {
-    pub fn handle_load_vanilla_file(local: &Path) -> Result<Vec<u8>, ApiLoaderError> {
-        let arc = resource::arc();
-        let hash = crate::get_smash_hash(local)?;
-        Ok(arc.get_file_contents(hash, config::region())?)
-    }
-}
-
-impl FileLoader for ApiLoader {
-    type ErrorType = ApiLoaderError;
-
-    fn path_exists(&self, root_path: &Path, local_path: &Path) -> bool {
-        ApiLoadType::from_root(root_path)
-            .map(|x| x.path_exists(local_path))
-            .unwrap_or(false)
-    }
-
-    fn get_file_size(&self, root_path: &Path, local_path: &Path) -> Option<usize> {
-        ApiLoadType::from_root(root_path)
-            .ok()
-            .map(|x| x.get_file_size(local_path))
-            .flatten()
-    }
-
-    fn get_path_type(&self, root_path: &Path, local_path: &Path) -> Result<FileEntryType, Self::ErrorType> {
-        ApiLoadType::from_root(root_path)?
-            .get_path_type(local_path)
-    }
-
-    fn load_path(&self, root_path: &Path, local_path: &Path) -> Result<Vec<u8>, Self::ErrorType> {
-        ApiLoadType::from_root(root_path)?
-            .load_path(local_path)
-    }
-}
 
 pub type ArcropolisOrbit = Orbit<ArcLoader, StandardLoader, ApiLoader>;
 
@@ -229,14 +132,67 @@ impl GlobalFilesystem {
                     for bank in nus3banks {
                         nus3audio_requires.remove(&bank);
                     }
-                    let nus3bank_patch_root = Path::new("patch-nus3bank:/");
+                    let nus3bank_patch_root = Path::new("api:/patch-nus3bank");
                     for required in nus3audio_requires {
                         launchpad.virt.tree.insert_file(nus3bank_patch_root, &required);
                         if let Ok(hash) = crate::get_smash_hash(&required) {
+                            launchpad.virt.tree.loader.push_entry(hash, nus3bank_patch_root, ApiCallback::None);
                             hashed_paths.insert(hash, required);
                             hashed_sizes.insert(hash, 0); // use vanilla size regardless
                         }
                     }
+                    let mut pending_requests = api::PENDING_API_CALLS.lock();
+                    let mut tmp = Vec::new();
+                    std::mem::swap(&mut *pending_requests, &mut tmp);
+                    for call in tmp.into_iter() {
+                        match call {
+                            api::PendingApiCall::GenericCallback {
+                                hash,
+                                max_size,
+                                callback
+                            } => {
+                                if let Some(known_path) = hashed_paths.get(&hash) {
+                                    launchpad.virt.tree.insert_file("api:/generic-cb", known_path);
+                                } else {
+                                    let new_local_path = PathBuf::from(hashes::try_find(hash).map_or(format!("{:#x}", hash.0), |x| x.to_string()));
+                                    launchpad.virt.tree.insert_file("api:/generic-cb", &new_local_path);
+                                    hashed_paths.insert(hash, new_local_path);
+                                }
+                                launchpad.virt.tree.loader.push_entry(hash, Path::new("api:/generic-cb"), loaders::ApiCallback::GenericCallback(callback));
+                                if let Some(current_size) = hashed_sizes.get_mut(&hash) {
+                                    *current_size = (*current_size).max(max_size);
+                                } else {
+                                    hashed_sizes.insert(hash, max_size);
+                                }
+                            },
+                            api::PendingApiCall::StreamCallback {
+                                hash,
+                                callback
+                            } => {
+                                if let Some(known_path) = hashed_paths.get(&hash) {
+                                    launchpad.virt.tree.insert_file("api:/stream-cb", known_path);
+                                } else {
+                                    let new_local_path = PathBuf::from(hashes::try_find(hash).map_or(format!("{:#x}", hash.0), |x| x.to_string()));
+                                    launchpad.virt.tree.insert_file("api:/stream-cb", &new_local_path);
+                                    hashed_paths.insert(hash, new_local_path);
+                                }
+                                launchpad.virt.tree.loader.push_entry(hash, Path::new("api:/stream-cb"), loaders::ApiCallback::StreamCallback(callback));
+                            },
+                            api::PendingApiCall::ExtensionCallback {
+                                ext,
+                                callback
+                            } => {
+                                let local_path = format!("{}~", ext);
+                                let hash = crate::get_smash_hash(&local_path).expect("Failed to get local hash for ext callback!");
+                                if hashed_paths.get(&hash).is_none() {
+                                    hashed_paths.insert(hash, PathBuf::from(&local_path));
+                                }
+                                launchpad.virt.tree.insert_file("api:/extension-cb", local_path);
+                                launchpad.virt.tree.loader.push_entry(hash, Path::new("api:/generic-cb"), loaders::ApiCallback::ExtCallback(callback));
+                            }
+                        }
+                    }
+                    IS_INIT.store(true, Ordering::SeqCst);
                     Ok(Self::Initialized(CachedFilesystem {
                         loader: launchpad.launch(ArcLoader(arc)),
                         config,
@@ -252,6 +208,10 @@ impl GlobalFilesystem {
             },
             Self::Initialized(filesystem) => Ok(Self::Initialized(filesystem)),
         }
+    }
+
+    pub fn is_init() -> bool {
+        IS_INIT.load(Ordering::SeqCst)
     }
 
     pub fn take(&mut self) -> Self {
@@ -482,99 +442,8 @@ impl GlobalFilesystem {
         }
     }
 
-    pub fn log_info_indices(&self) {
-        match self {
-            Self::Initialized(fs) => {
-                let mut indice_to_hash: HashMap<u32, HashSet<Hash40>> = HashMap::new();
-                let arc = resource::arc();
-                let file_paths = arc.get_file_paths();
-                let file_info_indices = arc.get_file_info_indices();
-                let file_infos = arc.get_file_infos();
-                for hash in fs.hash_lookup.keys().into_iter() {
-                    if let Ok(path_idx) = arc.get_file_path_index_from_hash(*hash) {
-                        let info_indice = file_infos[file_info_indices[file_paths[path_idx].path.index() as usize].file_info_index].file_info_indice_index.0;
-                        if let Some(current_hashes) = indice_to_hash.get_mut(&info_indice) {
-                            current_hashes.insert(*hash);
-                        } else {
-                            let mut set = HashSet::new();
-                            set.insert(*hash);
-                            indice_to_hash.insert(info_indice, set);
-                        }
-                    } 
-                }
-
-                for file_path in file_paths.iter() {
-                    if let Some(current_hashes) = indice_to_hash.get_mut(&file_infos[file_info_indices[file_path.path.index() as usize].file_info_index].file_info_indice_index.0) {
-                        current_hashes.insert(file_path.path.hash40());
-                    }
-                }
-
-                for (hash, path) in fs.hash_lookup.iter() {
-                    if let Ok(path_idx) = arc.get_file_path_index_from_hash(*hash) {
-                        let idx = file_paths[path_idx].path.index();
-                        if let Some(current_hashes) = indice_to_hash.get(&idx) {
-                            if current_hashes.len() <= 1 { continue; }
-                            debug!("File '{}' replaces index {:#x}, which is used by the following files: ", path.display(), idx);
-                            for x in current_hashes.iter() {
-                                debug!("'{}' ({:#x})", hashes::find(*x), x.0);
-                            }
-                        }
-                    }
-                }
-            },
-            _ => {
-                debug!("Cannot log info indices because the filesystem is not initialized!");
-            }
-        }
-    }
-}
-
-#[repr(transparent)]
-pub struct ArcLoader(&'static LoadedArc);
-
-unsafe impl Send for ArcLoader {}
-unsafe impl Sync for ArcLoader {}
-
-impl Deref for ArcLoader {
-    type Target = LoadedArc;
-
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-
-impl FileLoader for ArcLoader {
-    type ErrorType = LookupError;
-
-    fn path_exists(&self, _: &Path, local_path: &Path) -> bool {
-        match crate::get_smash_hash(local_path) {
-            Ok(hash) => self.get_file_path_index_from_hash(hash).is_ok(),
-            _ => false
-        }
-    }
-
-    fn get_file_size(&self, _: &Path, local_path: &Path) -> Option<usize> {
-        match crate::get_smash_hash(local_path) {
-            Ok(hash) => self.get_file_data_from_hash(hash, config::region()).map_or_else(|_| None, |data| Some(data.decomp_size as usize)),
-            Err(_) => None
-        }
-    }
-
-    fn get_path_type(&self, _: &Path, local_path: &Path) -> Result<FileEntryType, Self::ErrorType> {
-        match crate::get_smash_hash(local_path) {
-            Ok(hash) => match self.get_path_list_entry_from_hash(hash)?.is_directory() {
-                true => Ok(FileEntryType::Directory),
-                false => Ok(FileEntryType::File)
-            },
-            _ => Err(LookupError::Missing)
-        }
-    }
-
-    fn load_path(&self, _: &Path, local_path: &Path) -> Result<Vec<u8>, Self::ErrorType> {
-        match crate::get_smash_hash(local_path) {
-            Ok(path) => self.get_file_contents(path, config::region()),
-            Err(_) => Err(LookupError::Missing),
-        }
+    pub fn handle_api_request(&mut self, _req: api::PendingApiCall) {
+        error!("Currently, the API does not support adding callbacks after the file system has been initialized.");
     }
 }
 
@@ -639,7 +508,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, ApiLoader> {
 
     let mut launchpad = LaunchPad::new(
         DiscoverSystem::new(StandardLoader, ConflictHandler::NoRoot),
-        DiscoverSystem::new(ApiLoader, ConflictHandler::NoRoot),
+        DiscoverSystem::new(ApiLoader::new(), ConflictHandler::NoRoot),
     );
 
     let arc_path = config::arc_path();

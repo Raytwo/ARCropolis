@@ -31,9 +31,13 @@ fn string_to_static_str(s: String) -> &'static str {
     Box::leak(s.into_boxed_str())
 }
 
-pub fn find(hash: Hash40) -> &'static str {
+pub fn try_find(hash: Hash40) -> Option<&'static str> {
     let hashes = HASHES.read();
-    *hashes.get(&hash).unwrap_or(&"Unknown")
+    hashes.get(&hash).map(|x| *x)
+}
+
+pub fn find(hash: Hash40) -> &'static str {
+    try_find(hash).unwrap_or("Unknown")
 }
 
 pub fn add<S: AsRef<str>>(new_hash: S) {

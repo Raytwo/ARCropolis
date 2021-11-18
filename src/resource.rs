@@ -48,3 +48,7 @@ pub fn res_service_mut() -> &'static mut ResServiceNX {
     let addr = offset_to_addr::<&'static mut ResServiceNX>(offsets::res_service());
     unsafe { *addr }
 }
+
+pub fn initialized() -> bool {
+    !offset_to_addr::<&'static FilesystemInfo>(offsets::filesystem_info()).is_null()
+}

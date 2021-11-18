@@ -107,6 +107,18 @@ impl PathExtension for Path {
     }
 
     fn smash_hash(&self) -> Result<Hash40, InvalidOsStrError> {
+        if self.extension().is_none() {
+            let hash = self
+                .file_name()
+                .map(|x| x.to_str())
+                .flatten()
+                .map(|x| u64::from_str_radix(x.trim_start_matches("0x"), 16).ok())
+                .flatten()
+                .map(|x| Hash40(x));
+            if let Some(hash) = hash {
+                return Ok(hash);
+            }
+        }
         let mut path = self
             .as_os_str()
             .to_str()
@@ -151,7 +163,6 @@ fn initial_loading(_ctx: &InlineCtx) {
     replacement::lookup::initialize(Some(arc));
     let mut filesystem = GLOBAL_FILESYSTEM.write();
     *filesystem = filesystem.take().finish(arc).unwrap();
-    filesystem.hash(Hash40::from("sound/bank/fighter_voice/vc_master_c07.nus3bank")).unwrap();
     filesystem.unshare(resource::arc_mut());
     filesystem.share_hashes(arc);
     filesystem.patch_sizes(resource::arc_mut());
