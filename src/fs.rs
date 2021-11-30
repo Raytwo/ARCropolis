@@ -481,13 +481,14 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader, ApiLoader> {
         match x.file_name() {
             Some(name) if let Some(name) = name.to_str() => {
                 let is_root_file = x.parent().is_none() || x.parent().unwrap().as_os_str().is_empty();
+                let is_dot = name.starts_with(".");
                 let is_out_of_region = if let Some(index) = name.find("+") {
                     let (_, end) = name.split_at(index + 1);
                     !end.starts_with(config::region_str())
                 } else {
                     false
                 };
-                is_root_file || is_out_of_region
+                is_root_file || is_out_of_region || is_dot
             },
             _ => false
         }
