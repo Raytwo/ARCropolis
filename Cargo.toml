@@ -11,6 +11,8 @@ titleid = "01006A800016E000"
 crate-type = ["cdylib"]
 
 [dependencies]
+num-traits = "0.2"
+num-derive = "0.3"
 log = "0.4.11"
 toml = { version = "0.5.6", optional = true }
 semver = { version = "0.11.0", optional = true }

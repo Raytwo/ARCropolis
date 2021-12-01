@@ -520,6 +520,9 @@ fn initial_loading(_ctx: &InlineCtx) {
         }
         unsharing::unshare_files(Hash40::from("fighter"));
         unsharing::unshare_files(Hash40::from("stage"));
+        
+        menus::display_help();
+        
         lazy_static::initialize(&MOD_FILES);
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
