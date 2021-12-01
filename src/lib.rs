@@ -12,6 +12,7 @@ extern crate lazy_static;
 
 use res_list::{LoadInfo, LoadType};
 use skyline::{hook, hooks::InlineCtx, install_hook, install_hooks, libc::{c_void, memcpy}, nn};
+use skyline_config::*;
 use std::{io::prelude::*, str::FromStr};
 use std::net::IpAddr;
 use std::ffi::CStr;
@@ -520,10 +521,20 @@ fn initial_loading(_ctx: &InlineCtx) {
         }
         unsharing::unshare_files(Hash40::from("fighter"));
         unsharing::unshare_files(Hash40::from("stage"));
+
+        let mut stack = Box::leak(Box::new([0u8;0x4000])) as *mut u8 as *mut skyline::libc::c_void;
+        let info = Box::leak( Box::new([0u8;std::mem::size_of::<nn::os::UserExceptionInfo>()]) ) as *mut u8 as *mut nn::os::UserExceptionInfo;
+        unsafe { nn::os::SetUserExceptionHandler(Some(except_handler), stack, 0x4000, info); }
+
         lazy_static::initialize(&MOD_FILES);
 
         nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled);
     }
+}
+
+extern "C" fn except_handler(info: *mut nn::os::UserExceptionInfo) {
+    let storage = skyline_config::acquire_storage("arcropolis").unwrap();
+    let mut lmao = storage.write("exception", format!("File index: {}", ResServiceState::get_instance().processing_file_idx_start + ResServiceState::get_instance().processing_file_idx_curr)).unwrap();
 }
 
 #[skyline::hook(offset = PROCESS_RESOURCE_NODE, inline)]

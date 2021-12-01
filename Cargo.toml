@@ -32,7 +32,7 @@ skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web", optional = true }
 skyline-update = { git = "https://github.com/skyline-rs/skyline-update", optional = true }
 skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate", optional = true }
-
+skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 [features]
 default = ["server", "updater", "web", "config"]
 config = ["toml", "semver"]
