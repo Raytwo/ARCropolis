@@ -47,6 +47,10 @@ static TITLE_SCREEN_VERSION_SEARCH_CODE: &[u8] = &[
     0xff, 0x07, 0x40, 0xd1, 0xf4, 0x03, 0x01, 0xaa, 0xf3, 0x03, 0x00, 0xaa,
 ];
 
+static ESHOPMANAGER_SHOW_SEARCH_CODE: &[u8] = &[
+    0x08, 0xe1, 0x43, 0xf9, 0x14, 0x05, 0x40, 0xf9, 0x88, 0x22, 0x44, 0x39, 0x08, 0x04, 0x00, 0x35,
+];
+
 static INFLATE_SEARCH_CODE: &[u8] = &[
     0x4b, 0x00, 0x1b, 0x0b, 0x00, 0x01, 0x1f, 0xd6, 0x68, 0x6a, 0x40, 0xf9, 0x09, 0x3d, 0x40, 0xf9,
     0x2c, 0x01, 0x40, 0xf9,
@@ -150,6 +154,7 @@ struct Offsets {
     pub res_load_loop_start: usize,
     pub res_load_loop_refresh: usize,
     pub title_screen_version: usize,
+    pub eshop_button: usize,
 
     pub filesystem_info: usize,
     pub res_service: usize
@@ -170,6 +175,8 @@ impl Offsets {
         let res_load_loop_start = find_subsequence(text, RES_LOAD_LOOP_START_SEARCH_CODE).expect("Unable to find subsequence");
         let res_load_loop_refresh = find_subsequence(text, RES_LOAD_LOOP_REFRESH_SEARCH_CODE).expect("Unable to find subsequence");
         let title_screen_version = find_subsequence(text, TITLE_SCREEN_VERSION_SEARCH_CODE).expect("Unable to find subsequence!");
+        let eshop_button = find_subsequence(text, ESHOPMANAGER_SHOW_SEARCH_CODE).expect("Unable to find subsequence!") - 16;
+
 
         let filesystem_info = {
             let adrp = find_subsequence(text, FILESYSTEM_INFO_ADRP_SEARCH_CODE).expect("Unable to find subsequence") + 12;
@@ -197,6 +204,7 @@ impl Offsets {
             res_load_loop_start,
             res_load_loop_refresh,
             title_screen_version,
+            eshop_button,
             
             filesystem_info,
             res_service
@@ -246,6 +254,10 @@ pub fn res_load_loop_refresh() -> usize {
 
 pub fn title_screen_version() -> usize {
     OFFSETS.title_screen_version
+}
+
+pub fn eshop_show() -> usize {
+    OFFSETS.eshop_button
 }
 
 pub fn lookup_stream_hash() -> usize {

@@ -193,6 +193,12 @@ fn change_version_string(arg: u64, string: *const c_char) {
     }
 }
 
+// 13.0.0
+#[skyline::hook(offset = offsets::eshop_show())]
+fn show_eshop() {
+    println!("Eshop");
+}
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     
@@ -252,7 +258,8 @@ pub fn main() {
 
     skyline::install_hooks!(
         initial_loading,
-        change_version_string
+        change_version_string,
+        show_eshop
     );
     replacement::install();
 
