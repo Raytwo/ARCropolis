@@ -71,6 +71,9 @@ struct Config {
     #[serde(default = "always_true")]
     pub beta_updates: bool,
 
+    #[serde(default = "always_false")]
+    pub no_web_menus: bool,
+
     #[serde(default = "default_region")]
     pub region: String,
     
@@ -88,6 +91,7 @@ impl Config {
             debug: false,
             auto_update: true,
             beta_updates: true,
+            no_web_menus: false,
             region: String::from("us_en"),
             paths: ConfigPaths::new(),
             logger: ConfigLogger::new(),
@@ -144,6 +148,10 @@ pub fn debug_enabled() -> bool {
 
 pub fn beta_updates() -> bool {
     GLOBAL_CONFIG.beta_updates
+}
+
+pub fn no_web_menus() -> bool {
+    GLOBAL_CONFIG.no_web_menus
 }
 
 pub fn region() -> Region {

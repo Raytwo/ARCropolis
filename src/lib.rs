@@ -64,10 +64,18 @@ macro_rules! reg_w {
 
 /// Basic code for displaying an ARCropolis dialog error informing the user to check their logs, or enable them if they don't currently.
 fn dialog_error<S: AsRef<str>>(msg: S) {
-    if config::file_logging_enabled() {
-        skyline_web::DialogOk::ok(format!("{}<br>See the latest log for more information.", msg.as_ref()));
+    if config::no_web_menus() {
+        if config::file_logging_enabled() {
+            error!("{}<br>See the latest log for more information.", msg.as_ref());
+        } else {
+            error!("{}<br>Enable file logging and run again for more information.", msg.as_ref());
+        }
     } else {
-        skyline_web::DialogOk::ok(format!("{}<br>Enable file logging and run again for more information.", msg.as_ref()));
+        if config::file_logging_enabled() {
+            skyline_web::DialogOk::ok(format!("{}<br>See the latest log for more information.", msg.as_ref()));
+        } else {
+            skyline_web::DialogOk::ok(format!("{}<br>Enable file logging and run again for more information.", msg.as_ref()));
+        }
     }
 }
 
@@ -223,15 +231,19 @@ pub fn main() {
         .unwrap();
 
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
-    let updater = std::thread::Builder::new()
+    let _updater = std::thread::Builder::new()
         .stack_size(0x40000)
         .spawn(|| {
             if config::auto_update_enabled() {
                 update::check_for_updates(config::beta_updates(), |update_kind| {
-                    skyline_web::Dialog::yes_no(format!(
-                        "{} has been detected. Do you want to install it?",
-                        update_kind
-                    ))
+                    if config::no_web_menus() {
+                        false
+                    } else {
+                        skyline_web::Dialog::yes_no(format!(
+                            "{} has been detected. Do you want to install it?",
+                            update_kind
+                        ))
+                    }
                 });
             }
         })

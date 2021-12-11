@@ -39,12 +39,6 @@ nnsdk = { git = "https://github.com/blu-dev/nnsdk-rs", branch = "patch-4" }
 [patch.'https://github.com/jam1garner/smash-arc']
 smash-arc = { git = 'https://github.com/blu-dev/smash-arc' }
 
-[patch.'https://github.com/blu-dev/orbits']
-orbits = { path = "../../orbits" }
-
-[patch.'https://github.com/blu-dev/gh-updater']
-gh-updater = { path = "../../gh-updater" }
-
 [profile.dev]
 panic = "abort"
 
