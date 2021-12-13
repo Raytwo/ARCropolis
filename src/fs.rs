@@ -409,7 +409,7 @@ impl GlobalFilesystem {
         }
     }
 
-    pub fn unshare(&mut self, arc: &'static mut LoadedArc) {
+    pub fn process_file_manipulation(&mut self, arc: &'static mut LoadedArc) {
         match self {
             Self::Initialized(fs) => {
                 let mut context = LoadedArc::make_addition_context();
@@ -417,6 +417,16 @@ impl GlobalFilesystem {
                 for (dep, source) in fs.config.preprocess_reshare.iter() {
                     hash_ignore.extend(replacement::preprocess::reshare_contained_files(&mut context, dep.0, source.0).into_iter());
                 }
+                fs.loader.walk_patch(|node, entry_type| {
+                    match node.get_local().smash_hash() {
+                        Ok(hash) => {
+                            if entry_type.is_file() && !context.contains_file(hash) {
+                                replacement::addition::add_file(&mut context, node.get_local());
+                            } 
+                        }
+                        _ => {}
+                    }
+                });
                 replacement::unshare::reshare_file_groups(&mut context);
                 replacement::unshare::unshare_files(&mut context, hash_ignore, fs.hash_lookup.iter().filter_map(|(hash, _)| {
                     if !fs.config.unshare_blacklist.contains(&Hash40String(*hash)) {

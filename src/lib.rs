@@ -171,7 +171,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     replacement::lookup::initialize(Some(arc));
     let mut filesystem = GLOBAL_FILESYSTEM.write();
     *filesystem = filesystem.take().finish(arc).unwrap();
-    filesystem.unshare(resource::arc_mut());
+    filesystem.process_file_manipulation(resource::arc_mut());
     filesystem.share_hashes(arc);
     filesystem.patch_sizes(resource::arc_mut());
 }

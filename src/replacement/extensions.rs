@@ -1,7 +1,7 @@
 use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx, FileSystemHeader, Hash40, HashToIndex, LoadedArc, LookupError, Region, FileInfoBucket};
-use std::{ops::{Deref, DerefMut}, sync::atomic::{AtomicBool, Ordering}};
+use std::{ops::{Deref, DerefMut}, sync::atomic::{AtomicBool, Ordering}, path::Path};
 
-use crate::{hashes, resource::{self, CppVector, FilesystemInfo, LoadedData, LoadedFilepath}};
+use crate::{hashes, resource::{self, CppVector, FilesystemInfo, LoadedData, LoadedFilepath}, PathExtension, get_smash_hash};
 
 pub struct AdditionContext {
     pub arc: &'static mut LoadedArc,
@@ -51,6 +51,7 @@ pub trait LoadedArcEx {
     fn resort_file_hashes(&mut self);
     fn make_addition_context() -> AdditionContext;
     fn take_context(&mut self, ctx: AdditionContext);
+    fn contains_file(&self, hash: Hash40) -> bool;
 }
 
 impl LoadedArcEx for LoadedArc {
@@ -246,6 +247,10 @@ impl LoadedArcEx for LoadedArc {
         }
         assert!(self.get_file_path_index_from_hash(Hash40::from("fighter/common/param/fighter_param.prc")).is_ok());
     }
+
+    fn contains_file(&self, hash: Hash40) -> bool {
+        self.get_file_path_index_from_hash(hash).is_ok()
+    }
 }
 
 pub trait FileInfoFlagsExt {
@@ -278,5 +283,55 @@ impl FileInfoFlagsExt for FileInfoFlags {
         } else {
             self.set_unused4(self.unused4() & !2);
         }
+    }
+}
+
+pub trait FilePathExt {
+    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> where Self: Sized;
+}
+
+impl FilePathExt for FilePath {
+    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> {
+        let path = path.as_ref();
+        let path_hash = match path.smash_hash() {
+            Ok(hash) => hash,
+            Err(_) => return None
+        };
+
+        let ext_hash = match path.extension().map(|x| x.to_str()).flatten() {
+            Some(str) => match get_smash_hash(str) {
+                Ok(hash) => hash,
+                Err(_) => return None
+            }
+            None => return None
+        };
+
+        let name_hash = match path.file_name().map(|x| x.to_str()).flatten().map(|x| get_smash_hash(x)) {
+            Some(Ok(hash)) => hash,
+            _ => return None
+        };
+
+        let parent_hash = match path.parent().map_or(Ok(Hash40::from("")), |x| x.smash_hash()) {
+            Ok(hash) => hash,
+            Err(_) => return None
+        };
+
+        let mut result = FilePath {
+            path: HashToIndex::default(),
+            ext: HashToIndex::default(),
+            parent: HashToIndex::default(),
+            file_name: HashToIndex::default()
+        };
+
+        result.path.set_hash(path_hash.crc32());
+        result.path.set_length(path_hash.len());
+        result.ext.set_hash(ext_hash.crc32());
+        result.ext.set_length(ext_hash.len());
+        result.file_name.set_hash(name_hash.crc32());
+        result.file_name.set_length(name_hash.len());
+        result.parent.set_hash(parent_hash.crc32());
+        result.parent.set_length(parent_hash.len());
+
+        Some(result)
     }
 }

@@ -1,6 +1,7 @@
 pub mod extensions;
 pub mod lookup;
 
+pub mod addition;
 pub mod config;
 mod stream;
 mod threads;
