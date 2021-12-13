@@ -97,6 +97,18 @@ impl<T> CppVector<T> {
             std::slice::from_raw_parts_mut(self.start, len)
         }
     }
+
+    pub fn extend_from_slice(&mut self, slice: &[T]) where T: Copy + Clone {
+        unsafe {
+            if self.end.add(slice.len()) > self.eos {
+                self.realloc();
+                self.extend_from_slice(slice);
+            } else {
+                std::ptr::copy_nonoverlapping(slice.as_ptr(), self.end, slice.len());
+                self.end = self.end.add(slice.len());
+            }
+        }
+    }
 }
 
 impl<T: Copy + Clone> CppVector<T> {

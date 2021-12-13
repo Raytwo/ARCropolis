@@ -1,5 +1,5 @@
-use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx, FileSystemHeader, Hash40, HashToIndex, LoadedArc, LookupError, Region};
-use std::ops::{Deref, DerefMut};
+use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx, FileSystemHeader, Hash40, HashToIndex, LoadedArc, LookupError, Region, FileInfoBucket};
+use std::{ops::{Deref, DerefMut}, sync::atomic::{AtomicBool, Ordering}};
 
 use crate::{hashes, resource::{self, CppVector, FilesystemInfo, LoadedData, LoadedFilepath}};
 
@@ -48,6 +48,7 @@ pub trait LoadedArcEx {
     fn patch_filedata(&mut self, hash: Hash40, size: u32, region: Region) -> Result<u32, LookupError>;
     fn change_hash_lookup(&mut self, hash: Hash40, index: FilePathIdx) -> Result<(), LookupError> ;
     fn get_shared_file(&self, hash: Hash40) -> Result<FilePathIdx, LookupError>;
+    fn resort_file_hashes(&mut self);
     fn make_addition_context() -> AdditionContext;
     fn take_context(&mut self, ctx: AdditionContext);
 }
@@ -189,6 +190,61 @@ impl LoadedArcEx for LoadedArc {
         
         fs_info.loaded_datas = loaded_datas;
         fs_info.loaded_data_len = info_index_len as u32;
+
+        self.resort_file_hashes();
+    }
+
+    fn resort_file_hashes(&mut self) {
+        static NEEDS_FREE: AtomicBool = AtomicBool::new(false);
+        let bucket_count = unsafe {
+            (*self.file_info_buckets).count as usize
+        };
+
+        let mut buckets = vec![Vec::with_capacity(0x50_0000); bucket_count];
+
+        for (idx, file_path) in self.get_file_paths().iter().enumerate() {
+            let bucket_idx = (file_path.path.hash40().as_u64() as usize) % bucket_count;
+            let mut index = HashToIndex::default();
+            index.set_hash(file_path.path.hash());
+            index.set_length(file_path.path.length());
+            index.set_index(idx as u32);
+            buckets[bucket_idx].push(index);
+        }
+
+        let mut start_count = Vec::with_capacity(buckets.len());
+        let mut start = 0usize;
+        for bucket in buckets.iter_mut() {
+            start_count.push((start, bucket.len()));
+            start += bucket.len();
+            bucket.as_mut_slice().sort_by(|a, b| a.hash40().as_u64().cmp(&b.hash40().as_u64()));
+        }
+
+        let mut new_hash_to_index = Vec::with_capacity(self.get_file_paths().len());
+        for bucket in buckets.iter() {
+            new_hash_to_index.extend_from_slice(bucket.as_slice());
+        }
+
+        let tmp = self.file_hash_to_path_index as _;
+
+        self.file_hash_to_path_index = new_hash_to_index.leak().as_ptr();
+
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        
+        for idx in 0..bucket_count {
+            unsafe {
+                *(self.file_info_buckets as *mut FileInfoBucket).add(1 + idx) = FileInfoBucket {
+                    start: start_count[idx].0 as u32,
+                    count: start_count[idx].1 as u32,
+                };
+            }
+        }
+
+        if NEEDS_FREE.swap(true, Ordering::SeqCst) {
+            unsafe {
+                skyline::libc::free(tmp);
+            }
+        }
+        assert!(self.get_file_path_index_from_hash(Hash40::from("fighter/common/param/fighter_param.prc")).is_ok());
     }
 }
 
