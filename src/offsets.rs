@@ -1,4 +1,4 @@
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use skyline::hooks::{getRegionAddress, Region};
 
 lazy_static! {
@@ -45,6 +45,10 @@ static LOOKUP_STREAM_HASH_SEARCH_CODE: &[u8] = &[
 static TITLE_SCREEN_VERSION_SEARCH_CODE: &[u8] = &[
     0xfc, 0x0f, 0x1d, 0xf8, 0xf4, 0x4f, 0x01, 0xa9, 0xfd, 0x7b, 0x02, 0xa9, 0xfd, 0x83, 0x00, 0x91,
     0xff, 0x07, 0x40, 0xd1, 0xf4, 0x03, 0x01, 0xaa, 0xf3, 0x03, 0x00, 0xaa,
+];
+
+static ESHOPMANAGER_SHOW_SEARCH_CODE: &[u8] = &[
+    0x08, 0xe1, 0x43, 0xf9, 0x14, 0x05, 0x40, 0xf9, 0x88, 0x22, 0x44, 0x39, 0x08, 0x04, 0x00, 0x35,
 ];
 
 static INFLATE_SEARCH_CODE: &[u8] = &[
@@ -150,6 +154,7 @@ struct Offsets {
     pub res_load_loop_start: usize,
     pub res_load_loop_refresh: usize,
     pub title_screen_version: usize,
+    pub eshop_button: usize,
 
     pub filesystem_info: usize,
     pub res_service: usize
@@ -170,6 +175,8 @@ impl Offsets {
         let res_load_loop_start = find_subsequence(text, RES_LOAD_LOOP_START_SEARCH_CODE).expect("Unable to find subsequence");
         let res_load_loop_refresh = find_subsequence(text, RES_LOAD_LOOP_REFRESH_SEARCH_CODE).expect("Unable to find subsequence");
         let title_screen_version = find_subsequence(text, TITLE_SCREEN_VERSION_SEARCH_CODE).expect("Unable to find subsequence!");
+        let eshop_button = find_subsequence(text, ESHOPMANAGER_SHOW_SEARCH_CODE).expect("Unable to find subsequence!") - 16;
+
 
         let filesystem_info = {
             let adrp = find_subsequence(text, FILESYSTEM_INFO_ADRP_SEARCH_CODE).expect("Unable to find subsequence") + 12;
@@ -197,6 +204,7 @@ impl Offsets {
             res_load_loop_start,
             res_load_loop_refresh,
             title_screen_version,
+            eshop_button,
             
             filesystem_info,
             res_service
@@ -210,4 +218,48 @@ pub fn initial_loading() -> usize {
 
 pub fn filesystem_info() -> usize {
     OFFSETS.filesystem_info
+}
+
+pub fn res_service() -> usize {
+    OFFSETS.res_service
+}
+
+pub fn inflate() -> usize {
+    OFFSETS.inflate
+}
+
+pub fn inflate_dir_file() -> usize {
+    OFFSETS.inflate_dir_file
+}
+
+pub fn memcpy_1() -> usize {
+    OFFSETS.memcpy_1
+}
+
+pub fn memcpy_2() -> usize {
+    OFFSETS.memcpy_2
+}
+
+pub fn memcpy_3() -> usize {
+    OFFSETS.memcpy_3
+}
+
+pub fn res_load_loop_start() -> usize {
+    OFFSETS.res_load_loop_start
+}
+
+pub fn res_load_loop_refresh() -> usize {
+    OFFSETS.res_load_loop_refresh
+}
+
+pub fn title_screen_version() -> usize {
+    OFFSETS.title_screen_version
+}
+
+pub fn eshop_show() -> usize {
+    OFFSETS.eshop_button
+}
+
+pub fn lookup_stream_hash() -> usize {
+    OFFSETS.lookup_stream_hash
 }

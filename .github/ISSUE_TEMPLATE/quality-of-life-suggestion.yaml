@@ -1,0 +1,32 @@
+name: Quality of Life suggestion
+description: Suggest changes that would make using ARCropolis better or simpler
+title: "[Qualify of Life] Brief description of the suggestion"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # DISCLAIMER
+        Do note that suggestions are only going to be considered for upcoming versions. No feature is going to be backported to an older version (i.e. ``0.9.6``).
+  - type: checkboxes
+    id: disclaimer-read
+    attributes:
+      label: Have you read the disclaimer before proceeding?
+      options:
+        - label: I have read the disclaimer.
+          required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Explain what could get improvements.
+      description: If you are requesting a change because something could be made simpler, please give a clear and short description of what is wrong.
+      placeholder: I have no way of knowing why my mod does not show up, and I have ideas to make this better!
+    validations:
+      required: true
+  - type: textarea
+    id: improvements
+    attributes:
+      label: How could we make this better?
+      description: Describe how you'd like the change to be implemented.
+    validations:
+      required: true

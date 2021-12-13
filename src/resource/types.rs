@@ -1,5 +1,5 @@
 use skyline::nn;
-use smash_arc::{LoadedArc, LoadedSearchSection};
+use smash_arc::{LoadedArc, LoadedSearchSection, Region};
 use std::{
     ops::{Index, IndexMut},
     sync::atomic::AtomicU32,
@@ -17,12 +17,14 @@ pub enum LoadState {
 }
 
 #[repr(packed)]
+#[derive(Default, Copy, Clone, Debug)]
 pub struct LoadedFilepath {
     pub loaded_data_index: u32,
     pub is_loaded: u32,
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct LoadedData {
     pub data: *const u8,
     pub ref_count: AtomicU32,
@@ -34,6 +36,7 @@ pub struct LoadedData {
     pub unk: u8,
 }
 
+#[derive(Debug)]
 #[repr(C)]
 pub struct LoadedDirectory {
     pub file_group_index: u32,
@@ -69,8 +72,28 @@ pub struct FilesystemInfo {
     pub unk3: u8,
     pub unk4: [u8; 7],
     pub addr: *const (),
-    pub path_info: PathInformation,
+    pub path_info: &'static mut PathInformation,
     pub version: u32,
+}
+
+impl FilesystemInfo {
+    pub fn get_loaded_filepaths(&self) -> &[LoadedFilepath] {
+        unsafe {
+            std::slice::from_raw_parts(self.loaded_filepaths, self.loaded_filepath_len as usize)
+        }
+    }
+
+    pub fn get_loaded_datas(&self) -> &[LoadedData] {
+        unsafe {
+            std::slice::from_raw_parts(self.loaded_datas, self.loaded_data_len as usize)
+        }
+    }
+
+    pub fn get_loaded_directories(&self) -> &[LoadedDirectory] {
+        unsafe {
+            std::slice::from_raw_parts(self.loaded_directories, self.loaded_directory_len as usize)
+        }
+    }
 }
 
 #[repr(C)]
@@ -114,7 +137,7 @@ pub struct ResServiceNX {
     pub filesystem_info: *mut FilesystemInfo,
     pub region_idx: u32,
     pub language_idx: u32,
-    unk4: *const (),
+    unk4: u32,
     pub state: i16,
     pub is_loader_thread_running: bool,
     unk5: u8,
@@ -136,6 +159,24 @@ pub struct ResServiceNX {
     pub current_index: u32,
     pub current_dir_index: u32,
     //Still need to add some
+}
+
+impl ResServiceNX {
+    pub fn get_region(&self) -> Region {
+        Region::from(self.language_idx + 1)
+    }
+}
+
+#[repr(C)]
+pub struct InflateFile {
+    pub content: *mut u8,
+    pub size: usize
+}
+
+impl InflateFile {
+    pub fn len(&self) -> usize {
+        self.size
+    }
 }
 
 impl Index<LoadedFilepath> for [LoadedData] {

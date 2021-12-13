@@ -4,7 +4,7 @@ use std::{
     fs::File,
     io::{BufWriter, Write},
     ops::Deref,
-    path::PathBuf,
+    path::Path,
     time::SystemTime,
 };
 
@@ -54,23 +54,6 @@ fn format_time_string(seconds: u64) -> String {
     )
 }
 
-/// Removes ASCII escape sequences from our logging statements so that they don't look ugly when written to a file
-fn strip_color<S: AsRef<str>>(string: S) -> String {
-    let mut string = string.as_ref().to_string();
-    loop {
-        if let Some(index) = string.find("\x1b[") {
-            if let Some(index2) = string.split_at(index).1.find("m") {
-                string.replace_range(index..=index2, "");
-            } else {
-                break;
-            }
-        } else {
-            break;
-        }
-    }
-    string
-}
-
 static LOG_PATH: &'static str = "sd:/ultimate/arcropolis/logs";
 static FILE_LOG_BUFFER: usize = 0x2000; // Room for 0x2000 characters, might have performance issues if the logger level is "Info" or "Trace"
 struct FileLogger(Option<Mutex<BufWriter<File>>>);
@@ -84,10 +67,10 @@ impl Deref for FileLogger {
 }
 
 impl FileLogger {
-    pub fn write(&self, message: String) {
+    pub fn write<T: AsRef<[u8]>>(&self, message: T) {
         if let Some(writer) = &self.0 {
             let mut writer = writer.lock();
-            let _ = writer.write(message.as_bytes());
+            let _ = writer.write(message.as_ref());
         }
     }
 }
@@ -98,8 +81,8 @@ lazy_static! {
         let seconds = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .expect("Clock may have gone backwards!");
-        let path =
-            PathBuf::from(LOG_PATH).join(format!("{}.log", format_time_string(seconds.as_secs())));
+        let path = Path::new(LOG_PATH).join(format!("{}.log", format_time_string(seconds.as_secs())));
+        let _ = std::fs::create_dir_all(LOG_PATH);
         std::fs::File::create(path).map_or_else(
             |_| {
                 error!(target: "std", "Unable to initialize the file logger!");
@@ -147,7 +130,9 @@ impl log::Log for ArcLogger {
             },
         };
 
-        let message = if record.level() == LevelFilter::Debug {
+        let skip_mod_path = record.target() == "no-mod-path";
+
+        let message = if record.level() == LevelFilter::Debug && !skip_mod_path {
             let file = match record.file() {
                 Some(file) => file,
                 None => "???",
@@ -163,8 +148,10 @@ impl log::Log for ArcLogger {
                 number,
                 record.args()
             )
-        } else {
+        } else if !skip_mod_path {
             format!("[{}] {}\n", module_path, record.args())
+        } else {
+            format!("{}\n", record.args())
         };
 
         // We allow two different log targets, one for specifically logging to the skyline logger and the other for specifically
@@ -175,13 +162,13 @@ impl log::Log for ArcLogger {
             }
             "file" => {
                 if config::file_logging_enabled() {
-                    FILE_WRITER.write(strip_color(message));
+                    FILE_WRITER.write(strip_ansi_escapes::strip(message).unwrap_or(vec![]));
                 }
             }
             _ => {
                 print!("{}", message);
                 if config::file_logging_enabled() {
-                    FILE_WRITER.write(strip_color(message));
+                    FILE_WRITER.write(strip_ansi_escapes::strip(message).unwrap_or(vec![]));
                 }
             }
         }
@@ -191,9 +178,10 @@ impl log::Log for ArcLogger {
     fn flush(&self) {
         if config::file_logging_enabled() {
             if let Some(writer) = &**FILE_WRITER {
-                let mut writer = writer.lock();
-                if let Err(err) = writer.flush() {
-                    error!(target: "std", "Failed to flush file logger! Reason: {:?}", err)
+                if let Some(mut writer) = writer.try_lock() {
+                    if let Err(err) = writer.flush() {
+                        error!(target: "std", "Failed to flush file logger! Reason: {:?}", err)
+                    }
                 }
             }
         }

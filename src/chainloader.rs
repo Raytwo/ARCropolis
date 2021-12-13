@@ -1,11 +1,9 @@
-use std::path::PathBuf;
 use std::{cmp::Ordering, path::Path};
 use std::{fmt, io};
 use std::ops::Deref;
 use skyline::{nn, libc};
 use nn::ro::{self, NrrHeader, RegistrationInfo, Module};
 use std::mem::MaybeUninit;
-use crate::config;
 
 macro_rules! align_up {
     ($x:expr, $a:expr) => {
@@ -93,8 +91,11 @@ impl NrrBuilder {
         self.hashes.push(Sha256Hash::new(data));
     }
 
-    pub fn register(self) -> Result<RegistrationInfo, NrrRegistrationFailedError> {
+    pub fn register(self) -> Result<Option<RegistrationInfo>, NrrRegistrationFailedError> {
         let Self { hashes: mut module_hashes } = self;
+        if module_hashes.len() == 0 {
+            return Ok(None);
+        }
         module_hashes.sort();
 
         let nrr_image_size = align_up!(NRR_SIZE + module_hashes.len() * 0x20, 0x1000);
@@ -130,7 +131,7 @@ impl NrrBuilder {
                 libc::free(nrr_image as _);
                 Err(NrrRegistrationFailedError(rc))
             } else {
-                Ok(nrr_info.assume_init())
+                Ok(Some(nrr_info.assume_init()))
             }
         }
     }
@@ -189,76 +190,5 @@ impl Deref for NroBuilder {
 
     fn deref(&self) -> &Self::Target {
         self.data.as_slice()
-    }
-}
-
-pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
-    let mut plugin_nrr = NrrBuilder::new();
-
-    let modules: Vec<NroBuilder> = plugins.iter().filter_map(|(root, local)| {
-        let full_path = root.join(local);
-
-        if full_path.exists() && full_path.ends_with("plugin.nro") {
-            match NroBuilder::open(&full_path) {
-                Ok(builder) => {
-                    info!("Loaded plugin at '{}' for chainloading.", full_path.display());
-                    plugin_nrr.add_module(&builder);
-                    Some(builder)
-                },
-                Err(e) => {
-                    error!("Failed to load plugin at '{}'. {:?}", full_path.display(), e);
-                    None
-                }
-            }
-        } else {
-            error!("File discovery collected path '{}' but it does not exist and/or is invalid!", full_path.display());
-            None
-        }
-    }).collect();
-
-    if modules.is_empty() {
-        info!("No plugins found for chainloading.");
-        return;
-    }
-
-    if let Err(e) = plugin_nrr.register() {
-        error!("{:?}", e);
-        crate::dialog_error("ARCropolis failed to register plugin module info.");
-        return;
-    }
-
-    let modules: Vec<Module> = modules.into_iter().filter_map(|x| {
-        match x.mount() {
-            Ok(module) => Some(module),
-            Err(e) => {
-                error!("Failed to mount chainloaded plugin.");
-                None
-            }
-        }
-    }).collect();
-
-    if modules.len() < plugins.len() {
-        crate::dialog_error("ARCropolis failed to load/mount some plugins.");
-    } else {
-        info!("Successfully chainloaded all collected plugins.");
-    }
-
-    for module in modules.into_iter() {
-        let callable = unsafe {
-            let mut sym_loc = 0usize;
-            let rc = nn::ro::LookupModuleSymbol(&mut sym_loc, &module, "main\0".as_ptr() as _);
-            if rc != 0 {
-                warn!("Failed to find symbol 'main' in chainloaded plugin.");
-                None
-            } else {
-                Some(std::mem::transmute::<usize, extern "C" fn()>(sym_loc))
-            }
-        };
-
-        if let Some(entrypoint) = callable {
-            info!("Calling 'main' in chainloaded plugin"); 
-            entrypoint();
-            info!("Finished calling 'main' in chainloaded plugin");
-        }
     }
 }

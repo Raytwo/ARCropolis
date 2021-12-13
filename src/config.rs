@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use serde_derive::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
+use smash_arc::Region;
 
 lazy_static! {
     static ref CONFIG_PATH: PathBuf = {
@@ -20,6 +21,7 @@ const fn always_false() -> bool { false }
 fn default_arc_path() -> String { "rom:/arc".to_string() }
 fn default_umm_path() -> String { "sd:/ultimate/mods".to_string() }
 fn default_logger_level() -> String { "Warn".to_string() }
+fn default_region() -> String { "us_en".to_string() }
 
 lazy_static! {
     static ref GLOBAL_CONFIG: Config = {
@@ -65,6 +67,15 @@ struct Config {
     
     #[serde(default = "always_true")]
     pub auto_update: bool,
+
+    #[serde(default = "always_true")]
+    pub beta_updates: bool,
+
+    #[serde(default = "always_false")]
+    pub no_web_menus: bool,
+
+    #[serde(default = "default_region")]
+    pub region: String,
     
     #[serde(default = "ConfigPaths::new")]
     pub paths: ConfigPaths,
@@ -79,6 +90,9 @@ impl Config {
             version: String::from(env!("CARGO_PKG_VERSION")),
             debug: false,
             auto_update: true,
+            beta_updates: true,
+            no_web_menus: false,
+            region: String::from("us_en"),
             paths: ConfigPaths::new(),
             logger: ConfigLogger::new(),
         }
@@ -130,6 +144,27 @@ pub fn auto_update_enabled() -> bool {
 
 pub fn debug_enabled() -> bool {
     GLOBAL_CONFIG.debug
+}
+
+pub fn beta_updates() -> bool {
+    GLOBAL_CONFIG.beta_updates
+}
+
+pub fn no_web_menus() -> bool {
+    GLOBAL_CONFIG.no_web_menus
+}
+
+pub fn region() -> Region {
+    const REGIONS: &[&str] = &[
+        "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
+        "eu_ru", "kr_ko", "zh_cn", "zh_tw",
+    ];
+
+    Region::from(REGIONS.iter().position(|x| x == &GLOBAL_CONFIG.region).map(|x| (x + 1) as u32).unwrap_or(0))
+}
+
+pub fn region_str() -> &'static str {
+    GLOBAL_CONFIG.region.as_str()
 }
 
 pub fn version() -> &'static str {

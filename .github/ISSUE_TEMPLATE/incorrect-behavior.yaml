@@ -1,0 +1,110 @@
+name: Incorrect behavior
+description: Your mod is properly installed, but it doesn't behave properly
+title: "[Incorrect behavior][ARCropolis version]: Brief description of the issue"
+labels: ["bug", "incorrect behavior"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # DISCLAIMER
+        Before posting, make sure to check if the ARCropolis version appears on the title screen. If it does not, you did not install it properly and should not open an issue.  
+        
+        Please make sure the issue comes from ARCropolis itself by disabling any other plugin you may have and confirming you still can reproduce the panic message.  
+        
+        Finally, any issues where the user is using SX OS or ReiNX are not considered and issues with said CFW should not be submitted.
+  - type: checkboxes
+    id: disclaimer-read
+    attributes:
+      label: Have you read the disclaimer before proceeding?
+      options:
+        - label: I have read the disclaimer.
+          required: true
+  - type: input
+    id: sys-ver
+    attributes:
+      label: System Firmware Version
+      description: The system version installed on your Nintendo Switch.
+      placeholder: ex. 11.0.1
+    validations:
+      required: true
+  - type: input
+    id: ams-ver
+    attributes:
+      label: Atmosphere Version
+      description: The version of Atmosphere currently installed on your Nintendo Switch.
+      placeholder: ex. 0.18.1
+    validations:
+      required: true
+  - type: input
+    id: smash-ver
+    attributes:
+      label: Smash Version
+      description: The version of Smash Ultimate currently installed on your Nintendo Switch (Press + on the icon on the home menu).
+      placeholder: ex. 13.0.0
+    validations:
+      required: true
+  - type: input
+    id: arc-ver
+    attributes:
+      label: ARCropolis Version
+      description: The version of ARCropolis you are currently running (check the title screen if you can reach it).
+      placeholder: ex. 2.1.1
+    validations:
+      required: true
+  - type: dropdown
+    id: upd-channel
+    attributes:
+      label: Version channel
+      description: What version channel of ARCropolis are you running?
+      options:
+        - Stable
+        - Beta
+    validations:
+      required: true
+  - type: dropdown
+    id: sd-format
+    attributes:
+      label: SD card formatting
+      options:
+        - FAT32
+        - exFat
+    validations:
+      required: true
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: Can this incorrect behavior be consistently reproduced?
+      options:
+        - "Yes"
+        - "No"
+    validations:
+      required: true
+  - type: textarea
+    id: expectation
+    attributes:
+      label: Expected behavior
+      description: Explain what SHOULD have happened but didn't.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What were you doing when it happened?
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: If the incorrect behavior can be shown, please provide a screenshot of it if possible.
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Copy/paste the content of your configuration file here
+    validations:
+      required: true
+  - type: input
+    id: modpack
+    attributes:
+      label: Minimal modpack to observe the issue
+      description: If the incorrect behavior is consistent, please provide a link to download a modpack containing the strict minimum files to reproduce it.

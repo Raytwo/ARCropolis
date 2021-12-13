@@ -1,18 +1,20 @@
 use std::collections::HashMap;
 use std::fs;
-
+use parking_lot::RwLock;
 use smash_arc::Hash40;
 
-lazy_static::lazy_static! {
-    static ref HASHES : HashMap<Hash40, &'static str> = {
+static HASH_FILEPATH: &'static str = "sd:/ultimate/arcropolis/hashes.txt";
+
+lazy_static! {
+    static ref HASHES: RwLock<HashMap<Hash40, &'static str>> = {
         let mut hashes = HashMap::default();
 
-        let str_path = "rom:/skyline/hashes.txt";
+        let str_path = "sd:/ultimate/arcropolis/hashes.txt";
 
         let s = match fs::read_to_string(str_path){
-            Err(why) =>  {
-                println!("[HashesMgr] Failed to read \"{}\" \"({})\"", str_path, why);
-                return hashes;
+            Err(e) =>  {
+                warn!("Failed to read '{}' for hashes. Reason: {:?}. There won't be any hash lookups in this run's logs.", HASH_FILEPATH, e);
+                return RwLock::new(hashes);
             },
             Ok(s) => s
         };
@@ -21,17 +23,27 @@ lazy_static::lazy_static! {
             hashes.insert(Hash40::from(hs), hs);
         }
 
-        hashes
+        RwLock::new(hashes)
     };
 }
 
-pub fn string_to_static_str(s: String) -> &'static str {
+fn string_to_static_str(s: String) -> &'static str {
     Box::leak(s.into_boxed_str())
 }
 
-#[allow(dead_code)]
-pub fn get<H: Into<Hash40>>(x: H) -> &'static &'static str {
-    HASHES.get(&x.into()).unwrap_or(&"Unknown")
+pub fn try_find(hash: Hash40) -> Option<&'static str> {
+    let hashes = HASHES.read();
+    hashes.get(&hash).map(|x| *x)
+}
+
+pub fn find(hash: Hash40) -> &'static str {
+    try_find(hash).unwrap_or("Unknown")
+}
+
+pub fn add<S: AsRef<str>>(new_hash: S) {
+    let new_hash = new_hash.as_ref();
+    let mut hashes = HASHES.write();
+    let _ = hashes.try_insert(Hash40::from(new_hash), string_to_static_str(new_hash.to_string()));
 }
 
 pub fn init() {
