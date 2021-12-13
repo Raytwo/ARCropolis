@@ -266,12 +266,10 @@ fn reshare_file_group(ctx: &mut AdditionContext, dir_info: Range<usize>, file_gr
         let dir_index = FileInfoIdx(dir_index as u32);
         let shared_idx = ctx.get_shared_info_index(dir_index);
         if shared_idx == dir_index || (ctx.get_file_in_folder(&ctx.file_infos[usize::from(shared_idx)], config::region()).file_data_index.0 < *SHARED_FILE_INDEX && !file_group.contains(&usize::from(shared_idx)) && !referenced_file_infos.contains(&shared_idx)) {
-            debug!("File info {:#x} did not need to be reshared from a file group.", dir_index.0);
             continue;
         }
 
         ctx.file_infos[usize::from(dir_index)].flags.set_standalone_file(true);
-        debug!("Reshared file info {:#x} was reshared from a file group.", dir_index.0);
     }
 }
 
@@ -280,7 +278,6 @@ pub fn reshare_file_groups(ctx: &mut AdditionContext) {
     for dir_info in arc.get_dir_infos() {
         if let Some(RedirectionType::Shared(file_group)) = arc.get_directory_dependency(dir_info) {
             if file_group.directory_index != 0xFF_FFFF {
-                debug!("Resharing directory '{}' ({:#x}) from file group {:#x}", hashes::find(dir_info.path.hash40()), dir_info.path.hash40().0, file_group.directory_index);
                 reshare_file_group(ctx, dir_info.file_info_range(), file_group.range());
                 resource::arc_mut().get_folder_offsets_mut()[dir_info.path.index() as usize].directory_index = 0xFF_FFFF;
             }

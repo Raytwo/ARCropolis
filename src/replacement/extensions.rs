@@ -1,5 +1,5 @@
-use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx, FileSystemHeader, Hash40, HashToIndex, LoadedArc, LookupError, Region, FileInfoBucket};
-use std::{ops::{Deref, DerefMut}, sync::atomic::{AtomicBool, Ordering}, path::Path};
+use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx, FileSystemHeader, Hash40, HashToIndex, LoadedArc, LookupError, Region, FileInfoBucket, FolderPathListEntry, LoadedSearchSection, SearchLookup, PathListEntry};
+use std::{ops::{Deref, DerefMut}, sync::atomic::{AtomicBool, Ordering}, path::Path, collections::HashMap};
 
 use crate::{hashes, resource::{self, CppVector, FilesystemInfo, LoadedData, LoadedFilepath}, PathExtension, get_smash_hash};
 
@@ -17,6 +17,17 @@ pub struct AdditionContext {
     pub loaded_datas: CppVector<LoadedData>
 }
 
+pub struct SearchContext {
+    pub search: &'static mut LoadedSearchSection,
+    pub filesystem_info: &'static FilesystemInfo,
+
+    pub folder_paths: CppVector<FolderPathListEntry>,
+    pub path_list_indices: CppVector<u32>,
+    pub paths: CppVector<PathListEntry>,
+    pub new_folder_paths: HashMap<Hash40, usize>,
+    pub new_paths: HashMap<Hash40, usize>
+}
+
 impl Deref for AdditionContext {
     type Target = LoadedArc;
 
@@ -28,6 +39,20 @@ impl Deref for AdditionContext {
 impl DerefMut for AdditionContext {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.arc
+    }
+}
+
+impl Deref for SearchContext {
+    type Target = LoadedSearchSection;
+
+    fn deref(&self) -> &Self::Target {
+        self.search
+    }
+}
+
+impl DerefMut for SearchContext {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.search
     }
 }
 
@@ -251,6 +276,64 @@ impl LoadedArcEx for LoadedArc {
     fn contains_file(&self, hash: Hash40) -> bool {
         self.get_file_path_index_from_hash(hash).is_ok()
     }
+}
+
+pub trait SearchEx {
+    fn resort_folder_paths(&mut self);
+    fn resort_paths(&mut self);
+    // fn take_context(&mut self, ctx: SearchContext);
+}
+
+impl SearchEx for LoadedSearchSection {
+    fn resort_folder_paths(&mut self) {
+        static NEEDS_FREE: AtomicBool = AtomicBool::new(false);
+        let paths = self.get_folder_path_list();
+        let mut indices = Vec::with_capacity(paths.len());
+        for (idx, path) in paths.iter().enumerate() {
+            let mut index = HashToIndex::default();
+            index.set_hash(path.path.hash());
+            index.set_length(path.path.length());
+            index.set_index(idx as u32);
+            indices.push(index);
+        }
+        indices.sort_by(|a, b| a.hash40().cmp(&b.hash40()));
+
+        let tmp = self.folder_path_index;
+
+        self.folder_path_index = indices.leak().as_ptr();
+
+        if NEEDS_FREE.swap(true, Ordering::SeqCst) {
+            unsafe {
+                skyline::libc::free(tmp as _);
+            }
+        }
+    }
+
+    fn resort_paths(&mut self) {
+        static NEEDS_FREE: AtomicBool = AtomicBool::new(false);
+        let paths = self.get_path_list();
+        let mut indices = Vec::with_capacity(paths.len());
+        for (idx, path) in paths.iter().enumerate() {
+            let mut index = HashToIndex::default();
+            index.set_hash(path.path.hash());
+            index.set_length(path.path.length());
+            index.set_index(idx as u32);
+            indices.push(index);
+        }
+        indices.sort_by(|a, b| a.hash40().cmp(&b.hash40()));
+
+        let tmp = self.path_index;
+
+        self.path_index = indices.leak().as_ptr();
+
+        if NEEDS_FREE.swap(true, Ordering::SeqCst) {
+            unsafe {
+                skyline::libc::free(tmp as _);
+            }
+        }
+    }
+
+    
 }
 
 pub trait FileInfoFlagsExt {
