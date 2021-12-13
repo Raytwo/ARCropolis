@@ -194,10 +194,17 @@ fn change_version_string(arg: u64, string: *const c_char) {
     }
 }
 
-// 13.0.0
 #[skyline::hook(offset = offsets::eshop_show())]
 fn show_eshop() {
     println!("Eshop");
+    unsafe { 
+        let instance = (*(offsets::offset_to_addr(0x532d820) as *const u64));
+        let mut idk = Idk {
+            start: Box::leak(Box::new([0u64;2])) as _,
+            end: 0 as _};
+        idk.end = idk.start.offset(1);
+        open_popup(instance as _, 0x58ffff132b58c55a, Box::leak(Box::new([0u8;0x10])) as _);
+    }
 }
 
 extern "C" {
@@ -213,6 +220,31 @@ unsafe fn b_hook(ctx: &skyline::hooks::InlineCtx) {
         debug!("Bsearching for {:#x}", *(*ctx.registers[0].x.as_ref() as *const u64));
     }
 }
+
+#[skyline::hook(offset = 0x336e4b0)]
+fn network_connecting() -> u32 {
+    println!("Network::connecting");
+    1
+}
+
+
+// #[skyline::hook(offset = 0x328f260)]
+// fn popup_open_db(unk1: *const u8, param_hash: u64) {
+//     println!("OpenDatabase: {:x}", some_hash);
+//     skyline::logging::print_stack_trace();
+//     original!()(unk1, 0x58ffff132b58c55a)
+// }
+
+/// Leads to a 0x10 table with two other pointers it seems
+#[repr(C)]
+#[derive(Debug)]
+pub struct Idk {
+    pub start: *const u64,
+    pub end: *const u64,
+}
+
+#[skyline::from_offset(0x32f0ab0)]
+pub fn open_popup(unk1: *const u8, some_hash: u64, unk3: *const u8);
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
@@ -274,8 +306,9 @@ pub fn main() {
     skyline::install_hooks!(
         initial_loading,
         change_version_string,
-        show_eshop,
         b_hook
+        network_connecting,
+        show_eshop,
     );
     replacement::install();
 
