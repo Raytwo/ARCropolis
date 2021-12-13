@@ -295,7 +295,7 @@ impl FileLoader for ApiLoader {
         if let Some((root_path, callback)) = self.use_virtual_file(local_path) {
             let result = match ApiLoadType::from_root(root_path) {
                 Ok(ty) => {
-                    dbg!(ty.load_path(local_path, callback))
+                    ty.load_path(local_path, callback)
                         .map_or_else(|_| self.load_path(root_path, local_path), |(_, data)| Ok(data))
                 },
                 Err(e) => Err(e)
