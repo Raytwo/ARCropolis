@@ -270,8 +270,23 @@ impl GlobalFilesystem {
         match self {
             Self::Initialized(fs) => {
                 if let Some(path) = fs.hash_lookup.get(&hash) {
+                    println!("{:?}", path);
                     match fs.loader.load(path) {
                         Ok(data) => Some(data),
+                        Err(orbits::Error::Virtual(ApiLoaderError::NoVirtFile)) if fs.loader.get_patch_entry_type(path).is_ok() => match fs.loader.load_patch(path) {
+                            Ok(data) => Some(data),
+                            Err(e) => {
+                                error!("Failed to load data for '{}' ({:#x}). Reason: {:?}", path.display(), hash.0, e);
+                                None
+                            }
+                        }
+                        Err(orbits::Error::Virtual(ApiLoaderError::NoVirtFile)) => match ArcLoader(resource::arc()).load_path(Path::new(""), path) {
+                            Ok(data) => Some(data),
+                            Err(e) => {
+                                error!("Failed to load data for '{}' ({:#x}). Reason: {:?}", path.display(), hash.0, e);
+                                None
+                            }
+                        }
                         Err(e) => {
                             error!("Failed to load data for '{}' ({:#x}). Reason: {:?}", path.display(), hash.0, e);
                             None

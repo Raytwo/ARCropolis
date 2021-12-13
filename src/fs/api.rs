@@ -71,7 +71,8 @@ pub extern "C" fn arcrop_load_file(
         )
     };
 
-    if let Some(size) = crate::GLOBAL_FILESYSTEM.read().load_into(hash, &mut buffer) {
+    // This function is intended to only be called by an arc api, which means that we have already write locked the thread and cannot read lock it
+    if let Some(size) = unsafe { (*crate::GLOBAL_FILESYSTEM.data_ptr()).load_into(hash, &mut buffer) } {
         *out_size = size;
         debug!("arcrop_load_file -> Successfully loaded file. Bytes read: {:#x}", size);
         true

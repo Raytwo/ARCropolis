@@ -11,6 +11,8 @@ pub enum ApiLoaderError {
     Hash(#[from] crate::InvalidOsStrError),
     #[error("Invalid callback type found.")]
     InvalidCb,
+    #[error("Failed to find next virtual file!")]
+    NoVirtFile,
     #[error("{0}")]
     Other(String)
 }
@@ -285,7 +287,7 @@ impl FileLoader for ApiLoader {
             self.release_virtual_file(local_path);
             result
         } else {
-            Err(ApiLoaderError::Other("Failed to find next virtual file.".to_string()))
+            Err(ApiLoaderError::NoVirtFile)
         }
     }
 
@@ -293,7 +295,7 @@ impl FileLoader for ApiLoader {
         if let Some((root_path, callback)) = self.use_virtual_file(local_path) {
             let result = match ApiLoadType::from_root(root_path) {
                 Ok(ty) => {
-                    ty.load_path(local_path, callback)
+                    dbg!(ty.load_path(local_path, callback))
                         .map_or_else(|_| self.load_path(root_path, local_path), |(_, data)| Ok(data))
                 },
                 Err(e) => Err(e)
@@ -301,7 +303,7 @@ impl FileLoader for ApiLoader {
             self.release_virtual_file(local_path);
             result
         } else {
-            Err(ApiLoaderError::Other("Failed to find next virtual file.".to_string()))
+            Err(ApiLoaderError::NoVirtFile)
         }
     }
 
