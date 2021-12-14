@@ -5,11 +5,11 @@ use orbits::{
 };
 use skyline::nn::{self, ro::{Module, RegistrationInfo}};
 use smash_arc::serde::Hash40String;
-use smash_arc::{ArcLookup, Hash40, LoadedArc, LookupError, SearchLookup};
+use smash_arc::{ArcLookup, Hash40, LoadedArc, LookupError, SearchLookup, LoadedSearchSection};
 use owo_colors::OwoColorize;
 
 use crate::chainloader::{NroBuilder, NrrBuilder, NrrRegistrationFailedError};
-use crate::replacement::{self, LoadedArcEx};
+use crate::replacement::{self, LoadedArcEx, SearchEx};
 use crate::{PathExtension, config, hashes, resource};
 use std::cell::UnsafeCell;
 use std::collections::{HashMap, HashSet};
@@ -409,10 +409,11 @@ impl GlobalFilesystem {
         }
     }
 
-    pub fn process_file_manipulation(&mut self, arc: &'static mut LoadedArc) {
+    pub fn process_file_manipulation(&mut self, arc: &'static mut LoadedArc, search: &'static mut LoadedSearchSection) {
         match self {
             Self::Initialized(fs) => {
                 let mut context = LoadedArc::make_addition_context();
+                let mut search_context = LoadedSearchSection::make_context();
                 let mut hash_ignore = HashSet::new();
                 for (dep, source) in fs.config.preprocess_reshare.iter() {
                     hash_ignore.extend(replacement::preprocess::reshare_contained_files(&mut context, dep.0, source.0).into_iter());
@@ -422,6 +423,7 @@ impl GlobalFilesystem {
                         Ok(hash) => {
                             if entry_type.is_file() && !context.contains_file(hash) {
                                 replacement::addition::add_file(&mut context, node.get_local());
+                                replacement::addition::add_searchable_file_recursive(&mut search_context, node.get_local());
                             } 
                         }
                         _ => {}
@@ -436,6 +438,7 @@ impl GlobalFilesystem {
                     }
                 }));
                 arc.take_context(context);
+                search.take_context(search_context);
             },
             _ => {
                 error!("Cannot unshare files because the filesystem is not initialized!");

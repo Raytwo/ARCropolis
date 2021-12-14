@@ -7,7 +7,7 @@
 #![allow(unaligned_references)]
 
 use std::{fmt, path::{Path, PathBuf}, str::FromStr};
-use smash_arc::ArcLookup;
+use smash_arc::{ArcLookup, SearchLookup, LoadedSearchSection};
 use log::LevelFilter;
 use thiserror::Error;
 
@@ -31,6 +31,7 @@ mod replacement;
 mod update;
 
 use fs::GlobalFilesystem;
+use replacement::extensions::SearchEx;
 use smash_arc::Hash40;
 
 lazy_static! {
@@ -171,7 +172,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     replacement::lookup::initialize(Some(arc));
     let mut filesystem = GLOBAL_FILESYSTEM.write();
     *filesystem = filesystem.take().finish(arc).unwrap();
-    filesystem.process_file_manipulation(resource::arc_mut());
+    filesystem.process_file_manipulation(resource::arc_mut(), resource::search_mut());
     filesystem.share_hashes(arc);
     filesystem.patch_sizes(resource::arc_mut());
 }

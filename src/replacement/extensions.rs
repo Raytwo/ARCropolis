@@ -1,4 +1,4 @@
-use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx, FileSystemHeader, Hash40, HashToIndex, LoadedArc, LookupError, Region, FileInfoBucket, FolderPathListEntry, LoadedSearchSection, SearchLookup, PathListEntry};
+use smash_arc::{ArcLookup, FileData, FileInfo, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx, FileSystemHeader, Hash40, HashToIndex, LoadedArc, LookupError, Region, FileInfoBucket, FolderPathListEntry, LoadedSearchSection, SearchLookup, PathListEntry, SearchListEntry, SearchSectionHeader, SearchSectionBody};
 use std::{ops::{Deref, DerefMut}, sync::atomic::{AtomicBool, Ordering}, path::Path, collections::HashMap};
 
 use crate::{hashes, resource::{self, CppVector, FilesystemInfo, LoadedData, LoadedFilepath}, PathExtension, get_smash_hash};
@@ -19,7 +19,6 @@ pub struct AdditionContext {
 
 pub struct SearchContext {
     pub search: &'static mut LoadedSearchSection,
-    pub filesystem_info: &'static FilesystemInfo,
 
     pub folder_paths: CppVector<FolderPathListEntry>,
     pub path_list_indices: CppVector<u32>,
@@ -64,6 +63,70 @@ impl AdditionContext {
         } else {
             self.get_shared_info_index(shared_idx)
         }
+    }
+}
+
+impl SearchContext {
+    pub fn get_folder_path(&self, hash: Hash40) -> Option<&FolderPathListEntry> {
+        match self.search.get_folder_path_entry_from_hash(hash) {
+            Ok(entry) => Some(entry),
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(&self.folder_paths[*index]),
+                None => None
+            }
+        }
+    }
+
+    pub fn get_path_index(&self, hash: Hash40) -> Option<usize> {
+        match self.search.get_path_list_index_from_hash(hash) {
+            Ok(index) => Some(index as usize),
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(self.path_list_indices[*index] as usize),
+                None => None
+            }
+        }
+    }
+
+    pub fn get_path(&self, hash: Hash40) -> Option<&PathListEntry> {
+        let index = match self.search.get_path_list_index_from_hash(hash) {
+            Ok(index) => Some(index as usize),
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(self.path_list_indices[*index] as usize),
+                None => None
+            }
+        };
+        index.map(move |x| &self.paths[self.path_list_indices[x] as usize])
+    }
+    
+    pub fn get_folder_path_mut(&mut self, hash: Hash40) -> Option<&mut FolderPathListEntry> {
+        match self.search.get_folder_path_entry_from_hash_mut(hash) {
+            Ok(entry) => Some(entry),
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(&mut self.folder_paths[*index]),
+                None => None
+            }
+        }
+    }
+
+    pub fn get_path_index_mut(&mut self, hash: Hash40) -> Option<&mut u32> {
+        match self.search.get_path_list_index_from_hash_mut(hash) {
+            Ok(index) => Some(index),
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(&mut self.path_list_indices[*index]),
+                None => None
+            }
+        }
+    }
+
+    pub fn get_path_mut(&mut self, hash: Hash40) -> Option<&mut PathListEntry> {
+        let index = match self.search.get_path_list_index_from_hash(hash) {
+            Ok(index) => Some(index as usize),
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(self.path_list_indices[*index] as usize),
+                None => None
+            }
+        };
+        index.map(move |x| &mut self.paths[self.path_list_indices[x] as usize])
     }
 }
 
@@ -278,13 +341,127 @@ impl LoadedArcEx for LoadedArc {
     }
 }
 
-pub trait SearchEx {
+pub trait SearchEx: SearchLookup {
+    fn get_folder_path_to_index_mut(&mut self) -> &mut [HashToIndex];
+    fn get_folder_path_list_mut(&mut self) -> &mut [FolderPathListEntry];
+    fn get_path_to_index_mut(&mut self) -> &mut [HashToIndex];
+    fn get_path_list_indices_mut(&mut self) -> &mut [u32];
+    fn get_path_list_mut(&mut self) -> &mut [PathListEntry];
+
+    fn get_folder_path_index_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut HashToIndex, LookupError> {
+        let folder_path_to_index = self.get_folder_path_to_index_mut();
+        match folder_path_to_index.binary_search_by_key(&hash.into(), |h| h.hash40()) {
+            Ok(idx) => Ok(&mut folder_path_to_index[idx]),
+            Err(_) => Err(LookupError::Missing)
+        }
+    }
+
+    fn get_folder_path_entry_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut FolderPathListEntry, LookupError> {
+        let index = *self.get_folder_path_index_from_hash(hash)?;
+        if index.index() != 0xFF_FFFF {
+            Ok(&mut self.get_folder_path_list_mut()[index.index() as usize])
+        } else {
+            Err(LookupError::Missing)
+        }
+    }
+
+    fn get_path_index_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut HashToIndex, LookupError> {
+        let path_to_index = self.get_path_to_index_mut();
+        match path_to_index.binary_search_by_key(&hash.into(), |h| h.hash40()) {
+            Ok(idx) => Ok(&mut path_to_index[idx]),
+            Err(_) => Err(LookupError::Missing)
+        }
+    }
+
+    fn get_path_list_index_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut u32, LookupError> {
+        let index = *self.get_path_index_from_hash(hash)?;
+        if index.index() != 0xFF_FFFF {
+            Ok(&mut self.get_path_list_indices_mut()[index.index() as usize])
+        } else {
+            Err(LookupError::Missing)
+        }
+    }
+
+    fn get_path_list_entry_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut PathListEntry, LookupError> {
+        let index = self.get_path_list_index_from_hash(hash)?;
+        if index != 0xFF_FFFF {
+            Ok(&mut self.get_path_list_mut()[index as usize])
+        } else {
+            Err(LookupError::Missing)
+        }
+    }
+
+    fn get_first_child_in_folder_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut PathListEntry, LookupError> {
+        let folder_path = self.get_folder_path_entry_from_hash(hash)?;
+        let index_idx = folder_path.get_first_child_index();
+
+        if index_idx == 0xFF_FFFF {
+            return Err(LookupError::Missing);
+        }
+
+        let path_entry_index = self.get_path_list_indices()[index_idx];
+        if path_entry_index != 0xFF_FFFF {
+            Ok(&mut self.get_path_list_mut()[path_entry_index as usize])
+        } else {
+            Err(LookupError::Missing)
+        }
+    }
+
+    fn get_next_child_in_folder_mut(&mut self, current_child: &PathListEntry) -> Result<&mut PathListEntry, LookupError> {
+        let index_idx = current_child.path.index() as usize;
+        if index_idx == 0xFF_FFFF {
+            return Err(LookupError::Missing);
+        }
+
+        let path_entry_index = self.get_path_list_indices()[index_idx];
+        if path_entry_index != 0xFF_FFFF {
+            Ok(&mut self.get_path_list_mut()[path_entry_index as usize])
+        } else {
+            Err(LookupError::Missing)
+        }
+    }
     fn resort_folder_paths(&mut self);
     fn resort_paths(&mut self);
-    // fn take_context(&mut self, ctx: SearchContext);
+    fn make_context() -> SearchContext;
+    fn take_context(&mut self, ctx: SearchContext);
 }
 
 impl SearchEx for LoadedSearchSection {
+    fn get_folder_path_to_index_mut(&mut self) -> &mut [HashToIndex] {
+        unsafe {
+            let table_size = (*self.body).folder_path_count;
+            std::slice::from_raw_parts_mut(self.folder_path_index as _, table_size as usize)
+        }
+    }
+
+    fn get_folder_path_list_mut(&mut self) -> &mut [FolderPathListEntry] {
+        unsafe {
+            let table_size = (*self.body).folder_path_count;
+            std::slice::from_raw_parts_mut(self.folder_path_list as _, table_size as usize)
+        }
+    }
+
+    fn get_path_to_index_mut(&mut self) -> &mut [HashToIndex] {
+        unsafe {
+            let table_size = (*self.body).path_indices_count;
+            std::slice::from_raw_parts_mut(self.path_index as _, table_size as usize)
+        }
+    }
+
+    fn get_path_list_indices_mut(&mut self) -> &mut [u32] {
+        unsafe {
+            let table_size = (*self.body).path_indices_count;
+            std::slice::from_raw_parts_mut(self.path_list_indices as _, table_size as usize)
+        }
+    }
+
+    fn get_path_list_mut(&mut self) -> &mut [PathListEntry] {
+        unsafe {
+            let table_size = (*self.body).path_count;
+            std::slice::from_raw_parts_mut(self.path_list as _, table_size as usize)
+        }
+    }
+
     fn resort_folder_paths(&mut self) {
         static NEEDS_FREE: AtomicBool = AtomicBool::new(false);
         let paths = self.get_folder_path_list();
@@ -312,12 +489,22 @@ impl SearchEx for LoadedSearchSection {
     fn resort_paths(&mut self) {
         static NEEDS_FREE: AtomicBool = AtomicBool::new(false);
         let paths = self.get_path_list();
+        let mut index_link = HashMap::new();
+        for (idx, index) in self.get_path_list_indices().iter().enumerate() {
+            if *index != 0xFFFF_FFFF && *index != 0xFF_FFFF {
+                index_link.insert(paths[*index as usize].path.hash40(), idx); 
+            }
+        }
         let mut indices = Vec::with_capacity(paths.len());
-        for (idx, path) in paths.iter().enumerate() {
+        for path in paths.iter() {
             let mut index = HashToIndex::default();
             index.set_hash(path.path.hash());
             index.set_length(path.path.length());
-            index.set_index(idx as u32);
+            if let Some(idx) = index_link.get(&path.path.hash40()) {
+                index.set_index(*idx as u32);
+            } else {
+                index.set_index(0xFF_FFFF);
+            }
             indices.push(index);
         }
         indices.sort_by(|a, b| a.hash40().cmp(&b.hash40()));
@@ -333,7 +520,51 @@ impl SearchEx for LoadedSearchSection {
         }
     }
 
-    
+    fn make_context() -> SearchContext {
+        let search = resource::search_mut();
+
+        let folder_paths = CppVector::from_slice(search.get_folder_path_list());
+        let paths = CppVector::from_slice(search.get_path_list());
+        let path_list_indices = CppVector::from_slice(search.get_path_list_indices());
+        SearchContext {
+            search,
+
+            folder_paths,
+            path_list_indices,
+            paths,
+
+            new_folder_paths: HashMap::new(),
+            new_paths: HashMap::new()
+        }
+    }
+
+    fn take_context(&mut self, ctx: SearchContext) {
+        let SearchContext {
+            folder_paths,
+            path_list_indices,
+            paths,
+
+            ..
+        } = ctx;
+
+        let (folder_paths, folder_paths_len) = (folder_paths.as_ptr(), folder_paths.len());
+        let (path_list_indices, path_list_indices_len) = (path_list_indices.as_ptr(), path_list_indices.len());
+        let (paths, paths_len) = (paths.as_ptr(), paths.len());
+
+        unsafe {
+            self.folder_path_list = folder_paths as _;
+            (*(self.body as *mut SearchSectionBody)).folder_path_count = folder_paths_len as u32;
+
+            self.path_list_indices = path_list_indices as _;
+            (*(self.body as *mut SearchSectionBody)).path_indices_count = path_list_indices_len as u32;
+
+            self.path_list = paths as _;
+            (*(self.body as *mut SearchSectionBody)).path_count = paths_len as u32;
+        }
+
+        self.resort_folder_paths();
+        self.resort_paths();
+    }
 }
 
 pub trait FileInfoFlagsExt {
@@ -369,11 +600,11 @@ impl FileInfoFlagsExt for FileInfoFlags {
     }
 }
 
-pub trait FilePathExt {
+pub trait FromPathExt {
     fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> where Self: Sized;
 }
 
-impl FilePathExt for FilePath {
+impl FromPathExt for FilePath {
     fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> {
         let path = path.as_ref();
         let path_hash = match path.smash_hash() {
@@ -405,6 +636,98 @@ impl FilePathExt for FilePath {
             parent: HashToIndex::default(),
             file_name: HashToIndex::default()
         };
+
+        result.path.set_hash(path_hash.crc32());
+        result.path.set_length(path_hash.len());
+        result.ext.set_hash(ext_hash.crc32());
+        result.ext.set_length(ext_hash.len());
+        result.file_name.set_hash(name_hash.crc32());
+        result.file_name.set_length(name_hash.len());
+        result.parent.set_hash(parent_hash.crc32());
+        result.parent.set_length(parent_hash.len());
+
+        Some(result)
+    }
+}
+
+impl FromPathExt for FolderPathListEntry {
+    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self>
+    where Self: Sized
+    {
+        
+        let path = path.as_ref();
+        let path_hash = match path.smash_hash() {
+            Ok(hash) => hash,
+            Err(_) => return None
+        };
+
+        let name_hash = match path.file_name().map(|x| x.to_str()).flatten().map(|x| get_smash_hash(x)) {
+            Some(Ok(hash)) => hash,
+            _ => return None
+        };
+
+        let parent_hash = match path.parent().map_or(Ok(Hash40::from("")), |x| x.smash_hash()) {
+            Ok(hash) => hash,
+            Err(_) => return None
+        };
+
+        let mut result = Self(SearchListEntry {
+            path: HashToIndex::default(),
+            ext: HashToIndex::default(),
+            parent: HashToIndex::default(),
+            file_name: HashToIndex::default()
+        });
+
+        result.path.set_hash(path_hash.crc32());
+        result.path.set_length(path_hash.len());
+        result.path.set_index(0xFF_FFFF);
+        result.ext.set_hash(0xFFFF_FFFF);
+        result.file_name.set_hash(name_hash.crc32());
+        result.file_name.set_length(name_hash.len());
+        result.parent.set_hash(parent_hash.crc32());
+        result.parent.set_length(parent_hash.len());
+        result.parent.set_index(0x40_0000);
+
+        Some(result)
+    }
+}
+
+
+impl FromPathExt for PathListEntry {
+    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self>
+    where Self: Sized
+    {
+        
+        let path = path.as_ref();
+        let path_hash = match path.smash_hash() {
+            Ok(hash) => hash,
+            Err(_) => return None
+        };
+
+        let ext_hash = match path.extension().map(|x| x.to_str()).flatten() {
+            Some(str) => match get_smash_hash(str) {
+                Ok(hash) => hash,
+                Err(_) => return None
+            }
+            None => return None
+        };
+
+        let name_hash = match path.file_name().map(|x| x.to_str()).flatten().map(|x| get_smash_hash(x)) {
+            Some(Ok(hash)) => hash,
+            _ => return None
+        };
+
+        let parent_hash = match path.parent().map_or(Ok(Hash40::from("")), |x| x.smash_hash()) {
+            Ok(hash) => hash,
+            Err(_) => return None
+        };
+
+        let mut result = Self(SearchListEntry {
+            path: HashToIndex::default(),
+            ext: HashToIndex::default(),
+            parent: HashToIndex::default(),
+            file_name: HashToIndex::default()
+        });
 
         result.path.set_hash(path_hash.crc32());
         result.path.set_length(path_hash.len());
