@@ -306,7 +306,7 @@ pub fn main() {
     skyline::install_hooks!(
         initial_loading,
         change_version_string,
-        b_hook
+        b_hook,
         network_connecting,
         show_eshop,
     );
