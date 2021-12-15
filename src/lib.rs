@@ -33,6 +33,7 @@ mod remote;
 mod resource;
 mod replacement;
 mod update;
+mod menus;
 
 use fs::GlobalFilesystem;
 use replacement::extensions::SearchEx;
@@ -239,10 +240,10 @@ fn change_version_string(arg: u64, string: *const c_char) {
     }
 }
 
-// 13.0.0
 #[skyline::hook(offset = offsets::eshop_show())]
 fn show_eshop() {
     println!("Eshop");
+    menus::workspace_selector();
 }
 
 #[skyline::main(name = "arcropolis")]
