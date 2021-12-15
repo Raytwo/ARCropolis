@@ -26,6 +26,7 @@ mod fs;
 mod hashes;
 mod logging;
 mod offsets;
+mod remote;
 mod resource;
 mod replacement;
 mod update;
@@ -200,20 +201,6 @@ fn show_eshop() {
     println!("Eshop");
 }
 
-extern "C" {
-    #[link_name = "\u{1}bsearch"]
-    fn bsearch();
-}
-
-#[skyline::hook(replace = bsearch, inline)]
-unsafe fn b_hook(ctx: &skyline::hooks::InlineCtx) {
-    if let Some(unhashed) = hashes::try_find(Hash40(*(*ctx.registers[0].x.as_ref() as *const u64))) {
-        debug!("Bsearching for {}", unhashed);
-    } else {
-        debug!("Bsearching for {:#x}", *(*ctx.registers[0].x.as_ref() as *const u64));
-    }
-}
-
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     
@@ -274,10 +261,17 @@ pub fn main() {
     skyline::install_hooks!(
         initial_loading,
         change_version_string,
-        show_eshop,
-        b_hook
+        show_eshop
     );
     replacement::install();
+
+    std::thread::spawn(|| {
+        fn handle_command(args: Vec<String>) {
+            skyline_communicate::send(remote::handle_command(args).as_str());
+        }
+        skyline_communicate::set_on_receive(skyline_communicate::Receiver::CLIStyle(handle_command));
+        skyline_communicate::start_server("arcropolis", 6968);
+    });
 
     // wait on updater to finish
     // let _ = updater.join();

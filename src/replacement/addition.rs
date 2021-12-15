@@ -1,8 +1,8 @@
-use std::path::Path;
+use std::{path::Path, collections::HashSet};
 
 use smash_arc::*;
 
-use crate::{resource::LoadedFilepath, replacement::FileInfoFlagsExt, PathExtension};
+use crate::{resource::LoadedFilepath, replacement::FileInfoFlagsExt, PathExtension, hashes};
 
 use super::{AdditionContext, FromPathExt, SearchContext, SearchEx};
 
@@ -31,7 +31,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
         file_path_index: filepath_idx,
         file_info_indice_index: file_info_indice_idx,
         info_to_data_index: info_to_data_idx,
-        flags: FileInfoFlags::new().with_unknown1(true)
+        flags: FileInfoFlags::new().with_unknown1(file_path.ext.hash40() == Hash40::from("nutexb") || file_path.ext.hash40() == Hash40::from("eff"))
     };
     new_file_info.flags.set_standalone_file(true);
 
@@ -60,6 +60,8 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
 
     ctx.loaded_filepaths.push(LoadedFilepath::default());
     ctx.loaded_datas.reserve(1);
+
+    ctx.added_files.insert(file_path.path.hash40(), filepath_idx);
 
     info!("Added fle '{}' ({:#x})", path.display(), file_path.path.hash40().0);
 }
@@ -175,4 +177,58 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
     } else {
         error!("Failed to add folder {}!", path.display());
     }
+}
+
+pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, files: Vec<Hash40>) {
+    fn get_path_idx(ctx: &AdditionContext, hash: Hash40) -> Option<FilePathIdx> {
+        match ctx.get_file_path_index_from_hash(hash) {
+            Ok(idx) => Some(idx),
+            Err(_) => ctx.added_files.get(&hash).map(|idx| *idx)
+        }
+    }
+
+    let file_info_range = match ctx.get_dir_info_from_hash(directory) {
+        Ok(dir) => dir.file_info_range(),
+        Err(_) => {
+            error!("Cannot get file info range for '{}' ({:#x})", hashes::find(directory), directory.0);
+            return;
+        }
+    };
+
+    let mut file_infos = Vec::with_capacity(file_info_range.len() + files.len());
+
+    let mut contained_files = HashSet::new();
+    for file_info in ctx.file_infos[file_info_range].iter() {
+        contained_files.insert(ctx.filepaths[usize::from(file_info.file_path_index)].path.hash40());
+        file_infos.push(*file_info);
+    }
+
+    for file in files {
+        if contained_files.contains(&file) {
+            continue;
+        }
+
+        if let Some(file_index) = get_path_idx(ctx, file) {
+            let info_to_data = &mut ctx.info_to_datas[usize::from(ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index)].info_to_data_index)];
+            info_to_data.folder_offset_index = 0x0;
+            let data_idx = info_to_data.file_data_index;
+            drop(info_to_data);
+            let file_data = &mut ctx.file_datas[usize::from(data_idx)];
+            file_data.comp_size = 0x100;
+            file_data.decomp_size = 0x100;
+            file_data.offset_in_folder = 0x0;
+            file_data.flags = FileDataFlags::new().with_compressed(false).with_use_zstd(false);
+            file_infos.push(ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index)]);
+        } else {
+            error!("Cannot get file path index for '{}' ({:#x})", hashes::find(file), file.0);
+        }
+    }
+
+    let start_index = ctx.file_infos.len() as u32;
+    ctx.file_infos.extend_from_slice(&file_infos);
+
+    let dir_info = ctx.get_dir_info_from_hash_mut(directory).expect("Failed to get directory after confirming it exists");
+    dir_info.file_info_start_index = start_index;
+    dir_info.file_count = file_infos.len() as u32;
+    info!("Added files to {} ({:#x})", hashes::find(directory), directory.0);
 }

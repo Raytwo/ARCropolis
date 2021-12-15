@@ -7,6 +7,8 @@ pub struct AdditionContext {
     pub arc: &'static mut LoadedArc,
     pub filesystem_info: &'static FilesystemInfo,
 
+    pub added_files: HashMap<Hash40, FilePathIdx>,
+
     pub filepaths: CppVector<FilePath>,
     pub file_info_indices: CppVector<FileInfoIndex>,
     pub file_infos: CppVector<FileInfo>,
@@ -223,6 +225,8 @@ impl LoadedArcEx for LoadedArc {
         AdditionContext {
             arc,
             filesystem_info,
+
+            added_files: HashMap::new(),
 
             filepaths,
             file_info_indices,

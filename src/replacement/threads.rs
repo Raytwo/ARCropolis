@@ -1,6 +1,6 @@
 use owo_colors::OwoColorize;
 
-use smash_arc::{ArcLookup, Hash40};
+use smash_arc::{ArcLookup, Hash40, FilePathIdx};
 
 use skyline::{
     hook,
@@ -167,6 +167,8 @@ fn res_loop_refresh(_: &InlineCtx) {
 fn res_loop_common() {
     let arc = resource::arc();
     let service = resource::res_service_mut();
+    let file_paths = arc.get_file_paths();
+    let file_info_indices = arc.get_file_info_indices();
     let file_infos = arc.get_file_infos();
     let dir_infos = arc.get_dir_infos();
 
@@ -189,6 +191,7 @@ fn res_loop_common() {
 
     for (idx, vec) in standalone_files.into_iter().enumerate() {
         for path_idx in vec.into_iter() {
+            trace!("Adding file to standalone queue: {} ({:#x})", hashes::find(file_paths[path_idx].path.hash40()), file_paths[path_idx].path.hash40().0);
             service.res_lists[idx].insert(LoadInfo {
                 ty: LoadType::File,
                 filepath_index: path_idx.0,

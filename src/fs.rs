@@ -437,6 +437,9 @@ impl GlobalFilesystem {
                         None
                     }
                 }));
+                for (hash, files) in fs.config.new_dir_files.iter() {
+                    replacement::addition::add_files_to_directory(&mut context, hash.0, files.iter().map(|x| x.0).collect());
+                }
                 arc.take_context(context);
                 search.take_context(search_context);
             },
