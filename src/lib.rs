@@ -265,13 +265,16 @@ pub fn main() {
     );
     replacement::install();
 
-    std::thread::spawn(|| {
-        fn handle_command(args: Vec<String>) {
-            skyline_communicate::send(remote::handle_command(args).as_str());
-        }
-        skyline_communicate::set_on_receive(skyline_communicate::Receiver::CLIStyle(handle_command));
-        skyline_communicate::start_server("arcropolis", 6968);
-    });
+    if config::debug_enabled() {
+        std::thread::spawn(|| {
+            fn handle_command(args: Vec<String>) {
+                skyline_communicate::send(remote::handle_command(args).as_str());
+            }
+            skyline_communicate::set_on_receive(skyline_communicate::Receiver::CLIStyle(handle_command));
+            skyline_communicate::start_server("arcropolis", 6968);
+        });
+    }
+
 
     // wait on updater to finish
     // let _ = updater.join();
