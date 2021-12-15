@@ -1,95 +1,81 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-US">
 
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
-    <meta name="focus-ring-visibility" content="hidden" />
-    <title>Menu</title>
-    <script src="./help/js/jquery-3.3.1.min.js"></script>
-    <link rel="stylesheet" href="./selector.css" />
-    <link rel="stylesheet" href="./help/css/common.css" />
-    <script src="./common/js/wsnd.min.js"></script>
-    <script src="./common/js/keyhelp.js"></script>
-    <script src="./help/js/common.js"></script>
-    <script src="./selector.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
+  <meta name="focus-ring-visibility" content="hidden" />
+  <link rel="stylesheet" href="./help/css/common.css" />
+  <link rel="stylesheet" href="./help/css/abstract.css" />
+  <link rel="stylesheet" href="./help/css/thema/outgame.css" />
+  <link id="font-stylesheet" rel="stylesheet" href="./help/css/font.css" />
+  <link rel="stylesheet" href="./selector.css">
 </head>
 
 <body>
-    <div id="bg"></div>
-    <div class="l-header">
-        <span class="background-clip"></span>
-        <div class="header">
-            <a id="ret-button" tabindex="-1" class="header-decoration" href="javascript:goBack()" nx-se-disabled="">
-                <div class="ret-icon-wrapper">
-                    <img class="ret-icon-shadow" ref="./help/img/icon/m_retnormal.svg" />
-                    <img class="ret-icon" ref="./help/img/icon/m_retnormal.svg" />
+  <script src="./help/js/jquery-3.3.1.min.js"></script>
+  <script src="./help/js/common.js"></script>
+  <script src="./help/js/two-column-switch.js"></script>
+  <script src="./jquery.textfill.min.js"></script>
+  <div id="bg" class="l-bg bg-abstract"></div>
+  <div class="l-header">
+    <span class="background-clip"></span>
+    <div class="header">
+      <a id="ret-button" tabindex="-1" class="header-decoration" href="javascript:goBack()" nx-se-disabled="">
+        <div class="ret-icon-wrapper">
+          <img class="ret-icon-shadow" ref="./help/img/icon/m_retnormal.svg" />
+          <img class="ret-icon" ref="./help/img/icon/m_retnormal.svg" />
+        </div>
+      </a>
+      <div class="breadcrumb-list f-u-bold">
+        <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
+          color: #02A7D4;
+          -webkit-text-stroke-width: 2px;
+          -webkit-text-stroke-color: black;
+          z-index: 1;">ARCropolis</span></p>
+        <span data-msgid="textbox_id-2" style="
+        color: #797979;
+        -webkit-text-stroke-width: 2px;
+        -webkit-text-stroke-color: black;">▶</span>
+        <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
+          color: white;
+          -webkit-text-stroke-width: 2px;
+          -webkit-text-stroke-color: black;
+          z-index: 1;" id="workspace">{{workspace}}</span></p>
+      </div>
+    </div>
+  </div>
+
+  <table>
+    <tr>
+      <td>
+        <br>
+        <div class="scrollbar" id="left-stick-home">
+          <div class="l-sidebar">
+            <div class="l-sidebar-content" >
+              <button tabindex="0" class="flex-button abstract-button" nx-se-disabled="">
+                <div class="abstract-icon-back-decoration"></div>
+                <div class="abstract-button-border">
+                  <div class="abstract-button-inner">
+                    <div class="abstract-icon-wrapper">
+                      <div id="img-{{id}}" class="{{#is_disabled}} hidden {{/is_disabled}}">
+                        <img class="abstract-icon is-appear" src="check.svg" />
+                      </div>
+                    </div>
+                    <div class="abstract-button-text f-u-bold mod-name" style="margin-bottom: 5px; display: block; font-size: 3vmin;">
+                      <span data-msgid="textbox_id-4-1">{{display_name}}</span>
+                    </div>
+                  </div>
                 </div>
-            </a>
-            <div class="breadcrumb-list f-u-bold">
-                <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
-			color: orangered;
-			-webkit-text-stroke-width: 2px;
-			-webkit-text-stroke-color: black;
-			z-index: 1;" id="test">Workspace Selector</span></p>
+              </button>
             </div>
+          </div>
         </div>
-    </div>
-
-    <div class="main" id="workspaces">
-        <div class="scrollbar">
-            <div class="flex-container">
-                <button onclick="location.href = 'http://localhost/default'" class="flex-item">
-                    <div class="icon-background"></div>
-                    <div class="item-container">
-                        <h2>Reset to Default</h2>
-                    </div>
-                </button>
-                {{#workspace}}
-                <button id="{{index}}" onclick="changeDivFromTo('workspaces', 'options', `{{index}}`)" class="flex-item {{#umm_exists}}umm_exists{{/umm_exists}} {{#arc_exists}}arc_exists{{/arc_exists}}">
-                    <div class="icon-background {{#in_use}}{{in_use}}{{/in_use}}"></div>
-                    <div class="item-container">
-                        <img src="{{#in_use}}check.svg{{/in_use}}">
-                        <h2>{{name}}</h2>
-                    </div>
-                </button>
-                {{/workspace}}
-            </div>
-        </div>
-    </div>
-    
-    <div class="main" id="options">
-        <div class="scrollbar">
-            <div class="flex-container">
-                <button onclick="changeDivFromTo('options', 'workspaces', ``)" class="flex-item">
-                    <div class="icon-background"></div>
-                    <div class="item-container">
-                        <h2>Go Back</h2>
-                    </div>
-                </button>
-
-                <button id="arc_btn" onclick="submit(`arc`)" class="flex-item">
-                    <div class="icon-background"></div>
-                    <div class="item-container">
-                        <h2>ARC (All-in-One Only)</h2>
-                    </div>
-                </button>
-                <button id="umm_btn" onclick="submit(`umm`)" class="flex-item">
-                    <div class="icon-background"></div>
-                    <div class="item-container">
-                        <h2>UMM (Modpack only)</h2>
-                    </div>
-                </button>
-                <button id="both_btn" onclick="submit(`both`)" class="flex-item">
-                    <div class="icon-background"></div>
-                    <div class="item-container">
-                        <h2>Both</h2>
-                    </div>
-                </button>
-            </div>
-        </div>
-    </div>
+      </td>
+      <td>
+      </td>
+    </tr>
+  </table>
 </body>
 
 </html>
