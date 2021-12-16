@@ -419,14 +419,16 @@ impl GlobalFilesystem {
                     hash_ignore.extend(replacement::preprocess::reshare_contained_files(&mut context, dep.0, source.0).into_iter());
                 }
                 fs.loader.walk_patch(|node, entry_type| {
-                    match node.get_local().smash_hash() {
-                        Ok(hash) => {
-                            if entry_type.is_file() && !context.contains_file(hash) {
-                                replacement::addition::add_file(&mut context, node.get_local());
-                                replacement::addition::add_searchable_file_recursive(&mut search_context, node.get_local());
-                            } 
+                    if !node.get_local().is_stream() {
+                        match node.get_local().smash_hash() {
+                            Ok(hash) => {
+                                if entry_type.is_file() && !context.contains_file(hash) {
+                                    replacement::addition::add_file(&mut context, node.get_local());
+                                    replacement::addition::add_searchable_file_recursive(&mut search_context, node.get_local());
+                                } 
+                            }
+                            _ => {}
                         }
-                        _ => {}
                     }
                 });
                 replacement::unshare::reshare_file_groups(&mut context);
