@@ -122,7 +122,13 @@ impl PathExtension for Path {
                 .file_name()
                 .map(|x| x.to_str())
                 .flatten()
-                .map(|x| u64::from_str_radix(x.trim_start_matches("0x"), 16).ok())
+                .map(|x| {
+                    if x.starts_with("0x") {
+                        u64::from_str_radix(x.trim_start_matches("0x"), 16).ok()
+                    } else {
+                        None
+                    }
+                })
                 .flatten()
                 .map(|x| Hash40(x));
             if let Some(hash) = hash {

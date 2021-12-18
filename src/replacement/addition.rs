@@ -117,8 +117,8 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
     if let Some(mut new_folder) = FolderPathListEntry::from_path(path) {
         new_folder.set_first_child_index(0xFF_FFFF);
         let mut new_path = new_folder.as_path_entry();
-        parent.set_first_child_index(current_path_list_indices_len as u32);
         new_path.path.set_index(parent.get_first_child_index() as u32);
+        parent.set_first_child_index(current_path_list_indices_len as u32);
         drop(parent);
         ctx.new_folder_paths.insert(new_folder.path.hash40(), ctx.folder_paths.len());
         ctx.new_paths.insert(new_path.path.hash40(), ctx.path_list_indices.len());
@@ -168,8 +168,9 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
     };
 
     if let Some(mut new_file) = PathListEntry::from_path(path) {
-        parent.set_first_child_index(current_path_list_indices_len as u32);
+        info!("Adding file '{}' ({:#}) to folder '{}' ({:#x})", hashes::find(new_file.path.hash40()), new_file.path.hash40().0, hashes::find(parent.path.hash40()), parent.path.hash40().0);
         new_file.path.set_index(parent.get_first_child_index() as u32);
+        parent.set_first_child_index(current_path_list_indices_len as u32);
         drop(parent);
         ctx.new_paths.insert(new_file.path.hash40(), ctx.path_list_indices.len());
         ctx.path_list_indices.push(ctx.paths.len() as u32);
@@ -198,8 +199,11 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
     let mut file_infos = Vec::with_capacity(file_info_range.len() + files.len());
 
     let mut contained_files = HashSet::new();
-    for file_info in ctx.file_infos[file_info_range].iter() {
+    for file_info in ctx.file_infos[file_info_range.clone()].iter() {
         contained_files.insert(ctx.filepaths[usize::from(file_info.file_path_index)].path.hash40());
+        if file_info_range.contains(&usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_info.file_path_index)].path.index() as usize].file_info_index)) {
+            ctx.file_info_indices[ctx.filepaths[usize::from(file_info.file_path_index)].path.index() as usize].file_info_index = FileInfoIdx((ctx.file_infos.len() + file_infos.len()) as u32);
+        }
         file_infos.push(*file_info);
     }
 
@@ -218,7 +222,9 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
             file_data.decomp_size = 0x100;
             file_data.offset_in_folder = 0x0;
             file_data.flags = FileDataFlags::new().with_compressed(false).with_use_zstd(false);
-            file_infos.push(ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index)]);
+            let file_info = ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index)];
+            ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index = FileInfoIdx((ctx.file_infos.len() + file_infos.len()) as u32);
+            file_infos.push(file_info);
         } else {
             error!("Cannot get file path index for '{}' ({:#x})", hashes::find(file), file.0);
         }

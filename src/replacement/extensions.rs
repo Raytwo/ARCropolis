@@ -69,6 +69,17 @@ impl AdditionContext {
 }
 
 impl SearchContext {
+
+    pub fn get_last_child_in_folder_mut(&mut self, mut index: usize) -> Option<&mut PathListEntry> {
+        let mut previous = None;
+        while index != 0xFF_FFFF {
+            drop(previous);
+            previous = Some(self.path_list_indices[index] as usize);
+            index = self.paths[*previous.as_ref().unwrap()].path.index() as usize;
+        }
+        previous.map(move |x| &mut self.paths[x])
+    }
+
     pub fn get_folder_path(&self, hash: Hash40) -> Option<&FolderPathListEntry> {
         match self.search.get_folder_path_entry_from_hash(hash) {
             Ok(entry) => Some(entry),
@@ -101,8 +112,8 @@ impl SearchContext {
     }
     
     pub fn get_folder_path_mut(&mut self, hash: Hash40) -> Option<&mut FolderPathListEntry> {
-        match self.search.get_folder_path_entry_from_hash_mut(hash) {
-            Ok(entry) => Some(entry),
+        match self.search.get_folder_path_index_from_hash(hash) {
+            Ok(entry) => Some(&mut self.folder_paths[entry.index() as usize]),
             Err(_) => match self.new_folder_paths.get(&hash) {
                 Some(index) => Some(&mut self.folder_paths[*index]),
                 None => None
@@ -345,12 +356,40 @@ impl LoadedArcEx for LoadedArc {
     }
 }
 
+pub enum DirectoryChild {
+    Folder(FolderPathListEntry),
+    File(PathListEntry)
+}
+
 pub trait SearchEx: SearchLookup {
     fn get_folder_path_to_index_mut(&mut self) -> &mut [HashToIndex];
     fn get_folder_path_list_mut(&mut self) -> &mut [FolderPathListEntry];
     fn get_path_to_index_mut(&mut self) -> &mut [HashToIndex];
     fn get_path_list_indices_mut(&mut self) -> &mut [u32];
     fn get_path_list_mut(&mut self) -> &mut [PathListEntry];
+
+    fn walk_directory(&self, hash: impl Into<Hash40>, mut f: impl FnMut(DirectoryChild, usize)) -> Result<(), LookupError> {
+        fn internal(search: &(impl SearchLookup + ?Sized), hash: impl Into<Hash40>, f: &mut (impl FnMut(DirectoryChild, usize)), depth: usize) -> Result<(), LookupError> {
+            let path_entry = search.get_path_list_entry_from_hash(hash)?;
+            if !path_entry.is_directory() {
+                return Ok(());
+            }
+    
+            let mut child = search.get_first_child_in_folder(path_entry.path.hash40());
+            while let Ok(child_entry) = child {
+                if child_entry.is_directory() {
+                    let folder_entry = search.get_folder_path_entry_from_hash(child_entry.path.hash40())?;
+                    f(DirectoryChild::Folder(*folder_entry), depth);
+                    internal(search, folder_entry.path.hash40(), f, depth + 1)?;
+                } else {
+                    f(DirectoryChild::File(*child_entry), depth);
+                }
+                child = search.get_next_child_in_folder(child_entry);
+            }
+            Ok(())
+        }
+        internal(self, hash, &mut f, 0)
+    }
 
     fn get_folder_path_index_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut HashToIndex, LookupError> {
         let folder_path_to_index = self.get_folder_path_to_index_mut();
@@ -424,6 +463,7 @@ pub trait SearchEx: SearchLookup {
             Err(LookupError::Missing)
         }
     }
+
     fn resort_folder_paths(&mut self);
     fn resort_paths(&mut self);
     fn make_context() -> SearchContext;
