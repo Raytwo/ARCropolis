@@ -1,10 +1,7 @@
 {
     "rust-analyzer.checkOnSave.overrideCommand": [
-        "xargo",
-        "check",
-        "--workspace",
-        "--message-format=json",
-        "--all-features"
+        "cargo",
+        "skyline",
+        "check"
     ],
-    "rust-analyzer.updates.channel": "nightly",
 }

@@ -6,7 +6,8 @@
 #![feature(vec_into_raw_parts)]
 #![allow(unaligned_references)]
 
-use std::{fmt, path::{Path, PathBuf}, str::FromStr};
+use std::{fmt, path::{Path, PathBuf}, str::FromStr, io::BufWriter, io::Write};
+use ninput::Buttons;
 use smash_arc::{ArcLookup, SearchLookup, LoadedSearchSection};
 use log::LevelFilter;
 use thiserror::Error;
@@ -182,6 +183,20 @@ fn initial_loading(_ctx: &InlineCtx) {
     filesystem.process_file_manipulation(resource::arc_mut(), resource::search_mut());
     filesystem.share_hashes(arc);
     filesystem.patch_sizes(resource::arc_mut());
+    if config::debug_enabled() {
+        let mut output = BufWriter::new(std::fs::File::create("sd:/ultimate/arcropolis/filesystem_dump.txt").unwrap());
+        filesystem.get().walk_patch(|node, entry_type| {
+            let depth = node.get_local().components().count() - 1;
+            for _ in 0..depth {
+                let _ = write!(output, "    ");
+            }
+            if entry_type.is_dir() {
+                let _ = writeln!(output, "{}", node.get_local().display());
+            } else {
+                let _ = writeln!(output, "{}", node.full_path().display());
+            }
+        });
+    }
 }
 
 #[skyline::hook(offset = offsets::title_screen_version())]
@@ -272,6 +287,7 @@ pub fn main() {
     replacement::install();
 
     if config::debug_enabled() {
+        ninput::init();
         std::thread::spawn(|| {
             fn handle_command(args: Vec<String>) {
                 skyline_communicate::send(remote::handle_command(args).as_str());
