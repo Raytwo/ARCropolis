@@ -1,6 +1,6 @@
 // #![feature(proc_macro_hygiene)]
 
-use crate::config::CONFIG;
+use crate::config;
 use log::info;
 use percent_encoding::percent_decode_str;
 use serde::Deserialize;
@@ -34,12 +34,12 @@ pub struct ModStatues {
     is_disabled: Vec<bool>,
 }
 
-static HTML_TEXT: &str = include_str!("../../resources/templates/arcadia.html");
-static CSS_TEXT: &str = include_str!("../../resources/css/arcadia.css");
-static ARCADIA_JAVASCRIPT_TEXT: &str = include_str!("../../resources/js/arcadia.js");
-static JQUERY_LIB_JAVASCRIPT_TEXT: &str = include_str!("../../resources/js/jquery.textfill.min.js");
-static MISSING_ICON: &[u8] = include_bytes!("../../resources/img/missing.webp");
-static CHECK_ICON: &[u8] = include_bytes!("../../resources/img/check.svg");
+static HTML_TEXT: &str = include_str!("../../../resources/templates/arcadia.html");
+static CSS_TEXT: &str = include_str!("../../../resources/css/arcadia.css");
+static ARCADIA_JAVASCRIPT_TEXT: &str = include_str!("../../../resources/js/arcadia.js");
+static JQUERY_LIB_JAVASCRIPT_TEXT: &str = include_str!("../../../resources/js/jquery.textfill.min.js");
+static MISSING_ICON: &[u8] = include_bytes!("../../../resources/img/missing.webp");
+static CHECK_ICON: &[u8] = include_bytes!("../../../resources/img/check.svg");
 
 const LOCALHOST: &str = "http://localhost/";
 
@@ -146,10 +146,10 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
 }
 
 pub fn show_arcadia() {
-    let workspace = PathBuf::from(CONFIG.read().paths.umm.to_str().unwrap());
+    let workspace = PathBuf::from(config::umm_path());
 
     if !workspace.exists() {
-        crate::api::show_dialog("It seems the directory specified in your configuration does not exist.");
+        skyline_web::DialogOk::ok("It seems the directory specified in your configuration does not exist.");
         return;
     }
 
@@ -219,12 +219,12 @@ pub fn show_arcadia() {
         "http://localhost/" => {}
         url => {
             match url {
-                "http://localhost/refresh" => {
-                    let thread = std::thread::spawn(|| crate::replacement_files::MOD_FILES.write().reinitialize());
-                    skyline_web::DialogOk::ok("Please be patient, ARCropolis is refreshing its cache.");
-                    thread.join().unwrap();
-                    skyline_web::DialogOk::ok("ARCropolis has refreshed its cache.");
-                }
+                // "http://localhost/refresh" => {
+                //     let thread = std::thread::spawn(|| crate::replacement_files::MOD_FILES.write().reinitialize());
+                //     skyline_web::DialogOk::ok("Please be patient, ARCropolis is refreshing its cache.");
+                //     thread.join().unwrap();
+                //     skyline_web::DialogOk::ok("ARCropolis has refreshed its cache.");
+                // }
                 _ => {
                     let res = percent_decode_str(&url[LOCALHOST.len()..])
                 .decode_utf8_lossy()
@@ -255,14 +255,14 @@ pub fn show_arcadia() {
 
                 info!("[menus::show_arcadia] ---------------------------");
             }
-            if modified_detected {
-                let thread = std::thread::spawn(|| crate::replacement_files::MOD_FILES.write().reinitialize());
-                skyline_web::DialogOk::ok("Mods have been toggled!<br>Please be patient, ARCropolis is refreshing its cache.");
-                thread.join().unwrap();
-                skyline_web::DialogOk::ok("ARCropolis has refreshed its cache.");
-                // skyline_web::DialogOk::ok("Mods have been toggled!<br>Please reboot Smash to refresh ARCropolis' cache to prevent the game from crashing.");
-                // skyline::nn::oe::RestartProgramNoArgs();
-            }
+            // if modified_detected {
+            //     let thread = std::thread::spawn(|| crate::replacement_files::MOD_FILES.write().reinitialize());
+            //     skyline_web::DialogOk::ok("Mods have been toggled!<br>Please be patient, ARCropolis is refreshing its cache.");
+            //     thread.join().unwrap();
+            //     skyline_web::DialogOk::ok("ARCropolis has refreshed its cache.");
+            //     // skyline_web::DialogOk::ok("Mods have been toggled!<br>Please reboot Smash to refresh ARCropolis' cache to prevent the game from crashing.");
+            //     // skyline::nn::oe::RestartProgramNoArgs();
+            // }
                 }
             }
         }
