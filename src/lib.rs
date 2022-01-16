@@ -7,7 +7,6 @@
 #![allow(unaligned_references)]
 
 use std::{fmt, path::{Path, PathBuf}, str::FromStr, io::BufWriter, io::Write};
-use ninput::Buttons;
 use smash_arc::{ArcLookup, SearchLookup, LoadedSearchSection};
 use log::LevelFilter;
 use thiserror::Error;
@@ -287,7 +286,6 @@ pub fn main() {
     replacement::install();
 
     if config::debug_enabled() {
-        ninput::init();
         std::thread::spawn(|| {
             fn handle_command(args: Vec<String>) {
                 skyline_communicate::send(remote::handle_command(args).as_str());

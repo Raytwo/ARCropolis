@@ -20,7 +20,7 @@ pub struct ApiVersion {
 /// ily but i don't care <3 - blujay
 static API_VERSION: ApiVersion = ApiVersion {
     major: 1,
-    minor: 4
+    minor: 5
 };
 
 // temporary
@@ -167,6 +167,17 @@ pub extern "C" fn arcrop_get_decompressed_size(hash: Hash40, out_size: &mut usiz
                 *out_size = x.decomp_size as usize;
                 true
             })
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn arcrop_get_loaded_arc(out: &mut &'static LoadedArc) -> bool {
+    debug!("arcrop_get_loaded_arc -> Sending loaded arc");
+    if !resource::initialized() {
+        false
+    } else {
+        *out = resource::arc();
+        true
     }
 }
 
