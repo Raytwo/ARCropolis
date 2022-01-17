@@ -66,71 +66,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
     info!("Added fle '{}' ({:#x})", path.display(), file_path.path.hash40().0);
 }
 
-pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
-    let (parent, current_path_list_indices_len) = match path.parent() {
-        Some(parent) if parent == Path::new("") => {
-            if let Some(mut new_folder_path) = FolderPathListEntry::from_path(path) {
-                let new_path = new_folder_path.as_path_entry();
-                new_folder_path.set_first_child_index(0xFF_FFFF);
-                ctx.new_folder_paths.insert(new_folder_path.path.hash40(), ctx.folder_paths.len());
-                ctx.new_paths.insert(new_path.path.hash40(), ctx.path_list_indices.len());
-                ctx.path_list_indices.push(ctx.paths.len() as u32);
-                ctx.paths.push(new_path);
-                ctx.folder_paths.push(new_folder_path);
-                return;
-            } else {
-                error!("Unable to generate new folder path list entry for {}", path.display());
-                return;
-            }
-        }
-        Some(parent) => match parent.smash_hash() {
-            Ok(hash) => {
-                let len = ctx.path_list_indices.len();
-                match ctx.get_folder_path_mut(hash) {
-                    Some(parent) => {
-                        (parent, len)
-                    },
-                    None => {
-                        add_searchable_folder_recursive(ctx, parent);
-                        let len = ctx.path_list_indices.len();
-                        match ctx.get_folder_path_mut(hash) {
-                            Some(parent) => (parent, len),
-                            None => {
-                                error!("Unable to add folder '{}'", parent.display());
-                                return;
-                            }
-                        }
-                    }
-                }
-            },
-            Err(e) => {
-                error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
-                return;
-            }
-        },
-        None => {
-            error!("Failed to get the parent for path '{}'", path.display());
-            return;
-        }
-    };
-
-    if let Some(mut new_folder) = FolderPathListEntry::from_path(path) {
-        new_folder.set_first_child_index(0xFF_FFFF);
-        let mut new_path = new_folder.as_path_entry();
-        new_path.path.set_index(parent.get_first_child_index() as u32);
-        parent.set_first_child_index(current_path_list_indices_len as u32);
-        drop(parent);
-        ctx.new_folder_paths.insert(new_folder.path.hash40(), ctx.folder_paths.len());
-        ctx.new_paths.insert(new_path.path.hash40(), ctx.path_list_indices.len());
-        ctx.path_list_indices.push(ctx.paths.len() as u32);
-        ctx.folder_paths.push(new_folder);
-        ctx.paths.push(new_path);
-    } else {
-        error!("Failed to add folder {}!", path.display());
-    }
-}
-
-pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
+pub fn add_searchable_file(ctx: &mut SearchContext, path: &Path) {
     let (parent, current_path_list_indices_len) = match path.parent() {
         Some(parent) if parent == Path::new("") => {
             error!("Cannot add file {} as root file!", path.display());
@@ -144,15 +80,8 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
                         (parent, len)
                     },
                     None => {
-                        add_searchable_folder_recursive(ctx, parent);
-                        let len = ctx.path_list_indices.len();
-                        match ctx.get_folder_path_mut(hash) {
-                            Some(parent) => (parent, len),
-                            None => {
-                                error!("Unable to add folder '{}'", parent.display());
-                                return;
-                            }
-                        }
+                        error!("Failed to add file {} to folder {} because the folder does not exist!", path.display(), parent.display());
+                        return;
                     }
                 }
             },

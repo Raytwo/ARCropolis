@@ -85,13 +85,13 @@ impl ApiLoadType {
             ApiLoadType::Generic if let ApiCallback::GenericCallback(cb) = usr_fn => {
                 let hash = local.smash_hash()?;
                 let mut size = 0;
-                if !api::arcrop_get_decompressed_size(hash, &mut size) {
+                if !crate::api::file::arcrop_get_decompressed_size(hash, &mut size) {
                     return Err(ApiLoaderError::Other("Unable to create buffer!".to_string()));
                 }
                 let mut vec = Vec::with_capacity(size);
                 unsafe {
                     let mut new_len = size;
-                    if !cb(hash, vec.as_mut_ptr(), size, &mut new_len) {
+                    if !cb(hash.0, vec.as_mut_ptr(), size, &mut new_len) {
                         return Err(ApiLoaderError::Other("Callback did not load file!".to_string()));
                     }
                     vec.set_len(new_len);
@@ -104,7 +104,7 @@ impl ApiLoadType {
                 let mut vec = Vec::with_capacity(0x100);
                 let mut file_size = 0;
                 unsafe {
-                    if !cb(hash, vec.as_mut_ptr(), &mut file_size) {
+                    if !cb(hash.0, vec.as_mut_ptr(), &mut file_size) {
                         return Err(ApiLoaderError::Other("Callback did not provide a valid path!".to_string()));
                     }
                     vec.set_len(0x100);
@@ -122,9 +122,8 @@ impl ApiLoadType {
 #[derive(Copy, Clone)]
 pub enum ApiCallback {
     None,
-    GenericCallback(api::CallbackFn),
-    StreamCallback(api::StreamCallbackFn),
-    ExtCallback(api::ExtCallbackFn)
+    GenericCallback(arcropolis_api::CallbackFn),
+    StreamCallback(arcropolis_api::StreamCallbackFn),
 }
 
 #[repr(transparent)]

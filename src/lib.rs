@@ -7,6 +7,7 @@
 #![allow(unaligned_references)]
 
 use std::{fmt, path::{Path, PathBuf}, str::FromStr, io::BufWriter, io::Write};
+use arcropolis_api::Event;
 use smash_arc::{ArcLookup, SearchLookup, LoadedSearchSection};
 use log::LevelFilter;
 use thiserror::Error;
@@ -20,9 +21,11 @@ extern crate log;
 use parking_lot::RwLock;
 use skyline::{hooks::InlineCtx, libc::c_char, nn};
 
+mod api;
 mod chainloader;
 mod config;
 mod fs;
+mod fuse;
 mod hashes;
 mod logging;
 mod offsets;
@@ -34,6 +37,7 @@ mod update;
 use fs::GlobalFilesystem;
 use replacement::extensions::SearchEx;
 use smash_arc::Hash40;
+use walkdir::WalkDir;
 
 lazy_static! {
     pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> =
@@ -91,12 +95,19 @@ impl fmt::Display for InvalidOsStrError {
 }
 
 pub trait PathExtension {
+    fn to_str(&self) -> Option<&str>;
     fn is_stream(&self) -> bool;
     fn has_extension<S: AsRef<str>>(&self, ext: S) -> bool;
     fn smash_hash(&self) -> Result<Hash40, InvalidOsStrError>;
 }
 
 impl PathExtension for Path {
+    fn to_str(&self) -> Option<&str> {
+        self
+            .as_os_str()
+            .to_str()
+    }
+
     fn is_stream(&self) -> bool {
         static VALID_PREFIXES: &[&str] = &[
             "/stream;",
@@ -155,6 +166,14 @@ fn get_smash_hash<P: AsRef<Path>>(path: P) -> Result<Hash40, InvalidOsStrError> 
     path.as_ref().smash_hash()
 }
 
+fn get_path_from_hash(hash: Hash40) -> PathBuf {
+    if let Some(string) = hashes::try_find(hash) {
+        PathBuf::from(string)
+    } else {
+        PathBuf::from(format!("{:#x}", hash.0))
+    }
+}
+
 /// Initializes the `nn::time` library, for creating a log file based off of the current time. For some reason Smash does not initialize this
 fn init_time() {
     unsafe {
@@ -176,12 +195,14 @@ fn get_version_string() -> String {
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     let arc = resource::arc();
+    fuse::arc::install_arc_fs();
+    api::event::send_event(Event::ArcFilesystemMounted);
     replacement::lookup::initialize(Some(arc));
     let mut filesystem = GLOBAL_FILESYSTEM.write();
     *filesystem = filesystem.take().finish(arc).unwrap();
-    filesystem.process_file_manipulation(resource::arc_mut(), resource::search_mut());
-    filesystem.share_hashes(arc);
-    filesystem.patch_sizes(resource::arc_mut());
+    filesystem.process_mods();
+    filesystem.share_hashes();
+    filesystem.patch_files();
     if config::debug_enabled() {
         let mut output = BufWriter::new(std::fs::File::create("sd:/ultimate/arcropolis/filesystem_dump.txt").unwrap());
         filesystem.get().walk_patch(|node, entry_type| {
@@ -196,6 +217,9 @@ fn initial_loading(_ctx: &InlineCtx) {
             }
         });
     }
+    drop(filesystem);
+    fuse::mods::install_mod_fs();
+    api::event::send_event(Event::ModFilesystemMounted);
 }
 
 #[skyline::hook(offset = offsets::title_screen_version())]
@@ -284,6 +308,25 @@ pub fn main() {
         show_eshop
     );
     replacement::install();
+    
+    std::panic::set_hook(Box::new(|info| {
+        let location = info.location().unwrap();
+
+        let msg = match info.payload().downcast_ref::<&'static str>() {
+            Some(s) => *s,
+            None => match info.payload().downcast_ref::<String>() {
+                Some(s) => &s[..],
+                None => "Box<Any>"
+            }
+        };
+
+        let err_msg = format!("thread has panicked at '{}', {}", msg, location);
+        show_error(
+            69,
+            "Skyline plugin as panicked! Please open the details and send a screenshot to the developer, then close the game.\n",
+            err_msg.as_str()
+        );
+    }));
 
     if config::debug_enabled() {
         std::thread::spawn(|| {
@@ -300,4 +343,34 @@ pub fn main() {
     // let _ = updater.join();
     // Wait on hashes/lut to finish
     let _ = resources.join();
+
+    api::event::setup();
+}
+
+fn show_error(code: u32, message: &str, details: &str) {
+    use skyline::nn::{err, settings};
+
+    let mut message_bytes = String::from(message).into_bytes();
+    let mut details_bytes = String::from(details).into_bytes();
+
+    if message_bytes.len() >= 2048 {
+        message_bytes.truncate(2044);
+        message_bytes.append(&mut String::from("...\0").into_bytes());
+    }
+
+    if details_bytes.len() >= 2048 {
+        details_bytes.truncate(2044);
+        details_bytes.append(&mut String::from("...\0").into_bytes());
+    }
+
+    unsafe {
+        let error = err::ApplicationErrorArg::new_with_messages(
+            code,
+            core::str::from_utf8(&message_bytes).unwrap().as_bytes().as_ptr(),
+            core::str::from_utf8(&details_bytes).unwrap().as_bytes().as_ptr(),
+            &settings::LanguageCode_Make(settings::Language_Language_English)
+        );
+
+        err::ShowApplicationError(&error);
+    }
 }
