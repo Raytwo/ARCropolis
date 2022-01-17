@@ -29,9 +29,10 @@ orbits = { git = "https://github.com/blu-dev/orbits" }
 smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd"] }
 owo-colors = "3.0.1"
 skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }
-arcropolis-api = { path = "../arcropolis_api" }
-# nn-fuse = { git = "https://github.com/Raytwo/nn-fuse" }
-nn-fuse = { path = "../nn-fuse" }
+# arcropolis-api = { path = "../arcropolis_api" }
+arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api" }
+nn-fuse = { git = "https://github.com/blu-dev/nn-fuse" }
+# nn-fuse = { path = "../nn-fuse" }
 walkdir = "2.3.2"
 # ninput = { git = "https://github.com/blu-dev/ninput" }
 # ninput = { path = "../ninput" }
@@ -46,8 +47,8 @@ nnsdk = { git = "https://github.com/blu-dev/nnsdk-rs", branch = "patch-4" }
 [patch.'https://github.com/jam1garner/smash-arc']
 smash-arc = { git = 'https://github.com/blu-dev/smash-arc' }
 
-[patch.'https://github.com/blu-dev/orbits']
-orbits = { path = "../orbits" }
+# [patch.'https://github.com/blu-dev/orbits']
+# orbits = { path = "../orbits" }
 
 [profile.dev]
 panic = "abort"
