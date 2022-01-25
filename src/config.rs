@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use smash_arc::Region;
 
+use skyline_config::*;
+
 lazy_static! {
     static ref CONFIG_PATH: PathBuf = {
         let path = PathBuf::from("sd:/ultimate/arcropolis");
@@ -25,7 +27,7 @@ fn default_region() -> String { "us_en".to_string() }
 
 lazy_static! {
     static ref GLOBAL_CONFIG: Config = {
-
+        // TODO: Write something to convert the current config to skyline-config while still in Beta
         let config = match std::fs::read_to_string(&*CONFIG_PATH) {
             Ok(toml) => match toml::de::from_str(toml.as_str()) {
                 Ok(config) => config,
@@ -47,6 +49,19 @@ lazy_static! {
             },
             Err(_) => error!("Failed to serialize config data."),
         }
+
+        // let mut storage = acquire_storage("arcropolis").unwrap();
+        // storage.clear_storage();
+        // storage.set_flag("beta_updates", true);
+        // storage.set_field("logging_level", "Info").unwrap();
+
+        // let get_set_flag = dbg!(storage.get_flag("beta_updates"));
+        // let get_unset_flag = dbg!(storage.get_flag("debug"));
+        // let get_existing_field: String = dbg!(storage.get_field("logging_level").unwrap());
+
+        // storage.set_field_json("config", &config).unwrap();
+        // let deserialized_config: Config = storage.get_field_json("config").unwrap();
+        // storage.read_dir().unwrap().for_each(|dir| println!("{}", dir.unwrap().path().display()));
 
         config
     };
