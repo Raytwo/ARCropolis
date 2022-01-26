@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use smash_arc::serde::Hash40String;
-use std::collections::{HashSet, HashMap};
+use std::{collections::{HashSet, HashMap}, path::{Path, PathBuf}};
 
 #[derive(Debug, Deserialize)]
 pub struct ModConfig {
@@ -20,6 +20,10 @@ pub struct ModConfig {
     #[serde(default = "HashMap::new")]
     pub preprocess_reshare_ext: HashMap<Hash40String, Hash40String>,
 
+    #[serde(alias = "new-shared-files")]
+    #[serde(default = "HashMap::new")]
+    pub new_shared_files: HashMap<Hash40String, HashSet<PathBuf>>,
+
     #[serde(alias = "new-dir-files")]
     #[serde(default = "HashMap::new")]
     pub new_dir_files: HashMap<Hash40String, HashSet<Hash40String>>,
@@ -32,12 +36,20 @@ impl ModConfig {
             new_files: HashMap::new(),
             preprocess_reshare: HashMap::new(),
             new_dir_files: HashMap::new(),
+            new_shared_files: HashMap::new(),
             preprocess_reshare_ext: HashMap::new()
         }
     }
 
     pub fn merge(&mut self, other: ModConfig) {
-        let Self { unshare_blacklist, new_files, preprocess_reshare, preprocess_reshare_ext, new_dir_files } = other;
+        let Self { 
+            unshare_blacklist,
+            new_files,
+            preprocess_reshare,
+            preprocess_reshare_ext,
+            new_shared_files, 
+            new_dir_files
+        } = other;
 
         self.unshare_blacklist.extend(unshare_blacklist.into_iter());
         self.preprocess_reshare.extend(preprocess_reshare.into_iter());
@@ -58,6 +70,14 @@ impl ModConfig {
                 current_list.extend(list.into_iter());
             } else {
                 let _ = self.new_dir_files.insert(hash, list);
+            }
+        }
+
+        for (hash, list) in new_shared_files.into_iter() {
+            if let Some(current_list) = self.new_shared_files.get_mut(&hash) {
+                current_list.extend(list.into_iter());
+            } else {
+                let _ = self.new_shared_files.insert(hash, list);
             }
         }
     }

@@ -402,7 +402,7 @@ impl CachedFilesystem {
             };
 
             replacement::addition::add_file(&mut context, node.get_local());
-            replacement::addition::add_searchable_file(&mut search_context, node.get_local());
+            replacement::addition::add_searchable_file_recursive(&mut search_context, node.get_local());
         });
 
         /// Don't unshare any files in the unshare blacklist (nus3audio handled during filesystem finish)
@@ -413,6 +413,13 @@ impl CachedFilesystem {
                 Some(*hash)
             }
         });
+
+        for (hash, pathset) in self.config.new_shared_files.iter() {
+            for path in pathset.iter() {
+                replacement::addition::add_shared_file(&mut context, path, hash.0);
+                replacement::addition::add_searchable_file_recursive(&mut search_context, path);
+            }
+        }
 
         /// Reshare any files that depend on files in file groups, as we need to get rid of those else we crash.
         replacement::unshare::reshare_file_groups(&mut context);
