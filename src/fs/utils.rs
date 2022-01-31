@@ -53,7 +53,7 @@ where
         if local.has_extension("nus3audio") {
             match local.smash_hash() {
                 Ok(hash) if !unshare_blacklist.contains(&Hash40String(hash)) => {
-                    nus3audio_deps.insert(local.to_path_buf());
+                    nus3audio_deps.insert(local.with_extension("nus3bank"));
                 },
                 Err(e) => error!("Failed to get hash for path {}. Reason: {:?}", local.display(), e),
                 _ => {}
