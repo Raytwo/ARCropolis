@@ -13,6 +13,8 @@ pub enum ApiLoaderError {
     InvalidCb,
     #[error("Failed to find next virtual file!")]
     NoVirtFile,
+    #[error("IO Error")]
+    IO(#[from] std::io::Error),
     #[error("{0}")]
     Other(String)
 }
@@ -20,6 +22,7 @@ pub enum ApiLoaderError {
 #[derive(Copy, Clone, Debug)]
 enum ApiLoadType {
     Nus3bankPatch,
+    PrcPatch,
     Generic,
     Stream,
     Extension,
@@ -29,6 +32,8 @@ impl ApiLoadType {
     pub fn from_root(root: &Path) -> Result<Self, ApiLoaderError> {
         if root.ends_with("patch-nus3bank") {
             Ok(ApiLoadType::Nus3bankPatch)
+        } else if root.ends_with("patch-prc") {
+            Ok(ApiLoadType::PrcPatch)
         } else if root.ends_with("generic-cb") {
             Ok(ApiLoadType::Generic)
         } else if root.ends_with("stream-cb") {
@@ -81,6 +86,26 @@ impl ApiLoadType {
             ApiLoadType::Nus3bankPatch => {
                 let data = ApiLoader::handle_load_vanilla_file(local)?;
                 Ok((data.len(), data))
+            },
+            ApiLoadType::PrcPatch => {
+                let patches = if let Some(patches) = ApiLoader::get_prc_patches_for_hash(local.smash_hash()?) {
+                    patches
+                } else {
+                    return Err(ApiLoaderError::Other("No patches found for file in PRC patch!".to_string()));
+                };
+                let data = ApiLoader::handle_load_base_file(local)?;
+                let mut param_data = prcx::prc::read_stream(&mut std::io::Cursor::new(data))
+                    .map_err(|_| ApiLoaderError::Other("Unable to parse param data!".to_string()))?;
+                
+                for patch_path in patches.iter() {
+                    let diff = prcx::diff::Diff::open(patch_path)?;
+                    diff.apply(&mut param_data);
+                }
+
+                let mut cursor = std::io::Cursor::new(vec![]);
+                prcx::prc::write_stream(&mut cursor, &param_data)?;
+                let vec = cursor.into_inner();
+                Ok((vec.len(), vec))
             },
             ApiLoadType::Generic if let ApiCallback::GenericCallback(cb) = usr_fn => {
                 let hash = local.smash_hash()?;
@@ -139,7 +164,8 @@ struct ApiFunctionEntry {
 
 pub struct ApiLoader {
     function_map: HashMap<Hash40, UnsafeCell<ApiFunctionEntry>>,
-    stream_size_map: UnsafeCell<HashMap<PathBuf, usize>>
+    stream_size_map: UnsafeCell<HashMap<PathBuf, usize>>,
+    param_patches: HashMap<Hash40, Vec<PathBuf>>
 }
 
 unsafe impl Send for ApiLoader {}
@@ -149,7 +175,8 @@ impl ApiLoader {
     pub fn new() -> Self {
         Self {
             function_map: HashMap::new(),
-            stream_size_map: UnsafeCell::new(HashMap::new())
+            stream_size_map: UnsafeCell::new(HashMap::new()),
+            param_patches: HashMap::new()
         }
     }
 
@@ -203,6 +230,37 @@ impl ApiLoader {
         let arc = resource::arc();
         let hash = crate::get_smash_hash(local)?;
         Ok(arc.get_file_contents(hash, config::region())?)
+    }
+
+    pub fn handle_load_base_file(local: &Path) -> Result<Vec<u8>, ApiLoaderError> {
+        let filesystem = unsafe {
+            &*crate::GLOBAL_FILESYSTEM.data_ptr()
+        };
+
+        let cached = filesystem.get();
+        if cached.get_patch_entry_type(local).is_ok() {
+            cached.load_patch(local).map_err(|x| ApiLoaderError::Other(format!("{:?}", x)))
+        } else {
+            Self::handle_load_vanilla_file(local)
+        }
+    }
+
+    pub fn get_prc_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
+        let filesystem = unsafe {
+            &*crate::GLOBAL_FILESYSTEM.data_ptr()
+        };
+
+        let cached = filesystem.get();
+
+        cached.virt().loader.param_patches.get(&hash)
+    }
+
+    pub fn insert_prc_patch(&mut self, hash: Hash40, path: &Path) {
+        if let Some(list) = self.param_patches.get_mut(&hash) {
+            list.push(path.to_path_buf())
+        } else {
+            self.param_patches.insert(hash, vec![path.to_path_buf()]);
+        }
     }
 
     fn get_stream_cb_path(&self, local: &Path) -> Option<String> {
