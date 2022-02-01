@@ -3,6 +3,30 @@ use std::collections::VecDeque;
 
 use super::*;
 
+use msbt::Msbt;
+
+use serde::*;
+use serde_xml_rs;
+
+#[derive(Deserialize, Debug)]
+pub struct XMSBT {
+    #[serde(rename = "entry")]
+    entries: Vec<Entry>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Entry {
+    label: String,
+    #[serde(rename = "text")]
+    text: Text,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Text {
+    #[serde(rename = "$value")]
+    value: String,
+}
+
 #[derive(Error, Debug)]
 pub enum ApiLoaderError {
     #[error("Error loading file from the data.arc.")]
@@ -23,6 +47,7 @@ pub enum ApiLoaderError {
 enum ApiLoadType {
     Nus3bankPatch,
     PrcPatch,
+    MsbtPatch,
     Generic,
     Stream,
     Extension,
@@ -34,6 +59,8 @@ impl ApiLoadType {
             Ok(ApiLoadType::Nus3bankPatch)
         } else if root.ends_with("patch-prc") {
             Ok(ApiLoadType::PrcPatch)
+        } else if root.ends_with("patch-msbt") {
+            Ok(ApiLoadType::MsbtPatch)
         } else if root.ends_with("generic-cb") {
             Ok(ApiLoadType::Generic)
         } else if root.ends_with("stream-cb") {
@@ -107,6 +134,66 @@ impl ApiLoadType {
                 let vec = cursor.into_inner();
                 Ok((vec.len(), vec))
             },
+            ApiLoadType::MsbtPatch => {
+                let patches = if let Some(patches) = ApiLoader::get_msbt_patches_for_hash(local.smash_hash()?) {
+                    patches
+                } else {
+                    return Err(ApiLoaderError::Other("No patches found for file in PRC patch!".to_string()));
+                };
+
+                let mut lbl_to_update: HashMap<String, String> = HashMap::new();
+
+                for patch_path in patches.iter() {
+                    let file = std::fs::read_to_string(dbg!(patch_path))?;
+                    let diff: XMSBT = dbg!(serde_xml_rs::from_str(&file).unwrap());
+
+                    for entry in &diff.entries {
+                        dbg!(entry);
+                        lbl_to_update.insert(entry.label.to_owned(), entry.text.value.to_owned());
+                    }
+                }
+
+                let data = ApiLoader::handle_load_base_file(local)?;
+
+                let mut msbt = Msbt::from_reader(std::io::Cursor::new(&data)).unwrap();
+
+                for lbl in msbt.lbl1_mut().unwrap().labels_mut() {
+                    if lbl_to_update.contains_key(&lbl.name().to_owned()) {
+                        println!("Patching {} in {}", lbl.name(), local.display());
+                        let mut str_val: Vec<u16> = lbl_to_update[&lbl.name().to_owned()]
+                            .encode_utf16()
+                            .collect();
+                        str_val.push(0);
+
+                        let slice_u8: &[u8] = unsafe {
+                            std::slice::from_raw_parts(
+                                str_val.as_ptr() as *const u8,
+                                str_val.len() * std::mem::size_of::<u16>(),
+                            )
+                        };
+
+                        lbl.set_value_raw(slice_u8).unwrap();
+                    }
+                }
+
+                // let mut builder = msbt::builder::MsbtBuilder::new(byteordered::Endianness::Little, msbt::Encoding::Utf16, Some(msbt.lbl1().unwrap().group_count()));
+                // let mut test = msbt::builder::MsbtBuilder {
+                //     section_order: msbt.section_order().iter().map(|idk| *idk).collect(),
+                //     header: *msbt.header().clone(),
+                //     lbl1: msbt.lbl1().as_deref(),
+                //     txt2: msbt.txt2().map(|content| *content),
+                //     nli1: msbt.nli1().map(|content| *content),
+                //     ato1: msbt.ato1().map(|content| *content),
+                //     atr1: msbt.atr1().map(|content| *content),
+                //     tsy1: msbt.tsy1().map(|content| *content),
+                // };
+                //msbt.lbl1_mut().unwrap().labels_mut().
+
+                let mut cursor = std::io::Cursor::new(vec![]);
+                msbt.write_to(&mut cursor).unwrap();
+                let vec = cursor.into_inner();
+                Ok((dbg!(vec.len()), vec))
+            },
             ApiLoadType::Generic if let ApiCallback::GenericCallback(cb) = usr_fn => {
                 let hash = local.smash_hash()?;
                 let mut size = 0;
@@ -165,7 +252,8 @@ struct ApiFunctionEntry {
 pub struct ApiLoader {
     function_map: HashMap<Hash40, UnsafeCell<ApiFunctionEntry>>,
     stream_size_map: UnsafeCell<HashMap<PathBuf, usize>>,
-    param_patches: HashMap<Hash40, Vec<PathBuf>>
+    param_patches: HashMap<Hash40, Vec<PathBuf>>,
+    msbt_patches: HashMap<Hash40, Vec<PathBuf>>
 }
 
 unsafe impl Send for ApiLoader {}
@@ -176,7 +264,8 @@ impl ApiLoader {
         Self {
             function_map: HashMap::new(),
             stream_size_map: UnsafeCell::new(HashMap::new()),
-            param_patches: HashMap::new()
+            param_patches: HashMap::new(),
+            msbt_patches: HashMap::new()
         }
     }
 
@@ -255,11 +344,29 @@ impl ApiLoader {
         cached.virt().loader.param_patches.get(&hash)
     }
 
+    pub fn get_msbt_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
+        let filesystem = unsafe {
+            &*crate::GLOBAL_FILESYSTEM.data_ptr()
+        };
+
+        let cached = filesystem.get();
+
+        cached.virt().loader.msbt_patches.get(&hash)
+    }
+
     pub fn insert_prc_patch(&mut self, hash: Hash40, path: &Path) {
         if let Some(list) = self.param_patches.get_mut(&hash) {
             list.push(path.to_path_buf())
         } else {
             self.param_patches.insert(hash, vec![path.to_path_buf()]);
+        }
+    }
+
+    pub fn insert_msbt_patch(&mut self, hash: Hash40, path: &Path) {
+        if let Some(list) = self.msbt_patches.get_mut(&hash) {
+            list.push(path.to_path_buf())
+        } else {
+            self.msbt_patches.insert(hash, vec![path.to_path_buf()]);
         }
     }
 

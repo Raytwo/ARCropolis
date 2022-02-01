@@ -106,3 +106,23 @@ pub fn add_prc_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>,
         }
     }
 }
+
+/// Adds a MSBT patch file and information to the API loader
+pub fn add_msbt_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>, phys_root: P, local: Q) -> Option<Hash40> {
+    let local = local.as_ref();
+    let base_local = local.with_extension("msbt"); // patch files have different extensions
+    let full_path = phys_root.as_ref().join(local); // need the full path so that our API loader can load it
+    match base_local.smash_hash() {
+        Ok(hash) => {
+            tree.insert_file("api:/patch-msbt", base_local);
+            tree.loader.push_entry(hash, Path::new("api:/patch-msbt"), ApiCallback::None);
+            // We need to add our file to the vector of patch files
+            tree.loader.insert_msbt_patch(hash, &full_path);
+            Some(hash)
+        },
+        Err(e) => {
+            error!("Could not add file {} to API tree. Reason: {:?}", full_path.display(), e);
+            None
+        }
+    }
+}

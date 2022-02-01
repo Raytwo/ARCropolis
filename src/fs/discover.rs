@@ -47,7 +47,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
                     "config.json",
                     "plugin.nro",
                 ];
-                RESERVED_NAMES.contains(&name) || name.ends_with("prcx") || name.ends_with("prctxt")
+                RESERVED_NAMES.contains(&name) || name.ends_with("prcx") || name.ends_with("prctxt") || name.ends_with("xmsbt")
             },
             _ => false
         }
