@@ -33,6 +33,7 @@ mod remote;
 mod resource;
 mod replacement;
 mod update;
+mod menus;
 
 use fs::GlobalFilesystem;
 use replacement::extensions::SearchEx;
@@ -239,10 +240,29 @@ fn change_version_string(arg: u64, string: *const c_char) {
     }
 }
 
-// 13.0.0
+pub struct UiSoundManager {
+    vtable: *const u8,
+    pub unk: *const u8,
+}
+
+#[skyline::from_offset(0x33135f0)]
+pub fn play_bgm(unk1: *const u8, some_hash: u64, unk3: bool);
+
+#[skyline::from_offset(0x336d810)]
+pub fn play_menu_bgm();
+
+#[skyline::from_offset(0x336d890)]
+pub fn stop_all_bgm();
+
 #[skyline::hook(offset = offsets::eshop_show())]
 fn show_eshop() {
-    println!("Eshop");
+    unsafe { 
+        // stop_all_bgm();
+        // let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
+        // play_bgm(instance as _, 0xd9ffff202a04c55b, false);
+        menus::show_arcadia();
+        //play_menu_bgm();
+    }
 }
 
 #[skyline::main(name = "arcropolis")]
@@ -305,7 +325,7 @@ pub fn main() {
     skyline::install_hooks!(
         initial_loading,
         change_version_string,
-        show_eshop
+        show_eshop,
     );
     replacement::install();
     
