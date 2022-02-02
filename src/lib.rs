@@ -231,8 +231,7 @@ pub fn play_menu_bgm();
 pub fn stop_all_bgm();
 
 #[skyline::hook(offset = offsets::eshop_show())]
-fn show_eshop() -> u64 {
-    println!("Eshop");
+fn show_eshop() {
     unsafe { 
         // stop_all_bgm();
         // let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
@@ -240,7 +239,6 @@ fn show_eshop() -> u64 {
         menus::show_arcadia();
         //play_menu_bgm();
     }
-    0
 }
 
 #[skyline::main(name = "arcropolis")]
