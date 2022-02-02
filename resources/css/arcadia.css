@@ -35,10 +35,10 @@ tbody{
     width: 100%;
 }
 
-td:first-child{
-    width: 48%;
+/* td:first-child{
+    width: 100%;
     position: relative;
-}
+} */
 
 td{
     width: 100%;
@@ -191,7 +191,7 @@ td{
 .abstract-button, .abstract-button:first-child{
     margin-bottom: 10px;
     height: 65px;
-    width: 508px;
+    width: 95%;
 }
 
 .abstract-icon-back-decoration{
