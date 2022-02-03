@@ -201,7 +201,7 @@ pub fn show_arcadia() {
 
     let render = tpl.render(&mods);
 
-    let response = Webpage::new()
+    let response = std::boxed::Box::new(Webpage::new()
         .htdocs_dir("contents")
         .file("index.html", &render)
         .file("arcadia.css", CSS_TEXT)
@@ -213,7 +213,7 @@ pub fn show_arcadia() {
         .background(skyline_web::Background::Default)
         .boot_display(skyline_web::BootDisplay::Default)
         .open()
-        .unwrap();
+        .unwrap());
 
     match response.get_last_url().unwrap() {
         "http://localhost/" => {}

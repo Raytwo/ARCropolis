@@ -257,9 +257,9 @@ pub fn stop_all_bgm();
 #[skyline::hook(offset = offsets::eshop_show())]
 fn show_eshop() {
     unsafe { 
-        // stop_all_bgm();
-        // let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
-        // play_bgm(instance as _, 0xd9ffff202a04c55b, false);
+        //stop_all_bgm();
+        //let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
+        //play_bgm(instance as _, 0xd9ffff202a04c55b, false);
         menus::show_arcadia();
         //play_menu_bgm();
     }
