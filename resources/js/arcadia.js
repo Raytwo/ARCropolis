@@ -33,7 +33,7 @@ function toggleMod(e) {
 
     // Turn Refresh button into a Save button
     document.getElementById("submit_icon").innerHTML = "&#xe0f1";
-    document.getElementById("save_button").innerHTML = "Save";
+    //document.getElementById("save_button").innerHTML = "Save";
 };
 
 function submitMods() {
@@ -221,11 +221,7 @@ function checkGamepad(index, gamepad) {
 
     //#region + Button Pressed Check (Save)
     if (gamepad.buttons[9].pressed) {
-        if (document.getElementById("save_button").innerHTML == "Save") {
-            document.getElementById("link-save").click();
-        } else {
-            window.location.href = "http://localhost/refresh";
-        }
+        document.getElementById("link-save").click();
     }
     //#endregion
 
