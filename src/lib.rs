@@ -32,6 +32,7 @@ mod offsets;
 mod remote;
 mod resource;
 mod replacement;
+#[cfg(feature = "updater")]
 mod update;
 mod menus;
 
@@ -303,23 +304,26 @@ pub fn main() {
         .unwrap();
 
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
-    let _updater = std::thread::Builder::new()
-        .stack_size(0x40000)
-        .spawn(|| {
-            if config::auto_update_enabled() {
-                update::check_for_updates(config::beta_updates(), |update_kind| {
-                    if config::no_web_menus() {
-                        false
-                    } else {
-                        skyline_web::Dialog::yes_no(format!(
-                            "{} has been detected. Do you want to install it?",
-                            update_kind
-                        ))
-                    }
-                });
-            }
-        })
-        .unwrap();
+    #[cfg(feature = "updater")]
+    {
+        let _updater = std::thread::Builder::new()
+            .stack_size(0x40000)
+            .spawn(|| {
+                if config::auto_update_enabled() {
+                    update::check_for_updates(config::beta_updates(), |update_kind| {
+                        if config::no_web_menus() {
+                            false
+                        } else {
+                            skyline_web::Dialog::yes_no(format!(
+                                "{} has been detected. Do you want to install it?",
+                                update_kind
+                            ))
+                        }
+                    });
+                }
+            })
+            .unwrap();
+    }
     
 
     skyline::install_hooks!(

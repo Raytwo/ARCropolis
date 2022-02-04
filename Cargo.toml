@@ -18,8 +18,8 @@ skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 strip-ansi-escapes = "0.1.1"
-zip = { version = "0.5", default-features = false, features = ["deflate"] }
-gh-updater = { git = "https://github.com/blu-dev/gh-updater" }
+zip = { version = "0.5", default-features = false, features = ["deflate"], optional = true }
+gh-updater = { git = "https://github.com/blu-dev/gh-updater", optional = true }
 toml = "0.5.8"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0"
@@ -57,6 +57,10 @@ smash-arc = { git = 'https://github.com/blu-dev/smash-arc' }
 
 # [patch.'https://github.com/blu-dev/orbits']
 # orbits = { path = "../orbits" }
+
+[features]
+default = ["updater"]
+updater = ["zip", "gh-updater"]
 
 [profile.dev]
 panic = "abort"
