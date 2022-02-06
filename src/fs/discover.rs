@@ -1,11 +1,18 @@
 use crate::chainloader::*;
+use smash_arc::Hash40;
 use skyline::nn::{self, ro::*};
 use std::path::{Path, PathBuf};
 
 use orbits::{Tree, FileLoader, LaunchPad, StandardLoader, ConflictHandler, ConflictKind};
 use crate::config;
 
-use std::collections::HashMap;
+use std::collections::{ HashMap, HashSet };
+
+lazy_static! {
+    static ref PRESET_HASHES: HashSet<Hash40> = {
+        skyline_config::acquire_storage("arcropolis").unwrap().get_field_json("presets").unwrap_or_default()
+    };
+}
 
 pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let filter = |path: &Path| {
@@ -30,6 +37,9 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             .unwrap_or(true);
 
         let is_dot = name.starts_with(".");
+        
+        // let is_unlisted = !PRESET_HASHES.contains(&Hash40::from(path.as_os_str().to_str().unwrap()));
+
         let is_out_of_region = if let Some(index) = name.find("+") {
             let (_, end) = name.split_at(index + 1);
             !end.starts_with(config::region_str())
@@ -38,6 +48,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         };
 
         is_root || is_dot || is_out_of_region
+        // || is_unlisted
     };
 
     let collect = |x: &Path| {
