@@ -6,6 +6,8 @@ use percent_encoding::percent_decode_str;
 use serde::Deserialize;
 use skyline::nn;
 use skyline_web::{ramhorns, Webpage};
+use smash_arc::Hash40;
+use std::collections::HashSet;
 use std::ffi::CString;
 use std::path::Path;
 use std::path::PathBuf;
@@ -233,6 +235,9 @@ pub fn show_arcadia() {
             let webpage_res: ModStatues = toml::from_str(&res).unwrap();
             let mut modified_detected = false;
 
+            // let mut storage = skyline_config::acquire_storage("arcropolis").unwrap();
+            // let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap_or_default();
+
             for (id, disabled) in webpage_res.is_disabled.into_iter().enumerate() {
                 let folder_name = &mods.entries[id as usize].folder_name.as_ref().unwrap();
 
@@ -243,18 +248,22 @@ pub fn show_arcadia() {
                     if std::fs::metadata(&enabled_path).is_ok() {
                         modified_detected = true;
                         info!("[menus::show_arcadia] Disabling {}", folder_name);
-                        let res = rename_folder(&enabled_path, &disabled_path);
+                        //let res = rename_folder(&enabled_path, &disabled_path);
+                        //let res = presets.remove(&Hash40::from(enabled_path.as_os_str().to_str().unwrap()));
                         info!("[menus::show_arcadia] RenameFolder Result: {:?}", res);
                     }
                 } else if std::fs::metadata(&disabled_path).is_ok() {
                     modified_detected = true;
                     info!("[menus::show_arcadia] Enabling {}", folder_name);
-                    let res = rename_folder(&disabled_path, &enabled_path);
+                    //let res = rename_folder(&disabled_path, &enabled_path);
+                    //let res = presets.insert(Hash40::from(disabled_path.as_os_str().to_str().unwrap()));
                     info!("[menus::show_arcadia] RenameFolder Result: {:?}", res);
                 }
 
                 info!("[menus::show_arcadia] ---------------------------");
             }
+
+            // storage.set_field_json("presets", &presets).unwrap();
 
             if modified_detected {
                 skyline_web::DialogOk::ok("Mods have been toggled!<br>Smash will now reboot to refresh ARCropolis' cache to prevent the game from crashing.");
