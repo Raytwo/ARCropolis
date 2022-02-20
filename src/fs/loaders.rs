@@ -121,16 +121,22 @@ impl ApiLoadType {
                     return Err(ApiLoaderError::Other("No patches found for file in PRC patch!".to_string()));
                 };
                 let data = ApiLoader::handle_load_base_file(local)?;
-                let mut param_data = prcx::prc::read_stream(&mut std::io::Cursor::new(data))
+                let mut param_data = prcx::read_stream(&mut std::io::Cursor::new(data))
                     .map_err(|_| ApiLoaderError::Other("Unable to parse param data!".to_string()))?;
                 
                 for patch_path in patches.iter() {
-                    let diff = prcx::diff::Diff::open(patch_path)?;
-                    diff.apply(&mut param_data);
+                    let patch = if let Ok(patch) = prcx::open(patch_path) {
+                        patch
+                    } else {
+                        let file = std::fs::File::open(patch_path)?;
+                        let mut reader = std::io::BufReader::new(file);
+                        prcx::read_xml(&mut reader).map_err(|_| ApiLoaderError::Other("Unable to parse param patch data!".to_string()))?
+                    };
+                    prcx::apply_patch(&patch, &mut param_data).map_err(|_| ApiLoaderError::Other("Unable to patch param data!".to_string()))?;
                 }
 
                 let mut cursor = std::io::Cursor::new(vec![]);
-                prcx::prc::write_stream(&mut cursor, &param_data)?;
+                prcx::write_stream(&mut cursor, &param_data)?;
                 let vec = cursor.into_inner();
                 Ok((vec.len(), vec))
             },

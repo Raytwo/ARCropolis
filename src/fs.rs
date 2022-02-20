@@ -96,7 +96,7 @@ impl CachedFilesystem {
         let mut set = HashSet::new();
         for (root, path) in launchpad.collected_paths().iter() {
             // The collected paths gives us everything so we only want these extensions
-            if path.has_extension("prcx") || path.has_extension("prctxt") {
+            if path.has_extension("prcx") || path.has_extension("prcxml") {
                 if let Some(hash) = utils::add_prc_patch(api_tree, root, path) {
                     set.insert(hash);
                 }
@@ -105,7 +105,7 @@ impl CachedFilesystem {
         set
     }
 
-    /// Get a list of all PRC patch files and add them to the virtual tree
+    /// Get a list of all MSBT patch files and add them to the virtual tree
     fn initialize_msbt_patches(launchpad: &LaunchPad<StandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
         let mut set = HashSet::new();
         for (root, path) in launchpad.collected_paths().iter() {
