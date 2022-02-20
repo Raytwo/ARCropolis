@@ -90,7 +90,15 @@ pub fn add_file_to_api_tree<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiL
 /// Adds a PRC patch file and information to the API loader
 pub fn add_prc_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>, phys_root: P, local: Q) -> Option<Hash40> {
     let local = local.as_ref();
-    let base_local = local.with_extension("prc"); // patch files have different extensions
+    let base_local = if local.has_extension("prcx") || local.has_extension("prcxml") { // patch files have different extensions
+        local.with_extension("prc")
+    } else if local.has_extension("stdatx") || local.has_extension("stdatxml") {
+        local.with_extension("stdat")
+    } else if local.has_extension("stprmx") || local.has_extension("stprmxml") {
+        local.with_extension("stprm")
+    } else {
+        unreachable!()
+    };
     let full_path = phys_root.as_ref().join(local); // need the full path so that our API loader can load it
     match base_local.smash_hash() {
         Ok(hash) => {
