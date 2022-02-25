@@ -196,6 +196,7 @@ fn get_version_string() -> String {
 
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
+    menus::show_config_editor();
     let arc = resource::arc();
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
@@ -258,10 +259,12 @@ pub fn stop_all_bgm();
 #[skyline::hook(offset = offsets::eshop_show())]
 fn show_eshop() {
     unsafe { 
+        println!("show_eshop");
         //stop_all_bgm();
         //let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
         //play_bgm(instance as _, 0xd9ffff202a04c55b, false);
-        menus::show_arcadia();
+        //menus::show_arcadia();
+        menus::show_config_editor();
         //play_menu_bgm();
     }
 }

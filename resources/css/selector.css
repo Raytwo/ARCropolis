@@ -190,7 +190,11 @@ body {
     fill: #450000;
 }
 
-#options {
+#region {
+    display: none;
+}
+
+#logging {
     display: none;
 }
 

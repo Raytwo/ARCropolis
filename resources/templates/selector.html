@@ -1,81 +1,221 @@
 <!DOCTYPE html>
-<html lang="en-US">
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
+        <meta name="focus-ring-visibility" content="hidden" />
+        <title>Menu</title>
+        <script src="./help/js/jquery-3.3.1.min.js"></script>
+        <link rel="stylesheet" href="./selector.css" />
+        <link rel="stylesheet" href="./help/css/common.css" />
+        <script src="./common/js/wsnd.min.js"></script>
+        <script src="./common/js/keyhelp.js"></script>
+        <script src="./help/js/common.js"></script>
+        <script src="./selector.js"></script>
+    </head>
 
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
-  <meta name="focus-ring-visibility" content="hidden" />
-  <link rel="stylesheet" href="./help/css/common.css" />
-  <link rel="stylesheet" href="./help/css/abstract.css" />
-  <link rel="stylesheet" href="./help/css/thema/outgame.css" />
-  <link id="font-stylesheet" rel="stylesheet" href="./help/css/font.css" />
-  <link rel="stylesheet" href="./selector.css">
-</head>
+    <body>
+        <div id="bg"></div>
 
-<body>
-  <script src="./help/js/jquery-3.3.1.min.js"></script>
-  <script src="./help/js/common.js"></script>
-  <script src="./help/js/two-column-switch.js"></script>
-  <script src="./jquery.textfill.min.js"></script>
-  <div id="bg" class="l-bg bg-abstract"></div>
-  <div class="l-header">
-    <span class="background-clip"></span>
-    <div class="header">
-      <a id="ret-button" tabindex="-1" class="header-decoration" href="javascript:goBack()" nx-se-disabled="">
-        <div class="ret-icon-wrapper">
-          <img class="ret-icon-shadow" ref="./help/img/icon/m_retnormal.svg" />
-          <img class="ret-icon" ref="./help/img/icon/m_retnormal.svg" />
-        </div>
-      </a>
-      <div class="breadcrumb-list f-u-bold">
-        <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
-          color: #02A7D4;
-          -webkit-text-stroke-width: 2px;
-          -webkit-text-stroke-color: black;
-          z-index: 1;">ARCropolis</span></p>
-        <span data-msgid="textbox_id-2" style="
-        color: #797979;
-        -webkit-text-stroke-width: 2px;
-        -webkit-text-stroke-color: black;">▶</span>
-        <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
-          color: white;
-          -webkit-text-stroke-width: 2px;
-          -webkit-text-stroke-color: black;
-          z-index: 1;" id="workspace">{{workspace}}</span></p>
-      </div>
-    </div>
-  </div>
-
-  <table>
-    <tr>
-      <td>
-        <br>
-        <div class="scrollbar" id="left-stick-home">
-          <div class="l-sidebar">
-            <div class="l-sidebar-content" >
-              <button tabindex="0" class="flex-button abstract-button" nx-se-disabled="">
-                <div class="abstract-icon-back-decoration"></div>
-                <div class="abstract-button-border">
-                  <div class="abstract-button-inner">
-                    <div class="abstract-icon-wrapper">
-                      <div id="img-{{id}}" class="{{#is_disabled}} hidden {{/is_disabled}}">
-                        <img class="abstract-icon is-appear" src="check.svg" />
-                      </div>
+        <div class="l-header">
+            <span class="background-clip"></span>
+            <div class="header">
+                <a id="ret-button" tabindex="-1" class="header-decoration" href="javascript:goBack()" nx-se-disabled="">
+                    <div class="ret-icon-wrapper">
+                        <img class="ret-icon-shadow" ref="./help/img/icon/m_retnormal.svg" />
+                        <img class="ret-icon" ref="./help/img/icon/m_retnormal.svg" />
                     </div>
-                    <div class="abstract-button-text f-u-bold mod-name" style="margin-bottom: 5px; display: block; font-size: 3vmin;">
-                      <span data-msgid="textbox_id-4-1">{{display_name}}</span>
-                    </div>
-                  </div>
+                </a>
+                <div class="breadcrumb-list f-u-bold">
+                    <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="color: orangered; -webkit-text-stroke-width: 2px; -webkit-text-stroke-color: black; z-index: 1;" id="test">Configuration editor</span></p>
                 </div>
-              </button>
             </div>
-          </div>
         </div>
-      </td>
-      <td>
-      </td>
-    </tr>
-  </table>
-</body>
 
+        <div class="main" id="workspaces">
+            <div class="scrollbar">
+                <div class="flex-container">
+                    <button onclick="changeDivFromTo('workspaces', 'region', '0')" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Region</h2>
+                        </div>
+                    </button>
+                    <button onclick="changeDivFromTo('workspaces', 'logging', '1')" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Logging level</h2>
+                        </div>
+                    </button>
+                    <button onclick="location.href = 'http://localhost/'" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Beta updates</h2>
+                        </div>
+                    </button>
+                    <button onclick="location.href = 'http://localhost/'" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Debug</h2>
+                        </div>
+                    </button>
+                    <button onclick="submit(`exit`, null)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Close</h2>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main" id="region">
+            <div class="scrollbar">
+                <div class="flex-container">
+                    <button onclick="changeDivFromTo('region', 'workspaces', `0`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Go Back</h2>
+                        </div>
+                    </button>
+                    <button id="jp_ja_btn" onclick="submit(`lang`, `jp_ja`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Japanese</h2>
+                        </div>
+                    </button>
+                    <button id="us_en_btn" onclick="submit(`lang`, `us_en`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>US English</h2>
+                        </div>
+                    </button>
+                    <button id="us_fr_btn" onclick="submit(`lang`, `us_fr`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>US French</h2>
+                        </div>
+                    </button>
+                    <button id="us_es_btn" onclick="submit(`lang`, `us_es`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>US Spanish</h2>
+                        </div>
+                    </button>
+                    <button id="eu_en_btn" onclick="submit(`lang`, `eu_en`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>EUR English</h2>
+                        </div>
+                    </button>
+                    <button id="eu_fr_btn" onclick="submit(`lang`, `eu_fr`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>EUR French</h2>
+                        </div>
+                    </button>
+                    <button id="eu_es_btn" onclick="submit(`lang`, `eu_es`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>EUR Spanish</h2>
+                        </div>
+                    </button>
+                    <button id="eu_de_btn" onclick="submit(`lang`, `eu_de`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>EUR German</h2>
+                        </div>
+                    </button>
+                    <button id="eu_nl_btn" onclick="submit(`lang`, `eu_nl`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>EUR Dutch</h2>
+                        </div>
+                    </button>
+                    <button id="eu_it_btn" onclick="submit(`lang`, `eu_it`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>EUR Italian</h2>
+                        </div>
+                    </button>
+                    <button id="eu_ru_btn" onclick="submit(`lang`, `eu_ru`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>EUR Russian</h2>
+                        </div>
+                    </button>
+                    <button id="kr_ko_btn" onclick="submit(`lang`, `kr_ko`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Korean</h2>
+                        </div>
+                    </button>
+                    <button id="zh_cn_btn" onclick="submit(`lang`, `zh_cn`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>ZH CN</h2>
+                        </div>
+                    </button>
+                    <button id="zh_tw_btn" onclick="submit(`lang`, `zh_tw`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>ZH TW</h2>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main" id="logging">
+            <div class="scrollbar">
+                <div class="flex-container">
+                    <button onclick="changeDivFromTo('logging', 'workspaces', `1`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Go Back</h2>
+                        </div>
+                    </button>
+
+                    <button id="trace_btn" onclick="submit(`log`, `Trace`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Trace</h2>
+                        </div>
+                    </button>
+                    <button id="debug_btn" onclick="submit(`log`, `Debug`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Debug</h2>
+                        </div>
+                    </button>
+                    <button id="info_btn" onclick="submit(`log`, `Info`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Info</h2>
+                        </div>
+                    </button>
+                    <button id="warn_btn" onclick="submit(`log`, `Warning`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Warning</h2>
+                        </div>
+                    </button>
+                    <button id="error_btn" onclick="submit(`log`, `Error`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Error</h2>
+                        </div>
+                    </button>
+                    <button id="off_btn" onclick="submit(`log`, `Off`)" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Off</h2>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </body>
 </html>

@@ -39,21 +39,16 @@ window.onload = function () {
 function getCurrentActiveContainer() {
     if ($("#workspaces").is(":visible")) {
         return $("#workspaces");
-    } else if ($("#options").is(":visible")) {
-        return $("#options");
+    } else if ($("#region").is(":visible")) {
+        return $("#region");
+    } else if ($("#logging").is(":visible")) {
+        return $("#logging");
     }
 }
 
 function changeDivFromTo(from, to, workspace) {
     if(from == "workspaces") {
         selected_workspace = workspace;
-        var umm_exists = document.getElementById(workspace).classList.contains("umm_exists");
-        var arc_exists = document.getElementById(workspace).classList.contains("arc_exists");
-        var both_exists = umm_exists && arc_exists;
-
-        $("#umm_btn").css("display", umm_exists ? "flex" : "none");
-        $("#arc_btn").css("display", arc_exists ? "flex" : "none");
-        $("#both_btn").css("display", both_exists ? "flex" : "none");
     }
 
     $(`#${from}`).fadeOut(200);
@@ -62,7 +57,7 @@ function changeDivFromTo(from, to, workspace) {
         
 
         if(to == "workspaces") {
-            $(`#${to}`).find($("button")[parseInt(selected_workspace) + 1]).get(0).focus();
+            $(`#${to}`).find($("button")[parseInt(selected_workspace)]).get(0).focus();
         } else {
             $(`#${to}`).find("button").get(0).focus();
         }
@@ -70,9 +65,15 @@ function changeDivFromTo(from, to, workspace) {
     });
 }
 
-function submit(type) {
-    var result = `${type}|${selected_workspace}`;
-    location.href = `http://localhost/${result}`;
+function submit(cat, type) {
+    var result = {
+        category: cat,
+        value: type,
+    };
+    window.nx.sendMessage(JSON.stringify(result));
+
+    //var result = `${type}|${selected_workspace}`;
+    //location.href = `http://localhost/${result}`;
 }
 
 function checkGamepad(index, gamepad) {
@@ -197,3 +198,5 @@ function checkInView(elem, partial) {
 
     return isTotal || isPart;
 }
+
+window.nx.footer.unsetAssign( "B" );
