@@ -42,7 +42,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
         let is_out_of_region = if let Some(index) = name.find("+") {
             let (_, end) = name.split_at(index + 1);
-            !end.starts_with(config::region_str())
+            !end.starts_with(&config::region_str())
         } else {
             false
         };
@@ -86,8 +86,8 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     }
 
     for path in config::extra_paths() {
-        if std::fs::try_exists(path).unwrap_or(false) {
-            conflicts.extend(launchpad.discover_roots(path, 1, filter));
+        if std::fs::try_exists(&path).unwrap_or(false) {
+            conflicts.extend(launchpad.discover_roots(&path, 1, filter));
         }
     }
 
@@ -132,8 +132,8 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             }
         
             for path in config::extra_paths() {
-                if std::fs::try_exists(path).unwrap_or(false) {
-                    conflicts.extend(launchpad.discover_roots(path, 1, filter));
+                if std::fs::try_exists(&path).unwrap_or(false) {
+                    conflicts.extend(launchpad.discover_roots(&path, 1, filter));
                 }
             }
 

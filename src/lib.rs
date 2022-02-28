@@ -241,19 +241,19 @@ fn change_version_string(arg: u64, string: *const c_char) {
     }
 }
 
-pub struct UiSoundManager {
-    vtable: *const u8,
-    pub unk: *const u8,
-}
+// pub struct UiSoundManager {
+//     vtable: *const u8,
+//     pub unk: *const u8,
+// }
 
-#[skyline::from_offset(0x33135f0)]
-pub fn play_bgm(unk1: *const u8, some_hash: u64, unk3: bool);
+// #[skyline::from_offset(0x33135f0)]
+// pub fn play_bgm(unk1: *const u8, some_hash: u64, unk3: bool);
 
-#[skyline::from_offset(0x336d810)]
-pub fn play_menu_bgm();
+// #[skyline::from_offset(0x336d810)]
+// pub fn play_menu_bgm();
 
-#[skyline::from_offset(0x336d890)]
-pub fn stop_all_bgm();
+// #[skyline::from_offset(0x336d890)]
+// pub fn stop_all_bgm();
 
 #[skyline::hook(offset = offsets::eshop_show())]
 fn show_eshop() {
@@ -275,7 +275,7 @@ pub fn main() {
 
     // Attempt to initialize the logger, and if we fail we will just do a regular println
     if let Err(err) = logging::init(
-        LevelFilter::from_str(config::logger_level()).unwrap_or(LevelFilter::Warn),
+        LevelFilter::from_str(&config::logger_level()).unwrap_or(LevelFilter::Warn),
     ) {
         println!(
             "[arcropolis] Failed to initialize logger. Reason: {:?}",

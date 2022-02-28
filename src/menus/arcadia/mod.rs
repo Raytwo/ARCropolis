@@ -189,7 +189,7 @@ pub fn show_arcadia() {
         "sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/img";
 
     if std::fs::metadata(&img_cache).is_ok() {
-        std::fs::remove_dir_all(&img_cache).map_err(|err| println!("Error occured in ARCadia-rs when trying to delete cache: {}", err));
+        let _ = std::fs::remove_dir_all(&img_cache).map_err(|err| println!("Error occured in ARCadia-rs when trying to delete cache: {}", err));
     };
 
     std::fs::create_dir_all(&img_cache).unwrap();

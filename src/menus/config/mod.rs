@@ -27,6 +27,7 @@ pub struct ConfigChanged {
 // Is this trash? Yes
 // Did I have a choice? No
 pub fn show_config_editor() {
+    let mut reboot_required = false;
     let session = std::boxed::Box::new(Webpage::new()
         .htdocs_dir("contents")
         .file("index.html", HTML_TEXT)
@@ -66,6 +67,7 @@ pub fn show_config_editor() {
                     storage.set_field("region", &msg.value).unwrap();
                     session.send(&msg.value);
                     println!("Set region to {}", &msg.value);
+                    reboot_required = true;
                 },
                 "log" => {
                     let curr_value: String = storage.get_field("logging_level").unwrap();
@@ -94,4 +96,11 @@ pub fn show_config_editor() {
         
         session.exit();
         session.wait_for_exit();
+
+        storage.flush();
+
+        if reboot_required {
+            skyline_web::DialogOk::ok("Some important fields in the configuration have been changed. <br>Smash will now reboot to reload ARCropolis with the new changes.");
+            unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
+        }
 }

@@ -160,4 +160,4 @@ function checkInView(elem, partial) {
 }
 
 // Code to handle this session wasn't made to detect a closure by button
-window.nx.footer.unsetAssign( "B" );
+// window.nx.footer.unsetAssign( "B" );
