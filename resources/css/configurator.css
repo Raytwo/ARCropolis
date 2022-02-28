@@ -190,7 +190,15 @@ body {
     fill: #450000;
 }
 
-#options {
+.hidden{
+    visibility: hidden;
+}
+
+#region {
+    display: none;
+}
+
+#logging {
     display: none;
 }
 

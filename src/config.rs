@@ -51,7 +51,7 @@ lazy_static! {
         }
 
         // let mut storage = acquire_storage("arcropolis").unwrap();
-        // storage.clear_storage();
+        // //storage.clear_storage();
         // storage.set_flag("beta_updates", true);
         // storage.set_field("logging_level", "Info").unwrap();
 

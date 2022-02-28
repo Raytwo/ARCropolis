@@ -15,7 +15,7 @@ semver = "1"
 num-derive = "0.3.3"
 num-traits = "0.2"
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
-skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
+skyline-web = { path = "../skyline-web" }
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 strip-ansi-escapes = "0.1.1"
 zip = { version = "0.5", default-features = false, features = ["deflate"], optional = true }
