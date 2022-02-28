@@ -12,7 +12,7 @@
         {
             "label": "cargo skyline run",
             "type": "shell",
-            "command": "cargo skyline run --restart",
+            "command": "cargo skyline run --restart --no-default-features",
             "group": {
                 "kind": "build",
                 "isDefault": true

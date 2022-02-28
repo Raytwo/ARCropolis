@@ -34,6 +34,13 @@ window.onload = function () {
             }
         }, 100);
     });
+
+    window.nx.addEventListener("message", function (e) {
+        //
+        document.getElementById(e.data).classList.toggle("hidden");
+    });
+
+    window.nx.sendMessage("loaded");
 }
 
 function getCurrentActiveContainer() {
@@ -199,4 +206,5 @@ function checkInView(elem, partial) {
     return isTotal || isPart;
 }
 
+// Code to handle this session wasn't made to detect a closure by button
 window.nx.footer.unsetAssign( "B" );

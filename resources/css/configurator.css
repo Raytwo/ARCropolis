@@ -190,6 +190,10 @@ body {
     fill: #450000;
 }
 
+.hidden{
+    visibility: hidden;
+}
+
 #region {
     display: none;
 }
