@@ -262,7 +262,7 @@ fn show_eshop() {
         //stop_all_bgm();
         //let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
         //play_bgm(instance as _, 0xd9ffff202a04c55b, false);
-        menus::show_arcadia();
+        menus::show_main_menu();
         //play_menu_bgm();
     }
 }

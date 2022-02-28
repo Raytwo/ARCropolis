@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
+        <meta name="focus-ring-visibility" content="hidden" />
+        <title>Menu</title>
+        <script src="./help/js/jquery-3.3.1.min.js"></script>
+        <link rel="stylesheet" href="./menu.css" />
+        <link rel="stylesheet" href="./help/css/common.css" />
+        <script src="./common/js/wsnd.min.js"></script>
+        <script src="./common/js/keyhelp.js"></script>
+        <script src="./help/js/common.js"></script>
+        <script src="./menu.js"></script>
+    </head>
+
+    <body>
+        <div id="bg"></div>
+
+        <div class="l-header">
+            <span class="background-clip"></span>
+            <div class="header">
+                <a id="ret-button" tabindex="-1" class="header-decoration" href="javascript:goBack()" nx-se-disabled="">
+                    <div class="ret-icon-wrapper">
+                        <img class="ret-icon-shadow" ref="./help/img/icon/m_retnormal.svg" />
+                        <img class="ret-icon" ref="./help/img/icon/m_retnormal.svg" />
+                    </div>
+                </a>
+                <div class="breadcrumb-list f-u-bold">
+                    <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="color: orangered; -webkit-text-stroke-width: 2px; -webkit-text-stroke-color: black; z-index: 1;" id="test">ARCropolis Menu</span></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="main" id="list">
+            <div class="scrollbar">
+                <div class="flex-container">
+                    <button onclick="location.href = 'http://localhost/arcadia'" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Mod managed (ARCadia-rs)</h2>
+                        </div>
+                    </button>
+                    <button onclick="location.href = 'http://localhost/config'" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Configuration editor</h2>
+                        </div>
+                    </button>
+                    <button onclick="location.href = 'http://localhost/'" class="flex-item">
+                        <div class="icon-background"></div>
+                        <div class="item-container">
+                            <h2>Close</h2>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
