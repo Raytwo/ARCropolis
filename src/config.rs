@@ -91,6 +91,7 @@ fn generate_default_config(storage: &mut ConfigStorage) {
     storage.set_field("region", "us_en").unwrap();
     storage.set_field("logging_level", "Warn").unwrap();
     storage.set_field_json("extra_paths", &Vec::<String>::new()).unwrap();
+    storage.set_flag("auto_update", true);
 }
 
 pub trait FromIntermediate<I> {

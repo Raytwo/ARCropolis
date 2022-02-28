@@ -38,7 +38,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
         let is_dot = name.starts_with(".");
         
-        // let is_unlisted = !PRESET_HASHES.contains(&Hash40::from(path.as_os_str().to_str().unwrap()));
+        let is_unlisted = !PRESET_HASHES.contains(&Hash40::from(path.as_os_str().to_str().unwrap()));
 
         let is_out_of_region = if let Some(index) = name.find("+") {
             let (_, end) = name.split_at(index + 1);
@@ -47,8 +47,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             false
         };
 
-        is_root || is_dot || is_out_of_region
-        // || is_unlisted
+        is_root || is_dot || is_out_of_region || is_unlisted
     };
 
     let collect = |x: &Path| {

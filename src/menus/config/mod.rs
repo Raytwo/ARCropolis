@@ -43,12 +43,20 @@ pub fn show_config_editor() {
         // Loaded
         let _ = session.recv();
 
+        if storage.get_flag("beta_updates") {
+            session.send("beta");
+        }
+
         if storage.get_flag("debug") {
             session.send("debug");
         }
 
-        if storage.get_flag("beta_updates") {
-            session.send("beta");
+        if storage.get_flag("log_to_file") {
+            session.send("log_to_file");
+        }
+
+        if storage.get_flag("auto_update") {
+            session.send("auto_update");
         }
 
         let region: String = storage.get_field("region").unwrap();
@@ -87,6 +95,18 @@ pub fn show_config_editor() {
                     storage.set_flag("debug", curr_value).unwrap();
                     println!("Set debug flag to {}", curr_value);
                     session.send("debug");
+                },
+                "log_to_file" => {
+                    let curr_value = !storage.get_flag("log_to_file");
+                    storage.set_flag("log_to_file", curr_value).unwrap();
+                    println!("Set log_to_file flag to {}", curr_value);
+                    session.send("log_to_file");
+                },
+                "auto_update" => {
+                    let curr_value = !storage.get_flag("auto_update");
+                    storage.set_flag("auto_update", curr_value).unwrap();
+                    println!("Set auto_update flag to {}", curr_value);
+                    session.send("auto_update");
                 },
                 _ => {
                     break;
