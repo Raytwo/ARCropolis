@@ -199,12 +199,12 @@ pub fn region() -> Region {
 }
 
 pub fn region_str() -> String {
-    let region: String = GLOBAL_CONFIG.get_field("region").unwrap();
+    let region: String = GLOBAL_CONFIG.get_field("region").unwrap_or(String::from("us_en"));
     region
 }
 
 pub fn version() -> String {
-    let version: String = GLOBAL_CONFIG.get_field("version").unwrap();
+    let version: String = GLOBAL_CONFIG.get_field("version").unwrap_or(String::from(env!("CARGO_PKG_VERSION")));
     version
 }
 
@@ -217,11 +217,11 @@ pub fn umm_path() -> String {
 }
 
 pub fn extra_paths() -> Vec<String> {
-    GLOBAL_CONFIG.get_field_json("extra_paths").unwrap()
+    GLOBAL_CONFIG.get_field_json("extra_paths").unwrap_or(vec![])
 }
 
 pub fn logger_level() -> String {
-    let level: String = GLOBAL_CONFIG.get_field("logging_level").unwrap();
+    let level: String = GLOBAL_CONFIG.get_field("logging_level").unwrap_or(String::from("Warn"));
     level
 }
 
