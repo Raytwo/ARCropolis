@@ -1,7 +1,7 @@
 [package]
 name = "arcropolis"
-version = "3.0.0-beta.3.2"
-authors = ["Raytwo <raytwo@arcropolis.com>, jam1garner <jam@jam1.re>, blujay <the.blu.dev@gmail.com>, CoolSonicKirby <alihussain2001@gmail.com>"]
+version = "3.0.0-beta.3.3"
+authors = ["Raytwo <raytwo@arcropolis.com>, blujay <the.blu.dev@gmail.com>, jam1garner <jam@jam1.re>, CoolSonicKirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
 [package.metadata.skyline]

@@ -54,12 +54,15 @@ pub fn rename_folder(src: &Path, dest: &Path) -> u32 {
 }
 
 pub fn get_mods(workspace: &str) -> Vec<Entry> {
+    let mut storage = skyline_config::acquire_storage("arcropolis").unwrap();
+    let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap_or_default();
+
     std::fs::read_dir(workspace)
         .unwrap()
         .enumerate()
         .map(|(i, path)| {
             let path_to_be_used;
-            let disabled;
+            let mut disabled;
 
             let path = path.unwrap();
 
@@ -67,6 +70,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
             let original_folder_name = path.file_name().into_string().unwrap();
 
             let original = format!("{}", path.path().display());
+            
             let counter_part = match original_folder_name.chars().next() {
                 Some('.') => {
                     disabled = true;
@@ -77,6 +81,12 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                     format!("{}/.{}", parent_path, &original_folder_name)
                 }
             };
+
+            if !presets.contains(&Hash40::from(path.path().to_str().unwrap())) {
+                disabled = true;
+            } else {
+                disabled = false;
+            }
 
             if std::fs::metadata(&original).is_ok() & std::fs::metadata(&counter_part).is_ok() {
                 path_to_be_used = format!("{} (2)", &counter_part);
@@ -242,21 +252,19 @@ pub fn show_arcadia() {
                 let folder_name = &mods.entries[id as usize].folder_name.as_ref().unwrap();
 
                 let enabled_path = Path::new(&workspace).join(&folder_name);
-                let disabled_path = Path::new(&workspace).join(&format!(".{}", &folder_name));
+                let disabled_path = Path::new(&workspace).join( &folder_name);
 
                 if disabled {
                     if std::fs::metadata(&enabled_path).is_ok() {
                         modified_detected = true;
-                        info!("[menus::show_arcadia] Disabling {}", folder_name);
-                        //let res = rename_folder(&enabled_path, &disabled_path);
-                        let res = presets.remove(&Hash40::from(enabled_path.as_os_str().to_str().unwrap()));
+                        info!("[menus::show_arcadia] Disabling {}", enabled_path.display());
+                        let res = presets.remove(&Hash40::from(enabled_path.as_path().to_str().unwrap()));
                         info!("[menus::show_arcadia] RenameFolder Result: {:?}", res);
                     }
                 } else if std::fs::metadata(&disabled_path).is_ok() {
                     modified_detected = true;
-                    info!("[menus::show_arcadia] Enabling {}", folder_name);
-                    //let res = rename_folder(&disabled_path, &enabled_path);
-                    let res = presets.insert(Hash40::from(disabled_path.as_os_str().to_str().unwrap()));
+                    info!("[menus::show_arcadia] Enabling {}", disabled_path.display());
+                    let res = presets.insert(Hash40::from(disabled_path.as_path().to_str().unwrap()));
                     info!("[menus::show_arcadia] RenameFolder Result: {:?}", res);
                 }
 
@@ -264,10 +272,12 @@ pub fn show_arcadia() {
             }
 
             storage.set_field_json("presets", &presets).unwrap();
+            storage.flush();
 
             if modified_detected {
-                skyline_web::DialogOk::ok("Mods have been toggled!<br>Smash will now reboot to refresh ARCropolis' cache to prevent the game from crashing.");
-                unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
+                if skyline_web::Dialog::yes_no("Your preset has been changed!<br>Would you like to reboot the game to reload your mods?") {
+                    unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
+                }
             }
                 }
             }

@@ -2,6 +2,8 @@ pub mod arcadia;
 pub use arcadia::*;
 pub mod config;
 pub use config::*;
+pub mod changelog;
+pub use changelog::*;
 
 use skyline_web::Webpage;
 

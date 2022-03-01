@@ -84,6 +84,9 @@ pub fn show_config_editor() {
                     session.send(&msg.value);
                     println!("Set logger to {}", &msg.value);
                 },
+                // A "true" value is passed for flags, you might be wondering why.
+                // If you pass ``null``, the browser closes, because Value is not a String or a Option. I think?
+                // You can change it if you feel like it, I just didn't have it within me at this point
                 "beta" => {
                     let curr_value = !storage.get_flag("beta_updates");
                     storage.set_flag("beta_updates", curr_value).unwrap();

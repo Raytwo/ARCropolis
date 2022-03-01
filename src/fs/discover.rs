@@ -1,4 +1,4 @@
-use crate::chainloader::*;
+use crate::{chainloader::*, PathExtension};
 use smash_arc::Hash40;
 use skyline::nn::{self, ro::*};
 use std::path::{Path, PathBuf};
@@ -16,12 +16,18 @@ lazy_static! {
 
 pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let filter = |path: &Path| {
-        path
+        // If it's not in the presets, don't load
+        if !PRESET_HASHES.contains(&Hash40::from(path.to_str().unwrap())) {
+            false
+        // If it's in the presets, check for period
+        } else {
+            path
             .file_name()
             .map(|name| name.to_str())
             .flatten()
             .map(|name| !name.starts_with("."))
             .unwrap_or(false)
+        }
     };
 
     let ignore = |path: &Path| {
@@ -37,8 +43,6 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             .unwrap_or(true);
 
         let is_dot = name.starts_with(".");
-        
-        let is_unlisted = !PRESET_HASHES.contains(&Hash40::from(path.as_os_str().to_str().unwrap()));
 
         let is_out_of_region = if let Some(index) = name.find("+") {
             let (_, end) = name.split_at(index + 1);
@@ -47,7 +51,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             false
         };
 
-        is_root || is_dot || is_out_of_region || is_unlisted
+        is_root || is_dot || is_out_of_region
     };
 
     let collect = |x: &Path| {
