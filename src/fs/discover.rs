@@ -15,19 +15,36 @@ lazy_static! {
 }
 
 pub fn perform_discovery() -> LaunchPad<StandardLoader> {
+    let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
+
+    if is_emulator {
+        println!("Emulator usage detected in perform_discovery, reverting to old behavior.");
+    }
+
     let filter = |path: &Path| {
+        // If we're not running on emulator
+        if !is_emulator {
         // If it's not in the presets, don't load
-        if !PRESET_HASHES.contains(&Hash40::from(path.to_str().unwrap())) {
-            false
-        // If it's in the presets, check for period
+            if !PRESET_HASHES.contains(&Hash40::from(path.to_str().unwrap())) {
+                false
+            // If it's in the presets, check for period
+            } else {
+                path
+                .file_name()
+                .map(|name| name.to_str())
+                .flatten()
+                .map(|name| !name.starts_with("."))
+                .unwrap_or(false)
+            }
         } else {
             path
-            .file_name()
-            .map(|name| name.to_str())
-            .flatten()
-            .map(|name| !name.starts_with("."))
-            .unwrap_or(false)
+                .file_name()
+                .map(|name| name.to_str())
+                .flatten()
+                .map(|name| !name.starts_with("."))
+                .unwrap_or(false)
         }
+        
     };
 
     let ignore = |path: &Path| {
