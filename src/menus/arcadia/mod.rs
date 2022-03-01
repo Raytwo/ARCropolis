@@ -130,7 +130,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                             id: Some(i as u32),
                             folder_name: Some(folder_name.clone()),
                             is_disabled: Some(disabled),
-                            display_name: Some(folder_name.clone()),
+//                             display_name: Some(folder_name.clone()),
                             image: Some(format!("{}/preview.webp", path_to_be_used)),
                             authors: res.authors,
                             description: Some(res.description
