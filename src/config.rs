@@ -228,3 +228,7 @@ pub fn logger_level() -> String {
 pub fn file_logging_enabled() -> bool {
     GLOBAL_CONFIG.get_flag("log_to_file")
 }
+
+pub fn legacy_discovery() -> bool {
+    GLOBAL_CONFIG.get_flag("legacy_discovery")
+}

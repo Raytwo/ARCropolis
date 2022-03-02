@@ -23,20 +23,14 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     let filter = |path: &Path| {
         // If we're not running on emulator
-        if !is_emulator {
-        // If it's not in the presets, don't load
-            if !PRESET_HASHES.contains(&Hash40::from(path.to_str().unwrap())) {
-                false
-            // If it's in the presets, check for period
-            } else {
-                path
-                .file_name()
-                .map(|name| name.to_str())
-                .flatten()
-                .map(|name| !name.starts_with("."))
-                .unwrap_or(false)
-            }
+        if !is_emulator && !config::legacy_discovery() {
+            // If it's not in the presets, don't load
+            trace!("New discovery system");
+            PRESET_HASHES.contains(&Hash40::from(path.to_str().unwrap()))
         } else {
+            // Legacy filter, load the mod except if it has a period at the start of the name
+            trace!("Legacy discovery system");
+
             path
                 .file_name()
                 .map(|name| name.to_str())

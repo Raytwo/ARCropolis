@@ -47,6 +47,10 @@ pub fn show_config_editor() {
             session.send("beta");
         }
 
+        if storage.get_flag("legacy_discovery") {
+            session.send("legacy_discovery");
+        }
+
         if storage.get_flag("debug") {
             session.send("debug");
         }
@@ -92,7 +96,13 @@ pub fn show_config_editor() {
                     storage.set_flag("beta_updates", curr_value).unwrap();
                     println!("Set beta update flag to {}", curr_value);
                     session.send("beta");
-                }
+                },
+                "discovery" => {
+                    let curr_value = !storage.get_flag("legacy_discovery");
+                    storage.set_flag("legacy_discovery", curr_value).unwrap();
+                    println!("Set legacy_discovery flag to {}", curr_value);
+                    session.send("legacy_discovery");
+                },
                 "debug" => {
                     let curr_value = !storage.get_flag("debug");
                     storage.set_flag("debug", curr_value).unwrap();
