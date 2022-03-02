@@ -285,11 +285,12 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
         nn::ro::UnregisterModuleInfo(&mut registration_info);
     }
 
-    if modules.len() < plugins.len() {
-        crate::dialog_error("ARCropolis failed to load/mount some plugins.");
-    } else {
+    // 3.0.0: The plugins are apparently loaded despite the mismatch in module vs plugin count, leaving it here for now
+    // if modules.len() < plugins.len() {
+    //     crate::dialog_error("ARCropolis failed to load/mount some plugins.");
+    // } else {
         info!("Successfully chainloaded all collected plugins.");
-    }
+    // }
 
     for module in modules.into_iter() {
         let callable = unsafe {
