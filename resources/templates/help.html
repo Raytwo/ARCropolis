@@ -1,0 +1,71 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1280,user-scalable=no">
+    <meta property="hw:link" content="None">
+    <meta property="hw:index" content="{{#table_of_content}}1{{/table_of_content}}{{^table_of_content}}0{{/table_of_content}}">
+    <meta property="hw:lang_html" content="en">
+    <meta property="hw:lang_app" content="us_en">
+    <link rel="stylesheet" href="./howto/css/common.css">
+    <link rel="stylesheet" href="./howto/css/local_en.css">
+  </head>
+  <body class="colorset_{{theme}}">
+    <div id="container">
+      <div id="header">
+        <h2 id="title"></h2>
+      </div>
+      <div id="contents">
+        <div id="panel" data-title="Spirits">
+
+        {{#chapters}}
+
+          <!-- item -->
+          <div id="item_{{id}}" class="index_{{id}}" data-title="{{title}}">
+            {{#pages}}
+
+            
+            <div class="page_{{id}} page" data-title="{{title}}">
+              <p data-msg="hlp_guide_text_spirits_campaign_01_01">{{text}}</p>
+              <img src="{{picture_url}}">
+            </div>
+            
+
+            {{/pages}}
+
+            
+          </div>
+          <!-- /item -->
+
+          {{/chapters}}
+
+        </div>
+        <div id="dirmenu">
+          <div id="dirleft"></div>
+          <div id="dirright"></div>
+        </div>
+        <div id="cursor"></div>
+        <div id="dirmenu2">
+          <div id="dirleft2"></div>
+          <div id="dirright2"></div>
+        </div>
+      </div>
+      <div id="navi">
+        <div id="keyhelp">
+          <div id="helpbtn"><p class="keyhelp" data-btn="Y" data-msg="hlp_mnu_guide_manual">Guide</p></div>
+          <div id="idxbtn"><p class="keyhelp" data-btn="X" data-msg="hlp_mnu_guide_content">Table of Contents</p></div>
+          <div id="clsbtn"><p class="keyhelp" data-btn="B" data-msg="hlp_mnu_guide_close">Back</p></div>
+          <div id="okbtn"><p class="keyhelp" data-btn="A" data-msg="hlp_mnu_guide_ok">OK</p></div>
+        </div>
+        <div id="pagenavi"></div>
+        <div id="idxmenu">
+          <div class="idxhelp" id="idxitem_99"><p></p></div>
+        </div>
+      </div>
+      <div id="footer"><p data-msg="hlp_mnu_guide_help_list_spirits_campaign">{{title}}</p></div>
+    </div>
+    <div id="overlay"></div>
+    <script type="text/javascript" src="./common/js/wsnd.min.js"></script>
+    <script type="text/javascript" src="./common/js/keyhelp.js"></script>
+    <script type="text/javascript" src="./howto/js/common.js"></script>
+  </body>
+</html>

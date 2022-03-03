@@ -1,6 +1,7 @@
 use smash_arc::Hash40;
 
 pub mod arc;
+pub mod search;
 pub mod table;
 
 static USAGE: &'static str = 
@@ -135,6 +136,9 @@ pub fn handle_command(mut args: Vec<String>) -> String {
     match category.as_str() {
         "arc" => {
             arc::handle_command(args)
+        },
+        "search" => {
+            search::handle_command(args)
         },
         "table" => {
             table::handle_command(args)

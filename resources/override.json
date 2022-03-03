@@ -1,0 +1,20 @@
+{
+    "unshare-blacklist": [
+        "fighter/pacman/model/firehydrant/c00/firehydrant.lvd",
+        "fighter/pickel/model/forge/c00/forge.lvd",
+        "fighter/kamui/ryusensa/c00/motion_list.bin"
+    ],
+    "preprocess-reshare": {
+        "fighter/samusd/result/c00": "fighter/samusd/c00",
+        "fighter/samusd/result/c01": "fighter/samusd/c01",
+        "fighter/samusd/result/c02": "fighter/samusd/c02",
+        "fighter/samusd/result/c03": "fighter/samusd/c03",
+        "fighter/samusd/result/c04": "fighter/samusd/c04",
+        "fighter/samusd/result/c05": "fighter/samusd/c05",
+        "fighter/samusd/result/c06": "fighter/samusd/c06",
+        "fighter/samusd/result/c07": "fighter/samusd/c07"
+    },
+    "preprocess-reshare-ext": {
+        "numdlb": "nusrcmdlb"
+    }
+}

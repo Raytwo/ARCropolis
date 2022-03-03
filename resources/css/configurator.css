@@ -1,0 +1,211 @@
+@keyframes cursor-anim {
+    0% {
+        background-position: 200% 0%;
+    }
+
+    100% {
+        background-position: 0% 0%;
+    }
+}
+
+
+* {
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: bold;
+}
+
+body {
+    width: 1280px;
+    margin: 0;
+    background-color: black;
+}
+
+.main {
+    margin: 0 auto;
+    width: 90%;
+    position: relative;
+    top: 84px;
+}
+
+.header table {
+    display: block;
+    border-collapse: separate;
+}
+
+.flex-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: transparent;
+}
+
+.flex-item {
+    position: relative;
+    display: flex;
+    margin-bottom: 1%;
+    height: 80px;
+    border: 3px solid black;
+    text-align: center;
+    background-color: transparent;
+    padding: 0;
+    position: relative;
+    box-sizing: border-box;
+}
+
+.flex-item>.item-container {
+    width: 100%;
+    display: flex;
+    background-color: white;
+    padding: 20px;
+    padding-bottom: 22px;
+}
+
+.flex-item>.icon-background::before {
+    content: '';
+}
+
+.icon-background {
+    background-color: black;
+    position: absolute;
+    height: 74px;
+    width: 76px;
+    clip-path: polygon(0 0, 100% 0, 73% 100%, 0% 100%);
+    -webkit-clip-path: polygon(0 0, 100% 0, 73% 100%, 0% 100%);
+}
+
+.arc {
+    background-color: skyblue;
+}
+
+.umm {
+    background-color: magenta;
+}
+
+.both {
+    background-color: #AF89F2;
+}
+
+.is-focused {
+    outline: none;
+    background: linear-gradient(90deg, rgb(255, 109, 0) 0%, rgb(255, 255, 0) 65%, rgb(255, 109, 0) 70%);
+    background-size: 200% 1px;
+    animation: cursor-anim 650ms linear infinite normal;
+    border: 3px solid transparent;
+}
+
+.flex-item img {
+    z-index: 0;
+    width: 52px;
+    position: absolute;
+    left: 7px;
+    top: 10px;
+}
+
+.flex-item h2 {
+    margin: 0;
+    line-height: 1.6;
+    margin-left: 56px;
+}
+
+.l-header {
+    position: absolute;
+    box-shadow: none !important;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    height: 65px;
+    background-color: transparent !important;
+    border: none !important;
+}
+
+#bg {
+    position: absolute;
+    width: 1280px;
+    height: 720px;
+    z-index: -100;
+    background-image: url("./help/img/bg_detail_scuffle.webp");
+    background-size: 125%;
+    background-position-y: center;
+    background-position-x: -50px;
+    background-attachment: scroll;
+}
+
+.scrollbar {
+    position: absolute;
+    margin-left: 20px;
+    overflow-y: overlay;
+    max-height: 626px;
+    width: 90%;
+    padding-right: 25px;
+}
+
+.scrollbar::-webkit-scrollbar {
+    background: none;
+    margin-left: 17px;
+}
+
+.scrollbar::-webkit-scrollbar-track {
+    margin-top: 0px;
+    margin-bottom: 50px;
+    border-radius: 10px;
+    background-color: #B5B5B5;
+}
+
+.scrollbar::-webkit-scrollbar {
+    width: 12px;
+}
+
+.scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    border: 3px solid;
+    border-color: #B5B5B5;
+    background-color: #e3e3e3;
+}
+
+.header-decoration {
+    background: orangered;
+    padding-left: 20px;
+    -webkit-clip-path: polygon(0 0, 100% 0, 66% 99%, 0 81%) !important;
+    clip-path: polygon(0 0, 100% 0, 66% 99%, 0 81%) !important;
+}
+
+.background-clip {
+    -webkit-clip-path: polygon(100% 0%, 0 0, 0 100%);
+    clip-path: polygon(100% 0%, 0 0, 0 100%);
+    background-color: black;
+    position: absolute;
+    min-width: 400px;
+    min-height: 85px;
+    z-index: -1;
+    top: 0;
+}
+
+.ret-icon path {
+    fill: #f14c4c;
+}
+
+.ret-icon-shadow path {
+    fill: #450000;
+}
+
+.hidden{
+    visibility: hidden;
+}
+
+#region {
+    display: none;
+}
+
+#logging {
+    display: none;
+}
+
+#workspaces {
+    display: block;
+}
+
+img, svg{
+    opacity: 1 !important;
+}
