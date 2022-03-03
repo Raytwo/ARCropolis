@@ -332,14 +332,10 @@ pub fn main() {
             .spawn(|| {
                 if config::auto_update_enabled() {
                     update::check_for_updates(config::beta_updates(), |update_kind| {
-                        if config::no_web_menus() {
-                            false
-                        } else {
-                            skyline_web::Dialog::yes_no(format!(
-                                "{} has been detected. Do you want to install it?",
-                                update_kind
-                            ))
-                        }
+                        skyline_web::Dialog::yes_no(format!(
+                            "{} has been detected. Do you want to install it?",
+                            update_kind
+                        ))
                     });
                 }
             })
