@@ -246,7 +246,7 @@ pub fn show_arcadia() {
             let mut modified_detected = false;
 
             let mut storage = skyline_config::acquire_storage("arcropolis").unwrap();
-            let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap_or_default();
+            let mut presets: HashSet<Hash40> = HashSet::new();
 
             for (id, disabled) in webpage_res.is_disabled.into_iter().enumerate() {
                 let folder_name = &mods.entries[id as usize].folder_name.as_ref().unwrap();
