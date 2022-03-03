@@ -1,6 +1,6 @@
 use skyline::libc::c_char;
-use smash_arc::{Hash40, LoadedArc};
-use crate::offsets;
+use smash_arc::{Hash40, LoadedArc, ArcLookup};
+use crate::{offsets, hashes};
 
 #[skyline::hook(offset = offsets::lookup_stream_hash())]
 fn lookup_stream_hash(
@@ -45,7 +45,23 @@ fn lookup_stream_hash(
             }
         }
     }
-    original!()(out_path, loaded_arc, size_out, offset_out, hash)
+	
+	// query information from the arc via a smash_arc lookup instead of calling the original function
+	match loaded_arc.get_stream_data(hash) {
+		Ok(stream_data) => {
+			*size_out = stream_data.size as usize;
+			*offset_out = stream_data.offset;
+			let cpath = "rom:/data.arc"; // the game normally populates the out_path with this string in the original function, so we do the same here
+			let out_buffer = unsafe {
+				std::slice::from_raw_parts_mut(out_path, cpath.len())
+			};
+			out_buffer.copy_from_slice(cpath.as_bytes());
+			return;
+		}
+		_ => {
+			error!("Could not find StreamData for '{}' ({:#x}) in data.arc.", hashes::find(hash), hash.0);
+		}
+	}
 }
 
 pub fn install() {
