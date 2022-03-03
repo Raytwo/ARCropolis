@@ -242,7 +242,13 @@ pub fn show_arcadia() {
                 .decode_utf8_lossy()
                 .into_owned();
 
-            let webpage_res: ModStatues = toml::from_str(&res).unwrap();
+            let webpage_res: ModStatues = match toml::from_str(&res) {
+                Ok(status) => status,
+                Err(_) => {
+                    skyline_web::DialogOk::new("It appears you have toggle too many mods at once.\nDue to a current limitation, your changes haven't been saved.\nPlease retry with less mods at a time.", "OK");
+                    return
+                }
+            };
             let mut modified_detected = false;
 
             let mut storage = skyline_config::acquire_storage("arcropolis").unwrap();
