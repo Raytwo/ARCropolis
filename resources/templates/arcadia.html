@@ -61,7 +61,7 @@
             <div class="l-sidebar-content" id="holder">
               {{#entries}}
               <button id="btn-mods-{{id}}" tabindex="0" class="flex-button abstract-button All {{category}}"
-                onfocus="focusMenu(this); updateCurrentDesc();" onclick="toggleMod(this.id);" nx-se-disabled="">
+                onfocus="focusMenu(this); updateCurrentDesc({{id}});" onclick="toggleMod(this.id);" nx-se-disabled="">
                 <div class="abstract-icon-back-decoration"></div>
                 <div class="abstract-button-border">
                   <div class="abstract-button-inner">
@@ -71,7 +71,7 @@
                       </div>
                     </div>
                     <div class="abstract-button-text f-u-bold mod-name" style="margin-bottom: 5px; display: block; font-size: 3vmin;">
-                      <span data-msgid="textbox_id-4-1">{{display_name}}</span>
+                      <span data-msgid="textbox_id-4-1">{{#display_name}}{{display_name}}{{/display_name}}{{^display_name}}{{folder_name}}{{/display_name}}</span>
                     </div>
                   </div>
                 </div>
@@ -84,25 +84,21 @@
       <td>
 
         <br>
-        <div class="l-screen-shot-wrapper" id="missing_image">
+        <!-- <div class="l-screen-shot-wrapper" id="missing_image">
           <div class="screen-shot-wrapper">
             <img width="280" height="127" class="screen-shot video" ref="missing.webp" />
           </div>
-        </div>
-        {{#entries}}
-        <div id="about-mods-{{id}}" class="l-main-content is-hidden">
-          <div class="l-screen-shot-wrapper" id="about-img-{{id}}">
+        </div> -->
+        <div id="about-mods" class="l-main-content">
+          <div class="l-screen-shot-wrapper" id="about-img">
             <div class="screen-shot-wrapper">
-              <img width="280" height="127" class="screen-shot video" ref="img/{{id}}"
-                data-img-loaded = "false"
-                onerror='this.style.display = "none"; this.setAttribute("data-img-loaded", "false")'
-                onload='this.setAttribute("data-img-loaded", "true")' />
+              <img id="preview" width="280" height="127" class="screen-shot video" src="img/3" />
             </div>
           </div>
           <div class="l-version">
             <div class="f-b-bold">
               <p class="sentence">
-                <span data-msgid="textbox_id-5">Version:{{#version}}{{version}}{{/version}}{{^version}}???{{/version}}</span>
+                <span id="version" data-msgid="textbox_id-5">Version:{{#version}}{{version}}{{/version}}{{^version}}???{{/version}}</span>
               </p>
             </div>
           </div>
@@ -111,11 +107,10 @@
               <!-- <p class="sentence">
                 Authors: <span data-msgid="textbox_id-5">{{#authors}}{{authors}} {{/authors}}{{^authors}}Unspecified{{/authors}}</span>
               </p> -->
-              <p class="sentence p-desc">{{{description}}}</p>
+              <p id="description" class="sentence p-desc">Description</p>
             </div>
           </div>
         </div>
-        {{/entries}}
         <div id="r-stick-desc-icon">
           <span>&#xE102</span>
         </div>

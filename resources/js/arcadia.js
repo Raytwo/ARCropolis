@@ -47,8 +47,6 @@ function submitMods() {
         try {
             // Select all mods
             mods = document.querySelectorAll("#holder>button");
-            // Create a i variable that's going to be used for ID
-            var i = 0;
             // Loop through the selected mods and add them to the result          
             result += `is_disabled=[`;
             [].forEach.call(mods, function (a) {
@@ -57,7 +55,7 @@ function submitMods() {
             result += `]`;
 
             // Redirect back to localhost with the resultsArr converted to a string
-            window.location.href = "http://localhost/" + result;
+            //window.location.href = "http://localhost/" + result;
         }
         catch (throw_error) {
             // If there's an error, then display it to the user so that they can report back
@@ -114,21 +112,8 @@ function updateCategory() {
     checkMissingImage();
 }
 
-function updateCurrentDesc() {
-    // Reset current description height
-    currentDescHeight = 0;
-
-    // Assign the currently active description element to the global active description variable for use later
-    currentActiveDescription = $('.l-main-content:not(.is-hidden)').eq(0).find(".l-description").eq(0);
-    // Subtract 146 from the description scroll height to match the paragarph overflow
-    activeDescHeight = currentActiveDescription[0].scrollHeight - 146;
-
-    // Check to see if overflow occured and if so, enable the R-Stick Icon
-    if (checkOverflow(currentActiveDescription[0])) {
-        document.getElementById("r-stick-desc-icon").style.visibility = "visible";
-    } else {
-        document.getElementById("r-stick-desc-icon").style.visibility = "hidden";
-    }
+function updateCurrentDesc(index) {
+    window.nx.sendMessage(JSON.stringify(index));
 }
 
 // Check the gamepad input for saving, switching categories, and scrolling the description
@@ -285,13 +270,13 @@ function checkMissingImage() {
     var id = $(".is-focused").attr("id").replace("btn-mods-", "about-img-");
     var active_img = $(`#${id}`).eq(0).find(".screen-shot").eq(0);
     
-    if (active_img.attr("data-img-loaded") == "false") {
-        $(`#${id}`).css('display', 'none');
-        $("#missing_image").css('display', 'block');
-    } else {
-        $(`#${id}`).css('display', 'block');
-        $("#missing_image").css('display', 'none');
-    }
+    // if (active_img.attr("data-img-loaded") == "false") {
+    //     $(`#${id}`).css('display', 'none');
+    //     $("#missing_image").css('display', 'block');
+    // } else {
+    //     $(`#${id}`).css('display', 'block');
+    //     $("#missing_image").css('display', 'none');
+    // }
 }
 
 function scroll(target, offset) {
@@ -331,16 +316,6 @@ window.onload = function () {
     window.addEventListener('keydown', function (e) {
         e.preventDefault();
     });
-    
-    // Loop through each mod and resize the text to fit
-    // [].forEach.call(mods, function (i) {
-    //     $(".mod-name", i).first().textfill({
-    //         explicitWidth: 508,
-    //         explicitHeight: 40,
-    //         maxFontPixels: 23,
-    //         changeLineHeight: 0.2
-    //     });
-    // });
 
     // Listen to the gamepadconnected event
     window.addEventListener("gamepadconnected", function (e) {
@@ -353,5 +328,30 @@ window.onload = function () {
                 }
             }
         }, 100);
+    });
+
+    window.nx.addEventListener("message", function (e) {
+        var entry = JSON.parse(e.data);
+        // Reset current description height
+        currentDescHeight = 0;
+
+        // Edit the informations based on what was received. If the value is None, it just won't display anything, which is fine
+        document.getElementById("description").innerHTML = entry.description;
+        document.getElementById("version").innerHTML = `Version: ${entry.version}`;
+        document.getElementById("preview").src = `img/${entry.id}`;
+
+
+        var main_content = $('.l-main-content');
+        // Assign the currently active description element to the global active description variable for use later
+        currentActiveDescription = main_content.find(".l-description");
+        // Subtract 146 from the description scroll height to match the paragarph overflow
+        activeDescHeight = currentActiveDescription[0].scrollHeight - 146;
+
+        // Check to see if overflow occured and if so, enable the R-Stick Icon
+        if (checkOverflow(currentActiveDescription[0])) {
+            document.getElementById("r-stick-desc-icon").style.visibility = "visible";
+        } else {
+            document.getElementById("r-stick-desc-icon").style.visibility = "hidden";
+        }
     });
 }
