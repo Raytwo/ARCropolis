@@ -1,9 +1,10 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, collections::HashSet};
 
 use serde::{Deserialize, Serialize};
-use smash_arc::Region;
+use smash_arc::{Region, Hash40};
 
 use skyline_config::*;
+use walkdir::WalkDir;
 
 lazy_static! {
     static ref CONFIG_PATH: PathBuf = {
@@ -53,6 +54,16 @@ lazy_static! {
                     }
 
                     let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
+
+                    let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
+
+                    if !is_emulator {
+                        if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?\nYour disabled mods would be renamed to strip the period.") {
+                            storage.set_field_json("presets", &convert_legacy_to_presets());
+                        } else {
+                            storage.set_flag("legacy_discovery", true);
+                        }
+                    }
                 },
                 Err(_) => {
                     error!("Unable to parse legacy config file, generating new one.");
@@ -94,8 +105,27 @@ fn generate_default_config(storage: &mut ConfigStorage) {
     storage.set_flag("auto_update", true);
 }
 
-pub trait FromIntermediate<I> {
-    fn from_intermediate(int: I) -> Self;
+fn convert_legacy_to_presets() -> HashSet<Hash40> {
+    let mut presets: HashSet<Hash40> = HashSet::new();
+
+    if std::path::PathBuf::from(umm_path()).exists() {
+        // TODO: Turn this into a map and use Collect
+        for entry in WalkDir::new(umm_path()).max_depth(1).into_iter() {
+                if let Ok(entry) = entry {
+                    let path = entry.path();
+
+                    // If the mod isn't disabled, add it to the preset
+                    if path.file_name().map(|name| name.to_str()).flatten().map(|name| !name.starts_with(".")).unwrap_or(false) {
+                        presets.insert(Hash40::from(path.to_str().unwrap()));
+                    } else {
+                        // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
+                        std::fs::rename(path, format!("sd:/ultimate/mods/{}", path.file_name().unwrap().to_str().unwrap()[1..].to_string())).unwrap();
+                    }
+                }
+        }
+    }
+
+    presets
 }
 
 #[derive(Serialize, Deserialize)]
