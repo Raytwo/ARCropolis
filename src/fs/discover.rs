@@ -10,7 +10,17 @@ use std::collections::{ HashMap, HashSet };
 
 lazy_static! {
     static ref PRESET_HASHES: HashSet<Hash40> = {
-        skyline_config::acquire_storage("arcropolis").unwrap().get_field_json("presets").unwrap_or_default()
+        let mut storage = skyline_config::acquire_storage("arcropolis").unwrap();
+
+        let presets = match storage.get_field_json("presets") {
+            Ok(presets) => presets,
+            Err(_) => {
+                let empty_presets: HashSet<Hash40> = HashSet::new();
+                storage.set_field_json("presets", &empty_presets);
+                empty_presets
+            },
+        };
+        presets
     };
 }
 
