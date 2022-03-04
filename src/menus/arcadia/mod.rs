@@ -91,6 +91,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                             display_name: res.display_name.or(Some(folder_name.clone())),
                             is_disabled: Some(disabled),
                             version: res.version.or(Some(String::from("???"))),
+                            category: res.category.or(Some(String::from("Misc"))),
                             image: Some(format!("{}/preview.webp", path_to_be_used)),
                             description: Some(res.description
                                 .unwrap_or_else(String::new)
