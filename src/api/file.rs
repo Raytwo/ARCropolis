@@ -64,3 +64,22 @@ pub extern "C" fn arcrop_get_loaded_arc(out: &mut &'static LoadedArc) -> bool {
         true
     }
 }
+
+#[no_mangle]
+pub extern "C" fn arcrop_is_file_loaded(hash: Hash40) -> bool {
+    debug!("arcrop_is_file_loaded -> Received hash {} ({:#x})", hashes::find(hash).green(), hash.0);
+    if !resource::initialized() {
+        false
+    } else {
+        let arc = resource::arc();
+        let filesystem_info = resource::filesystem_info();
+        match arc.get_file_path_index_from_hash(hash) {
+            Ok(file_path_index) => { 
+                filesystem_info.get_loaded_filepaths()[file_path_index.0 as usize].is_loaded == 1
+            },
+            _ => {
+                false
+            },
+        }
+    }
+}
