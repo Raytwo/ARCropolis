@@ -51,6 +51,7 @@ lazy_static! {
 
                     if &config.paths.umm != &umm_path(){
                         skyline::error::show_error(69, "Usage of custom UMM paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom UMM paths have been deprecated in an effort to reduce user error.\nConsider moving your modpack to sd:/ultimate/mods to keep using it.");
+                        // TODO: Offer to move it for the user if the default umm path doesn't already exist
                     }
 
                     let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();

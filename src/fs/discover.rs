@@ -13,13 +13,19 @@ lazy_static! {
         let mut storage = skyline_config::acquire_storage("arcropolis").unwrap();
 
         let presets = match storage.get_field_json("presets") {
-            Ok(presets) => presets,
-            Err(_) => {
+            Ok(presets) => {
+                println!("Preset properly deserialized");
+                presets
+            },
+            Err(err) => {
+                println!("Preset deserialize error: {:?}", err);
                 let empty_presets: HashSet<Hash40> = HashSet::new();
                 storage.set_field_json("presets", &empty_presets);
                 empty_presets
             },
         };
+
+        println!("Presets count: {}", presets.len());
         presets
     };
 }

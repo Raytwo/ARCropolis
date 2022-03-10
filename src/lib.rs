@@ -72,7 +72,9 @@ macro_rules! reg_w {
 
 /// Basic code for displaying an ARCropolis dialog error informing the user to check their logs, or enable them if they don't currently.
 fn dialog_error<S: AsRef<str>>(msg: S) {
-    if config::no_web_menus() {
+    let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
+
+    if is_emulator {
         if config::file_logging_enabled() {
             error!("{}<br>See the latest log for more information.", msg.as_ref());
         } else {
@@ -216,6 +218,7 @@ fn check_for_changelog() {
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     check_for_changelog();
+    menus::show_arcadia();
     let arc = resource::arc();
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
@@ -383,9 +386,6 @@ pub fn main() {
         });
     }
 
-
-    // wait on updater to finish
-    // let _ = updater.join();
     // Wait on hashes/lut to finish
     let _ = resources.join();
 

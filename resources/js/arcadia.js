@@ -24,16 +24,14 @@ var LButtonHeld = [false, false, false, false];
 var RButtonHeld = [false, false, false, false];
 var AButtonHeld = [false, false, false, false];
 
-function toggleMod(e) {
+function toggleMod(e, mod_id) {
+    window.nx.sendMessage(JSON.stringify({ToggleModRequest: { id: mod_id, state: document.getElementById(e.replace("btn-mods-", "img-")).classList.contains("hidden") } }));
+
     // Toggle the checkmark (disabled -> enabled and vice versa)
     document.getElementById(e.replace("btn-mods-", "img-")).classList.toggle("hidden");
 
     // :)
     window.navigator.vibrate([0, 50, 0]);
-
-    // Turn Refresh button into a Save button
-    document.getElementById("submit_icon").innerHTML = "&#xe0f1";
-    //document.getElementById("save_button").innerHTML = "Save";
 };
 
 function submitMods() {
@@ -42,22 +40,8 @@ function submitMods() {
 
     // Wait for 700ms before running the following code (to let the Save Button animation play out)
     setTimeout(function (e) {
-        // Create a new array that will be sent back to the Rust code
-        var result = "";
         try {
-            // Select all mods
-            mods = document.querySelectorAll("#holder>button");
-            // Create a i variable that's going to be used for ID
-            var i = 0;
-            // Loop through the selected mods and add them to the result          
-            result += `is_disabled=[`;
-            [].forEach.call(mods, function (a) {
-                result += `${$(`#${a.id.replace("btn-mods-", "img-")}`).hasClass("hidden")}, `;
-            });
-            result += `]`;
-
-            // Redirect back to localhost with the resultsArr converted to a string
-            window.location.href = "http://localhost/" + result;
+            window.nx.sendMessage(JSON.stringify("ClosureRequest"));
         }
         catch (throw_error) {
             // If there's an error, then display it to the user so that they can report back
@@ -86,10 +70,10 @@ function updateCategory() {
     // Hide the R-Stick icon in-case user was on a Item with a long description
     document.getElementById("r-stick-desc-icon").style.visibility = "hidden";
 
-    // Hide each mod description
-    $('.l-main-content').each(function () {
-        $(this).addClass("is-hidden");
-    });
+    // // Hide each mod description
+    // $('.l-main-content').each(function () {
+    //     $(this).addClass("is-hidden");
+    // });
 
     // Update the current category
     document.getElementById("current_category").innerHTML = categories[selectedCategoryIndex];
@@ -110,25 +94,10 @@ function updateCategory() {
             return false;
         }
     });
-
-    checkMissingImage();
 }
 
-function updateCurrentDesc() {
-    // Reset current description height
-    currentDescHeight = 0;
-
-    // Assign the currently active description element to the global active description variable for use later
-    currentActiveDescription = $('.l-main-content:not(.is-hidden)').eq(0).find(".l-description").eq(0);
-    // Subtract 146 from the description scroll height to match the paragarph overflow
-    activeDescHeight = currentActiveDescription[0].scrollHeight - 146;
-
-    // Check to see if overflow occured and if so, enable the R-Stick Icon
-    if (checkOverflow(currentActiveDescription[0])) {
-        document.getElementById("r-stick-desc-icon").style.visibility = "visible";
-    } else {
-        document.getElementById("r-stick-desc-icon").style.visibility = "hidden";
-    }
+function updateCurrentDesc(index) {
+    window.nx.sendMessage(JSON.stringify({DescriptionRequest: { id: index } }));
 }
 
 // Check the gamepad input for saving, switching categories, and scrolling the description
@@ -281,19 +250,6 @@ function checkInView(elem, partial) {
     return isTotal || isPart;
 }
 
-function checkMissingImage() {
-    var id = $(".is-focused").attr("id").replace("btn-mods-", "about-img-");
-    var active_img = $(`#${id}`).eq(0).find(".screen-shot").eq(0);
-    
-    if (active_img.attr("data-img-loaded") == "false") {
-        $(`#${id}`).css('display', 'none');
-        $("#missing_image").css('display', 'block');
-    } else {
-        $(`#${id}`).css('display', 'block');
-        $("#missing_image").css('display', 'none');
-    }
-}
-
 function scroll(target, offset) {
     // Check to see if mod is completely in view
     var fully = checkInView(target) == undefined ? false : true;
@@ -313,7 +269,6 @@ function scroll(target, offset) {
         // Focus on the previous mod
         target.focus();
     }
-    checkMissingImage();
 }
 
 
@@ -331,27 +286,42 @@ window.onload = function () {
     window.addEventListener('keydown', function (e) {
         e.preventDefault();
     });
-    
-    // Loop through each mod and resize the text to fit
-    // [].forEach.call(mods, function (i) {
-    //     $(".mod-name", i).first().textfill({
-    //         explicitWidth: 508,
-    //         explicitHeight: 40,
-    //         maxFontPixels: 23,
-    //         changeLineHeight: 0.2
-    //     });
-    // });
 
     // Listen to the gamepadconnected event
     window.addEventListener("gamepadconnected", function (e) {
         // Once a gamepad has connected, start an interval function that will run every 100ms to check for input
         setInterval(function () {
             var gpl = navigator.getGamepads();
-            if (gpl.length > 0) {
-                for (var i = 0; i < gpl.length; i++) {
-                    checkGamepad(i, gpl[i]);
-                }
-            }
+                    checkGamepad(0, gpl[0]);
+
         }, 100);
     });
+
+    window.nx.addEventListener("message", function (e) {
+        var entry = JSON.parse(e.data);
+        // Reset current description height
+        currentDescHeight = 0;
+
+        // Edit the informations based on what was received. If the value is None, it just won't display anything, which is fine
+        document.getElementById("description").innerHTML = entry.description;
+        document.getElementById("version").innerHTML = `Version: ${entry.version}`;
+
+        document.getElementById("preview").src = `${entry.image}`;
+
+        var main_content = $('.l-main-content');
+        // Assign the currently active description element to the global active description variable for use later
+        currentActiveDescription = main_content.find(".l-description");
+        // Subtract 146 from the description scroll height to match the paragarph overflow
+        activeDescHeight = currentActiveDescription[0].scrollHeight - 146;
+
+        // Check to see if overflow occured and if so, enable the R-Stick Icon
+        if (checkOverflow(currentActiveDescription[0])) {
+            document.getElementById("r-stick-desc-icon").style.visibility = "visible";
+        } else {
+            document.getElementById("r-stick-desc-icon").style.visibility = "hidden";
+        }
+    });
 }
+
+// Code to handle this session wasn't made to detect a closure by button
+window.nx.footer.unsetAssign( "B" );
