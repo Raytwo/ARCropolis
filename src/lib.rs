@@ -218,7 +218,7 @@ fn check_for_changelog() {
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     check_for_changelog();
-    menus::show_arcadia();
+    //menus::show_arcadia();
     let arc = resource::arc();
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
