@@ -24,16 +24,14 @@ var LButtonHeld = [false, false, false, false];
 var RButtonHeld = [false, false, false, false];
 var AButtonHeld = [false, false, false, false];
 
-function toggleMod(e) {
+function toggleMod(e, mod_id) {
+    window.nx.sendMessage(JSON.stringify({ToggleModRequest: { id: mod_id, state: document.getElementById(e.replace("btn-mods-", "img-")).classList.contains("hidden") } }));
+
     // Toggle the checkmark (disabled -> enabled and vice versa)
     document.getElementById(e.replace("btn-mods-", "img-")).classList.toggle("hidden");
 
     // :)
     window.navigator.vibrate([0, 50, 0]);
-
-    // Turn Refresh button into a Save button
-    document.getElementById("submit_icon").innerHTML = "&#xe0f1";
-    //document.getElementById("save_button").innerHTML = "Save";
 };
 
 function submitMods() {
@@ -42,20 +40,8 @@ function submitMods() {
 
     // Wait for 700ms before running the following code (to let the Save Button animation play out)
     setTimeout(function (e) {
-        // Create a new array that will be sent back to the Rust code
-        var result = "";
         try {
-            // Select all mods
-            mods = document.querySelectorAll("#holder>button");
-            // Loop through the selected mods and add them to the result          
-            result += `is_disabled=[`;
-            [].forEach.call(mods, function (a) {
-                result += `${$(`#${a.id.replace("btn-mods-", "img-")}`).hasClass("hidden")}, `;
-            });
-            result += `]`;
-
-            // Redirect back to localhost with the resultsArr converted to a string
-            //window.location.href = "http://localhost/" + result;
+            window.nx.sendMessage(JSON.stringify("ClosureRequest"));
         }
         catch (throw_error) {
             // If there's an error, then display it to the user so that they can report back
@@ -84,10 +70,10 @@ function updateCategory() {
     // Hide the R-Stick icon in-case user was on a Item with a long description
     document.getElementById("r-stick-desc-icon").style.visibility = "hidden";
 
-    // Hide each mod description
-    $('.l-main-content').each(function () {
-        $(this).addClass("is-hidden");
-    });
+    // // Hide each mod description
+    // $('.l-main-content').each(function () {
+    //     $(this).addClass("is-hidden");
+    // });
 
     // Update the current category
     document.getElementById("current_category").innerHTML = categories[selectedCategoryIndex];
@@ -108,12 +94,10 @@ function updateCategory() {
             return false;
         }
     });
-
-    checkMissingImage();
 }
 
 function updateCurrentDesc(index) {
-    window.nx.sendMessage(JSON.stringify(index));
+    window.nx.sendMessage(JSON.stringify({DescriptionRequest: { id: index } }));
 }
 
 // Check the gamepad input for saving, switching categories, and scrolling the description
@@ -266,19 +250,6 @@ function checkInView(elem, partial) {
     return isTotal || isPart;
 }
 
-function checkMissingImage() {
-    var id = $(".is-focused").attr("id").replace("btn-mods-", "about-img-");
-    var active_img = $(`#${id}`).eq(0).find(".screen-shot").eq(0);
-    
-    // if (active_img.attr("data-img-loaded") == "false") {
-    //     $(`#${id}`).css('display', 'none');
-    //     $("#missing_image").css('display', 'block');
-    // } else {
-    //     $(`#${id}`).css('display', 'block');
-    //     $("#missing_image").css('display', 'none');
-    // }
-}
-
 function scroll(target, offset) {
     // Check to see if mod is completely in view
     var fully = checkInView(target) == undefined ? false : true;
@@ -298,7 +269,6 @@ function scroll(target, offset) {
         // Focus on the previous mod
         target.focus();
     }
-    checkMissingImage();
 }
 
 
@@ -322,11 +292,8 @@ window.onload = function () {
         // Once a gamepad has connected, start an interval function that will run every 100ms to check for input
         setInterval(function () {
             var gpl = navigator.getGamepads();
-            if (gpl.length > 0) {
-                for (var i = 0; i < gpl.length; i++) {
-                    checkGamepad(i, gpl[i]);
-                }
-            }
+                    checkGamepad(0, gpl[0]);
+
         }, 100);
     });
 
@@ -338,8 +305,8 @@ window.onload = function () {
         // Edit the informations based on what was received. If the value is None, it just won't display anything, which is fine
         document.getElementById("description").innerHTML = entry.description;
         document.getElementById("version").innerHTML = `Version: ${entry.version}`;
-        document.getElementById("preview").src = `img/${entry.id}`;
 
+        document.getElementById("preview").src = `${entry.image}`;
 
         var main_content = $('.l-main-content');
         // Assign the currently active description element to the global active description variable for use later
@@ -355,3 +322,6 @@ window.onload = function () {
         }
     });
 }
+
+// Code to handle this session wasn't made to detect a closure by button
+window.nx.footer.unsetAssign( "B" );

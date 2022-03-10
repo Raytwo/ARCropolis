@@ -14,7 +14,7 @@
 
 <body>
   <script src="./help/js/jquery-3.3.1.min.js"></script>
-  <script src="./help/js/common.js"></script>
+  //<script src="./help/js/common.js"></script>
   <script src="./help/js/two-column-switch.js"></script>
   <script src="./jquery.textfill.min.js"></script>
   <script src="./arcadia.js"></script>
@@ -61,7 +61,7 @@
             <div class="l-sidebar-content" id="holder">
               {{#entries}}
               <button id="btn-mods-{{id}}" tabindex="0" class="flex-button abstract-button All {{category}}"
-                onfocus="focusMenu(this); updateCurrentDesc({{id}});" onclick="toggleMod(this.id);" nx-se-disabled="">
+                onfocus="focusMenu(this); updateCurrentDesc({{id}});" onclick="toggleMod(this.id, {{id}});" nx-se-disabled="">
                 <div class="abstract-icon-back-decoration"></div>
                 <div class="abstract-button-border">
                   <div class="abstract-button-inner">
@@ -84,15 +84,10 @@
       <td>
 
         <br>
-        <!-- <div class="l-screen-shot-wrapper" id="missing_image">
-          <div class="screen-shot-wrapper">
-            <img width="280" height="127" class="screen-shot video" ref="missing.webp" />
-          </div>
-        </div> -->
         <div id="about-mods" class="l-main-content">
           <div class="l-screen-shot-wrapper" id="about-img">
             <div class="screen-shot-wrapper">
-              <img id="preview" width="280" height="127" class="screen-shot video" src="img/3" />
+              <img id="preview" width="280" height="127" class="screen-shot video is-appear" src="missing.webp" />
             </div>
           </div>
           <div class="l-version">

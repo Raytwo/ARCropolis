@@ -27,6 +27,7 @@ pub struct Entry {
     version: Option<String>,
     description: Option<String>,
     category: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")] 
     image: Option<String>,
 }
 
@@ -34,6 +35,13 @@ pub struct Entry {
 pub struct ConfigChanged {
     category: String,
     value: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub enum ArcadiaMessage {
+    DescriptionRequest { id: usize },
+    ToggleModRequest { id: usize, state: bool },
+    ClosureRequest,
 }
 
 static HTML_TEXT: &str = include_str!("../../../resources/templates/arcadia.html");
@@ -45,23 +53,21 @@ static CHECK_ICON: &[u8] = include_bytes!("../../../resources/img/check.svg");
 
 pub fn get_mods(workspace: &str) -> Vec<Entry> {
     let mut storage = skyline_config::acquire_storage("arcropolis").unwrap();
-    let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap_or_default();
+    let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap();
 
     std::fs::read_dir(workspace)
         .unwrap()
         .enumerate()
         .map(|(i, path)| {
-            let mut disabled;
+            let path_to_be_used = path.unwrap().path();
 
-            let path = path.unwrap();
+            //let path_to_be_used = format!("{}", path.path().display());
 
-            let path_to_be_used = format!("{}", path.path().display());
-
-            if !presets.contains(&Hash40::from(path.path().to_str().unwrap())) {
-                disabled = true;
+            let disabled = if !presets.contains(&Hash40::from(path_to_be_used.to_str().unwrap())) {
+                true
             } else {
-                disabled = false;
-            }
+                false
+            };
 
             let mut folder_name = Path::new(&path_to_be_used)
                 .file_name()
@@ -70,7 +76,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                 .into_string()
                 .unwrap();
 
-            let info_path = format!("{}/info.toml", path_to_be_used);
+            let info_path = format!("{}/info.toml", path_to_be_used.display());
 
             let default_entry = Entry {
                     id: Some(i as u32),
@@ -79,7 +85,6 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                     version: Some("???".to_string()),
                     // description: Some("".to_string()),
                     category: Some("Misc".to_string()),
-                    image: Some(format!("{}/preview.webp", path_to_be_used)),
                     .. Default::default()
             };
 
@@ -92,7 +97,12 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                             is_disabled: Some(disabled),
                             version: res.version.or(Some(String::from("???"))),
                             category: res.category.or(Some(String::from("Misc"))),
-                            image: Some(format!("{}/preview.webp", path_to_be_used)),
+                            // TODO: Yes this is trash, not in the mood to learn serde attributes rn
+                            image: if PathBuf::from("sd:/ultimate/mods").join(&path_to_be_used).join("preview.webp").exists() {
+                                Some(format!("img/{}", i))
+                            } else {
+                                Some("missing.webp".to_string())
+                            },
                             description: Some(res.description
                                 .unwrap_or_else(String::new)
                                 .replace("\n", "<br>")),
@@ -140,10 +150,12 @@ pub fn show_arcadia() {
     //region Setup Preview Images
     let mut images: Vec<(String, Vec<u8>)> = Vec::new();
     for item in &mods.entries {
-        if std::fs::metadata(item.image.as_ref().unwrap()).is_ok() {
+        let path = PathBuf::from("sd:/ultimate/mods").join(item.folder_name.as_ref().unwrap()).join("preview.webp");
+
+        if path.exists() {
             images.push((
                 format!("img/{}", item.id.unwrap().to_string()),
-                std::fs::read(item.image.as_ref().unwrap()).unwrap(),
+                std::fs::read(path).unwrap(),
             ));
         };
     }
@@ -176,16 +188,32 @@ pub fn show_arcadia() {
         .unwrap();
 
     let mut storage = skyline_config::acquire_storage("arcropolis").unwrap();
-    let mut presets: HashSet<Hash40> = HashSet::new();
+    let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap();
     let mut modified_detected = false;
     
-    while let Ok(id) = session.recv_json::<usize>() {
-        println!("Received id {}", id);
-        session.send_json(&mods.entries[id]);
+    while let Ok(message) = session.recv_json::<ArcadiaMessage>() {
+        match message {
+            ArcadiaMessage::DescriptionRequest { id } => {
+                session.send_json(&mods.entries[id]);
+            },
+            ArcadiaMessage::ToggleModRequest { id, state} => {
+                let path = format!("sd:/ultimate/mods/{}", mods.entries[id].folder_name.as_ref().unwrap());
+                let hash = Hash40::from(path.as_str());
+
+                if state {
+                    presets.insert(hash);
+                } else {
+                    presets.remove(&hash);
+                }
+                
+            },
+            ArcadiaMessage::ClosureRequest => {
+                session.exit();
+                session.wait_for_exit();
+                break;
+            }
+        }
     }
-        
-    session.exit();
-    session.wait_for_exit();
 
     storage.set_field_json("presets", &presets).unwrap();
     storage.flush();
@@ -195,27 +223,4 @@ pub fn show_arcadia() {
             unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
         }
     }
-
-            // for (id, disabled) in webpage_res.is_disabled.into_iter().enumerate() {
-            //     let folder_name = &mods.entries[id as usize].folder_name.as_ref().unwrap();
-
-            //     let enabled_path = Path::new(&workspace).join(&folder_name);
-            //     let disabled_path = Path::new(&workspace).join( &folder_name);
-
-            //     if disabled {
-            //         if std::fs::metadata(&enabled_path).is_ok() {
-            //             modified_detected = true;
-            //             info!("[menus::show_arcadia] Disabling {}", enabled_path.display());
-            //             let res = presets.remove(&Hash40::from(enabled_path.as_path().to_str().unwrap()));
-            //             info!("[menus::show_arcadia] RenameFolder Result: {:?}", res);
-            //         }
-            //     } else if std::fs::metadata(&disabled_path).is_ok() {
-            //         modified_detected = true;
-            //         info!("[menus::show_arcadia] Enabling {}", disabled_path.display());
-            //         let res = presets.insert(Hash40::from(disabled_path.as_path().to_str().unwrap()));
-            //         info!("[menus::show_arcadia] RenameFolder Result: {:?}", res);
-            //     }
-
-            //     info!("[menus::show_arcadia] ---------------------------");
-            // }
 }
