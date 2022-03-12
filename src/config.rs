@@ -6,6 +6,8 @@ use smash_arc::{Region, Hash40};
 use skyline_config::*;
 use walkdir::WalkDir;
 
+use std::sync::Mutex;
+
 lazy_static! {
     static ref CONFIG_PATH: PathBuf = {
         let path = PathBuf::from("sd:/ultimate/arcropolis");
@@ -25,7 +27,7 @@ fn default_logger_level() -> String { "Warn".to_string() }
 fn default_region() -> String { "us_en".to_string() }
 
 lazy_static! {
-    static ref GLOBAL_CONFIG: ConfigStorage = {
+    pub static ref GLOBAL_CONFIG: Mutex<ConfigStorage> = {
         let mut storage = acquire_storage("arcropolis").unwrap();
 
         let version: Result<String, _> = storage.get_field("version");
@@ -80,7 +82,7 @@ lazy_static! {
     }
 
         storage.flush();
-        storage
+        Mutex::new(storage)
     };
 
     static ref REGION: Region = {
@@ -209,20 +211,20 @@ impl ConfigLogger {
 }
 
 pub fn auto_update_enabled() -> bool {
-    GLOBAL_CONFIG.get_flag("auto_update")
+    GLOBAL_CONFIG.lock().unwrap().get_flag("auto_update")
 }
 
 pub fn debug_enabled() -> bool {
-    GLOBAL_CONFIG.get_flag("debug")
+    GLOBAL_CONFIG.lock().unwrap().get_flag("debug")
 }
 
 pub fn beta_updates() -> bool {
-    GLOBAL_CONFIG.get_flag("beta_updates")
+    GLOBAL_CONFIG.lock().unwrap().get_flag("beta_updates")
 }
 
 // Why? We can't really avoid it. Probably remove this after confirming.
 pub fn no_web_menus() -> bool {
-    GLOBAL_CONFIG.get_flag("no_web_menus")
+    GLOBAL_CONFIG.lock().unwrap().get_flag("no_web_menus")
 }
 
 pub fn region() -> Region {
@@ -230,12 +232,12 @@ pub fn region() -> Region {
 }
 
 pub fn region_str() -> String {
-    let region: String = GLOBAL_CONFIG.get_field("region").unwrap_or(String::from("us_en"));
+    let region: String = GLOBAL_CONFIG.lock().unwrap().get_field("region").unwrap_or(String::from("us_en"));
     region
 }
 
 pub fn version() -> String {
-    let version: String = GLOBAL_CONFIG.get_field("version").unwrap_or(String::from(env!("CARGO_PKG_VERSION")));
+    let version: String = GLOBAL_CONFIG.lock().unwrap().get_field("version").unwrap_or(String::from(env!("CARGO_PKG_VERSION")));
     version
 }
 
@@ -248,18 +250,18 @@ pub fn umm_path() -> String {
 }
 
 pub fn extra_paths() -> Vec<String> {
-    GLOBAL_CONFIG.get_field_json("extra_paths").unwrap_or(vec![])
+    GLOBAL_CONFIG.lock().unwrap().get_field_json("extra_paths").unwrap_or(vec![])
 }
 
 pub fn logger_level() -> String {
-    let level: String = GLOBAL_CONFIG.get_field("logging_level").unwrap_or(String::from("Warn"));
+    let level: String = GLOBAL_CONFIG.lock().unwrap().get_field("logging_level").unwrap_or(String::from("Warn"));
     level
 }
 
 pub fn file_logging_enabled() -> bool {
-    GLOBAL_CONFIG.get_flag("log_to_file")
+    GLOBAL_CONFIG.lock().unwrap().get_flag("log_to_file")
 }
 
 pub fn legacy_discovery() -> bool {
-    GLOBAL_CONFIG.get_flag("legacy_discovery")
+    GLOBAL_CONFIG.lock().unwrap().get_flag("legacy_discovery")
 }

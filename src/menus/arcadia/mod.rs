@@ -52,7 +52,7 @@ static MISSING_ICON: &[u8] = include_bytes!("../../../resources/img/missing.webp
 static CHECK_ICON: &[u8] = include_bytes!("../../../resources/img/check.svg");
 
 pub fn get_mods(workspace: &str) -> Vec<Entry> {
-    let mut storage = skyline_config::acquire_storage("arcropolis").unwrap();
+    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
     let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap();
 
     std::fs::read_dir(workspace)
@@ -187,7 +187,7 @@ pub fn show_arcadia() {
         .open_session(skyline_web::Visibility::Default)
         .unwrap();
 
-    let mut storage = skyline_config::acquire_storage("arcropolis").unwrap();
+    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
     let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap();
     let mut modified_detected = false;
     

@@ -38,7 +38,7 @@ pub fn show_config_editor() {
         .open_session(Visibility::Default)
         .unwrap());
 
-        let mut storage = skyline_config::acquire_storage("arcropolis").unwrap();
+        let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
 
         // Loaded
         let _ = session.recv();
