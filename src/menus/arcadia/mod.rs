@@ -53,7 +53,7 @@ static CHECK_ICON: &[u8] = include_bytes!("../../../resources/img/check.svg");
 
 pub fn get_mods(workspace: &str) -> Vec<Entry> {
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-    let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap();
+    let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap_or_default();
 
     std::fs::read_dir(workspace)
         .unwrap()

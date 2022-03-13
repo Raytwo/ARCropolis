@@ -8,6 +8,7 @@
 
 use std::{fmt, path::{Path, PathBuf}, str::FromStr, io::BufWriter, io::Write};
 use arcropolis_api::Event;
+use semver::Version;
 use smash_arc::{ArcLookup, SearchLookup, LoadedSearchSection};
 use log::LevelFilter;
 use thiserror::Error;
@@ -333,17 +334,21 @@ pub fn main() {
         let _updater = std::thread::Builder::new()
             .stack_size(0x40000)
             .spawn(|| {
-                if config::auto_update_enabled() {
-                    update::check_for_updates(config::beta_updates(), |update_kind| {
+                if !Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().prerelease.is_empty() {
+                    update::check_for_updates(config::beta_updates(), |update_kind| true);
+                } else {
+                    if config::auto_update_enabled() {
+                        update::check_for_updates(config::beta_updates(), |update_kind| {
                         // skyline_web::Dialog::yes_no(format!(
                         //     "{} has been detected. Do you want to install it?",
                         //     update_kind
                         // ))
-                        match skyline_web::Dialog::new(format!("{} has been detected. Do you want to install it?", update_kind), "No", "Yes").show() {
-                            skyline_web::DialogOption::Left => false,
-                            skyline_web::DialogOption::Right => true,
-                        }
-                    });
+                            match skyline_web::Dialog::new(format!("{} has been detected. Do you want to install it?", update_kind), "No", "Yes").show() {
+                                skyline_web::DialogOption::Left => false,
+                                skyline_web::DialogOption::Right => true,
+                            }
+                        });
+                    }
                 }
             })
             .unwrap();

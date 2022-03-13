@@ -60,7 +60,7 @@
           <div class="l-sidebar">
             <div class="l-sidebar-content" id="holder">
               {{#entries}}
-              <button id="btn-mods-{{id}}" tabindex="0" class="flex-button abstract-button All {{category}}"
+              <button id="btn-mods-{{id}}" style="display:none;" tabindex="0" class="flex-button abstract-button All {{category}}"
                 onfocus="focusMenu(this); updateCurrentDesc({{id}});" onclick="toggleMod(this.id, {{id}});" nx-se-disabled="">
                 <div class="abstract-icon-back-decoration"></div>
                 <div class="abstract-button-border">
