@@ -5,8 +5,9 @@
 #![feature(map_try_insert)] // for not overwriting previously stored hashes
 #![feature(vec_into_raw_parts)]
 #![allow(unaligned_references)]
+#![feature(allocator_api)]
 
-use std::{fmt, path::{Path, PathBuf}, str::FromStr, io::BufWriter, io::Write};
+use std::{fmt, path::{Path, PathBuf}, str::FromStr, io::BufWriter, io::Write, alloc::GlobalAlloc};
 use arcropolis_api::Event;
 use semver::Version;
 use smash_arc::{ArcLookup, SearchLookup, LoadedSearchSection};
@@ -41,6 +42,10 @@ use fs::GlobalFilesystem;
 use replacement::extensions::SearchEx;
 use smash_arc::Hash40;
 use walkdir::WalkDir;
+
+// Temporary fix for Vec
+#[global_allocator]
+static UNIX_ALLOCATOR: skyline::unix_alloc::UnixAllocator = skyline::unix_alloc::UnixAllocator;
 
 lazy_static! {
     pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> =

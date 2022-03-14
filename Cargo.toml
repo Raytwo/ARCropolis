@@ -39,7 +39,7 @@ nn-fuse = { git = "https://github.com/blu-dev/nn-fuse" }
 # nn-fuse = { path = "../nn-fuse" }
 walkdir = "2.3.2"
 prcx = { git = "https://github.com/blu-dev/prcx", branch = "xml-style" }
-msbt = { git = "https://github.com/ascclemens/msbt-rs" }
+msbt = { git = "https://github.com/RoccoDev/msbt-rs", branch = "feature/builder-from-impl" }
 byteordered = "0.4"
 # ninput = { git = "https://github.com/blu-dev/ninput" }
 # ninput = { path = "../ninput" }
