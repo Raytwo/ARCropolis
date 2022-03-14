@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 
 use super::*;
 
-use msbt::Msbt;
+use msbt::{Msbt, builder::MsbtBuilder};
 
 use serde::*;
 use serde_xml_rs;
@@ -144,18 +144,17 @@ impl ApiLoadType {
                 let patches = if let Some(patches) = ApiLoader::get_msbt_patches_for_hash(local.smash_hash()?) {
                     patches
                 } else {
-                    return Err(ApiLoaderError::Other("No patches found for file in PRC patch!".to_string()));
+                    return Err(ApiLoaderError::Other("No patches found for file in MSBT patch!".to_string()));
                 };
 
-                let mut lbl_to_update: HashMap<String, String> = HashMap::new();
+                let mut labels: HashMap<String, String> = HashMap::new();
 
                 for patch_path in patches.iter() {
-                    let file = std::fs::read_to_string(dbg!(patch_path))?;
-                    let diff: XMSBT = dbg!(serde_xml_rs::from_str(&file).unwrap());
+                    let file = std::fs::read_to_string(patch_path)?;
+                    let xmsbt: XMSBT = serde_xml_rs::from_str(&file).unwrap();
 
-                    for entry in &diff.entries {
-                        dbg!(entry);
-                        lbl_to_update.insert(entry.label.to_owned(), entry.text.value.to_owned());
+                    for entry in &xmsbt.entries {
+                        labels.insert(entry.label.to_owned(), entry.text.value.to_owned());
                     }
                 }
 
@@ -164,11 +163,8 @@ impl ApiLoadType {
                 let mut msbt = Msbt::from_reader(std::io::Cursor::new(&data)).unwrap();
 
                 for lbl in msbt.lbl1_mut().unwrap().labels_mut() {
-                    if lbl_to_update.contains_key(&lbl.name().to_owned()) {
-                        println!("Patching {} in {}", lbl.name(), local.display());
-                        let mut str_val: Vec<u16> = lbl_to_update[&lbl.name().to_owned()]
-                            .encode_utf16()
-                            .collect();
+                    if labels.contains_key(&lbl.name().to_owned()) {
+                        let mut str_val: Vec<u16> = labels[&lbl.name().to_owned()].encode_utf16().collect();
                         str_val.push(0);
 
                         let slice_u8: &[u8] = unsafe {
@@ -179,26 +175,33 @@ impl ApiLoadType {
                         };
 
                         lbl.set_value_raw(slice_u8).unwrap();
+                        labels.remove(&lbl.name().to_owned());
                     }
                 }
 
-                // let mut builder = msbt::builder::MsbtBuilder::new(byteordered::Endianness::Little, msbt::Encoding::Utf16, Some(msbt.lbl1().unwrap().group_count()));
-                // let mut test = msbt::builder::MsbtBuilder {
-                //     section_order: msbt.section_order().iter().map(|idk| *idk).collect(),
-                //     header: *msbt.header().clone(),
-                //     lbl1: msbt.lbl1().as_deref(),
-                //     txt2: msbt.txt2().map(|content| *content),
-                //     nli1: msbt.nli1().map(|content| *content),
-                //     ato1: msbt.ato1().map(|content| *content),
-                //     atr1: msbt.atr1().map(|content| *content),
-                //     tsy1: msbt.tsy1().map(|content| *content),
-                // };
-                //msbt.lbl1_mut().unwrap().labels_mut().
+                let mut builder = MsbtBuilder::from(msbt);
+
+                for lbl in labels {
+                    let mut str_val: Vec<u16> = lbl.1
+                            .encode_utf16()
+                            .collect();
+                        str_val.push(0);
+                    
+                        let slice_u8: &[u8] = unsafe {
+                            std::slice::from_raw_parts(
+                                str_val.as_ptr() as *const u8,
+                                str_val.len() * std::mem::size_of::<u16>(),
+                            )
+                        };
+                    builder = builder.add_label(lbl.0, slice_u8);
+                }
+
+                let mut out_msbt = builder.build();
 
                 let mut cursor = std::io::Cursor::new(vec![]);
-                msbt.write_to(&mut cursor).unwrap();
+                out_msbt.write_to(&mut cursor).unwrap();
                 let vec = cursor.into_inner();
-                Ok((dbg!(vec.len()), vec))
+                Ok((vec.len(), vec))
             },
             ApiLoadType::Generic if let ApiCallback::GenericCallback(cb) = usr_fn => {
                 let hash = local.smash_hash()?;
