@@ -7,6 +7,8 @@ use skyline_config::*;
 use walkdir::WalkDir;
 
 use std::sync::Mutex;
+use skyline::nn;
+
 
 lazy_static! {
     static ref CONFIG_PATH: PathBuf = {
@@ -27,14 +29,19 @@ fn default_logger_level() -> String { "Warn".to_string() }
 fn default_region() -> String { "us_en".to_string() }
 
 lazy_static! {
-    pub static ref GLOBAL_CONFIG: Mutex<ConfigStorage> = {
-        let mut storage = acquire_storage("arcropolis").unwrap();
+    pub static ref GLOBAL_CONFIG: Mutex<StorageHolder<ArcStorage>> = {
+        //let mut storage = acquire_storage("arcropolis").unwrap();
+        let mut storage = StorageHolder::new(ArcStorage::new());
 
-        let version: Result<String, _> = storage.get_field("version");
+        let version: Result<semver::Version, _> = storage.get_field("version");
 
+        // Version file does not exist
         if version.is_err() {
+        // Check if a legacy configuration does exist
         match std::fs::read_to_string(&*CONFIG_PATH) {
+            // Legacy configuration exists, try parsing it
             Ok(toml) => match toml::de::from_str::<Config>(toml.as_str()) {
+                // Parsing successful, migrate everything to the new system
                 Ok(config) => {
                     info!("Convert legacy config file to new system.");
                     storage.set_field("version", arcropolis_version()).unwrap();
@@ -60,26 +67,61 @@ lazy_static! {
 
                     let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
 
+                    // Ryujinx cannot show the web browser, and a second check is performed during file discovery
                     if !is_emulator {
-                        if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?\nYour disabled mods would be renamed to strip the period.") {
+                        if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?\nIt offers advantages such as:\nMod manager on the eShop button\nSeparate enabled mods per user profile\n\nIf you accept, disabled mods will be renamed to strip the period.") {
                             storage.set_field_json("presets", &convert_legacy_to_presets());
                         } else {
                             storage.set_flag("legacy_discovery", true);
                         }
                     }
                 },
+                // Parsing unsuccessful, generate default files and delete the broken config
                 Err(_) => {
                     error!("Unable to parse legacy config file, generating new one.");
                     generate_default_config(&mut storage);
                     let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
                 }
             },
+            // Could not read or find a legacy configuration
             Err(_) => {
+                // Mount the debug storage (3.0.0-beta.3.2 up to 3.0.0)
+                let mut debug_storage = StorageHolder::new(DebugSavedataStorage::new("arcropolis"));
+                // Try to get the version field
+                let version: Result<semver::Version, _> = debug_storage.get_field("version");
+
+                match version {
+                    // A configuration was found in the debug storage, move everything to the SD
+                    Ok(version) => {
+                        debug!("Detected debug savedata config from version {}. Migrating to the SD.", version);
+
+                        // Go through each file in the debug storage
+                        debug_storage.read_dir().unwrap().for_each(|file| {
+                            let file = file.unwrap();
+                            
+                            // If the size is 0, we've found a flag
+                            if file.metadata().unwrap().len() == 0 {
+                                storage.set_flag(file.file_name(), true);
+                            }
+                            // A field was found
+                            else {
+                                let content: String = debug_storage.get_field(file.file_name()).unwrap();
+                                storage.set_field(file.file_name(), &content).unwrap();
+                            }
+                        });
+
+                        // Overwrite the migrated version field with the current one
+                        storage.set_field("version", arcropolis_version()).unwrap();
+                    },
+                    Err(_) => todo!(),
+                }
+
                 error!("Unable to read legacy config file, generating default values.");
                 generate_default_config(&mut storage);
             }
         }
     }
+    
 
         storage.flush();
         Mutex::new(storage)
@@ -97,7 +139,7 @@ lazy_static! {
     };
 }
 
-fn generate_default_config(storage: &mut ConfigStorage) {
+fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
     // Just so we don't keep outdated fields
     storage.clear_storage();
 
@@ -264,4 +306,55 @@ pub fn file_logging_enabled() -> bool {
 
 pub fn legacy_discovery() -> bool {
     GLOBAL_CONFIG.lock().unwrap().get_flag("legacy_discovery")
+}
+
+pub struct ArcStorage(std::path::PathBuf);
+
+impl ArcStorage {
+    pub fn new() -> Self {
+        let mut uid = nn::account::Uid { id: [0; 2] };
+        let mut handle = UserHandle::new();
+
+        unsafe {
+            // It is safe to initialize multiple times.
+            nn::account::Initialize();
+
+            // This provides a UserHandle and sets the User in a Open state to be used.
+            if !open_preselected_user(&mut handle) {
+                panic!("OpenPreselectedUser returned false");
+            }
+
+            // Obtain the UID for this user
+            get_user_id(&mut uid, &handle);
+            // This closes the UserHandle, making it unusable, and sets the User in a Closed state.
+            close_user(&handle);
+            // Make sure we can't use Handle from here
+            drop(handle);
+        }
+
+        let path = PathBuf::from(uid.id[0].to_string()).join(uid.id[1].to_string());
+
+        Self(path.into())
+    }
+}
+
+impl ConfigStorage for ArcStorage {
+    fn initialize(&self) -> Result<(), ConfigError> {
+        // TODO: Check if the SD is mounted or something
+        let path = self.storage_path();
+
+        if !path.exists() {
+            std::fs::create_dir_all(&path)?;
+        }
+
+        Ok(())
+    }
+
+    fn root_path(&self) -> PathBuf {
+        PathBuf::from("sd:/ultimate/arcropolis/config/")
+    }
+
+    fn storage_path(&self) -> PathBuf {
+        self.root_path().join(&self.0)
+    }
 }
