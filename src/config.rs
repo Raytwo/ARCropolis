@@ -112,12 +112,15 @@ lazy_static! {
 
                         // Overwrite the migrated version field with the current one
                         storage.set_field("version", arcropolis_version()).unwrap();
-                    },
-                    Err(_) => todo!(),
-                }
 
-                error!("Unable to read legacy config file, generating default values.");
-                generate_default_config(&mut storage);
+                        // Erase what's on the storage
+                        debug_storage.clear_storage();
+                    },
+                    Err(_) => {
+                        println!("Unable to read legacy config file, generating default values.");
+                        generate_default_config(&mut storage);
+                    },
+                }
             }
         }
     }
