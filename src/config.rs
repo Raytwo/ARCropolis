@@ -113,8 +113,8 @@ lazy_static! {
                         // Overwrite the migrated version field with the current one
                         storage.set_field("version", arcropolis_version()).unwrap();
 
-                        // Erase what's on the storage
-                        debug_storage.clear_storage();
+                        // Delete what's on the storage
+                        debug_storage.delete_storage();
                     },
                     Err(_) => {
                         println!("Unable to read legacy config file, generating default values.");
@@ -151,6 +151,7 @@ fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
     storage.set_field("logging_level", "Warn").unwrap();
     storage.set_field_json("extra_paths", &Vec::<String>::new()).unwrap();
     storage.set_flag("auto_update", true);
+    storage.set_field_json("presets", &HashSet::<Hash40>::new());
 }
 
 fn convert_legacy_to_presets() -> HashSet<Hash40> {
