@@ -531,8 +531,14 @@ impl FileLoader for ArcLoader {
         }
     }
 
-    fn load_path(&self, _: &Path, local_path: &Path) -> Result<Vec<u8>, Self::ErrorType> {
-        match crate::get_smash_hash(local_path) {
+    fn load_path(&self, root_path: &Path, local_path: &Path) -> Result<Vec<u8>, Self::ErrorType> {
+        let hash = if local_path.to_str().unwrap().is_empty() {
+            Ok(Hash40(u64::from_str_radix(&root_path.to_str().unwrap()[2..], 16).unwrap()))
+        } else {
+            crate::get_smash_hash(local_path)
+        };
+
+        match hash {
             Ok(path) => self.get_file_contents(path, config::region()),
             Err(_) => Err(LookupError::Missing),
         }
