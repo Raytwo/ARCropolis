@@ -108,10 +108,45 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     };
 
     let umm_path = config::umm_path();
-    if std::fs::try_exists(umm_path).unwrap_or(false) {
+
+    // Emulators can't use presets, so don't run this logic
+    if !is_emulator {
+        let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
+
+        // Get the mod cache from last run
+        let mut mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();
+
+        // Inspect the list of mods to see if some are new ones
+        let new_cache: HashSet<Hash40> = std::fs::read_dir(&umm_path)
+            .unwrap()
+            .map(|path| {
+                let path = PathBuf::from(&umm_path).join(path.unwrap().path());
+                Hash40::from(path.to_str().unwrap())
+            }).collect();
+    
+        let new_mods: HashSet<&Hash40> = new_cache.iter().filter(|cached_mod| {
+            !mod_cache.contains(cached_mod)
+        }).collect();
+
+        // We found hashes that weren't in the cache
+        if !new_mods.is_empty() {
+            if skyline_web::Dialog::yes_no("New mods have been detected.\nWould you like to enable them?") {
+                // Add the new mods to the presets file
+                let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap_or_default();
+                presets.extend(new_mods);
+                // Save it back
+                storage.set_field_json("presets", &presets).unwrap();
+            }
+        }
+
+        // No matter what, the cache has to be updated
+        storage.set_field_json("mod_cache", &new_cache).unwrap();
+    }
+
+    if std::fs::try_exists(&umm_path).unwrap_or(false) {
         conflicts.extend(
             launchpad
-                .discover_roots(config::umm_path(), 1, filter),
+                .discover_roots(&umm_path, 1, filter),
         );
     }
 
@@ -152,8 +187,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             } else {
                 Vec::new()
             };
-        
-            let umm_path = config::umm_path();
+
             if std::fs::try_exists(umm_path).unwrap_or(false) {
                 conflicts.extend(
                     launchpad
