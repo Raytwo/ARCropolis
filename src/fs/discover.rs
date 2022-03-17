@@ -109,9 +109,10 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     let umm_path = config::umm_path();
 
+    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
+
     // Emulators can't use presets, so don't run this logic
-    if !is_emulator {
-        let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
+    if !is_emulator && !storage.get_flag("legacy_discovery") {
 
         // Get the mod cache from last run
         let mut mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();
