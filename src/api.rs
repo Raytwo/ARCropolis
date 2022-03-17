@@ -20,8 +20,6 @@ pub struct ApiVersion {
 /// Do your changes only add new APIs in a backwards compatible way: Minor bump
 ///
 /// Are your changes only internal? No version bump
-/// 
-/// ily but i don't care <3 - blujay
 static API_VERSION: ApiVersion = ApiVersion {
     major: 1,
     minor: 6
