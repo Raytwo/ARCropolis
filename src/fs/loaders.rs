@@ -150,8 +150,7 @@ impl ApiLoadType {
                 let mut labels: HashMap<String, String> = HashMap::new();
 
                 for patch_path in patches.iter() {
-                    let file = std::fs::read_to_string(patch_path)?;
-                    let xmsbt: XMSBT = serde_xml_rs::from_str(&file).unwrap();
+                    let xmsbt: XMSBT = serde_xml_rs::from_reader(std::io::Cursor::new(std::fs::read(patch_path).unwrap())).unwrap();
 
                     for entry in &xmsbt.entries {
                         labels.insert(entry.label.to_owned(), entry.text.value.to_owned());
