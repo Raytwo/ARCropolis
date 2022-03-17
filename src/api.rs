@@ -24,7 +24,7 @@ pub struct ApiVersion {
 /// ily but i don't care <3 - blujay
 static API_VERSION: ApiVersion = ApiVersion {
     major: 1,
-    minor: 5
+    minor: 6
 };
 
 #[no_mangle]

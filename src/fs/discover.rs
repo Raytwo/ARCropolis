@@ -113,7 +113,6 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     // Emulators can't use presets, so don't run this logic
     if !is_emulator && !storage.get_flag("legacy_discovery") {
-
         // Get the mod cache from last run
         let mut mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();
 
