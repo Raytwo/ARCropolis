@@ -188,8 +188,8 @@ pub fn show_arcadia() {
         .unwrap();
 
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-    let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap();
-    let mut modified_detected = false;
+    let presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap();
+    let mut new_presets = presets.clone();
     
     while let Ok(message) = session.recv_json::<ArcadiaMessage>() {
         match message {
@@ -201,9 +201,9 @@ pub fn show_arcadia() {
                 let hash = Hash40::from(path.as_str());
 
                 if state {
-                    presets.insert(hash);
+                    new_presets.insert(hash);
                 } else {
-                    presets.remove(&hash);
+                    new_presets.remove(&hash);
                 }
                 
             },
@@ -215,11 +215,11 @@ pub fn show_arcadia() {
         }
     }
 
-    storage.set_field_json("presets", &presets).unwrap();
+    storage.set_field_json("presets", &new_presets).unwrap();
     storage.flush();
 
-    if modified_detected {
-        if skyline_web::Dialog::yes_no("Your preset has been changed!<br>Would you like to reboot the game to reload your mods?") {
+    if new_presets != presets {
+        if skyline_web::Dialog::yes_no("Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?") {
             unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
         }
     }
