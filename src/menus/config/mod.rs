@@ -2,7 +2,6 @@
 
 use crate::config;
 use log::info;
-use percent_encoding::percent_decode_str;
 use serde::Deserialize;
 use skyline::nn;
 use skyline_web::{ramhorns, Webpage, Visibility};
