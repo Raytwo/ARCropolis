@@ -351,15 +351,12 @@ pub fn main() {
                             // ))
 
                             // This didn't compile
-                            // match skyline_web::Dialog::new(format!("{} has been detected. Do you want to install it?", update_kind), "No", "Yes").show() {
-                            //     skyline_web::DialogOption::Left => false,
-                            //     skyline_web::DialogOption::Right => true,
-                            // }
+                            skyline_web::Dialog::no_yes(format!("{} has been detected. Do you want to install it?", update_kind))
 
-                            match skyline_web::Dialog::yes_no(format!("{} has been detected. Do you want to install it?", update_kind)) {
-                                true => true,
-                                false => false,
-                            }
+                            // match skyline_web::Dialog::yes_no(format!("{} has been detected. Do you want to install it?", update_kind)) {
+                            //     true => true,
+                            //     false => false,
+                            // }
                         });
                     }
                 }

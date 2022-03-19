@@ -57,9 +57,13 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
     std::fs::read_dir(workspace)
         .unwrap()
         .enumerate()
-        .map(|(i, path)| {
+        .filter_map(|(i, path)| {
             let path_to_be_used = path.unwrap().path();
             
+            if path_to_be_used.is_file() {
+                return None;
+            }
+
             let disabled = if !presets.contains(&Hash40::from(path_to_be_used.to_str().unwrap())) { true } else { false };
 
             let mut folder_name = Path::new(&path_to_be_used).file_name().unwrap().to_os_string().into_string().unwrap();
@@ -94,7 +98,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
                 }
             };
 
-            mod_info
+            Some(mod_info)
         })
         .collect()
 }
@@ -149,7 +153,7 @@ pub fn show_arcadia() {
         .unwrap();
 
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-    let presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap();
+    let presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap_or_default();
     let mut new_presets = presets.clone();
 
     while let Ok(message) = session.recv_json::<ArcadiaMessage>() {
