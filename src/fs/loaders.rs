@@ -120,9 +120,12 @@ impl ApiLoadType {
                 } else {
                     return Err(ApiLoaderError::Other("No patches found for file in PRC patch!".to_string()));
                 };
+
                 let data = ApiLoader::handle_load_base_file(local)?;
+
                 let mut param_data = prcx::read_stream(&mut std::io::Cursor::new(data))
                     .map_err(|_| ApiLoaderError::Other("Unable to parse param data!".to_string()))?;
+
                 
                 for patch_path in patches.iter() {
                     let patch = if let Ok(patch) = prcx::open(patch_path) {

@@ -120,9 +120,14 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         // Inspect the list of mods to see if some are new ones
         let new_cache: HashSet<Hash40> = std::fs::read_dir(&umm_path)
             .unwrap()
-            .map(|path| {
+            .filter_map(|path| {
                 let path = PathBuf::from(&umm_path).join(path.unwrap().path());
-                Hash40::from(path.to_str().unwrap())
+
+                if path.is_file() {
+                    None    
+                } else {
+                    Some(Hash40::from(path.to_str().unwrap()))
+                }
             }).collect();
     
         let new_mods: HashSet<&Hash40> = new_cache.iter().filter(|cached_mod| {
