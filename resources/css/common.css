@@ -1,0 +1,230 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --var-body-width: 1280px;
+    --var-body-height: 720px;
+    --var-abstract-outgame-fighting-mii-team: url("../../../help/img/abstract_outgame_fighting_mii_team.webp");
+    --var-bg-collection: url("../../../help/img/bg_collection.webp");
+    --var-bg-default: url("../../../help/img/bg_default.webp");
+    --var-bg-detail-collection: url("../../../help/img/bg_detail_collection.webp");
+    --var-bg-detail-outgame: url("../../../help/img/bg_detail_outgame.webp");
+    --var-bg-detail-palette: url("../../../help/img/bg_detail_palette.webp");
+    --var-bg-detail-scuffle: url("../../../help/img/bg_detail_scuffle.webp");
+    --var-bg-detail-spirits: url("../../../help/img/bg_detail_spirits.webp");
+    --var-bg-dot-collection: url("../../../help/img/bg_dot_collection.webp");
+    --var-bg-dot-outgame: url("../../../help/img/bg_dot_outgame.webp");
+    --var-bg-dot-palette: url("../../../help/img/bg_dot_palette.webp");
+    --var-bg-dot-scuffle: url("../../../help/img/bg_dot_scuffle.webp");
+    --var-bg-dot-spirits: url("../../../help/img/bg_dot_spirits.webp");
+    --var-bg-outgame: url("../../../help/img/bg_outgame.webp");
+    --var-bg-palette: url("../../../help/img/bg_palette.webp");
+    --var-bg-scuffle: url("../../../help/img/bg_scuffle.webp");
+    --var-bg-spirits: url("../../../help/img/bg_spirits.webp");
+    --var-collection-texture: url("../../../help/img/collection_texture.webp");
+    --var-collection-texture-dark: url("../../../help/img/collection_texture_dark.webp");
+    --var-detail-outgame-amiibo-balloon: url("../../../help/img/detail_outgame_amiibo_balloon.webp");
+    --var-detail-outgame-amiibo-lv-up: url("../../../help/img/detail_outgame_amiibo_lv_up.webp");
+    --var-detail-outgame-amiibo-nfc: url("../../../help/img/detail_outgame_amiibo_nfc.webp");
+    --var-detail-scuffle-group-okawari: url("../../../help/img/detail_scuffle_group_okawari.webp");
+    --var-detail-spirits-adventure-broken-bridge: url("../../../help/img/detail_spirits_adventure_broken_bridge.webp");
+    --var-detail-spirits-adventure-fix-bridge: url("../../../help/img/detail_spirits_adventure_fix_bridge.webp");
+    --var-detail-spirits-adventure-switch: url("../../../help/img/detail_spirits_adventure_switch.webp");
+    --var-keyword-texture-dark: url("../../../help/img/keyword_texture_dark.webp");
+    --var-outgame-texture: url("../../../help/img/outgame_texture.webp");
+    --var-outgame-texture-dark: url("../../../help/img/outgame_texture_dark.webp");
+    --var-palette-texture: url("../../../help/img/palette_texture.webp");
+    --var-palette-texture-dark: url("../../../help/img/palette_texture_dark.webp");
+    --var-qa-battlefield-after: url("../../../help/img/qa_battlefield_after.webp");
+    --var-qa-battlefield-before: url("../../../help/img/qa_battlefield_before.webp");
+    --var-qa-last-stop-after: url("../../../help/img/qa_last_stop_after.webp");
+    --var-qa-last-stop-before: url("../../../help/img/qa_last_stop_before.webp");
+    --var-qa-orekyoku-stage-select-zoom-in: url("../../../help/img/qa_orekyoku_stage_select_zoom_in.webp");
+    --var-qa-spirits-attribute-relation: url("../../../help/img/qa_spirits_attribute_relation.webp");
+    --var-qa-texture-dark: url("../../../help/img/qa_texture_dark.webp");
+    --var-scuffle-texture: url("../../../help/img/scuffle_texture.webp");
+    --var-scuffle-texture-dark: url("../../../help/img/scuffle_texture_dark.webp");
+    --var-spirits-texture: url("../../../help/img/spirits_texture.webp");
+}
+
+html,
+body {
+    width: var(--var-body-width);
+    height: var(--var-body-height);
+    background-color: black;
+}
+
+#bg {
+    position: fixed;
+    width: var(--var-body-width);
+    height: var(--var-body-height);
+    background-color: white;
+    background-size: 125%;
+    background-position-y: center;
+    background-position-x: -50px;
+    z-index: 0;
+}
+
+#header {
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    width: 100%;
+    z-index: 1;
+    box-shadow: none;
+}
+
+#header>div {
+    display: flex;
+    align-items: center;
+    height: 65px;
+}
+
+#ret-button {
+    width: 100px;
+    padding-left: 20px;
+    -webkit-clip-path: polygon(0 0, 100% 0, 66% 99%, 0 81%);
+    clip-path: polygon(0 0, 100% 0, 66% 99%, 0 81%);
+    background-color: #00829A;
+}
+
+.background-clip {
+    -webkit-clip-path: polygon(100% 0%, 0 0, 0 100%);
+    clip-path: polygon(100% 0%, 0 0, 0 100%);
+    background-color: black;
+    position: absolute;
+    min-width: 400px;
+    min-height: 85px;
+    z-index: -1;
+    top: 0;
+}
+
+.breadcrumb-list {
+    margin-left: 25px;
+    font-size: 30px;
+}
+
+.breadcrumb-list p {
+    display: inline-block;
+}
+
+.header-decoration {
+    display: inline-flex;
+    align-items: center;
+    width: 101px;
+    height: 65px;
+    padding-left: 21px;
+    /* -29px */
+    -webkit-clip-path: polygon(0% 0%, 100% 0%, 93px 100%, 0% 100%);
+}
+
+.ret-icon-wrapper {
+    position: relative;
+    margin-left: -4px;
+    will-change: transform;
+}
+
+@keyframes ret-icon-animation {
+    0% {
+        transform: translate3d(-10px, 0px, 0);
+    }
+    100% {
+        transform: translate3d(0px, 0px, 0);
+    }
+}
+
+.is-focus .ret-icon-wrapper {
+    animation: ret-icon-animation 50ms linear 0ms 1 normal;
+}
+
+.ret-icon-shadow svg {
+    position: absolute;
+    z-index: -1;
+    top: 3px;
+    left: 2px;
+    display: inline-block;
+    width: 58px;
+    height: 58px;
+    opacity: 0;
+}
+
+.ret-icon svg {
+    display: inline-block;
+    width: 58px;
+    height: 58px;
+    transition: opacity 0.2s ease;
+}
+
+.ret-icon path {
+    fill: #4CC0F1;
+}
+
+.ret-icon-shadow path {
+    fill: #003145;
+}
+
+.is-appear {
+    opacity: 1;
+}
+
+.scrollbar::-webkit-scrollbar {
+    background: none;
+}
+
+.scrollbar::-webkit-scrollbar-track {
+    margin-top: 0px;
+    margin-bottom: 50px;
+    border-radius: 10px;
+    background-color: #B5B5B5;
+}
+
+.scrollbar::-webkit-scrollbar {
+    width: 12px;
+}
+
+.scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    border: 3px solid;
+    border-color: #B5B5B5;
+    background-color: #e3e3e3;
+}
+
+.scrollbar-desc {
+    overflow-y: overlay;
+    max-height: 150px;
+    width: 100%;
+}
+
+.scrollbar-desc::-webkit-scrollbar {
+    background: none;
+    padding-left: 5px;
+}
+
+.scrollbar-desc::-webkit-scrollbar-track {
+    border-radius: 10px;
+    background-color: #B5B5B5;
+}
+
+.scrollbar-desc::-webkit-scrollbar {
+    width: 12px;
+}
+
+.scrollbar-desc::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    border: 3px solid;
+    border-color: #B5B5B5;
+    background-color: #e3e3e3;
+}
+
+.primary-button {
+    width: 400px;
+    height: 80px;
+    box-sizing: border-box;
+}
+
+img,
+svg {
+    opacity: 1 !important;
+}
