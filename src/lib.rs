@@ -339,18 +339,26 @@ pub fn main() {
         let _updater = std::thread::Builder::new()
             .stack_size(0x40000)
             .spawn(|| {
-                if !Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().prerelease.is_empty() {
+                // Changed to pre because prerelease doesn't compile
+                if !Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
                     update::check_for_updates(config::beta_updates(), |update_kind| true);
                 } else {
                     if config::auto_update_enabled() {
                         update::check_for_updates(config::beta_updates(), |update_kind| {
-                        // skyline_web::Dialog::yes_no(format!(
-                        //     "{} has been detected. Do you want to install it?",
-                        //     update_kind
-                        // ))
-                            match skyline_web::Dialog::new(format!("{} has been detected. Do you want to install it?", update_kind), "No", "Yes").show() {
-                                skyline_web::DialogOption::Left => false,
-                                skyline_web::DialogOption::Right => true,
+                            // skyline_web::Dialog::yes_no(format!(
+                            //     "{} has been detected. Do you want to install it?",
+                            //     update_kind
+                            // ))
+
+                            // This didn't compile
+                            // match skyline_web::Dialog::new(format!("{} has been detected. Do you want to install it?", update_kind), "No", "Yes").show() {
+                            //     skyline_web::DialogOption::Left => false,
+                            //     skyline_web::DialogOption::Right => true,
+                            // }
+
+                            match skyline_web::Dialog::yes_no(format!("{} has been detected. Do you want to install it?", update_kind)) {
+                                true => true,
+                                false => false,
                             }
                         });
                     }

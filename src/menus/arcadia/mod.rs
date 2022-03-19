@@ -2,7 +2,7 @@
 
 use crate::config;
 use log::info;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use skyline::nn;
 use skyline_web::{ramhorns, Webpage};
 use smash_arc::Hash40;
@@ -11,23 +11,21 @@ use std::ffi::CString;
 use std::path::Path;
 use std::path::PathBuf;
 
-#[derive(Debug, ramhorns::Content)]
+#[derive(Debug)]
 pub struct Entries {
     entries: Vec<Entry>,
 }
 
-#[derive(Debug, Default, PartialEq, PartialOrd, Serialize, Deserialize, ramhorns::Content)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Entry {
     id: Option<u32>,
     folder_name: Option<String>,
     is_disabled: Option<bool>,
     display_name: Option<String>,
-    authors: Option<Vec<String>>,
+    authors: Option<String>,
     version: Option<String>,
     description: Option<String>,
     category: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")] 
-    image: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,17 +36,19 @@ pub struct ConfigChanged {
 
 #[derive(Debug, Deserialize)]
 pub enum ArcadiaMessage {
-    DescriptionRequest { id: usize },
     ToggleModRequest { id: usize, state: bool },
+    ChangeAllRequest { state: bool },
     ClosureRequest,
 }
 
 static HTML_TEXT: &str = include_str!("../../../resources/templates/arcadia.html");
+static JS_TEXT: &str = include_str!("../../../resources/js/arcadia.js");
 static CSS_TEXT: &str = include_str!("../../../resources/css/arcadia.css");
-static ARCADIA_JAVASCRIPT_TEXT: &str = include_str!("../../../resources/js/arcadia.js");
-static JQUERY_LIB_JAVASCRIPT_TEXT: &str = include_str!("../../../resources/js/jquery.textfill.min.js");
-static MISSING_ICON: &[u8] = include_bytes!("../../../resources/img/missing.webp");
-static CHECK_ICON: &[u8] = include_bytes!("../../../resources/img/check.svg");
+static COMMON_JS_TEXT: &str = include_str!("../../../resources/js/common.js");
+static COMMON_CSS_TEXT: &str = include_str!("../../../resources/css/common.css");
+static MARQUEE_JS: &str = include_str!("../../../resources/js/jquery.marquee.min.js");
+static PAGINATION_JS: &str = include_str!("../../../resources/js/pagination.min.js");
+
 
 pub fn get_mods(workspace: &str) -> Vec<Entry> {
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
@@ -59,64 +59,40 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
         .enumerate()
         .map(|(i, path)| {
             let path_to_be_used = path.unwrap().path();
+            
+            let disabled = if !presets.contains(&Hash40::from(path_to_be_used.to_str().unwrap())) { true } else { false };
 
-            //let path_to_be_used = format!("{}", path.path().display());
-
-            let disabled = if !presets.contains(&Hash40::from(path_to_be_used.to_str().unwrap())) {
-                true
-            } else {
-                false
-            };
-
-            let mut folder_name = Path::new(&path_to_be_used)
-                .file_name()
-                .unwrap()
-                .to_os_string()
-                .into_string()
-                .unwrap();
+            let mut folder_name = Path::new(&path_to_be_used).file_name().unwrap().to_os_string().into_string().unwrap();
 
             let info_path = format!("{}/info.toml", path_to_be_used.display());
 
             let default_entry = Entry {
-                    id: Some(i as u32),
-                    folder_name: Some(folder_name.clone()),
-                    is_disabled: Some(disabled),
-                    version: Some("???".to_string()),
-                    // description: Some("".to_string()),
-                    category: Some("Misc".to_string()),
-                    .. Default::default()
+                id: Some(i as u32),
+                folder_name: Some(folder_name.clone()),
+                is_disabled: Some(disabled),
+                version: Some("???".to_string()),
+                // description: Some("".to_string()),
+                category: Some("Misc".to_string()),
+                ..Default::default()
             };
 
             let mod_info = match toml::from_str::<Entry>(&std::fs::read_to_string(&info_path).unwrap_or_default()) {
-                    Ok(res) => {
-                        Entry {
-                            id: Some(i as u32),
-                            folder_name: Some(folder_name.clone()),
-                            display_name: res.display_name.or(Some(folder_name.clone())),
-                            is_disabled: Some(disabled),
-                            version: res.version.or(Some(String::from("???"))),
-                            category: res.category.or(Some(String::from("Misc"))),
-                            // TODO: Yes this is trash, not in the mood to learn serde attributes rn
-                            image: if PathBuf::from("sd:/ultimate/mods").join(&path_to_be_used).join("preview.webp").exists() {
-                                Some(format!("img/{}", i))
-                            } else {
-                                Some("missing.webp".to_string())
-                            },
-                            description: Some(res.description
-                                .unwrap_or_else(String::new)
-                                .replace("\n", "<br>")),
-                            ..res
-                        }
-                    }
-                    Err(e) => {
-                        skyline_web::DialogOk::ok(&format!(
-                            "The following info.toml is not valid: \n\n* '{}'\n\nError: {}",
-                            folder_name,
-                            e,
-                        ));
-                        default_entry
-                    }
-                };
+                Ok(res) => Entry {
+                    id: Some(i as u32),
+                    folder_name: Some(folder_name.clone()),
+                    display_name: res.display_name.or(Some(folder_name.clone())),
+                    authors: res.authors.or(Some(String::from("???"))),
+                    is_disabled: Some(disabled),
+                    version: res.version.or(Some(String::from("???"))),
+                    category: res.category.or(Some(String::from("Misc"))),
+                    description: Some(res.description.unwrap_or_else(String::new).replace("\n", "<br />")),
+                    ..res
+                },
+                Err(e) => {
+                    skyline_web::DialogOk::ok(&format!("The following info.toml is not valid: \n\n* '{}'\n\nError: {}", folder_name, e,));
+                    default_entry
+                }
+            };
 
             mod_info
         })
@@ -135,32 +111,19 @@ pub fn show_arcadia() {
         entries: get_mods(&workspace.to_str().unwrap()),
     };
 
-    // Causes some trouble when sending the Id from the javascript side
-
-    // Sort mods alphabatically
-    // mods.entries.sort_by(|a, b| {
-    //     a.display_name
-    //         .as_ref()
-    //         .unwrap_or(a.folder_name.as_ref().unwrap())
-    //         .to_ascii_lowercase()
-    //         .cmp(&b.display_name.as_ref().unwrap().to_ascii_lowercase())
-    // });
-
     //region Setup Preview Images
     let mut images: Vec<(String, Vec<u8>)> = Vec::new();
     for item in &mods.entries {
-        let path = PathBuf::from("sd:/ultimate/mods").join(item.folder_name.as_ref().unwrap()).join("preview.webp");
+        let path = PathBuf::from(&workspace)
+            .join(item.folder_name.as_ref().unwrap())
+            .join("preview.webp");
 
         if path.exists() {
-            images.push((
-                format!("img/{}", item.id.unwrap().to_string()),
-                std::fs::read(path).unwrap(),
-            ));
+            images.push((format!("img/{}", item.id.unwrap().to_string()), std::fs::read(path).unwrap()));
         };
     }
 
-    let img_cache =
-        "sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/img";
+    let img_cache = "sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/img";
 
     if std::fs::metadata(&img_cache).is_ok() {
         let _ = std::fs::remove_dir_all(&img_cache).map_err(|err| println!("Error occured in ARCadia-rs when trying to delete cache: {}", err));
@@ -168,18 +131,17 @@ pub fn show_arcadia() {
 
     std::fs::create_dir_all(&img_cache).unwrap();
 
-    let tpl = ramhorns::Template::new(HTML_TEXT).unwrap();
-
-    let render = tpl.render(&mods);
 
     let session = Webpage::new()
         .htdocs_dir("contents")
-        .file("index.html", &render)
-        .file("arcadia.css", CSS_TEXT)
-        .file("arcadia.js", ARCADIA_JAVASCRIPT_TEXT)
-        .file("jquery.textfill.min.js", JQUERY_LIB_JAVASCRIPT_TEXT)
-        .file("missing.webp", MISSING_ICON)
-        .file("check.svg", CHECK_ICON)
+        .file("index.html", &HTML_TEXT)
+        .file("arcadia.js", JS_TEXT)
+        .file("common.js", &COMMON_JS_TEXT)
+        .file("arcadia.css", &CSS_TEXT)
+        .file("common.css", &COMMON_CSS_TEXT)
+        .file("pagination.min.js", PAGINATION_JS)
+        .file("jquery.marquee.min.js", MARQUEE_JS)
+        .file("mods.json", &serde_json::to_string(&mods.entries).unwrap())
         .files(&images)
         .background(skyline_web::Background::Default)
         .boot_display(skyline_web::BootDisplay::Default)
@@ -189,23 +151,36 @@ pub fn show_arcadia() {
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
     let presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap();
     let mut new_presets = presets.clone();
-    
+
     while let Ok(message) = session.recv_json::<ArcadiaMessage>() {
         match message {
-            ArcadiaMessage::DescriptionRequest { id } => {
-                session.send_json(&mods.entries[id]);
-            },
-            ArcadiaMessage::ToggleModRequest { id, state} => {
-                let path = format!("sd:/ultimate/mods/{}", mods.entries[id].folder_name.as_ref().unwrap());
+            ArcadiaMessage::ToggleModRequest { id, state } => {
+                let path = format!("{}/{}", workspace.display(), mods.entries[id].folder_name.as_ref().unwrap());
                 let hash = Hash40::from(path.as_str());
+                println!("Setting {} to {}", path, state);
 
                 if state {
                     new_presets.insert(hash);
                 } else {
                     new_presets.remove(&hash);
                 }
-                
-            },
+
+                println!("{} has been {}", path, state);
+            }
+            ArcadiaMessage::ChangeAllRequest { state } => {
+                println!("Changing all to {}", state);
+
+                if !state {
+                    new_presets.clear();
+                } else {
+                    for item in mods.entries.iter() {
+                        let path = format!("{}/{}", workspace.display(), item.folder_name.as_ref().unwrap());
+                        let hash = Hash40::from(path.as_str());
+
+                        new_presets.insert(hash);
+                    }
+                }
+            }
             ArcadiaMessage::ClosureRequest => {
                 session.exit();
                 session.wait_for_exit();

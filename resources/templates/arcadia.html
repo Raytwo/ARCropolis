@@ -1,137 +1,175 @@
 <!DOCTYPE html>
-<html lang="en-US">
+<html lang="en">
 
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
-  <meta name="focus-ring-visibility" content="hidden" />
-  <link rel="stylesheet" href="./help/css/common.css" />
-  <link rel="stylesheet" href="./help/css/abstract.css" />
-  <link rel="stylesheet" href="./help/css/thema/outgame.css" />
-  <link id="font-stylesheet" rel="stylesheet" href="./help/css/font.css" />
-  <link rel="stylesheet" href="./arcadia.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
+    <meta name="focus-ring-visibility" content="hidden" />
+    <title>ARCadia</title>
+    <link id="font-stylesheet" rel="stylesheet" href="./help/css/font.css" />
+    <link rel="stylesheet" href="./help/css/common.css" />
+    <link rel="stylesheet" href="./help/css/abstract.css" />
+
+
+    <link rel="stylesheet" href="common.css">
+    <link rel="stylesheet" href="arcadia.css">
+
+    <script type="text/javascript" src="./help/js/jquery-3.3.1.min.js"></script>
+    <script src="./jquery.marquee.min.js" type="text/javascript"></script>
+    <script src="./pagination.min.js" type="text/javascript"></script>
+    <script type="text/javascript" src="common.js"></script>
+    <script type="text/javascript" src="arcadia.js"></script>
 </head>
 
 <body>
-  <script src="./help/js/jquery-3.3.1.min.js"></script>
-  <script src="./help/js/two-column-switch.js"></script>
-  <script src="./jquery.textfill.min.js"></script>
-  <script src="./arcadia.js"></script>
-  <div id="bg" class="l-bg bg-abstract"></div>
-  <div class="l-header">
-    <span class="background-clip"></span>
-    <div class="header">
-      <a id="ret-button" tabindex="-1" class="header-decoration" nx-se-disabled="">
-        <div class="ret-icon-wrapper">
-          <img class="ret-icon-shadow" ref="./help/img/icon/m_retnormal.svg" />
-          <img class="ret-icon" ref="./help/img/icon/m_retnormal.svg" />
+    <div id="bg"></div>
+
+    <div id="submenu">
+        <div id="inner-submenu">
+            <div style="margin: 20px;">
+                <table style="width: 100%;">
+                    <tbody>
+                        <tr>
+                            <td>
+                                <h3>Category:</h3>
+                                <div id="filters">
+                                    <div>
+                                        <input type="checkbox" id="Fighter">
+                                        <label for="Fighter">Fighter</label>
+                                    </div>
+                                    <div>
+                                        <input type="checkbox" id="Stage">
+                                        <label for="Stage">Stage</label>
+                                    </div>
+
+                                    <div>
+                                        <input type="checkbox" id="Effects">
+                                        <label for="Effects">Effects</label>
+                                    </div>
+
+                                    <div>
+                                        <input type="checkbox" id="Ui">
+                                        <label for="Ui">UI</label>
+                                    </div>
+
+                                    <div>
+                                        <input type="checkbox" id="Param">
+                                        <label for="Param">Param</label>
+                                    </div>
+
+                                    <div>
+                                        <input type="checkbox" id="Music">
+                                        <label for="Music">Music</label>
+                                    </div>
+                                    <div>
+                                        <input type="checkbox" id="Misc">
+                                        <label for="Misc">Misc</label>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <br />
+                                <h3>Sorting Options:</h3>
+                                <select id="sortOptions">
+                                    <option value="alphabetical">Alphabetical</option>
+                                </select>
+                                <input type="checkbox" id="desc" onclick="updateSort();">
+                                <label for="desc">Descending</label>
+                                <br />
+                                <br />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <button class="submenu-btn" onclick="setAllState(true, this);">Enable All</button>
+                                <button class="submenu-btn" onclick="setAllState(false, this);">Disable All</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-      </a>
-      <div class="breadcrumb-list f-u-bold">
-        <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
-          color: #02A7D4;
-          -webkit-text-stroke-width: 2px;
-          -webkit-text-stroke-color: black;
-          z-index: 1;">Mods</span></p>
-        <span data-msgid="textbox_id-2" style="
-        color: #797979;
-        -webkit-text-stroke-width: 2px;
-        -webkit-text-stroke-color: black;">▶</span>
-        <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
-          color: white;
-          -webkit-text-stroke-width: 2px;
-          -webkit-text-stroke-color: black;
-          z-index: 1;" id="workspace">{{workspace}}</span></p>
-      </div>
     </div>
-  </div>
 
-  <table>
-    <tr>
-      <td>
-        <br>
-        <div id="category_mover">
-          <span style="text-align: left;">&#xe0e4;</span>
-          <span style="text-align: center;" id="current_category">All</span>
-          <span style="text-align: right">&#xe0e5;</span>
+    <div id="header">
+        <span class="background-clip"></span>
+        <div>
+            <a id="ret-button" tabindex="-1" nx-se-disabled="">
+                <div class="ret-icon-wrapper">
+                    <div class="ret-icon-shadow svg-container" ref="./help/img/icon/m_retnormal.svg"></div>
+                    <div class="ret-icon svg-container" ref="./help/img/icon/m_retnormal.svg"></div>
+                </div>
+            </a>
+            <div class="breadcrumb-list f-u-bold">
+                <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
+              color: #02A7D4;
+              -webkit-text-stroke-width: 2px;
+              -webkit-text-stroke-color: black;
+              z-index: 1;">Mods</span></p>
+                <span data-msgid="textbox_id-2" style="
+            color: #797979;
+            -webkit-text-stroke-width: 2px;
+            -webkit-text-stroke-color: black;">▶</span>
+                <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
+              color: white;
+              -webkit-text-stroke-width: 2px;
+              -webkit-text-stroke-color: black;
+              z-index: 1;" id="workspace">Ultimate</span></p>
+            </div>
         </div>
-        <div class="scrollbar" id="left-stick-home">
-          <div class="l-sidebar">
-            <div class="l-sidebar-content" id="holder">
-              {{#entries}}
-              <button id="btn-mods-{{id}}" style="display:none;" tabindex="0" class="flex-button abstract-button All {{category}}"
-                onfocus="focusMenu(this); updateCurrentDesc({{id}});" onclick="toggleMod(this.id, {{id}});" nx-se-disabled="">
-                <div class="abstract-icon-back-decoration"></div>
-                <div class="abstract-button-border">
-                  <div class="abstract-button-inner">
-                    <div class="abstract-icon-wrapper">
-                      <div id="img-{{id}}" class="{{#is_disabled}} hidden {{/is_disabled}}">
-                        <img class="abstract-icon is-appear" src="check.svg" />
-                      </div>
+    </div>
+
+    <table class="main">
+        <tr>
+            <td>
+                <br>
+                <div id="category_mover">
+                    <span style="text-align: left;">&#xe0e4;</span>
+                    <span style="text-align: center;" id="pageInfo"></span>
+                    <span style="text-align: right">&#xe0e5;</span>
+                </div>
+                <div class="scrollbar" id="left-stick-home">
+                    <div class="l-sidebar">
+                        <div class="l-sidebar-content" id="mods">
+
+                        </div>
                     </div>
-                    <div class="abstract-button-text f-u-bold mod-name" style="margin-bottom: 5px; display: block; font-size: 3vmin;">
-                      <span data-msgid="textbox_id-4-1">{{#display_name}}{{display_name}}{{/display_name}}{{^display_name}}{{folder_name}}{{/display_name}}</span>
+                </div>
+            </td>
+            <td>
+                <br>
+                <div id="about-mods" class="l-main-content">
+                    <div class="l-screen-shot-wrapper" id="about-img">
+                        <div class="screen-shot-wrapper">
+                            <img id="preview" width="280" height="127" class="screen-shot video is-appear" src="missing.webp" onerror="this.src = 'missing.webp';" />
+                        </div>
                     </div>
-                  </div>
+                    <div class="l-info">
+                        <div class="f-b-bold">
+                            <p class="sentence">Version: <span id="version" data-msgid="textbox_id-5"></span></p>
+                        </div>
+                    </div>
+                    <div class="l-info" style="margin-bottom: 32px;">
+                        <div class="f-b-bold">
+                            <p class="sentence">Authors: <span id="authors" data-msgid="textbox_id-5"></span></p>
+                        </div>
+                    </div>
+                    <div class="l-description scrollbar-desc">
+                        <div class="f-b-bold">
+                            <p id="description" class="sentence p-desc">Description</p>
+                        </div>
+                    </div>
                 </div>
-              </button>
-              {{/entries}}
-            </div>
-          </div>
-        </div>
-      </td>
-      <td>
-
-        <br>
-        <div id="about-mods" class="l-main-content">
-          <div class="l-screen-shot-wrapper" id="about-img">
-            <div class="screen-shot-wrapper">
-              <img id="preview" width="280" height="127" class="screen-shot video is-appear" src="missing.webp" />
-            </div>
-          </div>
-          <div class="l-version">
-            <div class="f-b-bold">
-              <p class="sentence">
-                <span id="version" data-msgid="textbox_id-5">Version:{{#version}}{{version}}{{/version}}{{^version}}???{{/version}}</span>
-              </p>
-            </div>
-          </div>
-          <div class="l-description scrollbar-desc">
-            <div class="f-b-bold">
-              <!-- <p class="sentence">
-                Authors: <span data-msgid="textbox_id-5">{{#authors}}{{authors}} {{/authors}}{{^authors}}Unspecified{{/authors}}</span>
-              </p> -->
-              <p id="description" class="sentence p-desc">Description</p>
-            </div>
-          </div>
-        </div>
-        <div id="r-stick-desc-icon">
-          <span>&#xE102</span>
-        </div>
-        </div>
-
-
-        <div class="l-to-detail">
-          <a id="link-save" tabindex="-1" class="to-detail-button" href="javascript:submitMods()"
-            nx-se-disabled="">
-            <div class="to-detail-button-shadow">
-              <div class="to-detail-button-outer">
-                <div class="to-detail-button-icon-wrapper">
-                  <div class="f-u-bold to-detail-button-icon" id="submit_icon">&#xe0f1</div>
+                <div id="r-stick-desc-icon">
+                    <span>&#xE102</span>
                 </div>
-                <div class="to-detail-button-text-wrapper">
-                  <div class="to-detail-button-text f-u-bold"><span data-msgcom="true"
-                      data-msgid="textbox_id-10003" id="save_button">Close</span></div>
                 </div>
-              </div>
-            </div>
-          </a>
-        </div>
+            </td>
+        </tr>
+    </table>
 
-
-      </td>
-    </tr>
-  </table>
 </body>
 
 </html>

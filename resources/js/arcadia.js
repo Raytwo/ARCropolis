@@ -1,7 +1,5 @@
-var modsContainer; // Used to hold a reference to the mods container that can be used anywhere 
-var mods; // Used to hold the array of mods loaded
-
-// To add more categories, just insert a new item
+const MOD_MENU = "modMenu";
+const SUB_MENU = "subMenu";
 const categories = [
     "All",
     "Fighter",
@@ -12,352 +10,386 @@ const categories = [
     "Music",
     "Misc",
 ];
-var selectedCategoryIndex = 0;
 
+var currentState = MOD_MENU;
+
+
+var LButtonHeld = false;
+var RButtonHeld = false;
+var AButtonHeld = false;
+var BButtonHeld = false;
 
 var currentDescHeight = 0; // Used for the current position of the description (modified by the R-Stick Y Value).
 var currentActiveDescription // For reference to the current active description.
 var activeDescHeight = 0; // The height for the current active description so it can't be scrolled out of bounds.
-var containerHeight = 0;
-// Both used to make sure that players can't rapidly switch between categories
-var LButtonHeld = [false, false, false, false];
-var RButtonHeld = [false, false, false, false];
-var AButtonHeld = [false, false, false, false];
 
-function toggleMod(e, mod_id) {
-    window.nx.sendMessage(JSON.stringify({ToggleModRequest: { id: mod_id, state: document.getElementById(e.replace("btn-mods-", "img-")).classList.contains("hidden") } }));
+var mods = [];
+var currentMods = [];
+var pageCount = 0;
 
-    // Toggle the checkmark (disabled -> enabled and vice versa)
-    document.getElementById(e.replace("btn-mods-", "img-")).classList.toggle("hidden");
+function createMod(mod, arrIdx) {
+    var hidden = mod['is_disabled'] ? "hidden" : "";
+    return `<button id="btn-mods-${mod['id']}" data-mod-index="${mod['id']}" data-current-mod-idx="${arrIdx}" tabindex="0" class="flex-button abstract-button All ${mod['category']}" nx-se-disabled="">
+    <div class="abstract-icon-back-decoration"></div>
+    <div class="abstract-button-border">
+        <div class="abstract-button-inner">
+            <div class="abstract-icon-wrapper">
+                <div class="img-check ${hidden}">
+                    <img class="abstract-icon is-appear" src="check.svg" />
+                </div>
+            </div>
+            <div class="abstract-button-text f-u-bold mod-name"
+                style="margin-bottom: 5px; display: block; font-size: 3vmin;" data-display_name="${mod['display_name']}">
+                <span class="marquee" data-msgid="textbox_id-4-1">${mod['display_name']}</span>
+            </div>
+        </div>
+    </div>
+</button>`;
+}
 
-    // :)
-    window.navigator.vibrate([0, 50, 0]);
-};
+function createMods(mods) {
+    var res = "";
+    for (var i = 0; i < mods.length; i++) {
+        res += createMod(mods[i], i);
+    }
+    return res;
+}
 
-function submitMods() {
-    // Animate the Save button
-    document.getElementById("link-save").classList.add("is-selected");
-
-    // Wait for 700ms before running the following code (to let the Save Button animation play out)
-    setTimeout(function (e) {
-        try {
-            window.nx.sendMessage(JSON.stringify("ClosureRequest"));
+function toggleMod() {
+    var index = parseInt($(".is-focused").attr("data-mod-index"));
+    var currentIndex = parseInt($(".is-focused").attr("data-current-mod-idx"));
+    var checkContainer = $(".is-focused .img-check");
+    checkContainer.toggleClass("hidden");
+    var enabled = !checkContainer.hasClass("hidden");
+    mods[index]["is_disabled"] = !enabled;
+    currentMods[currentIndex]["is_disabled"] = !enabled;
+    // Send mod index and status
+    window.nx.sendMessage(JSON.stringify({
+        "ToggleModRequest": {
+            "id": index,
+            "state": enabled
         }
-        catch (throw_error) {
-            // If there's an error, then display it to the user so that they can report back
-            document.write(`Error! Please report the following to Coolsonickirby#4030 on discord (or ray if he wants to deal with javascript ig)!<br><br>${JSON.stringify(throw_error.message)}`);
+    }));
+}
+
+function updateCurrentDesc() {
+    // Reset current description height
+    currentDescHeight = 0;
+
+    // Assign the currently active description element to the global active description variable for use later
+    currentActiveDescription = $('.l-main-content:not(.is-hidden)').eq(0).find(".l-description").eq(0);
+    // Subtract 146 from the description scroll height to match the paragarph overflow
+    activeDescHeight = currentActiveDescription[0].scrollHeight - 146;
+
+    // Check to see if overflow occured and if so, enable the R-Stick Icon
+    if (checkOverflow(currentActiveDescription[0])) {
+        document.getElementById("r-stick-desc-icon").style.visibility = "visible";
+    } else {
+        document.getElementById("r-stick-desc-icon").style.visibility = "hidden";
+    }
+}
+
+function checkGamepad(gamepad) {
+    var axisX = gamepad.axes[0];
+    var axisY = gamepad.axes[1];
+
+    if (currentState == MOD_MENU) {
+
+        if (gamepad.buttons[2].pressed) {
+            showSubMenu();
         }
-    }, 700);
+
+        if (gamepad.buttons[1].pressed) {
+            if (!AButtonHeld) {
+                toggleMod();
+                AButtonHeld = true;
+            }
+        } else {
+            AButtonHeld = false;
+        }
+
+        if (gamepad.buttons[0].pressed) {
+            if (!BButtonHeld) {
+                exit();
+                BButtonHeld = true;
+            }
+        } else {
+            BButtonHeld = false;
+        }
+
+        // Check if D-pad Left pressed or Left Stick X Axis less than -0.7
+        if (gamepad.buttons[14].pressed || axisX < -0.7) {
+            console.log("D-pad left pressed");
+        }
+        // Check if D-pad Up pressed or Y-Axis
+        else if (gamepad.buttons[12].pressed || axisY < -0.7) {
+            moveUp();
+        }
+        // Check if D-pad Right pressed or X Axis > 0.7
+        else if (gamepad.buttons[15].pressed || axisX > 0.7) {
+            console.log("D-pad Right pressed");
+        }
+        // Check if D-pad Down pressed or Y Axis > 0.7
+        else if (gamepad.buttons[13].pressed || axisY > 0.7) {
+            moveDown();
+        };
+
+        //#region L and R button Pressed (Pagination Prev or Next)
+        if (gamepad.buttons[4].pressed) {
+            prevPage();
+        }
+
+        if (gamepad.buttons[5].pressed) {
+            nextPage();
+        }
+        //#endregion
+
+        //#region R-Stick Y Value Calculation (Description scroll)
+        var RStickYValue = gamepad.axes[3].toFixed(2);
+
+        RStickYValue = (((RStickYValue - 0) * (20 - 0)) / (1 - 0)) + 0;
+        currentDescHeight += RStickYValue;
+
+        if (currentDescHeight < 0) {
+            currentDescHeight = 0;
+        } else if (currentDescHeight > activeDescHeight) {
+            currentDescHeight = activeDescHeight;
+        }
+        //#endregion
+
+        currentActiveDescription.scrollTop(currentDescHeight);
+        //#endregion
+    } else if (currentState == SUB_MENU) {
+        // Handle sub menu controls
+
+        // If B button pressed
+        if (gamepad.buttons[0].pressed) {
+            if (!BButtonHeld) {
+                showModMenu();
+                BButtonHeld = true;
+            }
+        } else {
+            BButtonHeld = false;
+        }
+    }
+}
+
+function moveUp() {
+    var source = document.querySelector("#mods>button.is-focused");
+    var target = document.querySelector("#mods>button.is-focused").previousElementSibling;
+
+    if (source == undefined) {
+        target = document.querySelector("#mods>button:first-child");
+    }
+
+    if (target == undefined) {
+        target = document.querySelector("#mods>button:last-child");
+    }
+
+    move(source, target);
+}
+
+function moveDown() {
+    var source = document.querySelector("#mods>button.is-focused");
+    var target = document.querySelector("#mods>button.is-focused").nextElementSibling;
+
+    if (source == undefined) {
+        target = document.querySelector("#mods>button:first-child");
+    }
+
+    if (target == undefined) {
+        target = document.querySelector("#mods>button:first-child");
+    }
+
+    move(source, target);
+}
+
+function move(source, target) {
+    if (source != undefined) {
+        source.classList.remove("is-focused");
+        var srcModName = $(source).find(".abstract-button-text");
+        srcModName.html(`<span class="marquee" data-msgid="textbox_id-4-1">${srcModName.attr('data-display_name')}</span>`);
+    }
+
+    if (target != undefined) {
+        var tgtModName = $(target).find(".marquee");
+
+        if (checkOverflow(tgtModName[0])) {
+            $(tgtModName).marquee({
+                //speed milliseconds
+                duration: 5000,
+                //gap in pixels between the tickers
+                gap: 400,
+                //time in milliseconds before the marquee will start animating
+                delayBeforeStart: 300,
+                //'left' or 'right'
+                direction: 'left',
+                //true or false - should the marquee be duplicated to show an effect of continues flow
+                duplicated: true,
+                // should the text be visible before starting
+                startVisible: true
+            });
+        }
+        target.classList.add("is-focused");
+        target.focus();
+        var mod = mods[target.getAttribute("data-mod-index")];
+        $("#description").html(mod["description"]);
+        $("#version").html(mod["version"]);
+        $("#authors").html(mod["authors"]);
+        $("#preview").attr("src", `img/${mod['id']}`);
+        updateCurrentDesc();
+    }
+}
+
+function nextPage() {
+
+    if ($('#mods').pagination("getTotalPage") <= 1) { return; }
+
+    if ($('#mods').pagination("getSelectedPageNum") == $('#mods').pagination("getTotalPage")) {
+        $('#mods').pagination("go", 1);
+    } else {
+        $('#mods').pagination("next");
+    }
+}
+
+function prevPage() {
+
+    if ($('#mods').pagination("getTotalPage") <= 1) { return; }
+
+    if ($('#mods').pagination("getSelectedPageNum") == 1) {
+        $('#mods').pagination("go", $('#mods').pagination("getTotalPage"));
+    } else {
+        $('#mods').pagination("previous");
+    }
 }
 
 // yoinked from here https://stackoverflow.com/questions/143815/determine-if-an-html-elements-content-overflows
 function checkOverflow(el) {
     var curOverflow = el.style.overflow;
 
-    if (!curOverflow || curOverflow === "visible")
+    if (!curOverflow || curOverflow === "visible") {
         el.style.overflow = "hidden";
+    }
 
-    var isOverflowing = el.clientWidth < el.scrollWidth
-        || el.clientHeight < el.scrollHeight;
+    var isOverflowing = el.clientWidth < el.scrollWidth ||
+        el.clientHeight < el.scrollHeight;
 
     el.style.overflow = curOverflow;
 
     return isOverflowing;
 }
 
-
-function updateCategory() {
-    // Hide the R-Stick icon in-case user was on a Item with a long description
-    document.getElementById("r-stick-desc-icon").style.visibility = "hidden";
-
-    // Update the current category
-    document.getElementById("current_category").innerHTML = categories[selectedCategoryIndex];
-
-    // Hide all visible mods, that way we don't iterate over the hidden ones
-    $("#holder>button:visible").each(function() {
-        $(this).hide();
-    });
-
-    // Display the first 10 mods to not stutter
-    $(`.${categories[selectedCategoryIndex]}`).slice(0, 10).each(function() {
-        $(this).show();
-    });
-
-    // Focus the first one for this category
-    $(`.${categories[selectedCategoryIndex]}`).first().focus();
-
-    modsContainer.stop();
-
-    // Scroll the container back to 0
-    modsContainer.animate({
-        scrollTop: 0
-    }, 0);
+function showSubMenu() {
+    $("#submenu").css("display", "flex");
+    $("#Fighter").focus();
+    document.querySelector('meta[name="focus-ring-visibility"]').setAttribute("content", "");
+    currentState = SUB_MENU;
 }
 
-function updateCurrentDesc(index) {
-    window.nx.sendMessage(JSON.stringify({DescriptionRequest: { id: index } }));
+function showModMenu() {
+    $("#submenu").css("display", "none");
+    document.querySelector('meta[name="focus-ring-visibility"]').setAttribute("content", "hidden");
+    var categoriesToUse = [];
+    $('#filters input:checkbox:checked').each(function(idx) {
+        categoriesToUse.push($(this).attr('id'));
+    });
+    currentMods = categoriesToUse.length == 0 ? mods : mods.filter(mod => categoriesToUse.includes(mod["category"]));
+    currentMods = currentMods.length == 0 ? mods : currentMods;
+    refreshCurrentMods();
+    currentState = MOD_MENU;
 }
 
-// Check the gamepad input for saving, switching categories, and scrolling the description
-function checkGamepad(index, gamepad) {
-    //#region UI Input Check
-
-    var axisX = gamepad.axes[0];
-    var axisY = gamepad.axes[1];
-
-    // Check A button
-    if(gamepad.buttons[1].pressed){
-        if(!AButtonHeld[index]){
-            AButtonHeld[index] = true;
-            $(".is-focused").last().click();
+function refreshCurrentMods() {
+    updateSort();
+    $('#mods').pagination({
+        dataSource: currentMods,
+        showPrevious: false,
+        showNext: false,
+        showPageNumbers: false,
+        callback: function(data, pagination) {
+            $("#mods").html(createMods(data));
+            move(undefined, $("#mods>button").get(0));
+            pageCount = Math.ceil(pagination["totalNumber"] / pagination["pageSize"]);
+        },
+        afterPaging: function(activePage) {
+            $("#pageInfo").html(`${activePage} of ${pageCount}`);
         }
-    }else{
-        AButtonHeld[index] = false;
+    });
+}
+
+function setAllState(state, src) {
+    for (var i = 0; i < mods.length; i++) {
+        mods[i]["is_disabled"] = !state;
     }
-    
-    // Check if D-pad Left pressed or Left Stick X Axis less than -0.7
-    if(gamepad.buttons[14].pressed || axisX < -0.7){
-        // Go up by 6 elements
-        var slice_index = 6;
-        var target = $(".is-focused").prevAll(`.${categories[selectedCategoryIndex]}`).slice(0, slice_index).last();
-        
-        $(".is-focused").nextAll(":visible").each(function() {
-            if (!checkInView($(this))) {
-                $(this).hide();
-            }
+    refreshCurrentMods();
+    src != undefined || src != null ? src.focus() : false;
+    window.nx.sendMessage(JSON.stringify({
+        "ChangeAllRequest": {
+            "state": state
+        }
+    }));
+}
+
+function exit() {
+    window.nx.sendMessage(JSON.stringify("ClosureRequest"));
+    window.location.href = "http://localhost/quit";
+}
+
+function updateSort() {
+    var descending = document.getElementById('desc').checked;
+    var sortType = document.getElementById('sortOptions').value;
+
+    if (sortType == "alphabetical") {
+        currentMods = JSON.parse(JSON.stringify(currentMods)).sort((a, b) => {
+            if (a["display_name"] < b["display_name"]) { return -1; }
+            if (a["display_name"] > b["display_name"]) { return 1; }
+            return 0;
         });
-
-        while (target.length <= 0 && slice_index != 0) {
-            slice_index -= 1;
-            target = $(".is-focused").prevAll(":visible").slice(0, slice_index).last();
-        }
-        
-        // If that doesn't exist, then dip
-        if (target.length <= 0) {
-            return;
-        }
-        
-        scroll(target, modsContainer.scrollTop() + target.position().top - 50);
-    }
-    // Check if D-pad Up pressed or Y-Axis
-    else if(gamepad.buttons[12].pressed || axisY < -0.7){
-        $(".is-focused").nextAll(":visible").each(function() {
-            if (!checkInView($(this))) {
-                $(this).hide();
-            }
-        });
-
-        // Get the mod above the current focused one
-        var target = $(".is-focused").prevAll(`.${categories[selectedCategoryIndex]}`).first();
-
-        while (target.length > 0 && target.is(':hidden')) {
-            target.show();
-            //target = target.prev();
-        }
-        
-        // If that doesn't exist, then dip
-        if (target.length <= 0) {
-            return;
-        }
-        
-        scroll(target, modsContainer.scrollTop() + target.position().top - 50);
-    }
-    // Check if D-pad Right pressed or X Axis > 0.7
-    else if(gamepad.buttons[15].pressed || axisX > 0.7){
-        // Go up down 6 elements
-        var slice_index = 6;
-        var target = $(".is-focused").nextAll(":visible").slice(0, slice_index).last();
-
-        $(".is-focused").prevAll(":visible").each(function() {
-            if (!checkInView($(this))) {
-                $(this).hide();
-            }
-        });
-
-        $(".is-focused").nextAll(`.${categories[selectedCategoryIndex]}`).slice(0, 7).each( function() {
-            $(this).show();
-        });
-        
-        while (target.length <= 0 && slice_index != 0) {
-            slice_index -= 1;
-            target = $(".is-focused").nextAll(":visible").slice(0, slice_index).last();
-        }
-        
-        // If that doesn't exist, then dip
-        if (target.length <= 0) {
-            return;
-        }
-        
-        scroll(target, (modsContainer.scrollTop()) + (target.height() * 2));
-    }
-    // Check if D-pad Down pressed or Y Axis > 0.7
-    else if (gamepad.buttons[13].pressed || axisY > 0.7) {
-        $(".is-focused").prevAll(":visible").each(function() {
-            if (!checkInView($(this))) {
-                $(this).hide();
-            }
-        });
-        
-        $(".is-focused").nextAll(`.${categories[selectedCategoryIndex]}`).slice(0, 7).each( function() {
-            $(this).show();
-        });
-
-        // Get the next mod that will be focused on
-        var target = $(".is-focused").next();
-
-        while (target.length > 0 && target.is(':hidden')) {
-            target = target.next();
-        }
-        
-        // If there is none after that, then just return
-        if (target.length <= 0) {
-            return;
-        }
-        
-        scroll(target, (modsContainer.scrollTop()) + (target.height() * 2));
-    };
-    //#endregion
-
-
-    //#region + Button Pressed Check (Save)
-    if (gamepad.buttons[9].pressed) {
-        document.getElementById("link-save").click();
-    }
-    //#endregion
-
-    //#region R-Stick Y Value Calculation (Description scroll)
-    var RStickYValue = gamepad.axes[3].toFixed(2);
-
-    RStickYValue = (((RStickYValue - 0) * (20 - 0)) / (1 - 0)) + 0;
-    currentDescHeight += RStickYValue;
-
-    if (currentDescHeight < 0) {
-        currentDescHeight = 0;
-    }
-    else if (currentDescHeight > activeDescHeight) {
-        currentDescHeight = activeDescHeight;
     }
 
-    currentActiveDescription.scrollTop(currentDescHeight);
-    //#endregion
+    if (descending) {
+        currentMods.reverse();
+    }
+}
 
-    //#region L and R button Pressed Checkd (Category Switching)
-    if (gamepad.buttons[4].pressed) {
-        if (!LButtonHeld[index]) {
-            selectedCategoryIndex = selectedCategoryIndex == 0 ? categories.length - 1 : selectedCategoryIndex - 1;
-            updateCategory();
-            LButtonHeld[index] = true;
+window.addEventListener("DOMContentLoaded", (e) => {
+    if (!isNx) {
+        mods = [];
+        for (var i = 0; i < 9999; i++) {
+            mods.push({
+                "id": i,
+                "display_name": `Mod #${i}`,
+                "version": `${i + 3}.${i + 2}.${i}`,
+                "is_disabled": true,
+                "category": categories[i % categories.length],
+                "authors": `Coolsonickirby`,
+                "description": `Hey guys! This is one of the coolest mods ever made! Mod #${i}. Hey guys! This is one of the coolest mods ever made! Mod #${i}. Hey guys! This is one of the coolest mods ever made! Mod #${i}. Hey guys! This is one of the coolest mods ever made! Mod #${i}. Hey guys! This is one of the coolest mods ever made! Mod #${i}.`,
+            });
         }
+
+        currentMods = mods;
+        refreshCurrentMods();
     } else {
-        LButtonHeld[index] = false;
-    };
 
-    if (gamepad.buttons[5].pressed) {
-        if (!RButtonHeld[index]) {
-            selectedCategoryIndex = selectedCategoryIndex == categories.length - 1 ? 0 : selectedCategoryIndex + 1;
-            updateCategory();
-            RButtonHeld[index] = true;
-        }
-    } else {
-        RButtonHeld[index] = false;
-    };
-    //#endregion
-};
+        $.ajax({
+            dataType: "json",
+            url: "mods.json",
+            success: (data) => {
+                mods = data;
+                $("#workspace").html(mods.length);
+                currentMods = mods;
+                refreshCurrentMods();
+            }
+        });
 
+        // Listen to the keydown event and prevent the default
+        window.addEventListener('keydown', function(e) {
+            if (currentState != SUB_MENU) {
+                e.preventDefault();
+            }
+        });
 
-// yonked from here https://stackoverflow.com/questions/16308037/detect-when-elements-within-a-scrollable-div-are-out-of-view
-function checkInView(elem, partial) {
-    var container = modsContainer;
-    var contHeight = container.height();
-    var contTop = container.scrollTop();
-    var contBottom = contTop + contHeight;
-
-    var elemTop = $(elem).offset().top - container.offset().top;
-    var elemBottom = elemTop + $(elem).height();
-
-    var isTotal = (elemTop >= 0 && elemBottom <= contHeight);
-    var isPart = ((elemTop < 0 && elemBottom > 0) || (elemTop > 0 && elemTop <= container.height())) && partial;
-
-    return isTotal || isPart;
-}
-
-function scroll(target, offset) {
-    // Check to see if mod is completely in view
-    var fully = checkInView(target) == undefined ? false : true;
-
-    // If so, then just focus and dip
-    if (fully) {
-        target.focus();
-    } else {
-        // Remove focus from currently focused one
-        $(".is-focused").focusout();
-        // Stop any animation going on in the container
-        modsContainer.stop();
-        // Animate the mod container scrolling with a speed of 0 (fastest)
-        modsContainer.animate({
-            scrollTop: offset
-        }, 0);
-        // Focus on the previous mod
-        target.focus();
+        window.nx.footer.setAssign("B", "", () => {});
+        window.nx.footer.setAssign("X", "", () => {});
     }
-}
-
-
-window.onload = function () {
-    // Select the mod container
-    modsContainer = $("#left-stick-home");
-    containerHeight = modsContainer.height();
-
-    // Select all mods
-    mods = document.querySelectorAll("#holder>button");
-
-    for (var i = 0; i < 10; i++) {
-        mods[i].style.display = "inline-flex";
-    }
-
-    // Replace the icon in the submit button with a + icon
-    document.getElementById("submit_icon").innerHTML = "&#xe0f1";
-
-    // Listen to the keydown event and prevent the default
-    window.addEventListener('keydown', function (e) {
-        e.preventDefault();
-    });
-
-    // Listen to the gamepadconnected event
-    window.addEventListener("gamepadconnected", function (e) {
-        // Once a gamepad has connected, start an interval function that will run every 100ms to check for input
-        setInterval(function () {
-            var gpl = navigator.getGamepads();
-                    checkGamepad(0, gpl[0]);
-
-        }, 100);
-    });
-
-    window.nx.addEventListener("message", function (e) {
-        var entry = JSON.parse(e.data);
-        // Reset current description height
-        currentDescHeight = 0;
-
-        // Edit the informations based on what was received. If the value is None, it just won't display anything, which is fine
-        document.getElementById("description").innerHTML = entry.description;
-        document.getElementById("version").innerHTML = `Version: ${entry.version}`;
-
-        document.getElementById("preview").src = `${entry.image}`;
-
-        var main_content = $('.l-main-content');
-        // Assign the currently active description element to the global active description variable for use later
-        currentActiveDescription = main_content.find(".l-description");
-        // Subtract 146 from the description scroll height to match the paragarph overflow
-        activeDescHeight = currentActiveDescription[0].scrollHeight - 146;
-
-        // Check to see if overflow occured and if so, enable the R-Stick Icon
-        if (checkOverflow(currentActiveDescription[0])) {
-            document.getElementById("r-stick-desc-icon").style.visibility = "visible";
-        } else {
-            document.getElementById("r-stick-desc-icon").style.visibility = "hidden";
-        }
-    });
-}
-
-// Code to handle this session wasn't made to detect a closure by button
-window.nx.footer.unsetAssign( "B" );
+});
