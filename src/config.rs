@@ -9,19 +9,6 @@ use walkdir::WalkDir;
 use std::sync::Mutex;
 use skyline::nn;
 
-
-lazy_static! {
-    static ref CONFIG_PATH: PathBuf = {
-        let path = PathBuf::from("sd:/ultimate/arcropolis");
-        match std::fs::create_dir_all(&path) {
-            Err(_) => panic!("ARCropolis failed to find/create required directory 'sd:/ultimate/arcropolis'"),
-            _ => {}
-        }
-        path.join("config.toml")
-    };
-}
-
-
 fn arcropolis_version() -> String { env!("CARGO_PKG_VERSION").to_string() }
 const fn always_true() -> bool { true }
 const fn always_false() -> bool { false }
@@ -38,7 +25,7 @@ lazy_static! {
         // Version file does not exist
         if version.is_err() {
         // Check if a legacy configuration does exist
-        match std::fs::read_to_string(&*CONFIG_PATH) {
+        match std::fs::read_to_string("sd:/ultimate/arcropolis/config.toml") {
             // Legacy configuration exists, try parsing it
             Ok(toml) => match toml::de::from_str::<Config>(toml.as_str()) {
                 // Parsing successful, migrate everything to the new system
@@ -123,6 +110,8 @@ lazy_static! {
                 }
             }
         }
+    } else {
+        // The version file exists, check
     }
     
 

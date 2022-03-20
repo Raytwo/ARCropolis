@@ -37,15 +37,15 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         println!("Emulator usage detected in perform_discovery, reverting to old behavior.");
     }
 
+    let legacy_discovery = config::legacy_discovery();
+
     let filter = |path: &Path| {
         // If we're not running on emulator
-        if !is_emulator && !config::legacy_discovery() {
+        if !is_emulator && !legacy_discovery {
             // If it's not in the presets, don't load
-            trace!("New discovery system");
             PRESET_HASHES.contains(&Hash40::from(path.to_str().unwrap()))
         } else {
             // Legacy filter, load the mod except if it has a period at the start of the name
-            trace!("Legacy discovery system");
 
             path
                 .file_name()
@@ -109,10 +109,8 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     let umm_path = config::umm_path();
 
-    let mut storage = config::GLOBAL_CONFIG.lock().unwrap().get_flag("legacy_discovery");
-
     // Emulators can't use presets, so don't run this logic
-    if !is_emulator && !storage {
+    if !is_emulator && !legacy_discovery {
         let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
         // Get the mod cache from last run
         let mut mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();
