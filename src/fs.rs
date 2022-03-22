@@ -451,8 +451,9 @@ impl CachedFilesystem {
         });
 
         /// Don't unshare any files in the unshare blacklist (nus3audio handled during filesystem finish)
-        let files = self.hash_lookup.iter().filter_map(|(hash, _)| {
+        let files = self.hash_lookup.iter().filter_map(|(hash, path)| {
             if self.config.unshare_blacklist.contains(&Hash40String(*hash)) {
+                println!("blacklisting file: {:#x}", hash.0);
                 None
             } else {
                 Some(*hash)
