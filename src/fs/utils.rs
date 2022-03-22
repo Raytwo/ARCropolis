@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use smash_arc::Hash40;
 use orbits::{Tree, FileLoader};
 use smash_arc::serde::Hash40String;
-use crate::PathExtension;
+use crate::{PathExtension, hashes};
 
 use super::{ApiLoader, ApiCallback};
 
@@ -102,10 +102,16 @@ pub fn add_prc_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>,
     let full_path = phys_root.as_ref().join(local); // need the full path so that our API loader can load it
     match base_local.smash_hash() {
         Ok(hash) => {
-            tree.insert_file("api:/patch-prc", base_local);
+            tree.insert_file("api:/patch-prc",  &base_local);
             tree.loader.push_entry(hash, Path::new("api:/patch-prc"), ApiCallback::None);
             // We need to add our file to the vector of patch files
             tree.loader.insert_prc_patch(hash, &full_path);
+            if let Some(local) = local.to_str() {
+                hashes::add(local);
+            }
+            if let Some(base_local) = base_local.to_str() {
+                hashes::add(base_local);
+            }
             Some(hash)
         },
         Err(e) => {
@@ -122,10 +128,16 @@ pub fn add_msbt_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>
     let full_path = phys_root.as_ref().join(local); // need the full path so that our API loader can load it
     match base_local.smash_hash() {
         Ok(hash) => {
-            tree.insert_file("api:/patch-msbt", base_local);
+            tree.insert_file("api:/patch-msbt",  &base_local);
             tree.loader.push_entry(hash, Path::new("api:/patch-msbt"), ApiCallback::None);
             // We need to add our file to the vector of patch files
             tree.loader.insert_msbt_patch(hash, &full_path);
+            if let Some(local) = local.to_str() {
+                hashes::add(local);
+            }
+            if let Some(base_local) = base_local.to_str() {
+                hashes::add(base_local);
+            }
             Some(hash)
         },
         Err(e) => {
