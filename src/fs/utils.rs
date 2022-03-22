@@ -121,6 +121,17 @@ pub fn add_prc_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>,
     } else {
         unreachable!()
     };
+    let base_local = if let Some(name) = base_local.file_name().map(|os_str| os_str.to_str()).flatten() {
+        if let Some(idx) = name.find("+") {
+            let mut new_name = name.to_string();
+            new_name.replace_range(idx..idx+6, "");
+            base_local.with_file_name(new_name)
+        } else {
+            base_local
+        }
+    } else {
+        base_local
+    };
     let full_path = phys_root.as_ref().join(local); // need the full path so that our API loader can load it
     match base_local.smash_hash() {
         Ok(hash) => {
@@ -147,6 +158,17 @@ pub fn add_prc_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>,
 pub fn add_msbt_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>, phys_root: P, local: Q) -> Option<Hash40> {
     let local = local.as_ref();
     let base_local = local.with_extension("msbt"); // patch files have different extensions
+    let base_local = if let Some(name) = base_local.file_name().map(|os_str| os_str.to_str()).flatten() {
+        if let Some(idx) = name.find("+") {
+            let mut new_name = name.to_string();
+            new_name.replace_range(idx..idx+6, "");
+            base_local.with_file_name(new_name)
+        } else {
+            base_local
+        }
+    } else {
+        base_local
+    };
     let full_path = phys_root.as_ref().join(local); // need the full path so that our API loader can load it
     match base_local.smash_hash() {
         Ok(hash) => {
