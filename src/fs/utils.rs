@@ -11,6 +11,16 @@ pub fn make_hash_maps<L: FileLoader>(tree: &Tree<L>) -> (HashMap<Hash40, usize>,
 where
     <L as FileLoader>::ErrorType: Debug
 {
+    // This defines the previously undefined behavior of what happens when you have two files that overlap each other due to
+    // regional things
+    // I.E.: ui/message/msg_menu.msbt and ui/message/msg_menu+us_en.msbt
+    // The regional variant should take priority. Since there can only be one regional file, there are only two situations which need to be handled:
+    // 1.) ui/message/msg_menu.msbt is found and then ui/message/msg_menu+us_en.msbt is found. ui/message/msg_menu+us_en.msbt should overwrite the previous file
+    // 2.) ui/message/msg_menu+us_en.msbt is found first, and when ui/message/msg_menu.msbt is found it should be discarded
+    // To solve this I store the hash of every file which has a regional variant which has been found, and then if a non-regional variant is found
+    // it is ignored
+    // - blujay
+    let mut regional_overrides = HashSet::new();
     let mut size_map = HashMap::new();
     let mut path_map = HashMap::new();
     tree.walk_paths(|node, ty| {
@@ -21,8 +31,20 @@ where
         if let Some(size) = tree.query_filesize(node.get_local()) {
             match node.get_local().smash_hash() {
                 Ok(hash) => {
+                    if regional_overrides.contains(&hash) { return; }
+
+                    let is_regional_variant = if let Some(node) = node.get_local().to_str() {
+                        node.contains("+")
+                    } else {
+                        false
+                    };
+
                     size_map.insert(hash, size);
                     path_map.insert(hash, node.get_local().to_path_buf());
+
+                    if is_regional_variant {
+                        regional_overrides.insert(hash);
+                    }
                 },
                 Err(e) => error!("Failed to get hash for {}. Reason: {:?}", node.get_local().display(), e)
             }
