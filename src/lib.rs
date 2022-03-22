@@ -287,7 +287,6 @@ fn change_version_string(arg: u64, string: *const c_char) {
 #[skyline::hook(offset = offsets::eshop_show())]
 fn show_eshop() {
     unsafe { 
-        println!("show_eshop");
         //stop_all_bgm();
         //let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
         //play_bgm(instance as _, 0xd9ffff202a04c55b, false);

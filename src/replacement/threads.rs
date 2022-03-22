@@ -97,7 +97,6 @@ pub fn handle_file_replace(hash: Hash40) {
             filepath_index,
             file_info_indice_index
         );
-        return;
     }
 
     if filesystem_info.get_loaded_datas()[file_info_indice_index].data.is_null() {

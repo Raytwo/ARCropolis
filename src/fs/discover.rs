@@ -14,18 +14,18 @@ lazy_static! {
 
         let presets = match storage.get_field_json("presets") {
             Ok(presets) => {
-                println!("Preset properly deserialized");
+                trace!("Preset properly deserialized");
                 presets
             },
             Err(err) => {
-                println!("Preset deserialize error: {:?}", err);
+                trace!("Preset deserialize error: {:?}", err);
                 let empty_presets: HashSet<Hash40> = HashSet::new();
                 storage.set_field_json("presets", &empty_presets);
                 empty_presets
             },
         };
 
-        println!("Presets count: {}", presets.len());
+        trace!("Presets count: {}", presets.len());
         presets
     };
 }
@@ -34,7 +34,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
 
     if is_emulator {
-        println!("Emulator usage detected in perform_discovery, reverting to old behavior.");
+        info!("Emulator usage detected in perform_discovery, reverting to old behavior.");
     }
 
     let legacy_discovery = config::legacy_discovery();
@@ -88,7 +88,17 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
                     "config.json",
                     "plugin.nro",
                 ];
-                RESERVED_NAMES.contains(&name) || name.ends_with("prcx") || name.ends_with("prctxt") || name.ends_with("xmsbt")
+                static PATCH_EXTENSIONS: &[&'static str] = &[
+                    "prcx",
+                    "prcxml",
+                    "stdatx",
+                    "stdatxml",
+                    "stprmx",
+                    "stprmxml",
+
+                    "xmsbt"
+                ];
+                RESERVED_NAMES.contains(&name) || PATCH_EXTENSIONS.iter().any(|x| name.ends_with(x))
             },
             _ => false
         }

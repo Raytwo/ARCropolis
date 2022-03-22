@@ -77,7 +77,7 @@ pub fn show_config_editor() {
                     session.send(&curr_value);
                     storage.set_field("region", &msg.value).unwrap();
                     session.send(&msg.value);
-                    println!("Set region to {}", &msg.value);
+                    info!("Set region to {}", &msg.value);
                     reboot_required = true;
                 },
                 "log" => {
@@ -85,7 +85,7 @@ pub fn show_config_editor() {
                     session.send(&curr_value);
                     storage.set_field("logging_level", &msg.value).unwrap();
                     session.send(&msg.value);
-                    println!("Set logger to {}", &msg.value);
+                    info!("Set logger to {}", &msg.value);
                 },
                 // A "true" value is passed for flags, you might be wondering why.
                 // If you pass ``null``, the browser closes, because Value is not a String or a Option. I think?
@@ -93,31 +93,31 @@ pub fn show_config_editor() {
                 "beta" => {
                     let curr_value = !storage.get_flag("beta_updates");
                     storage.set_flag("beta_updates", curr_value).unwrap();
-                    println!("Set beta update flag to {}", curr_value);
+                    info!("Set beta update flag to {}", curr_value);
                     session.send("beta");
                 },
                 "discovery" => {
                     let curr_value = !storage.get_flag("legacy_discovery");
                     storage.set_flag("legacy_discovery", curr_value).unwrap();
-                    println!("Set legacy_discovery flag to {}", curr_value);
+                    info!("Set legacy_discovery flag to {}", curr_value);
                     session.send("legacy_discovery");
                 },
                 "debug" => {
                     let curr_value = !storage.get_flag("debug");
                     storage.set_flag("debug", curr_value).unwrap();
-                    println!("Set debug flag to {}", curr_value);
+                    info!("Set debug flag to {}", curr_value);
                     session.send("debug");
                 },
                 "log_to_file" => {
                     let curr_value = !storage.get_flag("log_to_file");
                     storage.set_flag("log_to_file", curr_value).unwrap();
-                    println!("Set log_to_file flag to {}", curr_value);
+                    info!("Set log_to_file flag to {}", curr_value);
                     session.send("log_to_file");
                 },
                 "auto_update" => {
                     let curr_value = !storage.get_flag("auto_update");
                     storage.set_flag("auto_update", curr_value).unwrap();
-                    println!("Set auto_update flag to {}", curr_value);
+                    info!("Set auto_update flag to {}", curr_value);
                     session.send("auto_update");
                 },
                 _ => {

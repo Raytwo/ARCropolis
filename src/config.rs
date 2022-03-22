@@ -104,7 +104,7 @@ lazy_static! {
                         debug_storage.delete_storage();
                     },
                     Err(_) => {
-                        println!("Unable to read legacy config file, generating default values.");
+                        error!("Unable to read legacy config file, generating default values.");
                         generate_default_config(&mut storage);
                     },
                 }
