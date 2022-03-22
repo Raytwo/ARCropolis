@@ -130,7 +130,7 @@ pub fn show_arcadia() {
     let img_cache = "sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/img";
 
     if std::fs::metadata(&img_cache).is_ok() {
-        let _ = std::fs::remove_dir_all(&img_cache).map_err(|err| println!("Error occured in ARCadia-rs when trying to delete cache: {}", err));
+        let _ = std::fs::remove_dir_all(&img_cache).map_err(|err| error!("Error occured in ARCadia-rs when trying to delete cache: {}", err));
     };
 
     std::fs::create_dir_all(&img_cache).unwrap();
@@ -161,7 +161,7 @@ pub fn show_arcadia() {
             ArcadiaMessage::ToggleModRequest { id, state } => {
                 let path = format!("{}/{}", workspace.display(), mods.entries[id].folder_name.as_ref().unwrap());
                 let hash = Hash40::from(path.as_str());
-                println!("Setting {} to {}", path, state);
+                debug!("Setting {} to {}", path, state);
 
                 if state {
                     new_presets.insert(hash);
@@ -169,10 +169,10 @@ pub fn show_arcadia() {
                     new_presets.remove(&hash);
                 }
 
-                println!("{} has been {}", path, state);
+                debug!("{} has been {}", path, state);
             }
             ArcadiaMessage::ChangeAllRequest { state } => {
-                println!("Changing all to {}", state);
+                debug!("Changing all to {}", state);
 
                 if !state {
                     new_presets.clear();

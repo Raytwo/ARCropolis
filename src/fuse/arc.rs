@@ -13,13 +13,13 @@ pub struct ArcFileAccessor(Hash40);
 
 impl FileAccessor for ArcFileAccessor {
     fn read(&mut self, mut buffer: &mut [u8], offset: usize) -> Result<usize, AccessorResult> {
-        println!("ArcFileAccessor::read - Buffer length: {:x}", buffer.len());
+        debug!("ArcFileAccessor::read - Buffer length: {:x}", buffer.len());
         let file = ARC_FILE.get_file_contents(self.0, smash_arc::Region::UsEnglish).unwrap();
         Ok(buffer.write(&file.as_slice()[offset..]).unwrap())
     }
 
     fn get_size(&mut self) -> Result<usize, AccessorResult> {
-        println!("ArcFileAccessor::get_size");
+        debug!("ArcFileAccessor::get_size");
         Ok(ARC_FILE.get_file_data_from_hash(self.0, smash_arc::Region::UsEnglish).unwrap().decomp_size as _)
     }
 }
@@ -40,7 +40,7 @@ pub struct ArcFuse;
 
 impl FileSystemAccessor for ArcFuse {
     fn get_entry_type(&self, path: &std::path::Path) -> Result<FsEntryType, AccessorResult> {
-        println!("Path: {}", path.display());
+        debug!("Path: {}", path.display());
         if path.file_name().is_some() {
             Ok(FsEntryType::File)
         } else {
@@ -53,7 +53,7 @@ impl FileSystemAccessor for ArcFuse {
         let write = mode >> 1 & 1;
         let append = mode >> 2 & 1;
 
-        println!("Path: {}, read: {}, write: {}, append: {}", path.display(), read, write, append);
+        debug!("Path: {}, read: {}, write: {}, append: {}", path.display(), read, write, append);
 
         let hash = path.smash_hash().unwrap();
 
@@ -76,5 +76,5 @@ impl FileSystemAccessor for ArcFuse {
 pub fn install_arc_fs() {
     let accessor = FsAccessor::new(ArcFuse);
     unsafe { nn_fuse::mount("arc", &mut *accessor).unwrap() };
-    println!("Finished mounting arc:/");
+    info!("Finished mounting arc:/");
 }

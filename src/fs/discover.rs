@@ -88,7 +88,17 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
                     "config.json",
                     "plugin.nro",
                 ];
-                RESERVED_NAMES.contains(&name) || name.ends_with("prcx") || name.ends_with("prctxt") || name.ends_with("xmsbt")
+                static PATCH_EXTENSIONS: &[&'static str] = &[
+                    "prcx",
+                    "prcxml",
+                    "stdatx",
+                    "stdatxml",
+                    "stprmx",
+                    "stprmxml",
+
+                    "xmsbt"
+                ];
+                RESERVED_NAMES.contains(&name) || PATCH_EXTENSIONS.iter().any(|x| name.ends_with(x))
             },
             _ => false
         }
