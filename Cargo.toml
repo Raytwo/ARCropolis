@@ -53,9 +53,6 @@ msbt = { git = "https://github.com/RoccoDev/msbt-rs", branch = "feature/builder-
 ring = { git = "https://github.com/skyline-rs/ring", branch = "0.16.20" }
 webpki = { git = "https://github.com/skyline-rs/webpki" }
 
-[patch.'https://github.com/jam1garner/smash-arc']
-smash-arc = { git = 'https://github.com/blu-dev/smash-arc' }
-
 # [patch.'https://github.com/blu-dev/orbits']
 # orbits = { path = "../orbits" }
 
