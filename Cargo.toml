@@ -37,7 +37,7 @@ strip-ansi-escapes = "0.1.1"
 bincode = "1.3.3"
 # To manage mods
 orbits = { git = "https://github.com/blu-dev/orbits" }
-smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd"] }
+smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd", "serialize"] }
 arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api" }
 # For arc:/ and mods:/
 nn-fuse = { git = "https://github.com/blu-dev/nn-fuse" }
