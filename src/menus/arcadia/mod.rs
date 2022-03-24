@@ -104,7 +104,7 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
 }
 
 pub fn show_arcadia() {
-    let workspace = PathBuf::from(config::umm_path());
+    let workspace = config::umm_path();
 
     if !workspace.exists() {
         skyline_web::DialogOk::ok("It seems the directory specified in your configuration does not exist.");
@@ -118,7 +118,7 @@ pub fn show_arcadia() {
     //region Setup Preview Images
     let mut images: Vec<(String, Vec<u8>)> = Vec::new();
     for item in &mods.entries {
-        let path = PathBuf::from(&workspace)
+        let path = &workspace
             .join(item.folder_name.as_ref().unwrap())
             .join("preview.webp");
 

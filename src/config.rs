@@ -210,18 +210,18 @@ impl Config {
 }
 #[derive(Serialize, Deserialize)]
 struct ConfigPaths {
-    pub arc: String,
-    pub umm: String,
+    pub arc: PathBuf,
+    pub umm: PathBuf,
 
     #[serde(default)]
-    pub extra_paths: Vec<String>,
+    pub extra_paths: Vec<PathBuf>,
 }
 
 impl ConfigPaths {
     fn new() -> Self {
         Self {
-            arc: String::from("rom:/arc"),
-            umm: String::from("sd:/ultimate/mods"),
+            arc: PathBuf::from("rom:/arc"),
+            umm: PathBuf::from("sd:/ultimate/mods"),
             extra_paths: Vec::new(),
         }
     }
@@ -276,12 +276,18 @@ pub fn version() -> String {
     version
 }
 
-pub fn arc_path() -> String {
-    String::from("rom:/arc")
+pub fn arc_path() -> PathBuf {
+    PathBuf::from("rom:/arc")
 }
 
-pub fn umm_path() -> String {
-    String::from("sd:/ultimate/mods")
+pub fn umm_path() -> PathBuf {
+    let path = PathBuf::from("sd:/ultimate/mods");
+
+    if !path.exists() {
+        std::fs::create_dir_all("sd:/ultimate/mods").unwrap();
+    }
+
+    path
 }
 
 pub fn extra_paths() -> Vec<String> {
