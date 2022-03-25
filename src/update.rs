@@ -102,7 +102,7 @@ where
                 panic!("ARCropolis failed to extract update ZIP. Reason: {:?}", e);
             }
 
-            nn::oe::RestartProgramNoArgs();
+            unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
         }
     }
 }
