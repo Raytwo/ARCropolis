@@ -1,6 +1,6 @@
 [package]
 name = "arcropolis"
-version = "3.1.1"
+version = "3.1.2"
 authors = ["Raytwo <raytwo@arcropolis.com>, blujay <the.blu.dev@gmail.com>, jam1garner <jam@jam1.re>, CoolSonicKirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
@@ -46,8 +46,8 @@ prcx = { git = "https://github.com/blu-dev/prcx", branch = "xml-style" }
 serde-xml-rs = "0.3.1"
 msbt = { git = "https://github.com/RoccoDev/msbt-rs", branch = "feature/builder-from-impl" }
 # For inputs
-# ninput = { git = "https://github.com/blu-dev/ninput" }
-# ninput = { path = "../ninput" }
+ninput = { git = "https://github.com/blu-dev/ninput" }
+#ninput = { path = "../ninput" }
 
 [patch.crates-io]
 ring = { git = "https://github.com/skyline-rs/ring", branch = "0.16.20" }

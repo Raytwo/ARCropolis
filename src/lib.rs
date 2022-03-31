@@ -224,6 +224,11 @@ fn check_for_changelog() {
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     check_for_changelog();
+
+    if ninput::any::is_down(ninput::Buttons::PLUS) {
+        menus::show_main_menu();
+    }
+
     //menus::show_arcadia();
     let arc = resource::arc();
     fuse::arc::install_arc_fs();
@@ -300,6 +305,9 @@ pub fn main() {
     
     // Initialize the time for the logger
     init_time();
+
+    // Initialize hid
+    ninput::init();
 
     // Attempt to initialize the logger, and if we fail we will just do a regular println
     if let Err(err) = logging::init(
