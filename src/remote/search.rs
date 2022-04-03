@@ -1,11 +1,10 @@
 use std::{cell::RefCell, rc::Rc};
 
 use owo_colors::OwoColorize;
-use smash_arc::LoadedSearchSection;
-use smash_arc::*;
+use smash_arc::{LoadedSearchSection, *};
 
-use crate::{hashes, resource, replacement::SearchEx};
 use super::*;
+use crate::{hashes, replacement::SearchEx, resource};
 
 fn handle_get_folder_path_index(search: &LoadedSearchSection, mut args: Vec<String>) -> String {
     if let Some(index) = get_flag_and_option("-i", &mut args) {
@@ -22,7 +21,7 @@ fn handle_get_folder_path_index(search: &LoadedSearchSection, mut args: Vec<Stri
         let hash = parse_hash(hash.as_str());
         match search.get_folder_path_index_from_hash(hash) {
             Ok(index) => format!("{:#x?}", index),
-            Err(err) => format!("{:?}", err)
+            Err(err) => format!("{:?}", err),
         }
     } else {
         String::from("")
@@ -44,7 +43,7 @@ fn handle_get_folder_path(search: &LoadedSearchSection, mut args: Vec<String>) -
         let hash = parse_hash(hash.as_str());
         match search.get_folder_path_entry_from_hash(hash) {
             Ok(index) => format!("{:#x?}", index),
-            Err(err) => format!("{:?}", err)
+            Err(err) => format!("{:?}", err),
         }
     } else {
         String::from("")
@@ -66,7 +65,7 @@ fn handle_get_path_index(search: &LoadedSearchSection, mut args: Vec<String>) ->
         let hash = parse_hash(hash.as_str());
         match search.get_path_index_from_hash(hash) {
             Ok(index) => format!("{:#x?}", index),
-            Err(err) => format!("{:?}", err)
+            Err(err) => format!("{:?}", err),
         }
     } else {
         String::from("")
@@ -88,7 +87,7 @@ fn handle_get_path_entry_index(search: &LoadedSearchSection, mut args: Vec<Strin
         let hash = parse_hash(hash.as_str());
         match search.get_path_list_index_from_hash(hash) {
             Ok(index) => format!("{:#x}", index),
-            Err(err) => format!("{:?}", err)
+            Err(err) => format!("{:?}", err),
         }
     } else {
         String::from("")
@@ -110,7 +109,7 @@ fn handle_get_path(search: &LoadedSearchSection, mut args: Vec<String>) -> Strin
         let hash = parse_hash(hash.as_str());
         match search.get_path_list_entry_from_hash(hash) {
             Ok(index) => format!("{:#x?}", index),
-            Err(err) => format!("{:?}", err)
+            Err(err) => format!("{:?}", err),
         }
     } else {
         String::from("")
@@ -127,16 +126,21 @@ fn handle_walk_directory(search: &LoadedSearchSection, mut args: Vec<String>) ->
     let hash = if let Some(hash) = get_flag_and_option("-h", &mut args) {
         parse_hash(hash.as_str())
     } else {
-        return String::from("");
+        return String::from("")
     };
 
     let is_pretty = check_for_flag("-p", &mut args);
     let min_depth = parse_index(get_flag_and_option("--min-depth", &mut args).unwrap_or(String::from("0")).as_str()).unwrap_or(0) as usize;
-    let max_depth = parse_index(get_flag_and_option("--max-depth", &mut args).unwrap_or(String::from("0xFFFFFFFF")).as_str()).unwrap_or(0xFFFFFFFF) as usize;
+    let max_depth = parse_index(
+        get_flag_and_option("--max-depth", &mut args)
+            .unwrap_or(String::from("0xFFFFFFFF"))
+            .as_str(),
+    )
+    .unwrap_or(0xFFFFFFFF) as usize;
 
     let _ = search.walk_directory(hash, |child, depth| {
         if !(min_depth..max_depth + 1).contains(&depth) {
-            return;
+            return
         }
         write_indent(depth - min_depth);
         print!("-| ");
@@ -155,7 +159,7 @@ fn handle_walk_directory(search: &LoadedSearchSection, mut args: Vec<String>) ->
                 } else {
                     print!("Folder: {} ({:#x})\n", hashes::find(folder.path.hash40()), folder.path.hash40().0);
                 }
-            }
+            },
         }
     });
 
@@ -165,7 +169,7 @@ fn handle_walk_directory(search: &LoadedSearchSection, mut args: Vec<String>) ->
 pub fn handle_command(mut args: Vec<String>) -> String {
     let search = resource::search();
     if args.len() == 0 {
-        return String::from("");
+        return String::from("")
     }
     let command = args.remove(0);
     match command.as_str() {
@@ -175,6 +179,6 @@ pub fn handle_command(mut args: Vec<String>) -> String {
         "get_path_entry_index" => handle_get_path_entry_index(search, args),
         "get_path" => handle_get_path(search, args),
         "walk_directory" => handle_walk_directory(search, args),
-        _ => String::from("")
+        _ => String::from(""),
     }
 }

@@ -4,8 +4,7 @@ pub mod arc;
 pub mod search;
 pub mod table;
 
-static USAGE: &'static str = 
-r#"ARCropolis remote CLI server | Usage
+static USAGE: &'static str = r#"ARCropolis remote CLI server | Usage
 General:
     Common flags are '-i' for passing an index and '-h' for passing a hashable item. Hashable items are either raw hashes (prefixed with 0x) or strings.
     An index can be either decimal or hexadecimal.
@@ -75,9 +74,9 @@ pub fn parse_index(arg: &str) -> Option<u32> {
         Err(_) => {
             match u32::from_str_radix(arg.trim_start_matches("0x"), 16) {
                 Ok(val) => Some(val),
-                Err(_) => None
+                Err(_) => None,
             }
-        }
+        },
     }
 }
 
@@ -85,7 +84,7 @@ pub fn parse_hash(arg: &str) -> Hash40 {
     if arg.starts_with("0x") {
         match u64::from_str_radix(arg.trim_start_matches("0x"), 16) {
             Ok(val) => Hash40(val),
-            Err(_) => Hash40::from(arg)
+            Err(_) => Hash40::from(arg),
         }
     } else {
         Hash40::from(arg)
@@ -94,15 +93,14 @@ pub fn parse_hash(arg: &str) -> Hash40 {
 
 pub fn check_for_flag(flag: &str, args: &mut Vec<String>) -> bool {
     let mut index = 0;
-    let has_flag = args.iter().enumerate()
-        .any(|(idx, x)| {
-            if x == flag {
-                index = idx;
-                true
-            } else {
-                false
-            }
-        });
+    let has_flag = args.iter().enumerate().any(|(idx, x)| {
+        if x == flag {
+            index = idx;
+            true
+        } else {
+            false
+        }
+    });
     if has_flag {
         let _ = args.remove(index);
     }
@@ -111,16 +109,15 @@ pub fn check_for_flag(flag: &str, args: &mut Vec<String>) -> bool {
 
 pub fn get_flag_and_option(flag: &str, args: &mut Vec<String>) -> Option<String> {
     let mut index = 0;
-    let has_flag = args.iter().enumerate()
-        .any(|(idx, x)| {
-            if x == flag {
-                index = idx;
-                true
-            } else {
-                false
-            }
-        });
-    if has_flag && index != args.len() - 1{
+    let has_flag = args.iter().enumerate().any(|(idx, x)| {
+        if x == flag {
+            index = idx;
+            true
+        } else {
+            false
+        }
+    });
+    if has_flag && index != args.len() - 1 {
         let _ = args.remove(index);
         Some(args.remove(index))
     } else {
@@ -130,19 +127,13 @@ pub fn get_flag_and_option(flag: &str, args: &mut Vec<String>) -> Option<String>
 
 pub fn handle_command(mut args: Vec<String>) -> String {
     if args.len() == 0 || args.get(0).unwrap() == "help" {
-        return String::from(USAGE);
+        return String::from(USAGE)
     }
     let category = args.remove(0);
     match category.as_str() {
-        "arc" => {
-            arc::handle_command(args)
-        },
-        "search" => {
-            search::handle_command(args)
-        },
-        "table" => {
-            table::handle_command(args)
-        },
-        _ => String::from(USAGE)
+        "arc" => arc::handle_command(args),
+        "search" => search::handle_command(args),
+        "table" => table::handle_command(args),
+        _ => String::from(USAGE),
     }
 }

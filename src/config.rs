@@ -1,19 +1,26 @@
-use std::{path::PathBuf, collections::HashSet};
+use std::{collections::HashSet, path::PathBuf, sync::Mutex};
 
 use serde::{Deserialize, Serialize};
-use smash_arc::{Region, Hash40};
-
+use skyline::nn;
 use skyline_config::*;
+use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
 
-use std::sync::Mutex;
-use skyline::nn;
-
-fn arcropolis_version() -> String { env!("CARGO_PKG_VERSION").to_string() }
-const fn always_true() -> bool { true }
-const fn always_false() -> bool { false }
-fn default_logger_level() -> String { "Warn".to_string() }
-fn default_region() -> String { "us_en".to_string() }
+fn arcropolis_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+const fn always_true() -> bool {
+    true
+}
+const fn always_false() -> bool {
+    false
+}
+fn default_logger_level() -> String {
+    "Warn".to_string()
+}
+fn default_region() -> String {
+    "us_en".to_string()
+}
 
 lazy_static! {
     pub static ref GLOBAL_CONFIG: Mutex<StorageHolder<ArcStorage>> = {
@@ -85,7 +92,7 @@ lazy_static! {
                         // Go through each file in the debug storage
                         debug_storage.read_dir().unwrap().for_each(|file| {
                             let file = file.unwrap();
-                            
+
                             // If the size is 0, we've found a flag
                             if file.metadata().unwrap().len() == 0 {
                                 storage.set_flag(file.file_name(), true);
@@ -113,7 +120,7 @@ lazy_static! {
     } else {
         // The version file exists, check
     }
-    
+
 
         storage.flush();
         Mutex::new(storage)
@@ -149,17 +156,27 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
     if std::path::PathBuf::from(umm_path()).exists() {
         // TODO: Turn this into a map and use Collect
         for entry in WalkDir::new(umm_path()).max_depth(1).into_iter() {
-                if let Ok(entry) = entry {
-                    let path = entry.path();
+            if let Ok(entry) = entry {
+                let path = entry.path();
 
-                    // If the mod isn't disabled, add it to the preset
-                    if path.file_name().map(|name| name.to_str()).flatten().map(|name| !name.starts_with(".")).unwrap_or(false) {
-                        presets.insert(Hash40::from(path.to_str().unwrap()));
-                    } else {
-                        // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
-                        std::fs::rename(path, format!("sd:/ultimate/mods/{}", path.file_name().unwrap().to_str().unwrap()[1..].to_string())).unwrap();
-                    }
+                // If the mod isn't disabled, add it to the preset
+                if path
+                    .file_name()
+                    .map(|name| name.to_str())
+                    .flatten()
+                    .map(|name| !name.starts_with("."))
+                    .unwrap_or(false)
+                {
+                    presets.insert(Hash40::from(path.to_str().unwrap()));
+                } else {
+                    // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
+                    std::fs::rename(
+                        path,
+                        format!("sd:/ultimate/mods/{}", path.file_name().unwrap().to_str().unwrap()[1..].to_string()),
+                    )
+                    .unwrap();
                 }
+            }
         }
     }
 
@@ -174,7 +191,7 @@ struct Config {
 
     #[serde(default = "always_false")]
     pub debug: bool,
-    
+
     #[serde(default = "always_true")]
     pub auto_update: bool,
 
@@ -186,7 +203,7 @@ struct Config {
 
     #[serde(default = "default_region")]
     pub region: String,
-    
+
     #[serde(default = "ConfigPaths::new")]
     pub paths: ConfigPaths,
 
@@ -272,7 +289,11 @@ pub fn region_str() -> String {
 }
 
 pub fn version() -> String {
-    let version: String = GLOBAL_CONFIG.lock().unwrap().get_field("version").unwrap_or(String::from(env!("CARGO_PKG_VERSION")));
+    let version: String = GLOBAL_CONFIG
+        .lock()
+        .unwrap()
+        .get_field("version")
+        .unwrap_or(String::from(env!("CARGO_PKG_VERSION")));
     version
 }
 

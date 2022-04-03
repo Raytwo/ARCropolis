@@ -1,5 +1,5 @@
-use std::collections::HashMap;
-use std::fs;
+use std::{collections::HashMap, fs};
+
 use parking_lot::RwLock;
 use smash_arc::Hash40;
 
@@ -11,12 +11,15 @@ lazy_static! {
 
         let str_path = "sd:/ultimate/arcropolis/hashes.txt";
 
-        let s = match fs::read_to_string(str_path){
-            Err(e) =>  {
-                warn!("Failed to read '{}' for hashes. Reason: {:?}. There won't be any hash lookups in this run's logs.", HASH_FILEPATH, e);
-                return RwLock::new(hashes);
+        let s = match fs::read_to_string(str_path) {
+            Err(e) => {
+                warn!(
+                    "Failed to read '{}' for hashes. Reason: {:?}. There won't be any hash lookups in this run's logs.",
+                    HASH_FILEPATH, e
+                );
+                return RwLock::new(hashes)
             },
-            Ok(s) => s
+            Ok(s) => s,
         };
 
         for hs in string_to_static_str(s).lines() {

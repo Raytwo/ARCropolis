@@ -1,9 +1,10 @@
-use skyline::nn;
-use smash_arc::{LoadedArc, LoadedSearchSection, Region};
 use std::{
     ops::{Index, IndexMut},
     sync::atomic::AtomicU32,
 };
+
+use skyline::nn;
+use smash_arc::{LoadedArc, LoadedSearchSection, Region};
 
 use super::containers::{CppVector, ResList};
 
@@ -78,21 +79,15 @@ pub struct FilesystemInfo {
 
 impl FilesystemInfo {
     pub fn get_loaded_filepaths(&self) -> &[LoadedFilepath] {
-        unsafe {
-            std::slice::from_raw_parts(self.loaded_filepaths, self.loaded_filepath_len as usize)
-        }
+        unsafe { std::slice::from_raw_parts(self.loaded_filepaths, self.loaded_filepath_len as usize) }
     }
 
     pub fn get_loaded_datas(&self) -> &[LoadedData] {
-        unsafe {
-            std::slice::from_raw_parts(self.loaded_datas, self.loaded_data_len as usize)
-        }
+        unsafe { std::slice::from_raw_parts(self.loaded_datas, self.loaded_data_len as usize) }
     }
 
     pub fn get_loaded_directories(&self) -> &[LoadedDirectory] {
-        unsafe {
-            std::slice::from_raw_parts(self.loaded_directories, self.loaded_directory_len as usize)
-        }
+        unsafe { std::slice::from_raw_parts(self.loaded_directories, self.loaded_directory_len as usize) }
     }
 }
 
@@ -158,7 +153,7 @@ pub struct ResServiceNX {
     pub processing_dir_idx_single: u32,
     pub current_index: u32,
     pub current_dir_index: u32,
-    //Still need to add some
+    // Still need to add some
 }
 
 impl ResServiceNX {
@@ -170,7 +165,7 @@ impl ResServiceNX {
 #[repr(C)]
 pub struct InflateFile {
     pub content: *mut u8,
-    pub size: usize
+    pub size: usize,
 }
 
 impl InflateFile {

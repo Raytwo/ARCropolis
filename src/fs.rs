@@ -1,33 +1,31 @@
-use orbits::{Tree, Error};
-use orbits::{
-    orbit::LaunchPad, ConflictHandler, ConflictKind, FileEntryType, FileLoader,
-    Orbit, StandardLoader,
-};
-use skyline::nn::{self, ro::{Module, RegistrationInfo}};
-use smash_arc::serde::Hash40String;
-use smash_arc::{ArcLookup, Hash40, LoadedArc, LookupError, SearchLookup, LoadedSearchSection};
-use owo_colors::OwoColorize;
-
-use crate::chainloader::{NroBuilder, NrrBuilder, NrrRegistrationFailedError};
-use crate::replacement::config::ModConfig;
-use crate::replacement::{self, LoadedArcEx, SearchEx};
-use crate::{PathExtension, config, hashes, resource, get_path_from_hash};
-use std::cell::UnsafeCell;
-use std::collections::{HashMap, HashSet};
-use std::io::Write;
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
+    cell::UnsafeCell,
+    collections::{HashMap, HashSet},
+    fmt,
+    io::Write,
     ops::Deref,
-    path::Path
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicBool, Ordering},
 };
-use thiserror::Error;
 
-use std::fmt;
+use orbits::{orbit::LaunchPad, ConflictHandler, ConflictKind, Error, FileEntryType, FileLoader, Orbit, StandardLoader, Tree};
+use owo_colors::OwoColorize;
+use skyline::nn::{
+    self,
+    ro::{Module, RegistrationInfo},
+};
+use smash_arc::{serde::Hash40String, ArcLookup, Hash40, LoadedArc, LoadedSearchSection, LookupError, SearchLookup};
+use thiserror::Error;
 
 // pub mod api;
 // mod event;
-use crate::api;
+use crate::{
+    api,
+    chainloader::{NroBuilder, NrrBuilder, NrrRegistrationFailedError},
+    config, get_path_from_hash, hashes,
+    replacement::{self, config::ModConfig, LoadedArcEx, SearchEx},
+    resource, PathExtension,
+};
 
 mod discover;
 mod utils;
@@ -38,7 +36,6 @@ pub use loaders::*;
 static DEFAULT_CONFIG: &'static str = include_str!("../resources/override.json");
 static IS_INIT: AtomicBool = AtomicBool::new(false);
 // pub type ApiLoader = StandardLoader; // temporary until an actual ApiLoader is implemented
-
 
 pub type ArcropolisOrbit = Orbit<ArcLoader, StandardLoader, ApiLoader>;
 
@@ -58,23 +55,22 @@ pub struct CachedFilesystem {
     incoming_load: Option<Hash40>,
     bytes_remaining: usize,
     current_nus3bank_id: u32,
-    nus3banks: HashMap<Hash40, u32>
+    nus3banks: HashMap<Hash40, u32>,
 }
 
 impl CachedFilesystem {
-
     /// Load all configs that were found during discovery and join them into a singular config
     fn load_remaining_configs(current: &mut ModConfig, launchpad: &LaunchPad<StandardLoader>) {
         for (root, local) in launchpad.collected_paths().iter() {
             let full_path = root.join(local);
-            if !full_path.exists() { 
+            if !full_path.exists() {
                 warn!("Collected path at {} does not exist.", full_path.display());
-                continue;
+                continue
             }
 
             if !full_path.ends_with("config.json") {
                 trace!("Skipping path {} while loading all configs", full_path.display());
-                continue;
+                continue
             }
 
             // Read the file data and map it to a json. If that fails, just skip this current JSON.
@@ -101,7 +97,8 @@ impl CachedFilesystem {
                 || path.has_extension("stdatx")
                 || path.has_extension("stdatxml")
                 || path.has_extension("stprmx")
-                || path.has_extension("stprmxml") {
+                || path.has_extension("stprmxml")
+            {
                 if let Some(hash) = utils::add_prc_patch(api_tree, root, path) {
                     set.insert(hash);
                 }
@@ -130,45 +127,24 @@ impl CachedFilesystem {
         use api::PendingApiCall;
 
         match pending {
-            PendingApiCall::GenericCallback {
-                hash,
-                max_size,
-                callback
-            } => {
+            PendingApiCall::GenericCallback { hash, max_size, callback } => {
                 let path = get_path_from_hash(hash);
 
-                utils::add_file_to_api_tree(
-                    api_tree,
-                    "api:/generic-cb",
-                    &path,
-                    ApiCallback::GenericCallback(callback)
-                );
+                utils::add_file_to_api_tree(api_tree, "api:/generic-cb", &path, ApiCallback::GenericCallback(callback));
 
                 ApiCallResult {
                     hash,
                     path,
-                    size: Some(max_size)
+                    size: Some(max_size),
                 }
             },
-            PendingApiCall::StreamCallback {
-                hash,
-                callback
-            } => {
+            PendingApiCall::StreamCallback { hash, callback } => {
                 let path = get_path_from_hash(hash);
 
-                utils::add_file_to_api_tree(
-                    api_tree,
-                    "api:/stream-cb",
-                    &path,
-                    ApiCallback::StreamCallback(callback)
-                );
+                utils::add_file_to_api_tree(api_tree, "api:/stream-cb", &path, ApiCallback::StreamCallback(callback));
 
-                ApiCallResult {
-                    hash,
-                    path,
-                    size: None
-                }
-            }
+                ApiCallResult { hash, path, size: None }
+            },
         }
     }
 
@@ -194,7 +170,7 @@ impl CachedFilesystem {
             Err(_) => {
                 error!("Failed to deserialize the default config.");
                 replacement::config::ModConfig::new()
-            }
+            },
         };
 
         // Load all of the user configs into the main config
@@ -212,7 +188,7 @@ impl CachedFilesystem {
         let mut hashes = Self::initialize_prc_patches(&launchpad, &mut api_tree);
         hashes.extend(Self::initialize_msbt_patches(&launchpad, &mut api_tree));
 
-        // Add the hash files and set the new size to 10x the original files 
+        // Add the hash files and set the new size to 10x the original files
         for hash in hashes {
             if let Ok(data) = arc.get_file_data_from_hash(hash, config::region()) {
                 hashed_paths.insert(hash, get_path_from_hash(hash));
@@ -222,12 +198,7 @@ impl CachedFilesystem {
 
         // Add all of the NUS3BANKs that our NUS3AUDIOs depend on to the API tree
         for dep in nus3audio_deps {
-            let hash = utils::add_file_to_api_tree(
-                &mut api_tree,
-                "api:/patch-nus3bank",
-                &dep,
-                ApiCallback::None
-            );
+            let hash = utils::add_file_to_api_tree(&mut api_tree, "api:/patch-nus3bank", &dep, ApiCallback::None);
             if let Some(hash) = hash {
                 hashed_paths.insert(hash, dep);
                 hashed_sizes.insert(hash, 0); // We want to use vanilla size because we are only editing the content
@@ -242,10 +213,7 @@ impl CachedFilesystem {
 
         // Go through each API call, insert it into the api tree, and then insert it's info into the global data
         for call in calls {
-            let ApiCallResult { hash, path, size } = Self::handle_panding_api_call(
-                &mut api_tree,
-                call
-            );
+            let ApiCallResult { hash, path, size } = Self::handle_panding_api_call(&mut api_tree, call);
 
             hashed_paths.insert(hash, path);
             if let Some(size) = size {
@@ -265,7 +233,7 @@ impl CachedFilesystem {
             incoming_load: None,
             bytes_remaining: 0,
             current_nus3bank_id: 7420,
-            nus3banks: HashMap::new()
+            nus3banks: HashMap::new(),
         }
     }
 
@@ -282,8 +250,8 @@ impl CachedFilesystem {
                     hash.0,
                     size.green()
                 );
-                return None;
-            }
+                return None
+            },
         };
 
         if size > decomp_size {
@@ -298,7 +266,7 @@ impl CachedFilesystem {
                     );
                     Some(old_size as usize)
                 },
-                Err(_) => None
+                Err(_) => None,
             }
         } else {
             None
@@ -312,10 +280,7 @@ impl CachedFilesystem {
 
     /// Get the "actual path" for a file hash
     pub fn hash(&self, hash: Hash40) -> Option<PathBuf> {
-        self
-            .local_hash(hash)
-            .map(|x| self.loader.query_actual_path(x))
-            .flatten()
+        self.local_hash(hash).map(|x| self.loader.query_actual_path(x)).flatten()
     }
 
     /// Load the file data from the Orbits filesystem
@@ -323,24 +288,30 @@ impl CachedFilesystem {
         let path = if let Some(path) = self.hash_lookup.get(&hash) {
             path
         } else {
-            error!("Failed to load data for '{}' ({:#x}) because the filesystem does not contain it!", hashes::find(hash), hash.0);
-            return None;
+            error!(
+                "Failed to load data for '{}' ({:#x}) because the filesystem does not contain it!",
+                hashes::find(hash),
+                hash.0
+            );
+            return None
         };
 
         match self.loader.load(path) {
             Ok(data) => Some(data),
-            Err(Error::Virtual(ApiLoaderError::NoVirtFile)) => if let Ok(data) = self.loader.load_patch(path) {
-                Some(data)
-            } else if let Ok(data) = ArcLoader(resource::arc()).load_path(Path::new(""), path) {
-                Some(data)
-            } else {
-                error!("Failed to load data for {} because all load paths failed.", path.display());
-                None
+            Err(Error::Virtual(ApiLoaderError::NoVirtFile)) => {
+                if let Ok(data) = self.loader.load_patch(path) {
+                    Some(data)
+                } else if let Ok(data) = ArcLoader(resource::arc()).load_path(Path::new(""), path) {
+                    Some(data)
+                } else {
+                    error!("Failed to load data for {} because all load paths failed.", path.display());
+                    None
+                }
             },
             Err(e) => {
                 error!("Failed to load data for {}. Reason: {:?}", path.display(), e);
                 None
-            }
+            },
         }
     }
 
@@ -348,7 +319,11 @@ impl CachedFilesystem {
     pub fn load_into(&self, hash: Hash40, mut buffer: &mut [u8]) -> Option<usize> {
         if let Some(data) = self.load(hash) {
             if buffer.len() < data.len() {
-                error!("The size of the file data is larger than the size of the provided buffer when loading file '{}' ({:#x}).", hashes::find(hash), hash.0);
+                error!(
+                    "The size of the file data is larger than the size of the provided buffer when loading file '{}' ({:#x}).",
+                    hashes::find(hash),
+                    hash.0
+                );
                 None
             } else {
                 buffer.write_all(&data).unwrap();
@@ -362,7 +337,11 @@ impl CachedFilesystem {
     /// Sets the incoming file to be loaded
     pub fn set_incoming(&mut self, hash: Option<Hash40>) {
         if let Some(hash) = self.incoming_load.take() {
-            warn!("Removing file '{}' ({:#x}) from incoming load before using it.", hashes::find(hash), hash.0);
+            warn!(
+                "Removing file '{}' ({:#x}) from incoming load before using it.",
+                hashes::find(hash),
+                hash.0
+            );
         }
         self.incoming_load = hash;
         if let Some(hash) = hash {
@@ -377,7 +356,7 @@ impl CachedFilesystem {
         self.incoming_load.take()
     }
 
-    /// Subtracts the amount of bytes remanining from the current load. 
+    /// Subtracts the amount of bytes remanining from the current load.
     /// This prevents multiloads on the same file
     pub fn sub_remaining_bytes(&mut self, count: usize) -> Option<Hash40> {
         if count >= self.bytes_remaining {
@@ -389,7 +368,7 @@ impl CachedFilesystem {
         }
     }
 
-    /// Patch all files in the hash size cache 
+    /// Patch all files in the hash size cache
     pub fn patch_files(&mut self) {
         let mut hash_cache = HashMap::new();
         std::mem::swap(&mut hash_cache, &mut self.hash_size_cache);
@@ -407,12 +386,16 @@ impl CachedFilesystem {
         let file_paths = arc.get_file_paths();
         let mut old_map = HashMap::new();
         std::mem::swap(&mut self.hash_lookup, &mut old_map);
-        self.hash_lookup = old_map.into_iter().map(|(hash, path)| {
-            (
-                arc.get_file_info_from_hash(hash).map_or_else(|_| hash, |info| file_paths[info.file_path_index].path.hash40()),
-                path
-            )
-        }).collect();
+        self.hash_lookup = old_map
+            .into_iter()
+            .map(|(hash, path)| {
+                (
+                    arc.get_file_info_from_hash(hash)
+                        .map_or_else(|_| hash, |info| file_paths[info.file_path_index].path.hash40()),
+                    path,
+                )
+            })
+            .collect();
     }
 
     /// Goes through and performs the required file manipulation in order to load mods
@@ -424,26 +407,22 @@ impl CachedFilesystem {
         /// Reshare certain files to the right directories
         /// This is mostly used for Dark Samus because of her victory bunshin article
         for (dep, source) in self.config.preprocess_reshare.iter() {
-            hash_ignore.extend(replacement::preprocess::reshare_contained_files(
-                &mut context,
-                dep.0,
-                source.0
-            ).into_iter());
+            hash_ignore.extend(replacement::preprocess::reshare_contained_files(&mut context, dep.0, source.0).into_iter());
         }
 
         /// Go through and add any files that were not found in the data.arc
         self.loader.walk_patch(|node, ty| {
             if node.get_local().is_stream() || !ty.is_file() {
-                return;
+                return
             }
 
             let hash = if let Ok(hash) = node.get_local().smash_hash() {
                 if context.contains_file(hash) {
-                    return;
+                    return
                 }
                 hash
             } else {
-                return;
+                return
             };
 
             replacement::addition::add_file(&mut context, node.get_local());
@@ -451,13 +430,15 @@ impl CachedFilesystem {
         });
 
         /// Don't unshare any files in the unshare blacklist (nus3audio handled during filesystem finish)
-        let files = self.hash_lookup.iter().filter_map(|(hash, path)| {
-            if self.config.unshare_blacklist.contains(&Hash40String(*hash)) {
-                None
-            } else {
-                Some(*hash)
-            }
-        });
+        let files = self.hash_lookup.iter().filter_map(
+            |(hash, path)| {
+                if self.config.unshare_blacklist.contains(&Hash40String(*hash)) {
+                    None
+                } else {
+                    Some(*hash)
+                }
+            },
+        );
 
         for (hash, pathset) in self.config.new_shared_files.iter() {
             for path in pathset.iter() {
@@ -469,19 +450,11 @@ impl CachedFilesystem {
         /// Reshare any files that depend on files in file groups, as we need to get rid of those else we crash.
         replacement::unshare::reshare_file_groups(&mut context);
 
-        replacement::unshare::unshare_files(
-            &mut context,
-            hash_ignore,
-            files
-        );
+        replacement::unshare::unshare_files(&mut context, hash_ignore, files);
 
         /// Add new files to the dir infos
         for (hash, files) in self.config.new_dir_files.iter() {
-            replacement::addition::add_files_to_directory(
-                &mut context,
-                hash.0,
-                files.iter().map(|x| x.0).collect()
-            );
+            replacement::addition::add_files_to_directory(&mut context, hash.0, files.iter().map(|x| x.0).collect());
         }
 
         resource::arc_mut().take_context(context);
@@ -495,10 +468,7 @@ impl CachedFilesystem {
 
     /// Handles late API calls
     pub fn handle_late_api_call(&mut self, call: api::PendingApiCall) {
-        let ApiCallResult { hash, path, size } = Self::handle_panding_api_call(
-            self.loader.virt_mut(),
-            call
-        );
+        let ApiCallResult { hash, path, size } = Self::handle_panding_api_call(self.loader.virt_mut(), call);
 
         self.hash_lookup.insert(hash, path);
         if let Some(size) = size {
@@ -529,16 +499,18 @@ pub enum GlobalFilesystem {
 struct ApiCallResult {
     hash: Hash40,
     path: PathBuf,
-    size: Option<usize>
+    size: Option<usize>,
 }
 
 impl GlobalFilesystem {
     pub fn finish(self, arc: &'static LoadedArc) -> Result<Self, FilesystemUninitializedError> {
         match self {
             Self::Uninitialized => Err(FilesystemUninitializedError),
-            Self::Promised(promise) => match promise.join() {
-                Ok(mut launchpad) => Ok(Self::Initialized(CachedFilesystem::make_from_promise(launchpad))),
-                Err(_) => Err(FilesystemUninitializedError),
+            Self::Promised(promise) => {
+                match promise.join() {
+                    Ok(mut launchpad) => Ok(Self::Initialized(CachedFilesystem::make_from_promise(launchpad))),
+                    Err(_) => Err(FilesystemUninitializedError),
+                }
             },
             Self::Initialized(filesystem) => Ok(Self::Initialized(filesystem)),
         }
@@ -557,28 +529,28 @@ impl GlobalFilesystem {
     pub fn get(&self) -> &ArcropolisOrbit {
         match self {
             Self::Initialized(fs) => &fs.loader,
-            _ => panic!("Global Filesystem is not initialized!")
+            _ => panic!("Global Filesystem is not initialized!"),
         }
     }
 
     pub fn get_mut(&mut self) -> &mut ArcropolisOrbit {
         match self {
             Self::Initialized(fs) => &mut fs.loader,
-            _ => panic!("Global Filesystem is not initialized!")
+            _ => panic!("Global Filesystem is not initialized!"),
         }
     }
 
     pub fn hash(&self, hash: Hash40) -> Option<PathBuf> {
         match self {
             Self::Initialized(fs) => fs.hash(hash),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn local_hash(&self, hash: Hash40) -> Option<&PathBuf> {
         match self {
             Self::Initialized(fs) => fs.local_hash(hash),
-            _ => None
+            _ => None,
         }
     }
 
@@ -586,9 +558,13 @@ impl GlobalFilesystem {
         match self {
             Self::Initialized(fs) => fs.load_into(hash, buffer),
             _ => {
-                error!("Cannot load data for '{}' ({:#x}) because the filesystem is not initialized!", hashes::find(hash), hash.0);
+                error!(
+                    "Cannot load data for '{}' ({:#x}) because the filesystem is not initialized!",
+                    hashes::find(hash),
+                    hash.0
+                );
                 None
-            }
+            },
         }
     }
 
@@ -596,9 +572,13 @@ impl GlobalFilesystem {
         match self {
             Self::Initialized(fs) => fs.load(hash),
             _ => {
-                error!("Cannot load data for '{}' ({:#x}) because the filesystem is not initialized!", hashes::find(hash), hash.0);
+                error!(
+                    "Cannot load data for '{}' ({:#x}) because the filesystem is not initialized!",
+                    hashes::find(hash),
+                    hash.0
+                );
                 None
-            }
+            },
         }
     }
 
@@ -616,7 +596,7 @@ impl GlobalFilesystem {
             _ => {
                 error!("Cannot subtract reamining bytes because the filesystem is not initialized!");
                 None
-            }
+            },
         }
     }
 
@@ -626,14 +606,14 @@ impl GlobalFilesystem {
             _ => {
                 error!("Cannot get the incoming load because the filesystem is not initialized!");
                 None
-            }
+            },
         }
     }
 
     pub fn patch_files(&mut self) {
         match self {
             Self::Initialized(fs) => fs.patch_files(),
-            _ => error!("Cannot patch sizes because the filesystem is not initialized!")
+            _ => error!("Cannot patch sizes because the filesystem is not initialized!"),
         }
     }
 
@@ -642,7 +622,7 @@ impl GlobalFilesystem {
             Self::Initialized(fs) => fs.reshare_files(),
             _ => {
                 error!("Cannot share the hashes because the filesystem is not initialized!");
-            }
+            },
         }
     }
 
@@ -651,15 +631,15 @@ impl GlobalFilesystem {
             Self::Initialized(fs) => fs.process_mods(),
             _ => {
                 error!("Cannot unshare files because the filesystem is not initialized!");
-            }
+            },
         }
     }
 
     pub fn config(&self) -> &ModConfig {
         match self {
             Self::Initialized(fs) => fs.config(),
-            _ => panic!("Global Filesystem is not initialized!")
-        }   
+            _ => panic!("Global Filesystem is not initialized!"),
+        }
     }
 
     pub fn get_bank_id(&mut self, hash: Hash40) -> Option<u32> {
@@ -674,7 +654,7 @@ impl GlobalFilesystem {
                     Some(id)
                 }
             },
-            _ => None
+            _ => None,
         }
     }
 
@@ -682,14 +662,14 @@ impl GlobalFilesystem {
         debug!("Incoming API request");
         let fs = match self {
             Self::Initialized(fs) => fs.handle_late_api_call(call),
-            _ => return
+            _ => return,
         };
     }
 
     pub fn get_cached_size(&self, hash: Hash40) -> Option<usize> {
         match self {
             Self::Initialized(fs) => fs.get_cached_size(hash),
-            _ => None
+            _ => None,
         }
     }
 }

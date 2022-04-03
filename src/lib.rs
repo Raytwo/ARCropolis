@@ -7,18 +7,23 @@
 #![allow(unaligned_references)]
 #![feature(allocator_api)]
 
-use std::{fmt, path::{Path, PathBuf}, str::FromStr, io::BufWriter, io::Write, alloc::GlobalAlloc};
+use std::{
+    alloc::GlobalAlloc,
+    fmt,
+    io::{BufWriter, Write},
+    path::{Path, PathBuf},
+    str::FromStr,
+};
+
 use arcropolis_api::Event;
-use semver::Version;
-use smash_arc::{ArcLookup, SearchLookup, LoadedSearchSection};
 use log::LevelFilter;
+use semver::Version;
+use smash_arc::{ArcLookup, LoadedSearchSection, SearchLookup};
 use thiserror::Error;
 
-#[macro_use]
-extern crate lazy_static;
+#[macro_use] extern crate lazy_static;
 
-#[macro_use]
-extern crate log;
+#[macro_use] extern crate log;
 
 use parking_lot::RwLock;
 use skyline::{hooks::InlineCtx, libc::c_char, nn};
@@ -30,13 +35,12 @@ mod fs;
 mod fuse;
 mod hashes;
 mod logging;
+mod menus;
 mod offsets;
 mod remote;
-mod resource;
 mod replacement;
-#[cfg(feature = "updater")]
-mod update;
-mod menus;
+mod resource;
+#[cfg(feature = "updater")] mod update;
 
 use fs::GlobalFilesystem;
 use replacement::extensions::SearchEx;
@@ -48,15 +52,13 @@ use walkdir::WalkDir;
 static UNIX_ALLOCATOR: skyline::unix_alloc::UnixAllocator = skyline::unix_alloc::UnixAllocator;
 
 lazy_static! {
-    pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> =
-        RwLock::new(GlobalFilesystem::Uninitialized);
-    
+    pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = RwLock::new(GlobalFilesystem::Uninitialized);
     pub static ref CACHE_PATH: PathBuf = {
         let version_string = get_version_string();
         let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(version_string);
         match std::fs::create_dir_all(&path) {
             Err(e) => panic!("Unable to create cache directory! Reason: {:?}", e),
-            _ => {}
+            _ => {},
         }
         path
     };
@@ -66,14 +68,14 @@ lazy_static! {
 macro_rules! reg_x {
     ($ctx:ident, $no:expr) => {
         unsafe { *$ctx.registers[$no].x.as_ref() }
-    }
+    };
 }
 
 #[macro_export]
 macro_rules! reg_w {
     ($ctx:ident, $no:expr) => {
         unsafe { *$ctx.registers[$no].w.as_ref() }
-    }
+    };
 }
 
 /// Basic code for displaying an ARCropolis dialog error informing the user to check their logs, or enable them if they don't currently.
@@ -113,28 +115,17 @@ pub trait PathExtension {
 
 impl PathExtension for Path {
     fn to_str(&self) -> Option<&str> {
-        self
-            .as_os_str()
-            .to_str()
+        self.as_os_str().to_str()
     }
 
     fn is_stream(&self) -> bool {
-        static VALID_PREFIXES: &[&str] = &[
-            "/stream;",
-            "/stream:",
-            "stream;",
-            "stream:"
-        ];
+        static VALID_PREFIXES: &[&str] = &["/stream;", "/stream:", "stream;", "stream:"];
 
         VALID_PREFIXES.iter().any(|x| self.starts_with(*x))
     }
 
     fn has_extension<S: AsRef<str>>(&self, ext: S) -> bool {
-        self.extension()
-            .map(|x| x.to_str())
-            .flatten()
-            .map(|x| x == ext.as_ref())
-            .unwrap_or(false)
+        self.extension().map(|x| x.to_str()).flatten().map(|x| x == ext.as_ref()).unwrap_or(false)
     }
 
     fn smash_hash(&self) -> Result<Hash40, InvalidOsStrError> {
@@ -143,17 +134,19 @@ impl PathExtension for Path {
                 .file_name()
                 .map(|x| x.to_str())
                 .flatten()
-                .map(|x| {
-                    if x.starts_with("0x") {
-                        u64::from_str_radix(x.trim_start_matches("0x"), 16).ok()
-                    } else {
-                        None
-                    }
-                })
+                .map(
+                    |x| {
+                        if x.starts_with("0x") {
+                            u64::from_str_radix(x.trim_start_matches("0x"), 16).ok()
+                        } else {
+                            None
+                        }
+                    },
+                )
                 .flatten()
                 .map(|x| Hash40(x));
             if let Some(hash) = hash {
-                return Ok(hash);
+                return Ok(hash)
             }
         }
         let mut path = self
@@ -164,7 +157,7 @@ impl PathExtension for Path {
             .replace(";", ":");
 
         if let Some(regional_idx) = path.find("+") {
-            path.replace_range(regional_idx..regional_idx+6, "")
+            path.replace_range(regional_idx..regional_idx + 6, "")
         }
 
         Ok(Hash40::from(path.trim_start_matches("/")))
@@ -203,20 +196,15 @@ fn get_version_string() -> String {
 }
 
 fn check_for_changelog() {
-    if let Ok(changelog) = std::fs::read_to_string(
-        "sd:/ultimate/arcropolis/changelog.toml",
-    ) {
+    if let Ok(changelog) = std::fs::read_to_string("sd:/ultimate/arcropolis/changelog.toml") {
         match toml::from_str(&changelog) {
             Ok(changelog) => {
                 menus::display_update_page(&changelog);
-                std::fs::remove_file(
-                    "sd:/ultimate/arcropolis/changelog.toml",
-                )
-                .unwrap();
-            }
+                std::fs::remove_file("sd:/ultimate/arcropolis/changelog.toml").unwrap();
+            },
             Err(_) => {
                 warn!("Changelog could not be parsed. Is the file malformed?");
-            }
+            },
         }
     }
 }
@@ -225,11 +213,7 @@ fn check_for_changelog() {
 fn initial_loading(_ctx: &InlineCtx) {
     check_for_changelog();
 
-    if ninput::any::is_down(ninput::Buttons::PLUS) {
-        menus::show_main_menu();
-    }
-
-    //menus::show_arcadia();
+    // menus::show_arcadia();
     let arc = resource::arc();
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
@@ -239,6 +223,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     filesystem.process_mods();
     filesystem.share_hashes();
     filesystem.patch_files();
+
     if config::debug_enabled() {
         let mut output = BufWriter::new(std::fs::File::create("sd:/ultimate/arcropolis/filesystem_dump.txt").unwrap());
         filesystem.get().walk_patch(|node, entry_type| {
@@ -263,11 +248,7 @@ fn change_version_string(arg: u64, string: *const c_char) {
     let original_str = unsafe { skyline::from_c_str(string) };
 
     if original_str.contains("Ver.") {
-        let new_str = format!(
-            "Smash {}\nARCropolis Ver. {}\0",
-            original_str,
-            env!("CARGO_PKG_VERSION")
-        );
+        let new_str = format!("Smash {}\nARCropolis Ver. {}\0", original_str, env!("CARGO_PKG_VERSION"));
 
         original!()(arg, skyline::c_str(&new_str))
     } else {
@@ -291,33 +272,33 @@ fn change_version_string(arg: u64, string: *const c_char) {
 
 #[skyline::hook(offset = offsets::eshop_show())]
 fn show_eshop() {
-    unsafe { 
-        //stop_all_bgm();
-        //let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
-        //play_bgm(instance as _, 0xd9ffff202a04c55b, false);
+    unsafe {
+        // stop_all_bgm();
+        // let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
+        // play_bgm(instance as _, 0xd9ffff202a04c55b, false);
         menus::show_main_menu();
-        //play_menu_bgm();
+        // play_menu_bgm();
     }
 }
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
-    
     // Initialize the time for the logger
     init_time();
 
     // Initialize hid
-    ninput::init();
+    // ninput::init();
+    std::thread::sleep_ms(300);
 
     // Attempt to initialize the logger, and if we fail we will just do a regular println
-    if let Err(err) = logging::init(
-        LevelFilter::from_str(&config::logger_level()).unwrap_or(LevelFilter::Warn),
-    ) {
-        println!(
-            "[arcropolis] Failed to initialize logger. Reason: {:?}",
-            err
-        );
+    if let Err(err) = logging::init(LevelFilter::from_str(&config::logger_level()).unwrap_or(LevelFilter::Warn)) {
+        println!("[arcropolis] Failed to initialize logger. Reason: {:?}", err);
     }
+
+    // if ninput::any::is_down(ninput::Buttons::PLUS) {
+    //     println!("input");
+    //     menus::show_main_menu();
+    // }
 
     // Acquire the filesystem and promise it to the initial_loading hook
     let mut filesystem = GLOBAL_FILESYSTEM.write();
@@ -370,31 +351,28 @@ pub fn main() {
             })
             .unwrap();
     }
-    
 
-    skyline::install_hooks!(
-        initial_loading,
-        change_version_string,
-        show_eshop,
-    );
+    skyline::install_hooks!(initial_loading, change_version_string, show_eshop,);
     replacement::install();
-    
+
     std::panic::set_hook(Box::new(|info| {
         let location = info.location().unwrap();
 
         let msg = match info.payload().downcast_ref::<&'static str>() {
             Some(s) => *s,
-            None => match info.payload().downcast_ref::<String>() {
-                Some(s) => &s[..],
-                None => "Box<Any>"
-            }
+            None => {
+                match info.payload().downcast_ref::<String>() {
+                    Some(s) => &s[..],
+                    None => "Box<Any>",
+                }
+            },
         };
 
         let err_msg = format!("thread has panicked at '{}', {}", msg, location);
         skyline::error::show_error(
             69,
             "Skyline plugin as panicked! Please open the details and send a screenshot to the developer, then close the game.\n",
-            err_msg.as_str()
+            err_msg.as_str(),
         );
     }));
 

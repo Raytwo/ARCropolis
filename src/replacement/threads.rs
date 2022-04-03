@@ -1,15 +1,13 @@
 use owo_colors::OwoColorize;
-
-use smash_arc::{ArcLookup, Hash40, FilePathIdx};
-
-use skyline::{
-    hook,
-    hooks::InlineCtx
-};
-
-use crate::{config, GLOBAL_FILESYSTEM, hashes, offsets, reg_w, reg_x, resource::{self, InflateFile, LoadInfo, LoadType}};
+use skyline::{hook, hooks::InlineCtx};
+use smash_arc::{ArcLookup, FilePathIdx, Hash40};
 
 use super::FileInfoFlagsExt;
+use crate::{
+    config, hashes, offsets, reg_w, reg_x,
+    resource::{self, InflateFile, LoadInfo, LoadType},
+    GLOBAL_FILESYSTEM,
+};
 
 #[hook(offset = offsets::inflate(), inline)]
 fn inflate_incoming(ctx: &InlineCtx) {
@@ -18,7 +16,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
     let info_index = (service.processing_file_idx_start + reg_w!(ctx, 27)) as usize;
     let file_info = &arc.get_file_infos()[info_index];
-    
+
     let file_path = &arc.get_file_paths()[file_info.file_path_index];
     let path_hash = file_path.path.hash40();
 
@@ -35,15 +33,12 @@ fn inflate_incoming(ctx: &InlineCtx) {
     let mut fs = GLOBAL_FILESYSTEM.write();
 
     let should_add = if let Some(path) = fs.hash(path_hash) {
-        info!(
-            "Added file '{}' to the queue.",
-            path.display().yellow()
-        );
+        info!("Added file '{}' to the queue.", path.display().yellow());
         true
     } else {
         false
     };
-    
+
     if should_add {
         fs.set_incoming(Some(path_hash));
     } else {
@@ -61,7 +56,8 @@ fn inflate_dir_file(arg: u64, out_decomp_data: &mut InflateFile, comp_data: &Inf
 
     let result = call_original!(arg, out_decomp_data, comp_data);
 
-    if result == 0x0 { // returns 0x0 on the very last read, since they can be read in chunks
+    if result == 0x0 {
+        // returns 0x0 on the very last read, since they can be read in chunks
         let hash = crate::GLOBAL_FILESYSTEM.write().get_incoming();
         if let Some(hash) = hash {
             handle_file_replace(hash);
@@ -79,15 +75,14 @@ pub fn handle_file_replace(hash: Hash40) {
         Ok(info) => info,
         Err(_) => {
             error!("Failed to find file info for '{}' ({:#x}) when replacing.", hashes::find(hash), hash.0);
-            return;
-        }
+            return
+        },
     };
 
     let filepath_index = usize::from(file_info.file_path_index);
     let file_info_indice_index = usize::from(file_info.file_info_indice_index);
 
     let decompressed_size = arc.get_file_data(file_info, config::region()).decomp_size;
-    
 
     if filesystem_info.get_loaded_filepaths()[filepath_index].is_loaded == 0 {
         warn!(
@@ -107,7 +102,7 @@ pub fn handle_file_replace(hash: Hash40) {
             filepath_index,
             file_info_indice_index
         );
-        return;
+        return
     }
 
     let mut fs = crate::GLOBAL_FILESYSTEM.write();
@@ -115,7 +110,7 @@ pub fn handle_file_replace(hash: Hash40) {
     let buffer = unsafe {
         std::slice::from_raw_parts_mut(
             filesystem_info.get_loaded_datas()[file_info_indice_index].data as *mut u8,
-            decompressed_size as usize
+            decompressed_size as usize,
         )
     };
 
@@ -135,7 +130,7 @@ pub fn handle_file_replace(hash: Hash40) {
             }
         }
         info!(
-            "Replaced file '{}' ({:#x}) with buffer size {:#x} and file size {:#x}. Game buffer size: {:#x}", 
+            "Replaced file '{}' ({:#x}) with buffer size {:#x} and file size {:#x}. Game buffer size: {:#x}",
             hashes::find(hash),
             hash.0,
             buffer.len(),
@@ -183,30 +178,28 @@ fn res_loop_common() {
                         }
                     }
                 },
-                _ => {}
+                _ => {},
             }
         }
     }
 
     for (idx, vec) in standalone_files.into_iter().enumerate() {
         for path_idx in vec.into_iter() {
-            trace!("Adding file to standalone queue: {} ({:#x})", hashes::find(file_paths[path_idx].path.hash40()), file_paths[path_idx].path.hash40().0);
+            trace!(
+                "Adding file to standalone queue: {} ({:#x})",
+                hashes::find(file_paths[path_idx].path.hash40()),
+                file_paths[path_idx].path.hash40().0
+            );
             service.res_lists[idx].insert(LoadInfo {
                 ty: LoadType::File,
                 filepath_index: path_idx.0,
                 directory_index: 0xFF_FFFF,
-                files_to_load: 0
+                files_to_load: 0,
             });
         }
     }
 }
 
 pub fn install() {
-    skyline::install_hooks!(
-        inflate_incoming,
-        inflate_dir_file,
-
-        res_loop_start,
-        res_loop_refresh
-    );
+    skyline::install_hooks!(inflate_incoming, inflate_dir_file, res_loop_start, res_loop_refresh);
 }

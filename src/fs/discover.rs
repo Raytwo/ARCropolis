@@ -1,12 +1,13 @@
-use crate::{chainloader::*, PathExtension};
-use smash_arc::Hash40;
+use std::{
+    collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
+};
+
+use orbits::{ConflictHandler, ConflictKind, FileLoader, LaunchPad, StandardLoader, Tree};
 use skyline::nn::{self, ro::*};
-use std::path::{Path, PathBuf};
+use smash_arc::Hash40;
 
-use orbits::{Tree, FileLoader, LaunchPad, StandardLoader, ConflictHandler, ConflictKind};
-use crate::config;
-
-use std::collections::{ HashMap, HashSet };
+use crate::{chainloader::*, config, PathExtension};
 
 lazy_static! {
     static ref PRESET_HASHES: HashSet<Hash40> = {
@@ -47,27 +48,18 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         } else {
             // Legacy filter, load the mod except if it has a period at the start of the name
 
-            path
-                .file_name()
+            path.file_name()
                 .map(|name| name.to_str())
                 .flatten()
                 .map(|name| !name.starts_with("."))
                 .unwrap_or(false)
         }
-        
     };
 
     let ignore = |path: &Path| {
-        let name = if let Some(name) = path.file_name().map(|x| x.to_str()).flatten() {
-            name
-        } else {
-            return false;
-        };
+        let name = if let Some(name) = path.file_name().map(|x| x.to_str()).flatten() { name } else { return false };
 
-        let is_root = path
-            .parent()
-            .map(|parent| parent.as_os_str().is_empty())
-            .unwrap_or(true);
+        let is_root = path.parent().map(|parent| parent.as_os_str().is_empty()).unwrap_or(true);
 
         let is_dot = name.starts_with(".");
 
@@ -132,15 +124,14 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
                 let path = PathBuf::from(&umm_path).join(path.unwrap().path());
 
                 if path.is_file() {
-                    None    
+                    None
                 } else {
                     Some(Hash40::from(path.to_str().unwrap()))
                 }
-            }).collect();
-    
-        let new_mods: HashSet<&Hash40> = new_cache.iter().filter(|cached_mod| {
-            !mod_cache.contains(cached_mod)
-        }).collect();
+            })
+            .collect();
+
+        let new_mods: HashSet<&Hash40> = new_cache.iter().filter(|cached_mod| !mod_cache.contains(cached_mod)).collect();
 
         // We found hashes that weren't in the cache
         if !new_mods.is_empty() {
@@ -158,10 +149,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     }
 
     if std::fs::try_exists(&umm_path).unwrap_or(false) {
-        conflicts.extend(
-            launchpad
-                .discover_roots(&umm_path, 1, filter),
-        );
+        conflicts.extend(launchpad.discover_roots(&umm_path, 1, filter));
     }
 
     for path in config::extra_paths() {
@@ -174,21 +162,31 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     for conflict in conflicts.into_iter() {
         match conflict {
-            ConflictKind::StandardConflict { error_root, source_root, local } => warn!(
-                "File '{}' was rejected for file '{}' during discovery.",
-                error_root.join(&local).display(),
-                source_root.join(local).display()
-            ),
-            ConflictKind::RootConflict(root_path, kept) => warn!(
-                "Mod root '{}' was rejected for a file conflict with '{}' during discovery.",
-                root_path.display(),
-                kept.display()
-            )
+            ConflictKind::StandardConflict {
+                error_root,
+                source_root,
+                local,
+            } => {
+                warn!(
+                    "File '{}' was rejected for file '{}' during discovery.",
+                    error_root.join(&local).display(),
+                    source_root.join(local).display()
+                )
+            },
+            ConflictKind::RootConflict(root_path, kept) => {
+                warn!(
+                    "Mod root '{}' was rejected for a file conflict with '{}' during discovery.",
+                    root_path.display(),
+                    kept.display()
+                )
+            },
         }
     }
 
     if should_prompt {
-        if skyline_web::Dialog::yes_no("During file discovery, ARCropolis encountered file conflicts.<br>Do you want to run it again to list all file conflicts?") {
+        if skyline_web::Dialog::yes_no(
+            "During file discovery, ARCropolis encountered file conflicts.<br>Do you want to run it again to list all file conflicts?",
+        ) {
             let mut launchpad = LaunchPad::new(StandardLoader, ConflictHandler::First);
 
             let arc_path = config::arc_path();
@@ -203,12 +201,9 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             };
 
             if std::fs::try_exists(umm_path).unwrap_or(false) {
-                conflicts.extend(
-                    launchpad
-                        .discover_roots(config::umm_path(), 1, filter),
-                );
+                conflicts.extend(launchpad.discover_roots(config::umm_path(), 1, filter));
             }
-        
+
             for path in config::extra_paths() {
                 if std::fs::try_exists(&path).unwrap_or(false) {
                     conflicts.extend(launchpad.discover_roots(&path, 1, filter));
@@ -219,32 +214,41 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
             for conflict in conflicts.into_iter() {
                 match conflict {
-                    ConflictKind::StandardConflict { error_root, local, source_root } => {
+                    ConflictKind::StandardConflict {
+                        error_root,
+                        local,
+                        source_root,
+                    } => {
                         if let Some(conflicting_mods) = conflict_map.get_mut(&local) {
                             conflicting_mods.push(error_root);
                         } else {
                             conflict_map.insert(local, vec![source_root, error_root]);
                         }
                     },
-                    _ => {}
+                    _ => {},
                 }
             }
 
             let should_log = match serde_json::to_string_pretty(&conflict_map) {
-                Ok(json) => match std::fs::write("sd:/ultimate/arcropolis/conflicts.json", json.as_bytes()) {
-                    Ok(_) => {
-                        crate::dialog_error("Please check sd:/ultimate/arcropolis/conflicts.json for all of the file conflicts.");
-                        false
-                    },
-                    Err(e) => {
-                        crate::dialog_error(format!("Failed to write conflict map to sd:/ultimate/arcropolis/conflicts.json<br>{:?}", e));
-                        true
+                Ok(json) => {
+                    match std::fs::write("sd:/ultimate/arcropolis/conflicts.json", json.as_bytes()) {
+                        Ok(_) => {
+                            crate::dialog_error("Please check sd:/ultimate/arcropolis/conflicts.json for all of the file conflicts.");
+                            false
+                        },
+                        Err(e) => {
+                            crate::dialog_error(format!(
+                                "Failed to write conflict map to sd:/ultimate/arcropolis/conflicts.json<br>{:?}",
+                                e
+                            ));
+                            true
+                        },
                     }
                 },
                 Err(e) => {
                     crate::dialog_error(format!("Failed to serialize conflict map to JSON. {:?}", e));
                     true
-                }
+                },
             };
 
             if should_log {
@@ -263,8 +267,10 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         Ok(_) => info!("No fighter modules found to register."),
         Err(e) => {
             error!("{:?}", e);
-            crate::dialog_error("ARCropolis failed to register module information for fighter modules.<br>You may experience infinite loading on some fighters.");
-        }
+            crate::dialog_error(
+                "ARCropolis failed to register module information for fighter modules.<br>You may experience infinite loading on some fighters.",
+            );
+        },
     }
 
     load_and_run_plugins(launchpad.collected_paths());
@@ -273,7 +279,9 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 }
 
 fn mount_prebuilt_nrr<A: FileLoader>(tree: &Tree<A>) -> Result<Option<RegistrationInfo>, NrrRegistrationFailedError>
-where <A as FileLoader>::ErrorType: std::fmt::Debug {
+where
+    <A as FileLoader>::ErrorType: std::fmt::Debug,
+{
     let fighter_nro_parent = Path::new("prebuilt;/nro/release");
     let mut fighter_nro_nrr = NrrBuilder::new();
 
@@ -285,42 +293,46 @@ where <A as FileLoader>::ErrorType: std::fmt::Debug {
                     fighter_nro_nrr.add_module(data.as_slice());
                 }
             },
-            _ => {}
+            _ => {},
         }
     });
 
     fighter_nro_nrr.register()
 }
 
-
-
 pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
     let mut plugin_nrr = NrrBuilder::new();
 
-    let modules: Vec<NroBuilder> = plugins.iter().filter_map(|(root, local)| {
-        let full_path = root.join(local);
+    let modules: Vec<NroBuilder> = plugins
+        .iter()
+        .filter_map(|(root, local)| {
+            let full_path = root.join(local);
 
-        if full_path.exists() && full_path.ends_with("plugin.nro") {
-            match NroBuilder::open(&full_path) {
-                Ok(builder) => {
-                    info!("Loaded plugin at '{}' for chainloading.", full_path.display());
-                    plugin_nrr.add_module(&builder);
-                    Some(builder)
-                },
-                Err(e) => {
-                    error!("Failed to load plugin at '{}'. {:?}", full_path.display(), e);
-                    None
+            if full_path.exists() && full_path.ends_with("plugin.nro") {
+                match NroBuilder::open(&full_path) {
+                    Ok(builder) => {
+                        info!("Loaded plugin at '{}' for chainloading.", full_path.display());
+                        plugin_nrr.add_module(&builder);
+                        Some(builder)
+                    },
+                    Err(e) => {
+                        error!("Failed to load plugin at '{}'. {:?}", full_path.display(), e);
+                        None
+                    },
                 }
+            } else {
+                error!(
+                    "File discovery collected path '{}' but it does not exist and/or is invalid!",
+                    full_path.display()
+                );
+                None
             }
-        } else {
-            error!("File discovery collected path '{}' but it does not exist and/or is invalid!", full_path.display());
-            None
-        }
-    }).collect();
+        })
+        .collect();
 
     if modules.is_empty() {
         info!("No plugins found for chainloading.");
-        return;
+        return
     }
 
     let mut registration_info = match plugin_nrr.register() {
@@ -329,19 +341,22 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
         Err(e) => {
             error!("{:?}", e);
             crate::dialog_error("ARCropolis failed to register plugin module info.");
-            return;
-        }
+            return
+        },
     };
 
-    let modules: Vec<Module> = modules.into_iter().filter_map(|x| {
-        match x.mount() {
-            Ok(module) => Some(module),
-            Err(e) => {
-                error!("Failed to mount chainloaded plugin. {:?}", e);
-                None
+    let modules: Vec<Module> = modules
+        .into_iter()
+        .filter_map(|x| {
+            match x.mount() {
+                Ok(module) => Some(module),
+                Err(e) => {
+                    error!("Failed to mount chainloaded plugin. {:?}", e);
+                    None
+                },
             }
-        }
-    }).collect();
+        })
+        .collect();
 
     unsafe {
         // Unfortunately, without unregistering this it will cause the game to crash, cause is unknown, but likely due to page alignment I'd guess
@@ -353,7 +368,7 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
     // if modules.len() < plugins.len() {
     //     crate::dialog_error("ARCropolis failed to load/mount some plugins.");
     // } else {
-        info!("Successfully chainloaded all collected plugins.");
+    info!("Successfully chainloaded all collected plugins.");
     // }
 
     for module in modules.into_iter() {
@@ -369,7 +384,7 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
         };
 
         if let Some(entrypoint) = callable {
-            info!("Calling 'main' in chainloaded plugin"); 
+            info!("Calling 'main' in chainloaded plugin");
             entrypoint();
             info!("Finished calling 'main' in chainloaded plugin");
         }

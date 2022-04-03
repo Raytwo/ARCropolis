@@ -1,5 +1,3 @@
-use log::{LevelFilter, Metadata, Record, SetLoggerError};
-use parking_lot::Mutex;
 use std::{
     fs::File,
     io::{BufWriter, Write},
@@ -8,16 +6,18 @@ use std::{
     time::SystemTime,
 };
 
+use log::{LevelFilter, Metadata, Record, SetLoggerError};
+use parking_lot::Mutex;
+
 use crate::config;
 
 /// Since we can't rely on most time based libraries, this is a seconds -> date/time string based on the `chrono` crates implementation
 fn format_time_string(seconds: u64) -> String {
     let leapyear = |year| -> bool { year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) };
 
-    static YEAR_TABLE: [[u64; 12]; 2] = [
-        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
-        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
-    ];
+    static YEAR_TABLE: [[u64; 12]; 2] = [[31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31], [
+        31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+    ]];
 
     let mut year = 1970;
 
@@ -34,7 +34,7 @@ fn format_time_string(seconds: u64) -> String {
             day_number -= year_length;
             year += 1;
         } else {
-            break;
+            break
         }
     }
     let mut month = 0;
@@ -42,16 +42,8 @@ fn format_time_string(seconds: u64) -> String {
         day_number -= YEAR_TABLE[if leapyear(year) { 1 } else { 0 }][month];
         month += 1;
     }
-  
-    format!(
-        "{:04}-{:02}-{:02}_{:02}-{:02}-{:02}",
-        year,
-        month + 1,
-        day_number + 1,
-        hours,
-        min,
-        sec
-    )
+
+    format!("{:04}-{:02}-{:02}_{:02}-{:02}-{:02}", year, month + 1, day_number + 1, hours, min, sec)
 }
 
 static LOG_PATH: &'static str = "sd:/ultimate/arcropolis/logs";
@@ -120,14 +112,12 @@ impl log::Log for ArcLogger {
 
     fn log(&self, record: &Record) {
         if !self.enabled(record.metadata()) {
-            return;
+            return
         }
 
         let module_path = match record.module_path() {
             Some(path) => path,
-            None => {
-                return
-            },
+            None => return,
         };
 
         let skip_mod_path = record.target() == "no-mod-path";
@@ -141,13 +131,7 @@ impl log::Log for ArcLogger {
                 Some(no) => format!("{}", no),
                 None => "???".to_string(),
             };
-            format!(
-                "[{} | {}:{}] {}\n",
-                module_path,
-                file,
-                number,
-                record.args()
-            )
+            format!("[{} | {}:{}] {}\n", module_path, file, number, record.args())
         } else if !skip_mod_path {
             format!("[{}] {}\n", module_path, record.args())
         } else {
@@ -159,18 +143,18 @@ impl log::Log for ArcLogger {
         match record.target() {
             "std" => {
                 print!("{}", message);
-            }
+            },
             "file" => {
                 if config::file_logging_enabled() {
                     FILE_WRITER.write(strip_ansi_escapes::strip(message).unwrap_or(vec![]));
                 }
-            }
+            },
             _ => {
                 print!("{}", message);
                 if config::file_logging_enabled() {
                     FILE_WRITER.write(strip_ansi_escapes::strip(message).unwrap_or(vec![]));
                 }
-            }
+            },
         }
     }
 

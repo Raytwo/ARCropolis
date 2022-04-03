@@ -1,7 +1,8 @@
+use std::fmt;
+
 use gh_updater::ReleaseFinderConfig;
 use semver::Version;
 use skyline::nn;
-use std::fmt;
 use zip::ZipArchive;
 
 pub enum VersionDifference {
@@ -49,8 +50,8 @@ where
         Ok(r) => r,
         Err(e) => {
             error!("Failed to check for updates: {:?}", e);
-            return;
-        }
+            return
+        },
     };
 
     let prerelease_tag = prerelease
@@ -63,39 +64,37 @@ where
     let release = match (prerelease_tag, release_tag) {
         (None, None) => {
             error!("No github releases were found!");
-            return;
+            return
         },
         (prerelease_tag, release_tag) => {
             if prerelease_tag > release_tag {
                 prerelease.unwrap()
-            } else { // even if they are equal it won't matter
+            } else {
+                // even if they are equal it won't matter
                 release.unwrap()
             }
-        }
+        },
     };
 
-    let version_difference = match compare_tags(
-        env!("CARGO_PKG_VERSION"),
-        release.get_release_tag().trim_start_matches("v"),
-    ) {
+    let version_difference = match compare_tags(env!("CARGO_PKG_VERSION"), release.get_release_tag().trim_start_matches("v")) {
         Ok(diff) => diff,
         Err(e) => {
             error!("Failed to parse version strings: {:?}", e);
-            return;
-        }
+            return
+        },
     };
 
     if let Some(update_kind) = version_difference {
         if !f(update_kind) {
-            return;
+            return
         }
         if let Some(release) = release.get_asset_by_name("release.zip") {
             let mut zip = match ZipArchive::new(std::io::Cursor::new(release)) {
                 Ok(zip) => zip,
                 Err(e) => {
                     error!("Failed to parse zip data: {:?}", e);
-                    return;
-                }
+                    return
+                },
             };
 
             if let Err(e) = zip.extract("sd:/") {

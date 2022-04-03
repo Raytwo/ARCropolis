@@ -1,20 +1,16 @@
-use arcropolis_api::{
-    Event,
-    EventCallbackFn
-};
+use arcropolis_api::{Event, EventCallbackFn};
 use parking_lot::RwLock;
-
 
 pub struct EventCallbacks {
     arc_fs_mounted: Vec<EventCallbackFn>,
-    mod_fs_mounted: Vec<EventCallbackFn>
+    mod_fs_mounted: Vec<EventCallbackFn>,
 }
 
 impl EventCallbacks {
     pub fn new() -> Self {
         EventCallbacks {
             arc_fs_mounted: vec![],
-            mod_fs_mounted: vec![]
+            mod_fs_mounted: vec![],
         }
     }
 }
@@ -30,7 +26,7 @@ impl std::ops::Index<Event> for EventCallbacks {
     fn index(&self, index: Event) -> &Self::Output {
         match index {
             Event::ArcFilesystemMounted => &self.arc_fs_mounted,
-            Event::ModFilesystemMounted => &self.mod_fs_mounted
+            Event::ModFilesystemMounted => &self.mod_fs_mounted,
         }
     }
 }
@@ -39,7 +35,7 @@ impl std::ops::IndexMut<Event> for EventCallbacks {
     fn index_mut(&mut self, index: Event) -> &mut Self::Output {
         match index {
             Event::ArcFilesystemMounted => &mut self.arc_fs_mounted,
-            Event::ModFilesystemMounted => &mut self.mod_fs_mounted
+            Event::ModFilesystemMounted => &mut self.mod_fs_mounted,
         }
     }
 }

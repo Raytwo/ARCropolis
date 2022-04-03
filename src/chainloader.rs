@@ -1,18 +1,16 @@
-use std::{cmp::Ordering, path::Path};
-use std::{fmt, io};
-use std::ops::Deref;
-use skyline::{nn, libc};
-use nn::ro::{self, NrrHeader, RegistrationInfo, Module};
-use std::mem::MaybeUninit;
+use std::{cmp::Ordering, fmt, io, mem::MaybeUninit, ops::Deref, path::Path};
+
+use nn::ro::{self, Module, NrrHeader, RegistrationInfo};
+use skyline::{libc, nn};
 
 macro_rules! align_up {
     ($x:expr, $a:expr) => {
         ((($x) + (($a) - 1)) & !(($a) - 1))
-    }
+    };
 }
 
 struct Sha256Hash {
-    hash: [u8; 0x20]
+    hash: [u8; 0x20],
 }
 
 impl Sha256Hash {
@@ -21,9 +19,7 @@ impl Sha256Hash {
         unsafe {
             nn::crypto::GenerateSha256Hash(hash.as_mut_ptr() as _, 0x20, data.as_ptr() as _, data.len() as u64);
         }
-        Self {
-            hash
-        }
+        Self { hash }
     }
 }
 
@@ -35,16 +31,12 @@ impl PartialEq for Sha256Hash {
 
 impl Ord for Sha256Hash {
     fn cmp(&self, other: &Self) -> Ordering {
-        let memcmp = unsafe {
-            libc::memcmp(self.hash.as_ptr() as _, other.hash.as_ptr() as _, 0x20)
-        };
+        let memcmp = unsafe { libc::memcmp(self.hash.as_ptr() as _, other.hash.as_ptr() as _, 0x20) };
         if memcmp < 0 {
             Ordering::Less
-        }
-        else if memcmp > 0 {
+        } else if memcmp > 0 {
             Ordering::Greater
-        }
-        else { 
+        } else {
             Ordering::Equal
         }
     }
@@ -75,16 +67,14 @@ impl fmt::Debug for NroMountFailedError {
 }
 
 pub struct NrrBuilder {
-    hashes: Vec<Sha256Hash>
+    hashes: Vec<Sha256Hash>,
 }
 
 const NRR_SIZE: usize = std::mem::size_of::<NrrHeader>();
 
 impl NrrBuilder {
     pub fn new() -> Self {
-        Self {
-            hashes: vec![]
-        }
+        Self { hashes: vec![] }
     }
 
     pub fn add_module(&mut self, data: &[u8]) {
@@ -94,7 +84,7 @@ impl NrrBuilder {
     pub fn register(self) -> Result<Option<RegistrationInfo>, NrrRegistrationFailedError> {
         let Self { hashes: mut module_hashes } = self;
         if module_hashes.len() == 0 {
-            return Ok(None);
+            return Ok(None)
         }
         module_hashes.sort();
 
@@ -138,14 +128,12 @@ impl NrrBuilder {
 }
 
 pub struct NroBuilder {
-    data: Vec<u8>
+    data: Vec<u8>,
 }
 
 impl NroBuilder {
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self, io::Error> {
-        Ok(Self {
-            data: std::fs::read(path)?
-        })
+        Ok(Self { data: std::fs::read(path)? })
     }
 
     pub fn mount(self) -> Result<Module, NroMountFailedError> {
@@ -167,13 +155,17 @@ impl NroBuilder {
             }
         }?;
 
-        let bss_section = unsafe {
-            libc::memalign(0x1000, bss_size)
-        };
+        let bss_section = unsafe { libc::memalign(0x1000, bss_size) };
 
         let mut nro_module = MaybeUninit::uninit();
         unsafe {
-            let rc = ro::LoadModule(nro_module.as_mut_ptr(), nro_image, bss_section, bss_size as u64, ro::BindFlag_BindFlag_Now as i32);
+            let rc = ro::LoadModule(
+                nro_module.as_mut_ptr(),
+                nro_image,
+                bss_section,
+                bss_size as u64,
+                ro::BindFlag_BindFlag_Now as i32,
+            );
             if rc == 0 {
                 Ok(nro_module.assume_init())
             } else {

@@ -1,6 +1,10 @@
+use std::{
+    collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
+};
+
 use serde::Deserialize;
 use smash_arc::serde::Hash40String;
-use std::{collections::{HashSet, HashMap}, path::{Path, PathBuf}};
 
 #[derive(Debug, Deserialize)]
 pub struct ModConfig {
@@ -37,24 +41,24 @@ impl ModConfig {
             preprocess_reshare: HashMap::new(),
             new_dir_files: HashMap::new(),
             new_shared_files: HashMap::new(),
-            preprocess_reshare_ext: HashMap::new()
+            preprocess_reshare_ext: HashMap::new(),
         }
     }
 
     pub fn merge(&mut self, other: ModConfig) {
-        let Self { 
+        let Self {
             unshare_blacklist,
             new_files,
             preprocess_reshare,
             preprocess_reshare_ext,
-            new_shared_files, 
-            new_dir_files
+            new_shared_files,
+            new_dir_files,
         } = other;
 
         self.unshare_blacklist.extend(unshare_blacklist.into_iter());
         self.preprocess_reshare.extend(preprocess_reshare.into_iter());
         self.preprocess_reshare_ext.extend(preprocess_reshare_ext.into_iter());
-        
+
         for (hash, list) in new_files.into_iter() {
             if let Some(list) = list {
                 if let Some(Some(current_list)) = self.new_files.get_mut(&hash) {

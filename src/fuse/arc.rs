@@ -1,7 +1,7 @@
 use std::io::Write;
 
-use nn_fuse::{FileAccessor, FileSystemAccessor, FAccessor, FsAccessor, DAccessor, AccessorResult, FsEntryType, DirectoryAccessor};
-use smash_arc::{ArcLookup, Hash40, ArcFile};
+use nn_fuse::{AccessorResult, DAccessor, DirectoryAccessor, FAccessor, FileAccessor, FileSystemAccessor, FsAccessor, FsEntryType};
+use smash_arc::{ArcFile, ArcLookup, Hash40};
 
 use crate::PathExtension;
 
@@ -20,7 +20,10 @@ impl FileAccessor for ArcFileAccessor {
 
     fn get_size(&mut self) -> Result<usize, AccessorResult> {
         debug!("ArcFileAccessor::get_size");
-        Ok(ARC_FILE.get_file_data_from_hash(self.0, smash_arc::Region::UsEnglish).unwrap().decomp_size as _)
+        Ok(ARC_FILE
+            .get_file_data_from_hash(self.0, smash_arc::Region::UsEnglish)
+            .unwrap()
+            .decomp_size as _)
     }
 }
 

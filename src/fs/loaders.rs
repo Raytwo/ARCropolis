@@ -1,12 +1,10 @@
-
 use std::collections::VecDeque;
 
-use super::*;
-
-use msbt::{Msbt, builder::MsbtBuilder};
-
+use msbt::{builder::MsbtBuilder, Msbt};
 use serde::*;
 use serde_xml_rs;
+
+use super::*;
 
 #[derive(Deserialize, Debug)]
 pub struct XMSBT {
@@ -40,7 +38,7 @@ pub enum ApiLoaderError {
     #[error("IO Error")]
     IO(#[from] std::io::Error),
     #[error("{0}")]
-    Other(String)
+    Other(String),
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -75,7 +73,7 @@ impl ApiLoadType {
     pub fn path_exists(self, _local: &Path) -> bool {
         match self {
             ApiLoadType::Nus3bankPatch => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -89,7 +87,7 @@ impl ApiLoadType {
                     .flatten()
                     .map(|x| x.decomp_size as usize)
             },
-            _ => None
+            _ => None,
         }
     }
 
@@ -104,7 +102,7 @@ impl ApiLoadType {
                     Ok(FileEntryType::File)
                 }
             },
-            _ => Err(ApiLoaderError::Other("Unimplemented ApiLoadType!".to_string()))
+            _ => Err(ApiLoaderError::Other("Unimplemented ApiLoadType!".to_string())),
         }
     }
 
@@ -126,7 +124,6 @@ impl ApiLoadType {
                 let mut param_data = prcx::read_stream(&mut std::io::Cursor::new(data))
                     .map_err(|_| ApiLoaderError::Other("Unable to parse param data!".to_string()))?;
 
-                
                 for patch_path in patches.iter() {
                     let patch = if let Ok(patch) = prcx::open(patch_path) {
                         patch
@@ -198,7 +195,7 @@ impl ApiLoadType {
                             .encode_utf16()
                             .collect();
                         str_val.push(0);
-                    
+
                         let slice_u8: &[u8] = unsafe {
                             std::slice::from_raw_parts(
                                 str_val.as_ptr() as *const u8,
@@ -250,8 +247,6 @@ impl ApiLoadType {
     }
 }
 
-
-
 #[derive(Copy, Clone)]
 pub enum ApiCallback {
     None,
@@ -267,14 +262,14 @@ unsafe impl Sync for UnsafeSize {}
 
 struct ApiFunctionEntry {
     pub function_index: usize,
-    pub functions: VecDeque<(PathBuf, ApiCallback)>
+    pub functions: VecDeque<(PathBuf, ApiCallback)>,
 }
 
 pub struct ApiLoader {
     function_map: HashMap<Hash40, UnsafeCell<ApiFunctionEntry>>,
     stream_size_map: UnsafeCell<HashMap<PathBuf, usize>>,
     param_patches: HashMap<Hash40, Vec<PathBuf>>,
-    msbt_patches: HashMap<Hash40, Vec<PathBuf>>
+    msbt_patches: HashMap<Hash40, Vec<PathBuf>>,
 }
 
 unsafe impl Send for ApiLoader {}
@@ -286,7 +281,7 @@ impl ApiLoader {
             function_map: HashMap::new(),
             stream_size_map: UnsafeCell::new(HashMap::new()),
             param_patches: HashMap::new(),
-            msbt_patches: HashMap::new()
+            msbt_patches: HashMap::new(),
         }
     }
 
@@ -296,15 +291,19 @@ impl ApiLoader {
         } else {
             let mut vdq = VecDeque::new();
             vdq.push_front((root.to_path_buf(), cb));
-            self.function_map.insert(hash, UnsafeCell::new(ApiFunctionEntry {
-                function_index: 0,
-                functions: vdq
-            }));
+            self.function_map.insert(
+                hash,
+                UnsafeCell::new(ApiFunctionEntry {
+                    function_index: 0,
+                    functions: vdq,
+                }),
+            );
         }
     }
 
     fn use_virtual_file(&self, local: &Path) -> Option<(&Path, ApiCallback)> {
-        local.smash_hash()
+        local
+            .smash_hash()
             .ok()
             .map(|x| self.function_map.get(&x))
             .flatten()
@@ -323,17 +322,13 @@ impl ApiLoader {
     }
 
     fn release_virtual_file(&self, local: &Path) {
-        let _ = local.smash_hash()
-            .ok()
-            .map(|x| self.function_map.get(&x))
-            .flatten()
-            .map(|entry| {
-                let data = entry.get();
-                unsafe {
-                    (*data).function_index = ((*data).function_index - 1).min(0);
-                }
-                ()
-            });
+        let _ = local.smash_hash().ok().map(|x| self.function_map.get(&x)).flatten().map(|entry| {
+            let data = entry.get();
+            unsafe {
+                (*data).function_index = ((*data).function_index - 1).min(0);
+            }
+            ()
+        });
     }
 
     pub fn handle_load_vanilla_file(local: &Path) -> Result<Vec<u8>, ApiLoaderError> {
@@ -343,9 +338,7 @@ impl ApiLoader {
     }
 
     pub fn handle_load_base_file(local: &Path) -> Result<Vec<u8>, ApiLoaderError> {
-        let filesystem = unsafe {
-            &*crate::GLOBAL_FILESYSTEM.data_ptr()
-        };
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
 
         let cached = filesystem.get();
         if cached.get_patch_entry_type(local).is_ok() {
@@ -356,9 +349,7 @@ impl ApiLoader {
     }
 
     pub fn get_prc_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
-        let filesystem = unsafe {
-            &*crate::GLOBAL_FILESYSTEM.data_ptr()
-        };
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
 
         let cached = filesystem.get();
 
@@ -366,9 +357,7 @@ impl ApiLoader {
     }
 
     pub fn get_msbt_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
-        let filesystem = unsafe {
-            &*crate::GLOBAL_FILESYSTEM.data_ptr()
-        };
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
 
         let cached = filesystem.get();
 
@@ -404,14 +393,10 @@ impl ApiLoader {
                             }
                             Some(skyline::from_c_str(data.as_ptr()))
                         },
-                        _ => {
-                            self.get_stream_cb_path(local)
-                        }
+                        _ => self.get_stream_cb_path(local),
                     }
                 },
-                _ => {
-                    self.get_stream_cb_path(local)
-                }
+                _ => self.get_stream_cb_path(local),
             };
             self.release_virtual_file(local);
             result
@@ -426,14 +411,8 @@ impl FileLoader for ApiLoader {
 
     fn path_exists(&self, _root_path: &Path, local_path: &Path) -> bool {
         if let Some((root_path, _)) = self.use_virtual_file(local_path) {
-            let result = ApiLoadType::from_root(root_path)
-                .map(|x| x.path_exists(local_path))
-                .unwrap_or(false);
-            let result = if !result {
-                self.path_exists(root_path, local_path)
-            } else {
-                result
-            };
+            let result = ApiLoadType::from_root(root_path).map(|x| x.path_exists(local_path)).unwrap_or(false);
+            let result = if !result { self.path_exists(root_path, local_path) } else { result };
             self.release_virtual_file(local_path);
             result
         } else {
@@ -443,7 +422,7 @@ impl FileLoader for ApiLoader {
 
     fn get_file_size(&self, _root_path: &Path, local_path: &Path) -> Option<usize> {
         if let Some(sz) = unsafe { (*self.stream_size_map.get()).get(local_path) } {
-            return Some(*sz);
+            return Some(*sz)
         }
         if let Some((root_path, _)) = self.use_virtual_file(local_path) {
             let result = ApiLoadType::from_root(root_path)
@@ -483,7 +462,7 @@ impl FileLoader for ApiLoader {
                     ty.load_path(local_path, callback)
                         .map_or_else(|_| self.load_path(root_path, local_path), |(_, data)| Ok(data))
                 },
-                Err(e) => Err(e)
+                Err(e) => Err(e),
             };
             self.release_virtual_file(local_path);
             result
@@ -494,13 +473,15 @@ impl FileLoader for ApiLoader {
 
     fn get_actual_path(&self, root_path: &Path, local_path: &Path) -> Option<PathBuf> {
         if root_path.ends_with("stream-cb") {
-            Some(self.get_stream_cb_path(local_path).map_or(root_path.join(local_path), |x| PathBuf::from(x)))
+            Some(
+                self.get_stream_cb_path(local_path)
+                    .map_or(root_path.join(local_path), |x| PathBuf::from(x)),
+            )
         } else {
             Some(root_path.join(local_path))
         }
     }
 }
-
 
 #[repr(transparent)]
 pub struct ArcLoader(pub(super) &'static LoadedArc);
@@ -522,24 +503,29 @@ impl FileLoader for ArcLoader {
     fn path_exists(&self, _: &Path, local_path: &Path) -> bool {
         match crate::get_smash_hash(local_path) {
             Ok(hash) => self.get_file_path_index_from_hash(hash).is_ok(),
-            _ => false
+            _ => false,
         }
     }
 
     fn get_file_size(&self, _: &Path, local_path: &Path) -> Option<usize> {
         match crate::get_smash_hash(local_path) {
-            Ok(hash) => self.get_file_data_from_hash(hash, config::region()).map_or_else(|_| None, |data| Some(data.decomp_size as usize)),
-            Err(_) => None
+            Ok(hash) => {
+                self.get_file_data_from_hash(hash, config::region())
+                    .map_or_else(|_| None, |data| Some(data.decomp_size as usize))
+            },
+            Err(_) => None,
         }
     }
 
     fn get_path_type(&self, _: &Path, local_path: &Path) -> Result<FileEntryType, Self::ErrorType> {
         match crate::get_smash_hash(local_path) {
-            Ok(hash) => match self.get_path_list_entry_from_hash(hash)?.is_directory() {
-                true => Ok(FileEntryType::Directory),
-                false => Ok(FileEntryType::File)
+            Ok(hash) => {
+                match self.get_path_list_entry_from_hash(hash)?.is_directory() {
+                    true => Ok(FileEntryType::Directory),
+                    false => Ok(FileEntryType::File),
+                }
             },
-            _ => Err(LookupError::Missing)
+            _ => Err(LookupError::Missing),
         }
     }
 

@@ -3,11 +3,11 @@ pub mod lookup;
 
 pub mod addition;
 pub mod config;
+pub mod preprocess;
 mod stream;
 mod threads;
 mod uncompressed;
 pub mod unshare;
-pub mod preprocess;
 
 pub use extensions::*;
 

@@ -1,13 +1,12 @@
-use std::collections::HashSet;
-use std::ops::Range;
+use std::{collections::HashSet, ops::Range};
 
 use smash_arc::*;
 
-use super::lookup;
-use super::extensions::*;
-use crate::config;
-use crate::hashes;
-use crate::resource::{self, LoadedFilepath};
+use super::{extensions::*, lookup};
+use crate::{
+    config, hashes,
+    resource::{self, LoadedFilepath},
+};
 
 lazy_static! {
     static ref SHARED_FILE_INDEX: u32 = resource::arc().get_shared_data_index();
@@ -27,8 +26,8 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
                 hashes::find(hash),
                 hash.0
             );
-            return;
-        }
+            return
+        },
     };
 
     // Get the number of shared files from our lookup, if there are none then we shouldn't even be here, so print out a warning
@@ -37,8 +36,12 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
     // at runtime the file tables will be a little messy but nothing the game can't handle
     let shared_file_count = lookup::get_shared_file_count(hash);
     if shared_file_count == 0 {
-        warn!("Attempted to reshare dependent files on file '{}' ({:#x}), which has no shared files!", hashes::find(hash), hash.0);
-        return;
+        warn!(
+            "Attempted to reshare dependent files on file '{}' ({:#x}), which has no shared files!",
+            hashes::find(hash),
+            hash.0
+        );
+        return
     }
 
     // Here we set the length to 255, because no path in the game even comes close to that long we should be fine.
@@ -59,13 +62,13 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
     // Create a new FileInfoIndex with a directory offset that doesn't matter and a file info index that we are pointing to
     ctx.file_info_indices.push(FileInfoIndex {
         dir_offset_index: 0xFF_FFFF,
-        file_info_index: new_info_idx
+        file_info_index: new_info_idx,
     });
 
     // we can safely unwrap here, since we are guaranteed to have our file path index since we found it above
     // Unlike unsharing, we actually are creating a new FilePath here, since we have to reshare to something that won't get unshared later.
     // This is why we change the filepath index to something new instead of what is in the DirInfo
-    let mut new_file_info = *ctx.get_file_info_from_hash(hash).unwrap(); 
+    let mut new_file_info = *ctx.get_file_info_from_hash(hash).unwrap();
     new_file_info.file_path_index = new_filepath_idx;
     new_file_info.file_info_indice_index = new_info_indice_idx;
     new_file_info.flags.set_standalone_file(true);
@@ -81,9 +84,9 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
 
     // Copy the old InfoToData and also set the index of the new one in our file info
     let mut new_file_info_to_data = ctx.info_to_datas[info_to_data_index];
-    
+
     new_file_info.info_to_data_index = new_info_to_data_idx;
-    
+
     // Clone the old file info and push it back onto our context
     // This old file info should never get changed.
     let new_data = ctx.file_datas[usize::from(new_file_info_to_data.file_data_index)];
@@ -91,7 +94,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
 
     // Modify our InfoToData to point to the new FileData we have created
     new_file_info_to_data.file_data_index = new_data_idx;
-    
+
     // Push the remainder of our structures. We only have to create one new FilePath -> InfoIdx -> ... -> FileData chain
     // since we are going to just be redirecting all of the dependent files to this new one
     ctx.info_to_datas.push(new_file_info_to_data);
@@ -112,8 +115,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
         // Don't worry about files in our ignore list
         // If this seems confusing, note that the `hash_ignore` comes from files that we do our preprocessing on (i.e. Dark Samus models for victory screen)
         if hash_ignore.contains(&dependent_hash) {
-         
-            continue;
+            continue
         }
         // Get the DirInfo and the child index of the dependent hash, if it doesn't exist... then just move on to the next one ig
         let (dir_hash, child_idx) = match lookup::get_dir_entry_for_file(dependent_hash) {
@@ -126,8 +128,8 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
                     hashes::find(hash),
                     hash.0
                 );
-                continue;
-            }
+                continue
+            },
         };
 
         // Attempt to get the child info range from the dir info so that we can modify the entry in question
@@ -141,20 +143,26 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
                     hashes::find(hash),
                     hash.0
                 );
-                continue;
-            }
+                continue
+            },
         };
 
         // Get the file info, modify which info indice it points to as well as set the filepath to point to the new info indice as well
         // We have to modify the InfoIndiceIdx in case this file gets loaded as part of a directory, else it will point to the old file
         // file that we are definitely going to be patching, leading to potential decompression issues or UB
         let dependent_info = &mut ctx.file_infos[child_info_range][child_idx];
-        let dependent_filepath_index = dependent_info.file_path_index; 
+        let dependent_filepath_index = dependent_info.file_path_index;
         dependent_info.file_info_indice_index = new_info_indice_idx;
         dependent_info.flags.set_standalone_file(true);
         drop(dependent_info);
 
-        info!("Reshared file '{}' ({:#x}), which depended on '{}' ({:#x})", hashes::find(dependent_hash), dependent_hash.0, hashes::find(hash), hash.0);
+        info!(
+            "Reshared file '{}' ({:#x}), which depended on '{}' ({:#x})",
+            hashes::find(dependent_hash),
+            dependent_hash.0,
+            hashes::find(hash),
+            hash.0
+        );
 
         // Finally set the FileInfoIndiceIdx on the FilePath to our new reshared one, this is important in case the file gets loaded as a singular file
         // (and also the game loads many of the files via filepath anyways, even if they are in a directory)
@@ -171,41 +179,56 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
 fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: Hash40) {
     // Ignore the provided hash if it is contained in our list of ignored files
     if hash_ignore.contains(&hash) {
-        return;
+        return
     }
 
     // Check if the file is stored in our lookup table (the `is_shared_search` field)
     if !lookup::is_shared_file(hash) {
         trace!("File '{}' ({:#x}) did not need to be unshared.", hashes::find(hash), hash.0);
-        return;
+        return
     }
 
     // Get the shared file path index from the LoadedArc
     // If it's missing, just early return
     let shared_file = match ctx.get_file_path_index_from_hash(hash) {
-        Ok(filepath_idx) => ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(filepath_idx)].path.index() as usize].file_info_index)].file_path_index,
+        Ok(filepath_idx) => {
+            ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(filepath_idx)].path.index() as usize].file_info_index)]
+                .file_path_index
+        },
         Err(_) => {
-            warn!("Failed to find filepath index for '{}' ({:#x}). This file will not be unshared.", hashes::find(hash), hash.0);
-            return;
-        }
+            warn!(
+                "Failed to find filepath index for '{}' ({:#x}). This file will not be unshared.",
+                hashes::find(hash),
+                hash.0
+            );
+            return
+        },
     };
-    
+
     // Grab the directory file info entry from our unsharing lookup, if it's missing then early return
     let (dir_hash, idx) = match lookup::get_dir_entry_for_file(hash) {
         Some(val) => val,
         None => {
-            warn!("Failed to find '{}' ({:#x}) in the unsharing lookup. This file will not be unshared.", hashes::find(hash), hash.0);
-            return;
-        }
+            warn!(
+                "Failed to find '{}' ({:#x}) in the unsharing lookup. This file will not be unshared.",
+                hashes::find(hash),
+                hash.0
+            );
+            return
+        },
     };
 
     // Lookup the directory from the cache, if it's missing then early return
     let dir_info = match ctx.get_dir_info_from_hash(dir_hash) {
         Ok(dir) => *dir,
         Err(_) => {
-            warn!("Failed to find directory for '{}' ({:#x}). This file will not be unshared.", hashes::find(hash), hash.0);
-            return;
-        }
+            warn!(
+                "Failed to find directory for '{}' ({:#x}). This file will not be unshared.",
+                hashes::find(hash),
+                hash.0
+            );
+            return
+        },
     };
 
     // Get the current filepath index for the hash to unshare
@@ -214,16 +237,21 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     match ctx.get_file_path_index_from_hash(hash) {
         Ok(current_path_index) if current_path_index == shared_file => {
             reshare_dependent_files(ctx, hash_ignore, hash);
-            let file_info = &mut ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(current_path_index)].path.index() as usize].file_info_index)];
+            let file_info = &mut ctx.file_infos
+                [usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(current_path_index)].path.index() as usize].file_info_index)];
             file_info.flags.set_standalone_file(true);
             if ctx.arc.get_file_in_folder(file_info, config::region()).file_data_index.0 < *SHARED_FILE_INDEX {
-                return;
+                return
             }
         },
         Ok(_) => {},
         Err(_) => {
-            warn!("Failed to find path index for file '{}' ({:#x}) when attempting to unshare it. This file will not be unshared.", hashes::find(hash), hash.0);
-            return;
+            warn!(
+                "Failed to find path index for file '{}' ({:#x}) when attempting to unshare it. This file will not be unshared.",
+                hashes::find(hash),
+                hash.0
+            );
+            return
         },
     }
 
@@ -236,7 +264,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     // get the shared file info and copy it so that we can make modifications
     // we copy it here so that we grab the same flags from the original file, else we will run into issues like textures not loading properly
     // or effects crashing the game (although effects aren't shared...)
-    let mut new_file_info = { 
+    let mut new_file_info = {
         let shared_info_indice_idx = ctx.filepaths[usize::from(shared_file)].path.index() as usize;
         let shared_info_idx = ctx.file_info_indices[shared_info_indice_idx].file_info_index;
         ctx.file_infos[usize::from(shared_info_idx)]
@@ -295,7 +323,9 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     //  * 'info_to_data_index' needs to point to the right InfoToData (and therefore, right FileData) because after the LoadedArc takes the
     //      context, we will need individual paths to patch
     new_file_info.flags.set_standalone_file(true);
-    new_file_info.flags.set_unshared_nus3bank(ctx.filepaths[usize::from(dir_file_info.file_path_index)].ext.hash40() == Hash40::from("nus3bank"));
+    new_file_info
+        .flags
+        .set_unshared_nus3bank(ctx.filepaths[usize::from(dir_file_info.file_path_index)].ext.hash40() == Hash40::from("nus3bank"));
     new_file_info.file_path_index = dir_file_info.file_path_index;
     new_file_info.file_info_indice_index = new_info_indice_idx;
     new_file_info.info_to_data_index = new_info_to_data_idx;
@@ -311,11 +341,13 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
 
     ctx.file_info_indices.push(FileInfoIndex {
         dir_offset_index: 0xFF_FFFF,
-        file_info_index: new_info_idx
+        file_info_index: new_info_idx,
     });
-    
+
     // Patch the now-unshared FilePath to point to our unshared file chain
-    ctx.filepaths[usize::from(dir_file_info.file_path_index)].path.set_index(new_info_indice_idx.0);
+    ctx.filepaths[usize::from(dir_file_info.file_path_index)]
+        .path
+        .set_index(new_info_indice_idx.0);
 
     // we only need to reserve memory here, since none of these are active
     ctx.loaded_datas.reserve(1);
@@ -328,9 +360,17 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     // and would kill the unsharing and cause undefined behavior. If it's unshared properly, then *we* should consider it as such and not have to keep
     // track of it
     lookup::remove_shared_file(hash);
-    ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(shared_file)].path.index() as usize].file_info_index)].flags.set_standalone_file(true);
+    ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(shared_file)].path.index() as usize].file_info_index)]
+        .flags
+        .set_standalone_file(true);
     let shared_hash = ctx.filepaths[usize::from(shared_file)].path.hash40();
-    info!("Unshared file '{}' ({:#x}) from '{}' ({:#x})", hashes::find(hash), hash.0, hashes::find(shared_hash), shared_hash.0);
+    info!(
+        "Unshared file '{}' ({:#x}) from '{}' ({:#x})",
+        hashes::find(hash),
+        hash.0,
+        hashes::find(shared_hash),
+        shared_hash.0
+    );
 }
 
 fn reshare_file_group(ctx: &mut AdditionContext, dir_info: Range<usize>, file_group: Range<usize>) {
@@ -340,12 +380,24 @@ fn reshare_file_group(ctx: &mut AdditionContext, dir_info: Range<usize>, file_gr
     // This proved to be problematic when these files would get unshared/reshared, because the game would load invalid data from an invalid address
     // To remedy this, a quick workaround can be developed by telling the game to load all of these as standalone files (this forces the game to load
     // based off of FilePath instead of sequential InfoToDatas).
-    let referenced_file_infos: HashSet<FileInfoIdx> = file_group.clone().into_iter().map(|x| ctx.get_shared_info_index(FileInfoIdx(x as u32))).collect();
+    let referenced_file_infos: HashSet<FileInfoIdx> = file_group
+        .clone()
+        .into_iter()
+        .map(|x| ctx.get_shared_info_index(FileInfoIdx(x as u32)))
+        .collect();
     for dir_index in dir_info {
         let dir_index = FileInfoIdx(dir_index as u32);
         let shared_idx = ctx.get_shared_info_index(dir_index);
-        if shared_idx == dir_index || (ctx.get_file_in_folder(&ctx.file_infos[usize::from(shared_idx)], config::region()).file_data_index.0 < *SHARED_FILE_INDEX && !file_group.contains(&usize::from(shared_idx)) && !referenced_file_infos.contains(&shared_idx)) {
-            continue;
+        if shared_idx == dir_index
+            || (ctx
+                .get_file_in_folder(&ctx.file_infos[usize::from(shared_idx)], config::region())
+                .file_data_index
+                .0
+                < *SHARED_FILE_INDEX
+                && !file_group.contains(&usize::from(shared_idx))
+                && !referenced_file_infos.contains(&shared_idx))
+        {
+            continue
         }
 
         ctx.file_infos[usize::from(dir_index)].flags.set_standalone_file(true);

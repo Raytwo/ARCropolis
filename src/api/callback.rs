@@ -1,24 +1,13 @@
+use arcropolis_api::{CallbackFn, StreamCallbackFn};
+use owo_colors::OwoColorize;
 use parking_lot::Mutex;
 use smash_arc::Hash40;
-use arcropolis_api::{
-    CallbackFn,
-    StreamCallbackFn
-};
-use crate::fs::*;
-use crate::hashes;
-use owo_colors::OwoColorize;
 
+use crate::{fs::*, hashes};
 
 pub enum PendingApiCall {
-    GenericCallback {
-        hash: Hash40,
-        max_size: usize,
-        callback: CallbackFn
-    },
-    StreamCallback {
-        hash: Hash40,
-        callback: StreamCallbackFn
-    },
+    GenericCallback { hash: Hash40, max_size: usize, callback: CallbackFn },
+    StreamCallback { hash: Hash40, callback: StreamCallbackFn },
 }
 
 unsafe impl Send for PendingApiCall {}
@@ -39,7 +28,7 @@ pub extern "C" fn arcrop_register_callback(hash: Hash40, max_size: usize, cb: Ca
     let request = PendingApiCall::GenericCallback {
         hash,
         max_size,
-        callback: cb
+        callback: cb,
     };
 
     let mut pending_calls = PENDING_CALLBACKS.lock();
@@ -59,10 +48,7 @@ pub extern "C" fn arcrop_register_callback_with_path(hash: Hash40, cb: StreamCal
         hash.0
     );
 
-    let request = PendingApiCall::StreamCallback {
-        hash,
-        callback: cb
-    };
+    let request = PendingApiCall::StreamCallback { hash, callback: cb };
 
     let mut pending_calls = PENDING_CALLBACKS.lock();
 

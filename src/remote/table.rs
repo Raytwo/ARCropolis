@@ -1,7 +1,6 @@
 use crate::resource::{self, FilesystemInfo};
 
-static USAGE: &'static str =
-r#"table: Commands to help scan the filesystem tables for analysis/troubleshooting at runtime.
+static USAGE: &'static str = r#"table: Commands to help scan the filesystem tables for analysis/troubleshooting at runtime.
 Entry Lookups:
     get_filepath_table_entry [-i | -h] [<index> | <hashable>]
         Note: This is commonly referred to as Table 1
@@ -23,11 +22,14 @@ Utilities:
               Pass --ref-count or --pointer to only see those fields of the loaded data table entries for each file (the default is the loaded state)"#;
 
 mod lookups {
-    use super::super::*;
-    use crate::{config, resource::{self, FilesystemInfo}};
     use smash_arc::ArcLookup;
-    static USAGE: &'static str =
-    r#"Entry Lookups:
+
+    use super::super::*;
+    use crate::{
+        config,
+        resource::{self, FilesystemInfo},
+    };
+    static USAGE: &'static str = r#"Entry Lookups:
     get_filepath_table_entry [-i | -h] [<index> | <hashable>]
         Note: This is commonly referred to as Table 1
               This table uses the same indices as the FilePath table in data.arc
@@ -40,8 +42,7 @@ mod lookups {
               This table uses the same indices as the DirInfo table in data.arc
     "#;
     pub fn handle_get_filepath_table_entry(tables: &FilesystemInfo, mut args: Vec<String>) -> String {
-        static USAGE: &'static str =
-        r#"get_filepath_table_entry [-i | -h] [<index> | <hashable>]
+        static USAGE: &'static str = r#"get_filepath_table_entry [-i | -h] [<index> | <hashable>]
         Note: This is commonly referred to as Table 1
               This table uses the same indices as the FilePath table in data.arc"#;
 
@@ -52,10 +53,10 @@ mod lookups {
                         Some(entry) => {
                             format!("{:#x?}", entry)
                         },
-                        None => String::from("Out of bounds")
+                        None => String::from("Out of bounds"),
                     }
                 },
-                None => String::from(USAGE)
+                None => String::from(USAGE),
             }
         } else if let Some(hash) = get_flag_and_option("-h", &mut args) {
             let hash = parse_hash(hash.as_str());
@@ -66,14 +67,12 @@ mod lookups {
                         Some(entry) => {
                             format!("{:#x?}", entry)
                         },
-                        None => {
-                            String::from("Out of bounds")
-                        }
+                        None => String::from("Out of bounds"),
                     }
                 },
                 Err(e) => {
                     format!("{:#?}", e)
-                }
+                },
             }
         } else {
             String::from(USAGE)
@@ -81,8 +80,7 @@ mod lookups {
     }
 
     pub fn handle_get_loaded_data_table_entry(tables: &FilesystemInfo, mut args: Vec<String>) -> String {
-        static USAGE: &'static str =
-        r#"get_loaded_data_table_entry [-i | -h] [<index> | <hashable>]
+        static USAGE: &'static str = r#"get_loaded_data_table_entry [-i | -h] [<index> | <hashable>]
             Note: This is commonly referred to as Table 2
                   When passing an index, make sure it is not a file path index. This table uses the same indices as the FileInfoIndex table in data.arc"#;
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
@@ -92,10 +90,10 @@ mod lookups {
                         Some(entry) => {
                             format!("{:#x?}", entry)
                         },
-                        None => String::from("Out of bounds")
+                        None => String::from("Out of bounds"),
                     }
                 },
-                None => String::from(USAGE)
+                None => String::from(USAGE),
             }
         } else if let Some(hash) = get_flag_and_option("-h", &mut args) {
             let hash = parse_hash(hash.as_str());
@@ -106,21 +104,24 @@ mod lookups {
                     match tables.get_loaded_datas().get(info_idx_idx) {
                         Some(entry) => {
                             if check_for_flag("-d", &mut args) && !entry.data.is_null() {
-                                let decomp_size = arc.get_file_data(&arc.get_file_infos()[arc.get_file_info_indices()[info_idx_idx].file_info_index], config::region()).decomp_size;
+                                let decomp_size = arc
+                                    .get_file_data(
+                                        &arc.get_file_infos()[arc.get_file_info_indices()[info_idx_idx].file_info_index],
+                                        config::region(),
+                                    )
+                                    .decomp_size;
                                 let slice = unsafe { std::slice::from_raw_parts(entry.data, decomp_size as usize) };
                                 format!("{:x?}", slice)
                             } else {
                                 format!("{:#x?}", entry)
                             }
                         },
-                        None => {
-                            String::from("File path points out of bounds of loaded data table")
-                        }
+                        None => String::from("File path points out of bounds of loaded data table"),
                     }
                 },
                 Err(e) => {
                     format!("{:#?}", e)
-                }
+                },
             }
         } else {
             String::from(USAGE)
@@ -128,12 +129,11 @@ mod lookups {
     }
 
     pub fn handle_get_loaded_directory_table_entry(tables: &FilesystemInfo, mut args: Vec<String>) -> String {
-        static USAGE: &'static str =
-        r#"get_loaded_directory_table_entry [-i | -h] [<index> | <hashable>]
+        static USAGE: &'static str = r#"get_loaded_directory_table_entry [-i | -h] [<index> | <hashable>]
         Note: When passing a hashable, use the directory path hash. Directories in data.arc are formatted differently than you might expect.
               For example, when getting Joker's first slot, you will use the directory path of "figher/jack/c00"
               This table uses the same indices as the DirInfo table in data.arc"#;
-        
+
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(idx) => {
@@ -141,10 +141,10 @@ mod lookups {
                         Some(entry) => {
                             format!("{:#x?}", entry)
                         },
-                        None => String::from("Out of bounds")
+                        None => String::from("Out of bounds"),
                     }
                 },
-                None => String::from(USAGE)
+                None => String::from(USAGE),
             }
         } else if let Some(hash) = get_flag_and_option("-h", &mut args) {
             let hash = parse_hash(hash.as_str());
@@ -155,7 +155,7 @@ mod lookups {
             for idx in dir_hashes.iter() {
                 if idx.hash40() == hash {
                     index = Some(idx.index() as usize);
-                    break;
+                    break
                 }
             }
             if let Some(idx) = index {
@@ -163,9 +163,7 @@ mod lookups {
                     Some(entry) => {
                         format!("{:#x?}", entry)
                     },
-                    None => {
-                        String::from("DirInfo HashToIndex is out of bounds")
-                    }
+                    None => String::from("DirInfo HashToIndex is out of bounds"),
                 }
             } else {
                 String::from("Missing")
@@ -177,25 +175,37 @@ mod lookups {
 }
 
 mod utils {
-    use super::super::*;
-    use crate::{hashes, resource::{self, LoadState, FilesystemInfo}};
     use smash_arc::ArcLookup;
-    
+
+    use super::super::*;
+    use crate::{
+        hashes,
+        resource::{self, FilesystemInfo, LoadState},
+    };
+
     #[derive(Copy, Clone)]
     enum CheckInfoType {
         State,
         RefCount,
-        Pointer
+        Pointer,
     }
-    static USAGE: &'static str =
-    r#"Utilities:
+    static USAGE: &'static str = r#"Utilities:
     check_directory [-i | -h] [<index> | <hashable>] [-p] [-u] [--ref-count | --pointer]
         Note: Both hashables and indices are for directories.
               Pass -p for pretty printing with colors
               Pass -u to only print unloaded file infos
               Pass --ref-count or --pointer to only see those fields of the loaded data table entries for each file (the default is the loaded state)"#;
 
-    fn check_directory(tables: &FilesystemInfo, index: u32, data_idx: bool, pretty: bool, unloaded: bool, info_type: CheckInfoType, current: Option<String>, indent: usize) -> String {
+    fn check_directory(
+        tables: &FilesystemInfo,
+        index: u32,
+        data_idx: bool,
+        pretty: bool,
+        unloaded: bool,
+        info_type: CheckInfoType,
+        current: Option<String>,
+        indent: usize,
+    ) -> String {
         use std::fmt::Write;
         fn write_indent(output: &mut String, indent: usize) {
             for _ in 0..indent {
@@ -218,7 +228,11 @@ mod utils {
         } else {
             if let Some(dir_info) = dir_info.clone() {
                 if pretty {
-                    format!("'{}' ({:#x}):\n", hashes::find(dir_info.path.hash40()).bright_blue(), dir_info.path.hash40().0)
+                    format!(
+                        "'{}' ({:#x}):\n",
+                        hashes::find(dir_info.path.hash40()).bright_blue(),
+                        dir_info.path.hash40().0
+                    )
                 } else {
                     format!("'{}' ({:#x}):\n", hashes::find(dir_info.path.hash40()), dir_info.path.hash40().0)
                 }
@@ -233,8 +247,13 @@ mod utils {
 
         write_indent(&mut output, indent + 1);
         if let Some(dir_info) = dir_info.clone() {
-            let _ = write!(&mut output, "| Files in vector: {} / {}\n", loaded_dir.child_path_indices.len(), dir_info.file_count);    
-        } else {    
+            let _ = write!(
+                &mut output,
+                "| Files in vector: {} / {}\n",
+                loaded_dir.child_path_indices.len(),
+                dir_info.file_count
+            );
+        } else {
             let _ = write!(&mut output, "| Files in vector: {} / ?\n", loaded_dir.child_path_indices.len());
         };
 
@@ -248,7 +267,7 @@ mod utils {
             };
             if let Some(entry) = t2_entry.as_ref() {
                 if entry.state == LoadState::Loaded && unloaded {
-                    continue;
+                    continue
                 }
             }
             let hash = file_paths[*path_idx as usize].path.hash40();
@@ -257,31 +276,85 @@ mod utils {
                 match info_type {
                     CheckInfoType::State => {
                         if let Some(entry) = t2_entry {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {:?}\n", hashes::find(hash).bright_red(), hash.0, entry.state);
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {:?}\n",
+                                hashes::find(hash).bright_red(),
+                                hash.0,
+                                entry.state
+                            );
                         } else if data_idx {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {:#x}\n", hashes::find(hash).bright_red(), hash.0, table1[*path_idx as usize].loaded_data_index);
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {:#x}\n",
+                                hashes::find(hash).bright_red(),
+                                hash.0,
+                                table1[*path_idx as usize].loaded_data_index
+                            );
                         } else {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash).bright_red(), hash.0, "Error! Invalid filepath table state!".red());
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {}\n",
+                                hashes::find(hash).bright_red(),
+                                hash.0,
+                                "Error! Invalid filepath table state!".red()
+                            );
                         }
                     },
                     CheckInfoType::RefCount => {
                         if let Some(entry) = t2_entry {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash).bright_red(), hash.0, entry.ref_count.load(std::sync::atomic::Ordering::SeqCst));
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {}\n",
+                                hashes::find(hash).bright_red(),
+                                hash.0,
+                                entry.ref_count.load(std::sync::atomic::Ordering::SeqCst)
+                            );
                         } else if data_idx {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {:#x}\n", hashes::find(hash).bright_red(), hash.0, table1[*path_idx as usize].loaded_data_index);
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {:#x}\n",
+                                hashes::find(hash).bright_red(),
+                                hash.0,
+                                table1[*path_idx as usize].loaded_data_index
+                            );
                         } else {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash).bright_red(), hash.0, "Error! Invalid filepath table state!".red());
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {}\n",
+                                hashes::find(hash).bright_red(),
+                                hash.0,
+                                "Error! Invalid filepath table state!".red()
+                            );
                         }
                     },
                     CheckInfoType::Pointer => {
                         if let Some(entry) = t2_entry {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {:x}\n", hashes::find(hash).bright_red(), hash.0, entry.data as u64);
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {:x}\n",
+                                hashes::find(hash).bright_red(),
+                                hash.0,
+                                entry.data as u64
+                            );
                         } else if data_idx {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {:#x}\n", hashes::find(hash).bright_red(), hash.0, table1[*path_idx as usize].loaded_data_index);
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {:#x}\n",
+                                hashes::find(hash).bright_red(),
+                                hash.0,
+                                table1[*path_idx as usize].loaded_data_index
+                            );
                         } else {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash).bright_red(), hash.0, "Error! Invalid filepath table state!".red());
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {}\n",
+                                hashes::find(hash).bright_red(),
+                                hash.0,
+                                "Error! Invalid filepath table state!".red()
+                            );
                         }
-                    }
+                    },
                 }
             } else {
                 match info_type {
@@ -289,29 +362,71 @@ mod utils {
                         if let Some(entry) = t2_entry {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {:?}\n", hashes::find(hash), hash.0, entry.state);
                         } else if data_idx {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {:#x}\n", hashes::find(hash), hash.0, table1[*path_idx as usize].loaded_data_index);
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {:#x}\n",
+                                hashes::find(hash),
+                                hash.0,
+                                table1[*path_idx as usize].loaded_data_index
+                            );
                         } else {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash), hash.0, "Error! Invalid filepath table state!".red());
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {}\n",
+                                hashes::find(hash),
+                                hash.0,
+                                "Error! Invalid filepath table state!".red()
+                            );
                         }
                     },
                     CheckInfoType::RefCount => {
                         if let Some(entry) = t2_entry {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash), hash.0, entry.ref_count.load(std::sync::atomic::Ordering::SeqCst));
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {}\n",
+                                hashes::find(hash),
+                                hash.0,
+                                entry.ref_count.load(std::sync::atomic::Ordering::SeqCst)
+                            );
                         } else if data_idx {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {:#x}\n", hashes::find(hash), hash.0, table1[*path_idx as usize].loaded_data_index);
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {:#x}\n",
+                                hashes::find(hash),
+                                hash.0,
+                                table1[*path_idx as usize].loaded_data_index
+                            );
                         } else {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash), hash.0, "Error! Invalid filepath table state!".red());
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {}\n",
+                                hashes::find(hash),
+                                hash.0,
+                                "Error! Invalid filepath table state!".red()
+                            );
                         }
                     },
                     CheckInfoType::Pointer => {
                         if let Some(entry) = t2_entry {
                             let _ = write!(&mut output, "| '{}' ({:#x}): {:x}\n", hashes::find(hash), hash.0, entry.data as u64);
                         } else if data_idx {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {:#x}\n", hashes::find(hash), hash.0, table1[*path_idx as usize].loaded_data_index);
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {:#x}\n",
+                                hashes::find(hash),
+                                hash.0,
+                                table1[*path_idx as usize].loaded_data_index
+                            );
                         } else {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {}\n", hashes::find(hash), hash.0, "Error! Invalid filepath table state!".red());
+                            let _ = write!(
+                                &mut output,
+                                "| '{}' ({:#x}): {}\n",
+                                hashes::find(hash),
+                                hash.0,
+                                "Error! Invalid filepath table state!".red()
+                            );
                         }
-                    }
+                    },
                 }
             }
         }
@@ -321,9 +436,21 @@ mod utils {
                 let child_dir_info = &dir_infos[index as usize];
                 write_indent(&mut output, indent + 1);
                 if pretty {
-                    let _ = write!(&mut output, "| '{}' ({:#x}): {:?}\n", hashes::find(child_dir_info.path.hash40()).bright_yellow(), child_dir_info.path.hash40().0, directories[index as usize].state);
+                    let _ = write!(
+                        &mut output,
+                        "| '{}' ({:#x}): {:?}\n",
+                        hashes::find(child_dir_info.path.hash40()).bright_yellow(),
+                        child_dir_info.path.hash40().0,
+                        directories[index as usize].state
+                    );
                 } else {
-                    let _ = write!(&mut output, "| Child: '{}' ({:#x}): {:?}\n", hashes::find(child_dir_info.path.hash40()), child_dir_info.path.hash40().0, directories[index as usize].state);
+                    let _ = write!(
+                        &mut output,
+                        "| Child: '{}' ({:#x}): {:?}\n",
+                        hashes::find(child_dir_info.path.hash40()),
+                        child_dir_info.path.hash40().0,
+                        directories[index as usize].state
+                    );
                 }
                 output = check_directory(tables, index, data_idx, pretty, unloaded, info_type, Some(output), indent + 1);
             }
@@ -332,8 +459,7 @@ mod utils {
     }
 
     pub fn handle_check_directory(tables: &FilesystemInfo, mut args: Vec<String>) -> String {
-        static USAGE: &'static str =
-        r#"check_directory [-i | -h] [<index> | <hashable>] [-p] [-u] [--ref-count | --pointer]
+        static USAGE: &'static str = r#"check_directory [-i | -h] [<index> | <hashable>] [-p] [-u] [--ref-count | --pointer]
             Note: Both hashables and indices are for directories.
                   Pass -p for pretty printing with colors
                   Pass -u to only print unloaded file infos
@@ -341,9 +467,7 @@ mod utils {
         let index = if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(idx) => idx,
-                None => {
-                    return String::from(USAGE);
-                }
+                None => return String::from(USAGE),
             }
         } else if let Some(hash) = get_flag_and_option("-h", &mut args) {
             let hash = parse_hash(hash.as_str());
@@ -354,24 +478,20 @@ mod utils {
             for idx in dir_hashes.iter() {
                 if idx.hash40() == hash {
                     index = Some(idx.index() as u32);
-                    break;
+                    break
                 }
             }
             match index {
                 Some(index) => index,
-                None => {
-                    return String::from("Missing");
-                }
+                None => return String::from("Missing"),
             }
         } else {
-            return String::from(USAGE);
+            return String::from(USAGE)
         };
 
         let _ = match tables.get_loaded_directories().get(index as usize) {
             Some(dir) => dir,
-            None => {
-                return String::from("Out of bounds");
-            }
+            None => return String::from("Out of bounds"),
         };
 
         let data_idx = check_for_flag("-d", &mut args);
@@ -393,32 +513,36 @@ mod utils {
         #[derive(Debug)]
         enum BrokenReason {
             InvalidDataIdx,
-            DataUnloaded
+            DataUnloaded,
         }
         let filter = get_flag_and_option("-f", &mut args);
         let arc = resource::arc();
         let table1 = tables.get_loaded_filepaths();
         let table2 = tables.get_loaded_datas();
         let file_paths = arc.get_file_paths();
-        let broken: Vec<(Hash40, BrokenReason)> = table1.iter().enumerate().filter_map(|(idx, entry)| {
-            if entry.is_loaded != 0 {
-                if entry.loaded_data_index == 0xFF_FFFF {
-                    Some((file_paths[idx].path.hash40(), BrokenReason::InvalidDataIdx))
-                } else if table2[entry.loaded_data_index as usize].state != LoadState::Loaded {
-                    Some((file_paths[idx].path.hash40(), BrokenReason::DataUnloaded))
+        let broken: Vec<(Hash40, BrokenReason)> = table1
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, entry)| {
+                if entry.is_loaded != 0 {
+                    if entry.loaded_data_index == 0xFF_FFFF {
+                        Some((file_paths[idx].path.hash40(), BrokenReason::InvalidDataIdx))
+                    } else if table2[entry.loaded_data_index as usize].state != LoadState::Loaded {
+                        Some((file_paths[idx].path.hash40(), BrokenReason::DataUnloaded))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
-            } else {
-                None
-            }
-        }).collect();
+            })
+            .collect();
         let mut output = String::from("");
         for (hash, reason) in broken.into_iter() {
             let dehashed = hashes::find(hash);
             if let Some(filter) = filter.as_ref() {
                 if !dehashed.contains(filter) {
-                    continue;
+                    continue
                 }
             }
             let _ = write!(&mut output, "'{}' ({:#x}): {:?}\n", dehashed, hash.0, reason);
@@ -430,7 +554,7 @@ mod utils {
 pub fn handle_command(mut args: Vec<String>) -> String {
     let tables = resource::filesystem_info();
     if args.len() == 0 {
-        return String::from(USAGE);
+        return String::from(USAGE)
     }
     let command = args.remove(0);
     match command.as_str() {
@@ -439,6 +563,6 @@ pub fn handle_command(mut args: Vec<String>) -> String {
         "get_loaded_directory_table_entry" => lookups::handle_get_loaded_directory_table_entry(tables, args),
         "check_directory" => utils::handle_check_directory(tables, args),
         "get_broken_filepaths" => utils::handle_get_broken_filepaths(tables, args),
-        _ => String::from(USAGE)
+        _ => String::from(USAGE),
     }
 }

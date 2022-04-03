@@ -1,4 +1,10 @@
-use skyline::{hook, hooks::InlineCtx, libc::{c_void, memcpy}, patching::patch_data};
+use skyline::{
+    hook,
+    hooks::InlineCtx,
+    libc::{c_void, memcpy},
+    patching::patch_data,
+};
+
 use crate::{offsets, reg_x};
 
 /// Fixes the issue where files originally stored as uncompressed in the data.arc
@@ -18,11 +24,7 @@ fn memcpy_uncompressed_fix(ctx: &InlineCtx) {
         let dest = reg_x!(ctx, 0) as *mut c_void;
         let src = reg_x!(ctx, 1) as *const c_void;
         unsafe {
-            memcpy(
-                dest,
-                src,
-                buffer_size
-            );
+            memcpy(dest, src, buffer_size);
         }
     }
 }
@@ -55,7 +57,6 @@ fn memcpy_3(ctx: &InlineCtx) {
 }
 
 pub fn install() {
-
     // Must patch memcpy offsets before we install the hooks, otherwise the inline hook will not get called
     // and might crash
     unsafe {
@@ -65,9 +66,5 @@ pub fn install() {
         patch_data(offsets::memcpy_3(), &NOP).expect("Unable to patch Memcpy3");
     }
 
-    skyline::install_hooks!(
-        memcpy_1,
-        memcpy_2,
-        memcpy_3
-    );
+    skyline::install_hooks!(memcpy_1, memcpy_2, memcpy_3);
 }
