@@ -285,31 +285,36 @@ impl CachedFilesystem {
 
     /// Load the file data from the Orbits filesystem
     pub fn load(&self, hash: Hash40) -> Option<Vec<u8>> {
-        let path = if let Some(path) = self.hash_lookup.get(&hash) {
-            path
-        } else {
-            error!(
-                "Failed to load data for '{}' ({:#x}) because the filesystem does not contain it!",
-                hashes::find(hash),
-                hash.0
-            );
-            return None;
-        };
+        // Check if path exists in FS cache
+        match self.hash_lookup.get(&hash) {
+            Some(path) => {
+                // Get modded file
+                // match self.loader.load(path) {
+                //     Ok(data) => Some(data),
+                //     Err(Error::Virtual(ApiLoaderError::NoVirtFile)) => {
+                //         if let Ok(data) = self.loader.load_patch(path) {
+                //             Some(data)
+                //         } else if let Ok(data) = ArcLoader(resource::arc()).load_path(Path::new(""), path) {
+                //             Some(data)
+                //         } else {
+                //             error!("Failed to load data for {} because all load paths failed.", path.display());
+                //             None
+                //         }
+                //     },
+                //     Err(e) => {
+                //         error!("Failed to load data for {}. Reason: {:?}", path.display(), e);
+                //         None
+                //     },
+                // }
 
-        match self.loader.load(path) {
-            Ok(data) => Some(data),
-            Err(Error::Virtual(ApiLoaderError::NoVirtFile)) => {
-                if let Ok(data) = self.loader.load_patch(path) {
-                    Some(data)
-                } else if let Ok(data) = ArcLoader(resource::arc()).load_path(Path::new(""), path) {
-                    Some(data)
-                } else {
-                    error!("Failed to load data for {} because all load paths failed.", path.display());
-                    None
-                }
+                get_modded_file(path)
             },
-            Err(e) => {
-                error!("Failed to load data for {}. Reason: {:?}", path.display(), e);
+            None => {
+                error!(
+                    "Failed to load data for '{}' ({:#x}) because the filesystem does not contain it!",
+                    hashes::find(hash),
+                    hash.0
+                );
                 None
             },
         }
@@ -670,4 +675,58 @@ impl GlobalFilesystem {
             _ => None,
         }
     }
+}
+
+enum ModFileSource {
+    Api,
+    Mod,
+    Cache,
+}
+
+impl ModFileSource {
+    pub fn get_file(&self) -> Vec<u8> {
+        Vec::new()
+    }
+}
+
+pub struct ExtensionHandler;
+
+impl ExtensionHandler {
+    pub fn patch(&self) {
+
+    }
+}
+
+// Adding placeholder functions here until the backend for it is written
+pub fn get_modded_file(path: &Path) -> Vec<u8> {
+    // Acquire from source
+    let source = acquire_source(path);
+
+    // Check if this source allows for patching, as Cached files should already be patched by now
+    if can_be_patched(&source) {
+        match acquire_extension_handler(Path::new("xmsbt")) {
+            Some(_) => todo!(),
+            None => todo!(),
+        }
+        source.get_file()
+    } else {
+        source.get_file()
+    }
+}
+
+pub fn acquire_source(path: &Path) -> ModFileSource {
+    // Placeholder
+    ModFileSource::Mod
+}
+
+pub fn can_be_patched(source: &ModFileSource) -> bool {
+    match source {
+        ModFileSource::Cache => false,
+        _ => true
+    }
+}
+
+// TODO: Probably take a Hash40 instead, that way we can acquire it from a FilePath?
+pub fn acquire_extension_handler(extension: &Path) -> Option<ExtensionHandler> {
+    Some(ExtensionHandler)
 }
