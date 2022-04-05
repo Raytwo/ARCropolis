@@ -1,7 +1,7 @@
 // #![feature(proc_macro_hygiene)]
 
 use std::{
-    collections::HashSet,
+    collections::{HashSet, HashMap},
     ffi::CString,
     path::{Path, PathBuf},
 };
@@ -54,7 +54,11 @@ static PAGINATION_JS: &str = include_str!("../../../resources/js/pagination.min.
 
 pub fn get_mods(workspace: &str) -> Vec<Entry> {
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-    let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap_or_default();
+    let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+    let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
+    let preset_name = &workspace_list[&workspace_name];
+
+    let mut presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
 
     std::fs::read_dir(workspace)
         .unwrap()
@@ -154,7 +158,11 @@ pub fn show_arcadia() {
         .unwrap();
 
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-    let presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap_or_default();
+    let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+    let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
+    let preset_name = &workspace_list[&workspace_name];
+
+    let presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
     let mut new_presets = presets.clone();
 
     while let Ok(message) = session.recv_json::<ArcadiaMessage>() {
@@ -194,7 +202,7 @@ pub fn show_arcadia() {
         }
     }
 
-    storage.set_field_json("presets", &new_presets).unwrap();
+    storage.set_field_json(&preset_name, &new_presets).unwrap();
     storage.flush();
 
     if new_presets != presets {

@@ -11,7 +11,7 @@ titleid = "01006A800016E000"
 crate-type = ["cdylib"]
 
 [dependencies]
-semver = "1"
+semver = { version = "1", features = ["serde"] }
 num-derive = "0.3.3"
 num-traits = "0.2"
 walkdir = "2.3.2"

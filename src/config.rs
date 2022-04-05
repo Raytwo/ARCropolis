@@ -1,10 +1,12 @@
-use std::{collections::HashSet, path::PathBuf, sync::Mutex};
+use std::{collections::{HashSet, HashMap}, path::PathBuf, sync::Mutex};
 
+use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use skyline::nn;
 use skyline_config::*;
 use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
+use semver::Version;
 
 fn arcropolis_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
@@ -27,101 +29,109 @@ lazy_static! {
         //let mut storage = acquire_storage("arcropolis").unwrap();
         let mut storage = StorageHolder::new(ArcStorage::new());
 
-        let version: Result<semver::Version, _> = storage.get_field("version");
+        let version: Result<Version, _> = storage.get_field("version");
 
-        // Version file does not exist
         match version {
-            Ok(curr_version) => {}
-            Err(_) => {
-        // Check if a legacy configuration exists
-        match std::fs::read_to_string("sd:/ultimate/arcropolis/config.toml") {
-            // Legacy configuration exists, try parsing it
-            Ok(toml) => match toml::de::from_str::<Config>(toml.as_str()) {
-                // Parsing successful, migrate everything to the new system
-                Ok(config) => {
-                    info!("Convert legacy config file to new system.");
+            Ok(config_version) => {
+                let curr_version = Version::parse(&arcropolis_version()).expect("Parsing of ARCropolis' version string failed. Please open an issue on www.arcropolis.com to let us know!");
+                
+                // Check if the configuration is from a previous version
+                if curr_version > config_version {
+                    // TODO: Code to perform changes for each version
+                    if Version::new(3,2,0) > config_version {
+                        storage.rename("presets", "preset1").unwrap();
+                        let mut default_workspace = HashMap::<&str, &str>::new();
+                        default_workspace.insert("Default", "preset1");
+                        storage.set_field_json("workspace_list", &default_workspace).unwrap();
+                        storage.set_field("workspace", "Default").unwrap();
+                    }
+                    // Update the version in the config
                     storage.set_field("version", arcropolis_version()).unwrap();
-                    storage.set_field("region", &config.region).unwrap();
-                    storage.set_field("logging_level", &config.logger.logger_level).unwrap();
-                    storage.set_field_json("extra_paths", &config.paths.extra_paths).unwrap();
+                }
+            }
+            // Version file does not exist
+            Err(_) => {
+                // Check if a legacy configuration exists
+                match std::fs::read_to_string("sd:/ultimate/arcropolis/config.toml") {
+                    // Legacy configuration exists, try parsing it
+                    Ok(toml) => match toml::de::from_str::<Config>(toml.as_str()) {
+                        // Parsing successful, migrate everything to the new system
+                        Ok(config) => {
+                            migrate_config_to_storage(&mut storage, &config);
 
-                    storage.set_flag("auto_update", config.auto_update);
-                    storage.set_flag("beta_updates", config.beta_updates);
-                    storage.set_flag("debug", config.debug);
-                    storage.set_flag("log_to_file", config.logger.log_to_file);
+                            // Perform checks on deprecated custom mod directories (ARCropolis < 3.0.0)
+                            if &config.paths.arc != &arc_path(){
+                                skyline::error::show_error(69, "Usage of custom ARC paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom ARC paths have been deprecated in an effort to reduce user error.\nConsider moving your modpack to rom:/arc to keep using it.");
+                            }
 
-                    if &config.paths.arc != &arc_path(){
-                        skyline::error::show_error(69, "Usage of custom ARC paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom ARC paths have been deprecated in an effort to reduce user error.\nConsider moving your modpack to rom:/arc to keep using it.");
-                    }
+                            if &config.paths.umm != &umm_path(){
+                                skyline::error::show_error(69, "Usage of custom UMM paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom UMM paths have been deprecated in an effort to reduce user error.\nConsider moving your modpack to sd:/ultimate/mods to keep using it.");
+                                // TODO: Offer to move it for the user if the default umm path doesn't already exist
+                            }
 
-                    if &config.paths.umm != &umm_path(){
-                        skyline::error::show_error(69, "Usage of custom UMM paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom UMM paths have been deprecated in an effort to reduce user error.\nConsider moving your modpack to sd:/ultimate/mods to keep using it.");
-                        // TODO: Offer to move it for the user if the default umm path doesn't already exist
-                    }
+                            let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
 
-                    let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
+                            let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
 
-                    let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
+                            // Ryujinx cannot show the web browser, and a second check is performed during file discovery
+                            if !is_emulator {
+                                if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?\nIt offers advantages such as:\nMod manager on the eShop button\nSeparate enabled mods per user profile\n\nIf you accept, disabled mods will be renamed to strip the period.") {
+                                    storage.set_field_json("presets", &convert_legacy_to_presets());
+                                } else {
+                                    storage.set_flag("legacy_discovery", true);
+                                }
+                            }
+                        },
+                        // Parsing unsuccessful, generate default files and delete the broken config
+                        Err(_) => {
+                            error!("Unable to parse legacy configuration file");
+                            generate_default_config(&mut storage);
+                            let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
+                        }
+                    },
+                    // Could not read or find a legacy configuration
+                    Err(_) => {
+                        // Mount the debug storage (3.0.0-beta.3.2 up to 3.0.0)
+                        let mut debug_storage = StorageHolder::new(DebugSavedataStorage::new("arcropolis"));
 
-                    // Ryujinx cannot show the web browser, and a second check is performed during file discovery
-                    if !is_emulator {
-                        if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?\nIt offers advantages such as:\nMod manager on the eShop button\nSeparate enabled mods per user profile\n\nIf you accept, disabled mods will be renamed to strip the period.") {
-                            storage.set_field_json("presets", &convert_legacy_to_presets());
-                        } else {
-                            storage.set_flag("legacy_discovery", true);
+                        // Try to get the version field
+                        let version: Result<semver::Version, _> = debug_storage.get_field("version");
+
+                        match version {
+                            // A configuration was found in the debug storage, move everything to the SD
+                            Ok(version) => {
+                                debug!("Detected debug savedata config from version {}. Migrating it to the ArcConfigStorage.", version);
+
+                                // Go through each file in the debug storage
+                                debug_storage.read_dir().unwrap().for_each(|file| {
+                                    let file = file.unwrap();
+
+                                    // If the size is 0, we've found a flag
+                                    if file.metadata().unwrap().len() == 0 {
+                                        storage.set_flag(file.file_name(), true);
+                                    }
+                                    // A field was found
+                                    else {
+                                        let content: String = debug_storage.get_field(file.file_name()).unwrap();
+                                        storage.set_field(file.file_name(), &content).unwrap();
+                                    }
+                                });
+
+                                // Overwrite the migrated version field with the current one
+                                storage.set_field("version", arcropolis_version()).unwrap();
+
+                                // Delete what's on the storage
+                                debug_storage.delete_storage();
+                            },
+                            Err(_) => {
+                                error!("Unable to read legacy config file, generating default values.");
+                                generate_default_config(&mut storage);
+                            },
                         }
                     }
-                },
-                // Parsing unsuccessful, generate default files and delete the broken config
-                Err(_) => {
-                    error!("Unable to parse legacy config file, generating new one.");
-                    generate_default_config(&mut storage);
-                    let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
-                }
-            },
-            // Could not read or find a legacy configuration
-            Err(_) => {
-                // Mount the debug storage (3.0.0-beta.3.2 up to 3.0.0)
-                let mut debug_storage = StorageHolder::new(DebugSavedataStorage::new("arcropolis"));
-                // Try to get the version field
-                let version: Result<semver::Version, _> = debug_storage.get_field("version");
-
-                match version {
-                    // A configuration was found in the debug storage, move everything to the SD
-                    Ok(version) => {
-                        debug!("Detected debug savedata config from version {}. Migrating to the SD.", version);
-
-                        // Go through each file in the debug storage
-                        debug_storage.read_dir().unwrap().for_each(|file| {
-                            let file = file.unwrap();
-
-                            // If the size is 0, we've found a flag
-                            if file.metadata().unwrap().len() == 0 {
-                                storage.set_flag(file.file_name(), true);
-                            }
-                            // A field was found
-                            else {
-                                let content: String = debug_storage.get_field(file.file_name()).unwrap();
-                                storage.set_field(file.file_name(), &content).unwrap();
-                            }
-                        });
-
-                        // Overwrite the migrated version field with the current one
-                        storage.set_field("version", arcropolis_version()).unwrap();
-
-                        // Delete what's on the storage
-                        debug_storage.delete_storage();
-                    },
-                    Err(_) => {
-                        error!("Unable to read legacy config file, generating default values.");
-                        generate_default_config(&mut storage);
-                    },
                 }
             }
         }
-    }
-    }
-
 
         Mutex::new(storage)
     };
@@ -138,7 +148,22 @@ lazy_static! {
     };
 }
 
+fn migrate_config_to_storage<CS: ConfigStorage>(storage: &mut StorageHolder<CS>, config: &Config) {
+    info!("Converting legacy configuration file to ConfigStorage.");
+
+    storage.set_field("version", arcropolis_version()).unwrap();
+    storage.set_field("region", &config.region).unwrap();
+    storage.set_field("logging_level", &config.logger.logger_level).unwrap();
+    storage.set_field_json("extra_paths", &config.paths.extra_paths).unwrap();
+    storage.set_flag("auto_update", config.auto_update);
+    storage.set_flag("beta_updates", config.beta_updates);
+    storage.set_flag("debug", config.debug);
+    storage.set_flag("log_to_file", config.logger.log_to_file);
+}
+
 fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
+    info!("Populating ConfigStorage with default values.");
+
     // Just so we don't keep outdated fields
     storage.clear_storage();
 
@@ -147,7 +172,12 @@ fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
     storage.set_field("logging_level", "Warn").unwrap();
     storage.set_field_json("extra_paths", &Vec::<String>::new()).unwrap();
     storage.set_flag("auto_update", true);
-    storage.set_field_json("presets", &HashSet::<Hash40>::new());
+    storage.set_field_json("preset1", &HashSet::<Hash40>::new());
+    
+    let mut default_workspace = HashMap::<&str, &str>::new();
+    default_workspace.insert("Default", "preset1");
+    storage.set_field_json("workspace_list", &default_workspace).unwrap();
+    storage.set_field("workspace", "Default");
 }
 
 fn convert_legacy_to_presets() -> HashSet<Hash40> {
@@ -272,11 +302,6 @@ pub fn debug_enabled() -> bool {
 
 pub fn beta_updates() -> bool {
     GLOBAL_CONFIG.lock().unwrap().get_flag("beta_updates")
-}
-
-// Why? We can't really avoid it. Probably remove this after confirming.
-pub fn no_web_menus() -> bool {
-    GLOBAL_CONFIG.lock().unwrap().get_flag("no_web_menus")
 }
 
 pub fn region() -> Region {
