@@ -13,7 +13,11 @@ lazy_static! {
     static ref PRESET_HASHES: HashSet<Hash40> = {
         let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
 
-        let presets = match storage.get_field_json("presets") {
+        let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+        let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
+
+        // Get the name of the preset file from the workspace list
+        let presets = match storage.get_field_json(&workspace_list[&workspace_name]) {
             Ok(presets) => {
                 trace!("Preset properly deserialized");
                 presets
