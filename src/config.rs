@@ -30,8 +30,10 @@ lazy_static! {
         let version: Result<semver::Version, _> = storage.get_field("version");
 
         // Version file does not exist
-        if version.is_err() {
-        // Check if a legacy configuration does exist
+        match version {
+            Ok(curr_version) => {}
+            Err(_) => {
+        // Check if a legacy configuration exists
         match std::fs::read_to_string("sd:/ultimate/arcropolis/config.toml") {
             // Legacy configuration exists, try parsing it
             Ok(toml) => match toml::de::from_str::<Config>(toml.as_str()) {
@@ -117,12 +119,10 @@ lazy_static! {
                 }
             }
         }
-    } else {
-        // The version file exists, check
+    }
     }
 
 
-        storage.flush();
         Mutex::new(storage)
     };
 
