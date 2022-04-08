@@ -55,10 +55,7 @@ function getCurrentActiveContainer() {
 }
 
 function changeDivFromTo(from, to, workspace) {
-    if (from == "workspaces") {
-        selected_workspace = workspace;
-    }
-
+    if (from == "workspaces") { selected_workspace = workspace; }
     $(`#${from}`).fadeOut(200);
     $(`#${from}`).promise().done(function() {
         $(`#${to}`).fadeIn(200);

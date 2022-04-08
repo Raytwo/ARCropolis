@@ -27,9 +27,9 @@ var mods = [];
 var currentMods = [];
 var pageCount = 0;
 
-function createMod(mod, arrIdx) {
-    var hidden = mod['is_disabled'] ? "hidden" : "";
-    return `<button id="btn-mods-${mod['id']}" data-mod-index="${mod['id']}" data-current-mod-idx="${arrIdx}" tabindex="0" class="flex-button abstract-button All ${mod['category']}" nx-se-disabled="">
+function createMod(mod_id) {
+    var hidden = mods[mod_id]['is_disabled'] ? "hidden" : "";
+    return `<button id="btn-mods-${mod_id}" data-mod-index="${mod_id}" tabindex="0" class="flex-button abstract-button All ${mods[mod_id]['category']}" nx-se-disabled="">
     <div class="abstract-icon-back-decoration"></div>
     <div class="abstract-button-border">
         <div class="abstract-button-inner">
@@ -39,8 +39,8 @@ function createMod(mod, arrIdx) {
                 </div>
             </div>
             <div class="abstract-button-text f-u-bold mod-name"
-                style="margin-top: 8px; display: block; font-size: 3vmin;" data-display_name="${mod['display_name']}">
-                <span class="marquee" data-msgid="textbox_id-4-1">${mod['display_name']}</span>
+                style="margin-top: 8px; display: block; font-size: 3vmin;" data-display_name="${mods[mod_id]['display_name']}">
+                <span class="marquee" data-msgid="textbox_id-4-1">${mods[mod_id]['display_name']}</span>
             </div>
         </div>
     </div>
@@ -57,12 +57,10 @@ function createMods(mods) {
 
 function toggleMod() {
     var index = parseInt($(".is-focused").attr("data-mod-index"));
-    var currentIndex = parseInt($(".is-focused").attr("data-current-mod-idx"));
     var checkContainer = $(".is-focused .img-check");
     checkContainer.toggleClass("hidden");
     var enabled = !checkContainer.hasClass("hidden");
     mods[index]["is_disabled"] = !enabled;
-    currentMods[currentIndex]["is_disabled"] = !enabled;
     // Send mod index and status
     window.nx.sendMessage(JSON.stringify({
         "ToggleModRequest": {
@@ -293,8 +291,8 @@ function showModMenu() {
     $('#filters input:checkbox:checked').each(function(idx) {
         categoriesToUse.push($(this).attr('id'));
     });
-    currentMods = categoriesToUse.length == 0 ? mods : mods.filter(mod => categoriesToUse.includes(mod["category"]));
-    currentMods = currentMods.length == 0 ? mods : currentMods;
+    currentMods = categoriesToUse.length == 0 ? mods : mods.filter(mod => categoriesToUse.includes(mod["category"])).map(x => x["id"]);
+    currentMods = currentMods.length == 0 ? mods.map(x => x["id"]) : currentMods;
     refreshCurrentMods();
     currentState = MOD_MENU;
 }
@@ -341,8 +339,8 @@ function updateSort() {
 
     if (sortType == "alphabetical") {
         currentMods = JSON.parse(JSON.stringify(currentMods)).sort((a, b) => {
-            if (a["display_name"] < b["display_name"]) { return -1; }
-            if (a["display_name"] > b["display_name"]) { return 1; }
+            if (mods[a]["display_name"] < mods[b]["display_name"]) { return -1; }
+            if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
             return 0;
         });
     }
@@ -367,7 +365,7 @@ window.addEventListener("DOMContentLoaded", (e) => {
             });
         }
 
-        currentMods = mods;
+        currentMods = mods.map(x => x["id"]);
         refreshCurrentMods();
     } else {
 
@@ -377,7 +375,7 @@ window.addEventListener("DOMContentLoaded", (e) => {
             success: (data) => {
                 mods = data;
                 $("#workspace").html(mods.length);
-                currentMods = mods;
+                currentMods = mods.map(x => x["id"]);
                 refreshCurrentMods();
             }
         });
