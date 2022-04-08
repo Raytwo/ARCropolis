@@ -51,16 +51,11 @@ static COMMON_JS_TEXT: &str = include_str!("../../../resources/js/common.js");
 static COMMON_CSS_TEXT: &str = include_str!("../../../resources/css/common.css");
 static MARQUEE_JS: &str = include_str!("../../../resources/js/jquery.marquee.min.js");
 static PAGINATION_JS: &str = include_str!("../../../resources/js/pagination.min.js");
+static CHECK_SVG: &[u8] = include_bytes!("../../../resources/img/check.svg");
+static MISSING_WEBP: &[u8] = include_bytes!("../../../resources/img/missing.webp");
 
-pub fn get_mods(workspace: &str) -> Vec<Entry> {
-    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-    let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
-    let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
-    let preset_name = &workspace_list[&workspace_name];
-
-    let mut presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
-
-    std::fs::read_dir(workspace)
+pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
+    std::fs::read_dir(&config::umm_path())
         .unwrap()
         .enumerate()
         .filter_map(|(i, path)| {
@@ -112,21 +107,30 @@ pub fn get_mods(workspace: &str) -> Vec<Entry> {
 }
 
 pub fn show_arcadia() {
-    let workspace = config::umm_path();
+    let umm_path = config::umm_path();
 
-    if !workspace.exists() {
+    if !umm_path.exists() {
         skyline_web::DialogOk::ok("It seems the directory specified in your configuration does not exist.");
         return
     }
+    
+    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
+    let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+    let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
+    let preset_name = &workspace_list[&workspace_name];
+    
+    let presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
+    let mut new_presets = presets.clone();
+
 
     let mut mods: Entries = Entries {
-        entries: get_mods(&workspace.to_str().unwrap()),
+        entries: get_mods(&presets),
     };
 
     // region Setup Preview Images
     let mut images: Vec<(String, Vec<u8>)> = Vec::new();
     for item in &mods.entries {
-        let path = &workspace.join(item.folder_name.as_ref().unwrap()).join("preview.webp");
+        let path = &umm_path.join(item.folder_name.as_ref().unwrap()).join("preview.webp");
 
         if path.exists() {
             images.push((format!("img/{}", item.id.unwrap().to_string()), std::fs::read(path).unwrap()));
@@ -150,6 +154,8 @@ pub fn show_arcadia() {
         .file("common.css", &COMMON_CSS_TEXT)
         .file("pagination.min.js", PAGINATION_JS)
         .file("jquery.marquee.min.js", MARQUEE_JS)
+        .file("check.svg", CHECK_SVG)
+        .file("missing.webp", MISSING_WEBP)
         .file("mods.json", &serde_json::to_string(&mods.entries).unwrap())
         .files(&images)
         .background(skyline_web::Background::Default)
@@ -157,18 +163,10 @@ pub fn show_arcadia() {
         .open_session(skyline_web::Visibility::Default)
         .unwrap();
 
-    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-    let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
-    let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
-    let preset_name = &workspace_list[&workspace_name];
-
-    let presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
-    let mut new_presets = presets.clone();
-
     while let Ok(message) = session.recv_json::<ArcadiaMessage>() {
         match message {
             ArcadiaMessage::ToggleModRequest { id, state } => {
-                let path = format!("{}/{}", workspace.display(), mods.entries[id].folder_name.as_ref().unwrap());
+                let path = format!("{}/{}", umm_path.display(), mods.entries[id].folder_name.as_ref().unwrap());
                 let hash = Hash40::from(path.as_str());
                 debug!("Setting {} to {}", path, state);
 
@@ -187,7 +185,7 @@ pub fn show_arcadia() {
                     new_presets.clear();
                 } else {
                     for item in mods.entries.iter() {
-                        let path = format!("{}/{}", workspace.display(), item.folder_name.as_ref().unwrap());
+                        let path = format!("{}/{}", umm_path.display(), item.folder_name.as_ref().unwrap());
                         let hash = Hash40::from(path.as_str());
 
                         new_presets.insert(hash);

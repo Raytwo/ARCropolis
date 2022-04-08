@@ -1,5 +1,7 @@
 pub mod arcadia;
 pub use arcadia::*;
+pub mod workspaces;
+pub use workspaces::*;
 pub mod config;
 pub use config::*;
 pub mod changelog;
@@ -31,6 +33,9 @@ pub fn show_main_menu() {
             match url {
                 "http://localhost/arcadia" => {
                     show_arcadia();
+                },
+                "http://localhost/workspaces" => {
+                    show_workspaces();
                 },
                 "http://localhost/config" => {
                     show_config_editor();

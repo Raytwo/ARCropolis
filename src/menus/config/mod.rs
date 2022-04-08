@@ -17,6 +17,7 @@ use crate::config;
 static HTML_TEXT: &str = include_str!("../../../resources/templates/configurator.html");
 static CSS_TEXT: &str = include_str!("../../../resources/css/configurator.css");
 static JAVASCRIPT_TEXT: &str = include_str!("../../../resources/js/configurator.js");
+static CHECK_SVG: &[u8] = include_bytes!("../../../resources/img/check.svg");
 
 const LOCALHOST: &str = "http://localhost/";
 
@@ -36,6 +37,7 @@ pub fn show_config_editor() {
             .file("index.html", HTML_TEXT)
             .file("configurator.css", CSS_TEXT)
             .file("configurator.js", JAVASCRIPT_TEXT)
+            .file("check.svg", CHECK_SVG)
             .background(skyline_web::Background::Default)
             .boot_display(skyline_web::BootDisplay::Default)
             .open_session(Visibility::Default)
