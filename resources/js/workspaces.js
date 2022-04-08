@@ -164,42 +164,5 @@ function checkGamepad(index, gamepad) {
     //#endregion
 }
 
-function scroll(target, offset) {
-    // Check to see if mod is completely in view
-    var fully = checkInView(target) == undefined ? false : true;
-
-    // If so, then just focus and dip
-    if (fully) {
-        target.focus();
-    } else {
-        // Remove focus from currently focused one
-        $(".is-focused").focusout();
-        // Stop any animation going on in the container
-        getCurrentActiveContainer().stop();
-        // Animate the mod container scrolling with a speed of 0 (fastest)
-        getCurrentActiveContainer().animate({
-            scrollTop: offset
-        }, 0);
-        // Focus on the previous mod
-        target.focus();
-    }
-}
-
-// yonked from here https://stackoverflow.com/questions/16308037/detect-when-elements-within-a-scrollable-div-are-out-of-view
-function checkInView(elem, partial) {
-    var container = $(getCurrentActiveContainer());
-    var contHeight = container.height();
-    var contTop = container.scrollTop();
-    var contBottom = contTop + contHeight;
-
-    var elemTop = $(elem).offset().top - container.offset().top;
-    var elemBottom = elemTop + $(elem).height();
-
-    var isTotal = (elemTop >= 0 && elemBottom <= contHeight);
-    var isPart = ((elemTop < 0 && elemBottom > 0) || (elemTop > 0 && elemTop <= container.height())) && partial;
-
-    return isTotal || isPart;
-}
-
 // Code to handle this session wasn't made to detect a closure by button
 window.nx.footer.unsetAssign("B");
