@@ -291,7 +291,7 @@ function showModMenu() {
     $('#filters input:checkbox:checked').each(function(idx) {
         categoriesToUse.push($(this).attr('id'));
     });
-    currentMods = categoriesToUse.length == 0 ? mods : mods.filter(mod => categoriesToUse.includes(mod["category"])).map(x => x["id"]);
+    currentMods = categoriesToUse.length == 0 ? mods.map(x => x["id"]) : mods.filter(mod => categoriesToUse.includes(mod["category"])).map(x => x["id"]);
     currentMods = currentMods.length == 0 ? mods.map(x => x["id"]) : currentMods;
     refreshCurrentMods();
     currentState = MOD_MENU;

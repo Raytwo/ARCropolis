@@ -1,6 +1,6 @@
 var AButtonHeld = [false, false, false, false];
 
-window.onload = function() {
+window.addEventListener("DOMContentLoaded", (e) => {
     var buttons = document.querySelectorAll('button');
 
     [].forEach.call(buttons, function(btn) {
@@ -33,7 +33,7 @@ window.onload = function() {
             }
         }, 100);
     });
-}
+});
 
 function checkGamepad(index, gamepad) {
     //#region UI Input Check

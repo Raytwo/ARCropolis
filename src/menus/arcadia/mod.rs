@@ -44,17 +44,8 @@ pub enum ArcadiaMessage {
     ClosureRequest,
 }
 
-static HTML_TEXT: &str = include_str!("../../../resources/templates/arcadia.html");
-static JS_TEXT: &str = include_str!("../../../resources/js/arcadia.js");
-static CSS_TEXT: &str = include_str!("../../../resources/css/arcadia.css");
-static COMMON_JS_TEXT: &str = include_str!("../../../resources/js/common.js");
-static COMMON_CSS_TEXT: &str = include_str!("../../../resources/css/common.css");
-static MARQUEE_JS: &str = include_str!("../../../resources/js/jquery.marquee.min.js");
-static PAGINATION_JS: &str = include_str!("../../../resources/js/pagination.min.js");
-static CHECK_SVG: &[u8] = include_bytes!("../../../resources/img/check.svg");
-static MISSING_WEBP: &[u8] = include_bytes!("../../../resources/img/missing.webp");
-
 pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
+    let mut id: u32 = 0;
     std::fs::read_dir(&config::umm_path())
         .unwrap()
         .enumerate()
@@ -72,7 +63,7 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
             let info_path = format!("{}/info.toml", path_to_be_used.display());
 
             let default_entry = Entry {
-                id: Some(i as u32),
+                id: Some(id),
                 folder_name: Some(folder_name.clone()),
                 is_disabled: Some(disabled),
                 version: Some("???".to_string()),
@@ -80,6 +71,8 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                 category: Some("Misc".to_string()),
                 ..Default::default()
             };
+
+            id += 1;
 
             let mod_info = match toml::from_str::<Entry>(&std::fs::read_to_string(&info_path).unwrap_or_default()) {
                 Ok(res) => {
@@ -147,15 +140,15 @@ pub fn show_arcadia() {
 
     let session = Webpage::new()
         .htdocs_dir("contents")
-        .file("index.html", &HTML_TEXT)
-        .file("arcadia.js", JS_TEXT)
-        .file("common.js", &COMMON_JS_TEXT)
-        .file("arcadia.css", &CSS_TEXT)
-        .file("common.css", &COMMON_CSS_TEXT)
-        .file("pagination.min.js", PAGINATION_JS)
-        .file("jquery.marquee.min.js", MARQUEE_JS)
-        .file("check.svg", CHECK_SVG)
-        .file("missing.webp", MISSING_WEBP)
+        .file("index.html", &crate::menus::files::ARCADIA_HTML_TEXT)
+        .file("arcadia.js", &crate::menus::files::ARCADIA_JS_TEXT)
+        .file("common.js", &crate::menus::files::COMMON_JAVASCRIPT_TEXT)
+        .file("arcadia.css", &crate::menus::files::ARCADIA_CSS_TEXT)
+        .file("common.css", &crate::menus::files::COMMON_CSS_TEXT)
+        .file("pagination.min.js", &crate::menus::files::PAGINATION_JS)
+        .file("jquery.marquee.min.js", &crate::menus::files::MARQUEE_JS)
+        .file("check.svg", &crate::menus::files::CHECK_SVG)
+        .file("missing.webp", &crate::menus::files::MISSING_WEBP)
         .file("mods.json", &serde_json::to_string(&mods.entries).unwrap())
         .files(&images)
         .background(skyline_web::Background::Default)

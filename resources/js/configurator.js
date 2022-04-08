@@ -1,7 +1,7 @@
 var selected_workspace = 0;
 var AButtonHeld = [false, false, false, false];
 
-window.onload = function() {
+window.addEventListener("DOMContentLoaded", (e) => {
     var buttons = document.querySelectorAll('button');
 
     [].forEach.call(buttons, function(btn) {
@@ -36,12 +36,11 @@ window.onload = function() {
     });
 
     window.nx.addEventListener("message", function(e) {
-        //
         document.getElementById(e.data).classList.toggle("hidden");
     });
 
     window.nx.sendMessage("loaded");
-}
+});
 
 function getCurrentActiveContainer() {
     if ($("#workspaces").is(":visible")) {
