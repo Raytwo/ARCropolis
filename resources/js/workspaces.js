@@ -1,19 +1,42 @@
 var workspaces = [];
 var selected_workspace = 0;
-var AButtonHeld = [false, false, false, false];
+var active_workspace = "";
+var AButtonHeld = false;
+var BButtonHeld = false;
 
-window.onload = function() {
-    var buttons = document.querySelectorAll('button');
+window.addEventListener("DOMContentLoaded", (e) => {
+    if (!isNx) {
+        for (var i = 0; i < 10; i++) {
+            workspaces.push(`Workspace #${i + 1}`);
+            setupWorkspaces();
+        }
 
-    [].forEach.call(buttons, function(btn) {
-        btn.addEventListener("focus", () => {
-            btn.classList.add("is-focused");
+    } else {
+
+        $.ajax({
+            dataType: "json",
+            url: "workspaces.json",
+            success: (data) => {
+                workspaces = data["workspaces"];
+                active_workspace = data["active_workspace"];
+                setupWorkspaces();
+            }
         });
 
-        btn.addEventListener("focusout", () => {
-            btn.classList.remove("is-focused");
-        });
-    });
+        // window.nx.sendMessage(JSON.stringify({
+        //     "WriteItDown": {
+        //         "text": JSON.stringify(Object.getOwnPropertyNames(window.nx).filter(function(p) {
+        //             return typeof window.nx[p] === 'function';
+        //         }).map(x => ({
+        //             "function": x,
+        //             "parametersCount": window.nx[x].length
+        //         })))
+        //     }
+        // }));
+
+        window.nx.footer.setAssign("B", "", () => {});
+        window.nx.footer.setAssign("X", "", () => {});
+    }
 
     // Listen to the keydown event and prevent the default
     window.addEventListener('keydown', function(e) {
@@ -25,57 +48,46 @@ window.onload = function() {
         if ($(".is-focused").length <= 0) {
             getCurrentActiveContainer().find("button").get(0).focus();
         }
-        // Once a gamepad has connected, start an interval function that will run every 100ms to check for input
-        setInterval(function() {
-            var gpl = navigator.getGamepads();
-            if (gpl.length > 0) {
-                for (var i = 0; i < gpl.length; i++) {
-                    checkGamepad(i, gpl[i]);
-                }
-            }
-        }, 100);
     });
 
-    window.nx.addEventListener("message", function(e) {
-        //
-        document.getElementById(e.data).classList.toggle("hidden");
-    });
+});
 
-    window.nx.sendMessage("loaded");
+function goBack() {
+    if (getCurrentActiveContainer().attr('id') == "workspaceOption") {
+        changeDivFromTo('workspaceOption', 'workspaces', selected_workspace);
+    } else {
+        exit();
+    }
 }
 
 function getCurrentActiveContainer() {
     if ($("#workspaces").is(":visible")) {
         return $("#workspaces");
-    } else if ($("#region").is(":visible")) {
-        return $("#region");
-    } else if ($("#logging").is(":visible")) {
-        return $("#logging");
+    } else if ($("#workspaceOption").is(":visible")) {
+        return $("#workspaceOption");
     }
 }
 
-function changeDivFromTo(from, to, workspace) {
-    if (from == "workspaces") { selected_workspace = workspace; }
+function changeDivFromTo(from, to) {
+    if (to == "workspaceOption") {
+        $("#workspaceArrow").show();
+        $("#workspace").html(workspaces[selected_workspace]);
+        $("#workspace").show();
+    } else if (to == "workspaces") {
+        $("#workspaceArrow").hide();
+        $("#workspace").hide();
+    }
+
     $(`#${from}`).fadeOut(200);
     $(`#${from}`).promise().done(function() {
         $(`#${to}`).fadeIn(200);
         if (to == "workspaces") {
-            $(`#${to}`).find($("button")[parseInt(selected_workspace)]).get(0).focus();
+            setupWorkspaces();
+            $(`#${to}`).find("button:visible").get(parseInt(selected_workspace)).focus();
         } else {
-            $(`#${to}`).find("button").get(0).focus();
+            $(`#${to}`).find("button:visible").get(0).focus();
         }
     });
-}
-
-function submit(cat, type) {
-    var result = {
-        category: cat,
-        value: type,
-    };
-    window.nx.sendMessage(JSON.stringify(result));
-
-    //var result = `${type}|${selected_workspace}`;
-    //location.href = `http://localhost/${result}`;
 }
 
 function checkGamepad(index, gamepad) {
@@ -88,17 +100,33 @@ function checkGamepad(index, gamepad) {
     if (gamepad.buttons[1].pressed) {
         if (!AButtonHeld[index]) {
             AButtonHeld[index] = true;
-            $(".is-focused").last().click();
+            if ($(".is-focused").length <= 0) {
+                $("button:visible").get(0).focus();
+            } else {
+                $(".is-focused").last().click();
+            }
         }
     } else {
         AButtonHeld[index] = false;
     }
 
+    if (gamepad.buttons[0].pressed) {
+        if (!BButtonHeld) {
+            goBack();
+            BButtonHeld = true;
+        }
+    } else {
+        BButtonHeld = false;
+    }
+
+    var target = undefined;
+    var offset = undefined;
+
     // Check if D-pad Left pressed or Left Stick X Axis less than -0.7
     if (gamepad.buttons[14].pressed || axisX < -0.7) {
         // Go up by 6 elements
         var slice_index = 6;
-        var target = $(".is-focused").prevAll(":visible").slice(0, slice_index).last();
+        target = $(".is-focused").prevAll(":visible").slice(0, slice_index).last();
         while (target.length <= 0 && slice_index != 0) {
             slice_index -= 1;
             target = $(".is-focused").prevAll(":visible").slice(0, slice_index).last();
@@ -108,12 +136,13 @@ function checkGamepad(index, gamepad) {
         if (target.length <= 0) {
             return;
         }
-        scroll(target, $(getCurrentActiveContainer()).scrollTop() + target.position().top - 50);
+
+        offset = $(getCurrentActiveContainer()).scrollTop() + target.position().top - 50;
     }
     // Check if D-pad Up pressed or Y-Axis
     else if (gamepad.buttons[12].pressed || axisY < -0.7) {
         // Get the mod above the current focused one
-        var target = $(".is-focused").prev();
+        target = $(".is-focused").prev();
 
         while (target.length > 0 && target.is(':hidden')) {
             target = target.prev();
@@ -124,13 +153,13 @@ function checkGamepad(index, gamepad) {
             return;
         }
 
-        scroll(target, $(getCurrentActiveContainer()).scrollTop() + target.position().top - 50);
+        offset = $(getCurrentActiveContainer()).scrollTop() + target.position().top - 50;
     }
     // Check if D-pad Right pressed or X Axis > 0.7
     else if (gamepad.buttons[15].pressed || axisX > 0.7) {
         // Go up down 6 elements
         var slice_index = 6;
-        var target = $(".is-focused").nextAll(":visible").slice(0, slice_index).last();
+        target = $(".is-focused").nextAll(":visible").slice(0, slice_index).last();
 
         while (target.length <= 0 && slice_index != 0) {
             slice_index -= 1;
@@ -139,15 +168,15 @@ function checkGamepad(index, gamepad) {
 
         // If that doesn't exist, then dip
         if (target.length <= 0) {
-            return;
+            target = $($("button:visible").get(0));
         }
 
-        scroll(target, ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2));
+        offset = ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2);
     }
     // Check if D-pad Down pressed or Y Axis > 0.7
     else if (gamepad.buttons[13].pressed || axisY > 0.7) {
         // Get the next mod that will be focused on
-        var target = $(".is-focused").next();
+        target = $(".is-focused").next();
 
         while (target.length > 0 && target.is(':hidden')) {
             target = target.next();
@@ -156,13 +185,148 @@ function checkGamepad(index, gamepad) {
         console.log(target);
         // If there is none after that, then just return
         if (target.length <= 0) {
-            return;
+            target = $($("button:visible").get(0));
         }
-        console.log(target);
-        scroll(target, ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2));
+
+        offset = ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2);
     };
+
+    if (target != undefined) {
+        scroll(target, offset, getCurrentActiveContainer());
+    }
+
     //#endregion
 }
 
-// Code to handle this session wasn't made to detect a closure by button
-window.nx.footer.unsetAssign("B");
+function setupWorkspaces() {
+    var htmlText = "";
+    for (var i = 0; i < workspaces.length; i++) {
+        htmlText += `<button onclick="showWorkspace(${i})" class="flex-item">
+        <div class="icon-background"></div>
+        <div class="item-container">
+            <h2>${workspaces[i]}</h2>
+        </div>
+    </button>`;
+    }
+
+    document.getElementById("workspacesContainer").innerHTML = htmlText + `
+    <button onclick="createWorkspace()" class="flex-item">
+    <div class="icon-background"></div>
+    <div class="item-container">
+        <h2>Create Workspace</h2>
+    </div>
+</button>
+    `;
+
+    var buttons = document.querySelectorAll('button');
+
+    [].forEach.call(buttons, function(btn) {
+        btn.addEventListener("focus", () => {
+            btn.classList.add("is-focused");
+        });
+
+        btn.addEventListener("focusout", () => {
+            btn.classList.remove("is-focused");
+        });
+    });
+}
+
+function showWorkspace(idx) {
+    selected_workspace = idx;
+    if (workspaces[selected_workspace] == "Default") {
+        $("#removeWorkspace").hide();
+        $("#renameWorkspace").hide();
+    } else {
+        $("#removeWorkspace").show();
+        $("#renameWorkspace").show();
+    }
+
+    if (workspaces[selected_workspace] == active_workspace) {
+        $("#is-active img").show();
+    } else {
+        $("#is-active img").hide();
+    }
+
+    changeDivFromTo('workspaces', 'workspaceOption', idx);
+}
+
+function setActive() {
+    active_workspace = workspaces[selected_workspace];
+    $("#is-active img").show();
+    if (isNx) {
+        window.nx.sendMessage(JSON.stringify({
+            "SetActive": {
+                "id": active_workspace
+            }
+        }));
+    }
+}
+
+function renameWorkspace() {
+    if (workspaces[selected_workspace] == "Default") { return; }
+
+    var res = prompt("Rename workspace", workspaces[selected_workspace]);
+    if (res == null || res == undefined) { return; }
+
+    sourceName = workspaces[selected_workspace];
+    targetName = res;
+
+    workspaces[selected_workspace] = targetName;
+
+    $("#workspace").html(workspaces[selected_workspace]);
+
+    if (isNx) {
+        window.nx.sendMessage(JSON.stringify({
+            "Rename": {
+                "source_name": sourceName,
+                "target_name": targetName,
+            }
+        }));
+    }
+}
+
+function removeWorkspace() {
+    if (workspaces[selected_workspace] == "Default") { return; }
+
+    if (confirm(`Do you really want to delete workspace ${workspaces[selected_workspace]}?`)) {
+        if (confirm(`Are you really sure you want to delete workspace ${workspaces[selected_workspace]}?`)) {
+            if (isNx) {
+                window.nx.sendMessage(JSON.stringify({
+                    "Remove": {
+                        "name": workspaces[selected_workspace],
+                    }
+                }));
+            }
+
+            workspaces.splice(selected_workspace, 1);
+            changeDivFromTo('workspaceOption', 'workspaces', 0);
+        }
+    }
+}
+
+function createWorkspace() {
+    var res = prompt("Enter new workspace name");
+    if (res == null || res == undefined) { return; }
+    workspaces.push(res);
+    // send nx message
+    if (isNx) {
+        window.nx.sendMessage(JSON.stringify({
+            "Create": {
+                "name": res
+            }
+        }));
+    }
+    selected_workspace = workspaces.length - 1;
+    changeDivFromTo('workspaces', 'workspaces');
+}
+
+function editWorkspace() {
+    if (isNx) {
+        window.nx.sendMessage(JSON.stringify({
+            "Edit": {
+                "name": workspaces[selected_workspace]
+            }
+        }));
+        window.location.href = "http://localhost/quit";
+    }
+}

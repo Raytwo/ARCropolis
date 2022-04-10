@@ -87,7 +87,7 @@ function updateCurrentDesc() {
     }
 }
 
-function checkGamepad(gamepad) {
+function checkGamepad(index, gamepad) {
     var axisX = gamepad.axes[0];
     var axisY = gamepad.axes[1];
 

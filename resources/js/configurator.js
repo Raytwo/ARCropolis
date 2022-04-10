@@ -112,7 +112,7 @@ function checkGamepad(index, gamepad) {
         if (target.length <= 0) {
             return;
         }
-        scroll(target, $(getCurrentActiveContainer()).scrollTop() + target.position().top - 50);
+        scroll(target, $(getCurrentActiveContainer()).scrollTop() + target.position().top - 50, getCurrentActiveContainer());
     }
     // Check if D-pad Up pressed or Y-Axis
     else if (gamepad.buttons[12].pressed || axisY < -0.7) {
@@ -128,7 +128,7 @@ function checkGamepad(index, gamepad) {
             return;
         }
 
-        scroll(target, $(getCurrentActiveContainer()).scrollTop() + target.position().top - 50);
+        scroll(target, $(getCurrentActiveContainer()).scrollTop() + target.position().top - 50, getCurrentActiveContainer());
     }
     // Check if D-pad Right pressed or X Axis > 0.7
     else if (gamepad.buttons[15].pressed || axisX > 0.7) {
@@ -146,7 +146,7 @@ function checkGamepad(index, gamepad) {
             return;
         }
 
-        scroll(target, ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2));
+        scroll(target, ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2), getCurrentActiveContainer());
     }
     // Check if D-pad Down pressed or Y Axis > 0.7
     else if (gamepad.buttons[13].pressed || axisY > 0.7) {
@@ -163,7 +163,7 @@ function checkGamepad(index, gamepad) {
             return;
         }
         console.log(target);
-        scroll(target, ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2));
+        scroll(target, ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2), getCurrentActiveContainer());
     };
     //#endregion
 }

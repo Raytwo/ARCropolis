@@ -33,7 +33,7 @@ pub fn show_main_menu() {
         url => {
             match url {
                 "http://localhost/arcadia" => {
-                    show_arcadia();
+                    show_arcadia(None);
                 },
                 "http://localhost/workspaces" => {
                     show_workspaces();

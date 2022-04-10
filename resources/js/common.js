@@ -66,17 +66,13 @@ window.addEventListener("DOMContentLoaded", (e) => {
     });
 
     // Listen to the gamepadconnected event
-    // window.addEventListener("gamepadconnected", function(e) {
-    //     // Once a gamepad has connected, start an interval function that will run every 100ms to check for input
-    //     setInterval(function() {
-    //         var gpl = navigator.getGamepads();
-    //         if (gpl.length > 0) {
-    //             for (var i = 0; i < gpl.length; i++) {
-    //                 checkGamepad(i, gpl[i]);
-    //             }
-    //         }
-    //     }, 100);
-    // });
+    window.addEventListener("gamepadconnected", function(e) {
+        // Once a gamepad has connected, start an interval function that will run every 100ms to check for input
+        setInterval(function() {
+            var gpl = navigator.getGamepads();
+            if (gpl[0] != null || gpl[0] != undefined) { checkGamepad(0, gpl[0]); }
+        }, 150);
+    });
 
     $(function() {
         if (!isNx) {
@@ -85,9 +81,9 @@ window.addEventListener("DOMContentLoaded", (e) => {
     })
 });
 
-function scroll(target, offset) {
+function scroll(target, offset, activeContainer) {
     // Check to see if mod is completely in view
-    var fully = checkInView(target) == undefined ? false : true;
+    var fully = checkInView(target, false, activeContainer) == undefined ? false : true;
 
     // If so, then just focus and dip
     if (fully) {
@@ -96,9 +92,9 @@ function scroll(target, offset) {
         // Remove focus from currently focused one
         $(".is-focused").focusout();
         // Stop any animation going on in the container
-        getCurrentActiveContainer().stop();
+        activeContainer.stop();
         // Animate the mod container scrolling with a speed of 0 (fastest)
-        getCurrentActiveContainer().animate({
+        activeContainer.animate({
             scrollTop: offset
         }, 0);
         // Focus on the previous mod
@@ -107,8 +103,8 @@ function scroll(target, offset) {
 }
 
 // yonked from here https://stackoverflow.com/questions/16308037/detect-when-elements-within-a-scrollable-div-are-out-of-view
-function checkInView(elem, partial) {
-    var container = $(getCurrentActiveContainer());
+function checkInView(elem, partial, activeContainer) {
+    var container = $(activeContainer);
     var contHeight = container.height();
     var contTop = container.scrollTop();
     var contBottom = contTop + contHeight;

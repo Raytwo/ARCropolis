@@ -18,6 +18,10 @@ pub static CHANGELOG_HTML_TEXT: &str = include_str!("../../../resources/template
 // Change this for different pictures in the changelog
 pub static CHANGELOG_IMAGE_BYTES: &[u8] = include_bytes!("../../../resources/img/note_thumbnail.png");
 
+pub static WORKSPACES_HTML_TEXT: &str = include_str!("../../../resources/templates/workspaces.html");
+pub static WORKSPACES_CSS_TEXT: &str = include_str!("../../../resources/css/workspaces.css");
+pub static WORKSPACES_JAVASCRIPT_TEXT: &str = include_str!("../../../resources/js/workspaces.js");
+
 pub static CHECK_SVG: &[u8] = include_bytes!("../../../resources/img/check.svg");
 pub static MARQUEE_JS: &str = include_str!("../../../resources/js/jquery.marquee.min.js");
 pub static PAGINATION_JS: &str = include_str!("../../../resources/js/pagination.min.js");

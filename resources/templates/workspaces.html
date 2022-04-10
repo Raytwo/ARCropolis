@@ -8,11 +8,12 @@
     <meta name="focus-ring-visibility" content="hidden" />
     <title>Menu</title>
     <script src="./help/js/jquery-3.3.1.min.js"></script>
-    <link rel="stylesheet" href="./configurator.css" />
+    <link rel="stylesheet" href="./workspaces.css" />
     <link rel="stylesheet" href="./help/css/common.css" />
     <script src="./common/js/wsnd.min.js"></script>
     <script src="./common/js/keyhelp.js"></script>
     <script src="./help/js/common.js"></script>
+    <script src="./common.js"></script>
     <script src="./workspaces.js"></script>
 </head>
 
@@ -29,18 +30,33 @@
                 </div>
             </a>
             <div class="breadcrumb-list f-u-bold">
-                <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="color: orangered; -webkit-text-stroke-width: 2px; -webkit-text-stroke-color: black; z-index: 1;" id="test">Configuration editor</span></p>
+                <p>
+                    <span data-msgcom="true" data-msgid="textbox_id-10002" style="color: orangered; -webkit-text-stroke-width: 2px; -webkit-text-stroke-color: black; z-index: 1;" id="test">Workspaces</span>
+                </p>
+                <p>
+                    <span data-msgid="textbox_id-2" id="workspaceArrow" style="
+                    color: #797979;
+                    -webkit-text-stroke-width: 2px;
+                    -webkit-text-stroke-color: black;
+                    display: none;">▶</span>
+                </p>
+                <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
+                  color: white;
+                  -webkit-text-stroke-width: 2px;
+                  -webkit-text-stroke-color: black;
+                  z-index: 1;
+                  display: none;" id="workspace">Workspace</span></p>
             </div>
         </div>
     </div>
 
     <div class="main" id="workspaces">
         <div class="scrollbar">
-            <div class="flex-container">
-                <button onclick="changeDivFromTo('workspaces', 'region', '0')" class="flex-item">
+            <div class="flex-container" id="workspacesContainer">
+                <button onclick="createWorkspace()" class="flex-item">
                     <div class="icon-background"></div>
                     <div class="item-container">
-                        <h2>{{Workspace}}</h2>
+                        <h2>Create Workspace</h2>
                     </div>
                 </button>
             </div>
@@ -56,26 +72,26 @@
                         <h2>Go back</h2>
                     </div>
                 </button>
-                <button onclick="submit('workspace', 'id')" class="flex-item">
-                    <div class="icon-background"><img class="abstract-icon is-appear hidden" src="check.svg" /></div>
+                <button onclick="setActive()" class="flex-item" id="is-active">
+                    <div class="icon-background"><img class="abstract-icon is-appear" src="check.svg" /></div>
                     <div class="item-container">
                         <h2>Set Active</h2>
                     </div>
                 </button>
-                <button onclick="editWorkspace('id')" class="flex-item">
-                    <div class="icon-background"><img class="abstract-icon is-appear hidden" src="check.svg" /></div>
+                <button onclick="editWorkspace()" class="flex-item">
+                    <div class="icon-background"></div>
                     <div class="item-container">
                         <h2>Change Active Mods</h2>
                     </div>
                 </button>
-                <button onclick="rename('id')" class="flex-item">
-                    <div class="icon-background"><img class="abstract-icon is-appear hidden" src="check.svg" /></div>
+                <button onclick="renameWorkspace()" class="flex-item" id="renameWorkspace">
+                    <div class="icon-background"></div>
                     <div class="item-container">
                         <h2>Rename Workspace</h2>
                     </div>
                 </button>
-                <button onclick="remove('id')" class="flex-item" id="removeWorkspace">
-                    <div class="icon-background"><img class="abstract-icon is-appear hidden" src="check.svg" /></div>
+                <button onclick="removeWorkspace()" class="flex-item" id="removeWorkspace">
+                    <div class="icon-background"></div>
                     <div class="item-container">
                         <h2>Remove Workspace</h2>
                     </div>

@@ -1,4 +1,4 @@
-var AButtonHeld = [false, false, false, false];
+var AButtonHeld = false;
 
 window.addEventListener("DOMContentLoaded", (e) => {
     var buttons = document.querySelectorAll('button');
@@ -23,15 +23,6 @@ window.addEventListener("DOMContentLoaded", (e) => {
         if ($(".is-focused").length <= 0) {
             $("#list").find("button").get(0).focus();
         }
-        // Once a gamepad has connected, start an interval function that will run every 100ms to check for input
-        setInterval(function() {
-            var gpl = navigator.getGamepads();
-            if (gpl.length > 0) {
-                for (var i = 0; i < gpl.length; i++) {
-                    checkGamepad(i, gpl[i]);
-                }
-            }
-        }, 100);
     });
 });
 
@@ -65,7 +56,7 @@ function checkGamepad(index, gamepad) {
         if (target.length <= 0) {
             return;
         }
-        scroll(target, $("#list").scrollTop() + target.position().top - 50);
+        scroll(target, $("#list").scrollTop() + target.position().top - 50, $("#list"));
     }
     // Check if D-pad Up pressed or Y-Axis
     else if (gamepad.buttons[12].pressed || axisY < -0.7) {
@@ -81,7 +72,7 @@ function checkGamepad(index, gamepad) {
             return;
         }
 
-        scroll(target, $("#list").scrollTop() + target.position().top - 50);
+        scroll(target, $("#list").scrollTop() + target.position().top - 50, $("#list"));
     }
     // Check if D-pad Right pressed or X Axis > 0.7
     else if (gamepad.buttons[15].pressed || axisX > 0.7) {
@@ -99,7 +90,7 @@ function checkGamepad(index, gamepad) {
             return;
         }
 
-        scroll(target, ($("#list").scrollTop()) + (target.height() * 2));
+        scroll(target, ($("#list").scrollTop()) + (target.height() * 2), $("#list"));
     }
     // Check if D-pad Down pressed or Y Axis > 0.7
     else if (gamepad.buttons[13].pressed || axisY > 0.7) {
@@ -116,7 +107,7 @@ function checkGamepad(index, gamepad) {
             return;
         }
         console.log(target);
-        scroll(target, ($("#list").scrollTop()) + (target.height() * 2));
+        scroll(target, ($("#list").scrollTop()) + (target.height() * 2), $("#list"));
     };
     //#endregion
 }
