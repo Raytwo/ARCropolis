@@ -151,7 +151,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
 
     if storage.get_flag("first_boot") {
-        if skyline_web::Dialog::yes_no("A default configuration for ARCropolis has been created.<br>Would you like to review it?") {
+        if skyline_web::Dialog::yes_no("A default configuration for ARCropolis has been created.<br>It is heavily recommended to set the Region to the one you configured for the game.<br>Would you like to review it?") {
             crate::menus::show_config_editor(&mut storage);
         }
         storage.set_flag("first_boot", false);
