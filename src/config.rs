@@ -39,9 +39,8 @@ lazy_static! {
                 if curr_version > config_version {
                     // TODO: Code to perform changes for each version
                     if Version::new(3,2,0) > config_version {
-                        storage.rename("presets", "preset1").unwrap();
                         let mut default_workspace = HashMap::<&str, &str>::new();
-                        default_workspace.insert("Default", "preset1");
+                        default_workspace.insert("Default", "presets");
                         storage.set_field_json("workspace_list", &default_workspace).unwrap();
                         storage.set_field("workspace", "Default").unwrap();
                     }
@@ -57,6 +56,9 @@ lazy_static! {
                     Ok(toml) => match toml::de::from_str::<Config>(toml.as_str()) {
                         // Parsing successful, migrate everything to the new system
                         Ok(config) => {
+                            // Prepare default files for the current version in the new storage
+                            generate_default_config(&mut storage);
+                            // Overwrite default files with the values from the old configuration file.
                             migrate_config_to_storage(&mut storage, &config);
 
                             // Perform checks on deprecated custom mod directories (ARCropolis < 3.0.0)
@@ -172,10 +174,10 @@ fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
     storage.set_field("logging_level", "Warn").unwrap();
     storage.set_field_json("extra_paths", &Vec::<String>::new()).unwrap();
     storage.set_flag("auto_update", true);
-    storage.set_field_json("preset1", &HashSet::<Hash40>::new());
+    storage.set_field_json("presets", &HashSet::<Hash40>::new());
     
     let mut default_workspace = HashMap::<&str, &str>::new();
-    default_workspace.insert("Default", "preset1");
+    default_workspace.insert("Default", "presets");
     storage.set_field_json("workspace_list", &default_workspace).unwrap();
     storage.set_field("workspace", "Default");
 }
