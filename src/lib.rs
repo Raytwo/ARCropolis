@@ -287,18 +287,12 @@ pub fn main() {
     init_time();
 
     // Initialize hid
-    // ninput::init();
-    std::thread::sleep_ms(300);
+    ninput::init();
 
     // Attempt to initialize the logger, and if we fail we will just do a regular println
     if let Err(err) = logging::init(LevelFilter::from_str(&config::logger_level()).unwrap_or(LevelFilter::Warn)) {
         println!("[arcropolis] Failed to initialize logger. Reason: {:?}", err);
     }
-
-    // if ninput::any::is_down(ninput::Buttons::PLUS) {
-    //     println!("input");
-    //     menus::show_main_menu();
-    // }
 
     // Acquire the filesystem and promise it to the initial_loading hook
     let mut filesystem = GLOBAL_FILESYSTEM.write();
