@@ -47,6 +47,8 @@ use replacement::extensions::SearchEx;
 use smash_arc::Hash40;
 use walkdir::WalkDir;
 
+use crate::config::GLOBAL_CONFIG;
+
 // Temporary fix for Vec
 #[global_allocator]
 static UNIX_ALLOCATOR: skyline::unix_alloc::UnixAllocator = skyline::unix_alloc::UnixAllocator;
@@ -285,6 +287,9 @@ fn show_eshop() {
 pub fn main() {
     // Initialize the time for the logger
     init_time();
+
+    // Force the configuration to be initialized right away, so we can be sure default files exist (hopefully)
+    lazy_static::initialize(&GLOBAL_CONFIG);
 
     // Initialize hid
     ninput::init();

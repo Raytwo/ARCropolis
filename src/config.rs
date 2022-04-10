@@ -26,7 +26,6 @@ fn default_region() -> String {
 
 lazy_static! {
     pub static ref GLOBAL_CONFIG: Mutex<StorageHolder<ArcStorage>> = {
-        //let mut storage = acquire_storage("arcropolis").unwrap();
         let mut storage = StorageHolder::new(ArcStorage::new());
 
         let version: Result<Version, _> = storage.get_field("version");
@@ -63,11 +62,11 @@ lazy_static! {
 
                             // Perform checks on deprecated custom mod directories (ARCropolis < 3.0.0)
                             if &config.paths.arc != &arc_path(){
-                                skyline::error::show_error(69, "Usage of custom ARC paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom ARC paths have been deprecated in an effort to reduce user error.\nConsider moving your modpack to rom:/arc to keep using it.");
+                                skyline::error::show_error(69, "Usage of custom ARC paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom ARC paths have been deprecated in an effort to reduce user error.<br>Consider moving your modpack to rom:/arc to keep using it.");
                             }
 
                             if &config.paths.umm != &umm_path(){
-                                skyline::error::show_error(69, "Usage of custom UMM paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom UMM paths have been deprecated in an effort to reduce user error.\nConsider moving your modpack to sd:/ultimate/mods to keep using it.");
+                                skyline::error::show_error(69, "Usage of custom UMM paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom UMM paths have been deprecated in an effort to reduce user error.<br>Consider moving your modpack to sd:/ultimate/mods to keep using it.");
                                 // TODO: Offer to move it for the user if the default umm path doesn't already exist
                             }
 
@@ -77,7 +76,7 @@ lazy_static! {
 
                             // Ryujinx cannot show the web browser, and a second check is performed during file discovery
                             if !is_emulator {
-                                if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?\nIt offers advantages such as:\nMod manager on the eShop button\nSeparate enabled mods per user profile\n\nIf you accept, disabled mods will be renamed to strip the period.") {
+                                if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?<br>It offers advantages such as:<br>* Mod manager on the eShop button<br>* Separate enabled mods per user profile<br><br>If you accept, disabled mods will be renamed to strip the period.") {
                                     storage.set_field_json("presets", &convert_legacy_to_presets());
                                 } else {
                                     storage.set_flag("legacy_discovery", true);
@@ -91,45 +90,13 @@ lazy_static! {
                             let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
                         }
                     },
-                    // Could not read or find a legacy configuration
+                    // Could not find a legacy configuration
                     Err(_) => {
-                        // Mount the debug storage (3.0.0-beta.3.2 up to 3.0.0)
-                        let mut debug_storage = StorageHolder::new(DebugSavedataStorage::new("arcropolis"));
+                        error!("Unable to find legacy config file, generating default values.");
+                        // [3.2.0] Removed migration from DebugSavedataStorage so we don't create a partition for the user just to check if they had one anymore.
+                        generate_default_config(&mut storage);
 
-                        // Try to get the version field
-                        let version: Result<semver::Version, _> = debug_storage.get_field("version");
-
-                        match version {
-                            // A configuration was found in the debug storage, move everything to the SD
-                            Ok(version) => {
-                                debug!("Detected debug savedata config from version {}. Migrating it to the ArcConfigStorage.", version);
-
-                                // Go through each file in the debug storage
-                                debug_storage.read_dir().unwrap().for_each(|file| {
-                                    let file = file.unwrap();
-
-                                    // If the size is 0, we've found a flag
-                                    if file.metadata().unwrap().len() == 0 {
-                                        storage.set_flag(file.file_name(), true);
-                                    }
-                                    // A field was found
-                                    else {
-                                        let content: String = debug_storage.get_field(file.file_name()).unwrap();
-                                        storage.set_field(file.file_name(), &content).unwrap();
-                                    }
-                                });
-
-                                // Overwrite the migrated version field with the current one
-                                storage.set_field("version", arcropolis_version()).unwrap();
-
-                                // Delete what's on the storage
-                                debug_storage.delete_storage();
-                            },
-                            Err(_) => {
-                                error!("Unable to read legacy config file, generating default values.");
-                                generate_default_config(&mut storage);
-                            },
-                        }
+                        storage.set_flag("first_boot", true);
                     }
                 }
             }

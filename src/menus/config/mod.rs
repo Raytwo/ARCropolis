@@ -9,12 +9,11 @@ use std::{
 use log::info;
 use serde::Deserialize;
 use skyline::nn;
+use skyline_config::{StorageHolder, ConfigStorage};
 use skyline_web::{ramhorns, Visibility, Webpage};
 use smash_arc::Hash40;
 
 use crate::config;
-
-const LOCALHOST: &str = "http://localhost/";
 
 #[derive(Debug, Deserialize)]
 pub struct ConfigChanged {
@@ -24,8 +23,9 @@ pub struct ConfigChanged {
 
 // Is this trash? Yes
 // Did I have a choice? No
-pub fn show_config_editor() {
+pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
     let mut reboot_required = false;
+
     let session = std::boxed::Box::new(
         Webpage::new()
             .htdocs_dir("contents")
@@ -40,10 +40,9 @@ pub fn show_config_editor() {
             .unwrap(),
     );
 
-    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-
     // Loaded
     let _ = session.recv();
+
 
     if storage.get_flag("beta_updates") {
         session.send("beta");
