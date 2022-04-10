@@ -210,8 +210,9 @@ function setupWorkspaces() {
     });
     var htmlText = "";
     for (var i = 0; i < workspaces.length; i++) {
+        var img = i == selected_workspace ? `<img class="abstract-icon is-appear" src="check.svg" />` : "";
         htmlText += `<button onclick="showWorkspace(${i})" class="flex-item">
-        <div class="icon-background"></div>
+        <div class="icon-background">${img}</div>
         <div class="item-container">
             <h2>${workspaces[i]}</h2>
         </div>

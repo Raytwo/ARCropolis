@@ -20,7 +20,6 @@ pub enum WorkspacesMessage {
     Edit { name: String },
     Rename { source_name: String, target_name: String },
     Remove { name: String },
-    WriteItDown { text: String },
     ClosureRequest,
 }
 
