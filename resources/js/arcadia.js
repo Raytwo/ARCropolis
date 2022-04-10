@@ -373,8 +373,8 @@ window.addEventListener("DOMContentLoaded", (e) => {
             dataType: "json",
             url: "mods.json",
             success: (data) => {
-                mods = data;
-                $("#workspace").html(mods.length);
+                mods = data["entries"];
+                $("#workspace").html(data["workspace"]);
                 currentMods = mods.map(x => x["id"]);
                 refreshCurrentMods();
             }

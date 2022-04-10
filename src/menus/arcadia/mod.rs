@@ -14,9 +14,10 @@ use smash_arc::Hash40;
 
 use crate::config;
 
-#[derive(Debug)]
-pub struct Entries {
+#[derive(Debug, Serialize)]
+pub struct Information {
     entries: Vec<Entry>,
+    workspace: String
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -116,8 +117,9 @@ pub fn show_arcadia(workspace: Option<String>) {
     let mut new_presets = presets.clone();
 
 
-    let mut mods: Entries = Entries {
+    let mut mods: Information = Information {
         entries: get_mods(&presets),
+        workspace: workspace_name
     };
 
     // region Setup Preview Images
@@ -151,7 +153,7 @@ pub fn show_arcadia(workspace: Option<String>) {
         .file("jquery.marquee.min.js", &crate::menus::files::MARQUEE_JS)
         .file("check.svg", &crate::menus::files::CHECK_SVG)
         .file("missing.webp", &crate::menus::files::MISSING_WEBP)
-        .file("mods.json", &serde_json::to_string(&mods.entries).unwrap())
+        .file("mods.json", &serde_json::to_string(&mods).unwrap())
         .files(&images)
         .background(skyline_web::Background::Default)
         .boot_display(skyline_web::BootDisplay::Default)
