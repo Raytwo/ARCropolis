@@ -1,239 +1,242 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-        <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
-        <meta name="focus-ring-visibility" content="hidden" />
-        <title>Menu</title>
-        <script src="./help/js/jquery-3.3.1.min.js"></script>
-        <link rel="stylesheet" href="./configurator.css" />
-        <link rel="stylesheet" href="./help/css/common.css" />
-        <script src="./common/js/wsnd.min.js"></script>
-        <script src="./common/js/keyhelp.js"></script>
-        <script src="./help/js/common.js"></script>
-        <script src="./configurator.js"></script>
-    </head>
 
-    <body>
-        <div id="bg"></div>
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
+    <meta name="focus-ring-visibility" content="hidden" />
+    <title>Menu</title>
+    <script src="./help/js/jquery-3.3.1.min.js"></script>
+    <link rel="stylesheet" href="./configurator.css" />
+    <link rel="stylesheet" href="./help/css/common.css" />
+    <script src="./common/js/wsnd.min.js"></script>
+    <script src="./common/js/keyhelp.js"></script>
+    <script src="./help/js/common.js"></script>
+    <script src="./common.js"></script>
+    <script src="./configurator.js"></script>
+</head>
 
-        <div class="l-header">
-            <span class="background-clip"></span>
-            <div class="header">
-                <a id="ret-button" tabindex="-1" class="header-decoration" nx-se-disabled="">
-                    <div class="ret-icon-wrapper">
-                        <img class="ret-icon-shadow" ref="./help/img/icon/m_retnormal.svg" />
-                        <img class="ret-icon" ref="./help/img/icon/m_retnormal.svg" />
-                    </div>
-                </a>
-                <div class="breadcrumb-list f-u-bold">
-                    <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="color: orangered; -webkit-text-stroke-width: 2px; -webkit-text-stroke-color: black; z-index: 1;" id="test">Configuration editor</span></p>
+<body>
+    <div id="bg"></div>
+
+    <div class="l-header">
+        <span class="background-clip"></span>
+        <div class="header">
+            <a id="ret-button" tabindex="-1" class="header-decoration" nx-se-disabled="">
+                <div class="ret-icon-wrapper">
+                    <img class="ret-icon-shadow" ref="./help/img/icon/m_retnormal.svg" />
+                    <img class="ret-icon" ref="./help/img/icon/m_retnormal.svg" />
                 </div>
+            </a>
+            <div class="breadcrumb-list f-u-bold">
+                <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="color: orangered; -webkit-text-stroke-width: 2px; -webkit-text-stroke-color: black; z-index: 1;" id="test">Configuration editor</span></p>
             </div>
         </div>
+    </div>
 
-        <div class="main" id="workspaces">
-            <div class="scrollbar">
-                <div class="flex-container">
-                    <button onclick="changeDivFromTo('workspaces', 'region', '0')" class="flex-item">
+    <div class="main" id="workspaces">
+        <div class="scrollbar">
+            <div class="flex-container">
+                <button onclick="changeDivFromTo('workspaces', 'region', '0')" class="flex-item">
                         <div class="icon-background"></div>
                         <div class="item-container">
                             <h2>Region</h2>
                         </div>
                     </button>
-                    <button onclick="changeDivFromTo('workspaces', 'logging', '1')" class="flex-item">
+                <button onclick="changeDivFromTo('workspaces', 'logging', '1')" class="flex-item">
                         <div class="icon-background"></div>
                         <div class="item-container">
                             <h2>Logging level</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`beta`, `true`)" class="flex-item">
+                <button onclick="submit(`beta`, `true`)" class="flex-item">
                         <div class="icon-background"><img id="beta" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Beta updates</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`discovery`, `true`)" class="flex-item">
+                <button onclick="submit(`discovery`, `true`)" class="flex-item">
                         <div class="icon-background"><img id="legacy_discovery" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Use legacy mod discovery system</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`debug`, `true`)" class="flex-item">
+                <button onclick="submit(`debug`, `true`)" class="flex-item">
                         <div class="icon-background"><img id="debug" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Debug</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`log_to_file`, `true`)" class="flex-item">
+                <button onclick="submit(`log_to_file`, `true`)" class="flex-item">
                         <div class="icon-background"><img id="log_to_file" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Log to file</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`auto_update`, `true`)" class="flex-item">
+                <button onclick="submit(`auto_update`, `true`)" class="flex-item">
                         <div class="icon-background"><img id="auto_update" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Check for update on boot</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`exit`, `true`)" class="flex-item">
+                <button onclick="submit(`exit`, `true`)" class="flex-item">
                         <div class="icon-background"></div>
                         <div class="item-container">
                             <h2>Close</h2>
                         </div>
                     </button>
-                </div>
             </div>
         </div>
+    </div>
 
-        <div class="main" id="region">
-            <div class="scrollbar">
-                <div class="flex-container">
-                    <button onclick="changeDivFromTo('region', 'workspaces', `0`)" class="flex-item">
+    <div class="main" id="region">
+        <div class="scrollbar">
+            <div class="flex-container">
+                <button onclick="changeDivFromTo('region', 'workspaces', `0`)" class="flex-item">
                         <div class="icon-background"></div>
                         <div class="item-container">
                             <h2>Go back</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `jp_ja`)" class="flex-item">
+                <button onclick="submit(`lang`, `jp_ja`)" class="flex-item">
                         <div class="icon-background"><img id="jp_ja" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Japanese</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `us_en`)" class="flex-item">
+                <button onclick="submit(`lang`, `us_en`)" class="flex-item">
                         <div class="icon-background"><img id="us_en" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>US English</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `us_fr`)" class="flex-item">
+                <button onclick="submit(`lang`, `us_fr`)" class="flex-item">
                         <div class="icon-background"><img id="us_fr" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>US French</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `us_es`)" class="flex-item">
+                <button onclick="submit(`lang`, `us_es`)" class="flex-item">
                         <div class="icon-background"><img id="us_es" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>US Spanish</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `eu_en`)" class="flex-item">
+                <button onclick="submit(`lang`, `eu_en`)" class="flex-item">
                         <div class="icon-background"><img id="eu_en" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>EUR English</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `eu_fr`)" class="flex-item">
+                <button onclick="submit(`lang`, `eu_fr`)" class="flex-item">
                         <div class="icon-background"><img id="eu_fr" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>EUR French</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `eu_es`)" class="flex-item">
+                <button onclick="submit(`lang`, `eu_es`)" class="flex-item">
                         <div class="icon-background"><img id="eu_es" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>EUR Spanish</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `eu_de`)" class="flex-item">
+                <button onclick="submit(`lang`, `eu_de`)" class="flex-item">
                         <div class="icon-background"><img id="eu_de" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>EUR German</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `eu_nl`)" class="flex-item">
+                <button onclick="submit(`lang`, `eu_nl`)" class="flex-item">
                         <div class="icon-background"><img id="eu_nl" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>EUR Dutch</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `eu_it`)" class="flex-item">
+                <button onclick="submit(`lang`, `eu_it`)" class="flex-item">
                         <div class="icon-background"><img id="eu_it" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>EUR Italian</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `eu_ru`)" class="flex-item">
+                <button onclick="submit(`lang`, `eu_ru`)" class="flex-item">
                         <div class="icon-background"><img id="eu_ru" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>EUR Russian</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `kr_ko`)" class="flex-item">
+                <button onclick="submit(`lang`, `kr_ko`)" class="flex-item">
                         <div class="icon-background"><img id="kr_ko" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Korean</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `zh_cn`)" class="flex-item">
+                <button onclick="submit(`lang`, `zh_cn`)" class="flex-item">
                         <div class="icon-background"><img id="zh_cn" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>ZH CN</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`lang`, `zh_tw`)" class="flex-item">
+                <button onclick="submit(`lang`, `zh_tw`)" class="flex-item">
                         <div class="icon-background"><img id="zh_tw" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>ZH TW</h2>
                         </div>
                     </button>
-                </div>
             </div>
         </div>
+    </div>
 
-        <div class="main" id="logging">
-            <div class="scrollbar">
-                <div class="flex-container">
-                    <button onclick="changeDivFromTo('logging', 'workspaces', `1`)" class="flex-item">
+    <div class="main" id="logging">
+        <div class="scrollbar">
+            <div class="flex-container">
+                <button onclick="changeDivFromTo('logging', 'workspaces', `1`)" class="flex-item">
                         <div class="icon-background"></div>
                         <div class="item-container">
                             <h2>Go back</h2>
                         </div>
                     </button>
 
-                    <button onclick="submit(`log`, `Trace`)" class="flex-item">
+                <button onclick="submit(`log`, `Trace`)" class="flex-item">
                         <div class="icon-background"><img id="Trace" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Trace</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`log`, `Debug`)" class="flex-item">
+                <button onclick="submit(`log`, `Debug`)" class="flex-item">
                         <div class="icon-background"><img id="Debug" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Debug</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`log`, `Info`)" class="flex-item">
+                <button onclick="submit(`log`, `Info`)" class="flex-item">
                         <div class="icon-background"><img id="Info" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Info</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`log`, `Warn`)" class="flex-item">
+                <button onclick="submit(`log`, `Warn`)" class="flex-item">
                         <div class="icon-background"><img id="Warn" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Warning</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`log`, `Error`)" class="flex-item">
+                <button onclick="submit(`log`, `Error`)" class="flex-item">
                         <div class="icon-background"><img id="Error" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Error</h2>
                         </div>
                     </button>
-                    <button onclick="submit(`log`, `Off`)" class="flex-item">
+                <button onclick="submit(`log`, `Off`)" class="flex-item">
                         <div class="icon-background"><img id="Off" class="abstract-icon is-appear hidden" src="check.svg" /></div>
                         <div class="item-container">
                             <h2>Off</h2>
                         </div>
                     </button>
-                </div>
             </div>
         </div>
+    </div>
 
-    </body>
+</body>
+
 </html>
