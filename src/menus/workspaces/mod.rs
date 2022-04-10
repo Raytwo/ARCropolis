@@ -83,9 +83,13 @@ pub fn show_workspaces() {
         }
     }
 
+    if !workspace_list.contains_key(&active_workspace){
+        active_workspace = "Default".to_string();
+        storage.set_field("workspace", active_workspace.clone()).unwrap();
+    }
+
     drop(storage);
 
-    
     match workspace_to_edit {
         Some(s) => {            
             println!("Opening ARCadia from workspaces.rs...");
