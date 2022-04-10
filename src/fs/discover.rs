@@ -101,19 +101,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         }
     };
 
-    let mut launchpad = LaunchPad::new(StandardLoader, ConflictHandler::NoRoot);
-
     let arc_path = config::arc_path();
-
-    launchpad.collecting(collect);
-    launchpad.ignoring(ignore);
-
-    let mut conflicts = if std::fs::try_exists(arc_path).unwrap_or(false) {
-        launchpad.discover_in_root(config::arc_path())
-    } else {
-        Vec::new()
-    };
-
     let umm_path = config::umm_path();
 
     // Emulators can't use presets, so don't run this logic
@@ -152,6 +140,17 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         // No matter what, the cache has to be updated
         storage.set_field_json("mod_cache", &new_cache).unwrap();
     }
+
+    let mut launchpad = LaunchPad::new(StandardLoader, ConflictHandler::NoRoot);
+
+    launchpad.collecting(collect);
+    launchpad.ignoring(ignore);
+
+    let mut conflicts = if std::fs::try_exists(arc_path).unwrap_or(false) {
+        launchpad.discover_in_root(config::arc_path())
+    } else {
+        Vec::new()
+    };
 
     if std::fs::try_exists(&umm_path).unwrap_or(false) {
         conflicts.extend(launchpad.discover_roots(&umm_path, 1, filter));

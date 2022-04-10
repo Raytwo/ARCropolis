@@ -198,8 +198,11 @@ pub fn show_arcadia() {
     storage.flush();
 
     if new_presets != presets {
-        if skyline_web::Dialog::yes_no("Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?") {
-            unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
+        // Acquire the filesystem so we can check if it's already finished or not (for boot-time mod manager)
+        if let Some(filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
+            if skyline_web::Dialog::yes_no("Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?") {
+                unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
+            }
         }
     }
 }
