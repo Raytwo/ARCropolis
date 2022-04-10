@@ -60,6 +60,11 @@ function goBack() {
     }
 }
 
+function exit() {
+    window.nx.sendMessage(JSON.stringify("ClosureRequest"));
+    window.location.href = "http://localhost/quit";
+}
+
 function getCurrentActiveContainer() {
     if ($("#workspaces").is(":visible")) {
         return $("#workspaces");
@@ -110,6 +115,7 @@ function checkGamepad(index, gamepad) {
         AButtonHeld[index] = false;
     }
 
+    // Check B Button
     if (gamepad.buttons[0].pressed) {
         if (!BButtonHeld) {
             goBack();
@@ -168,7 +174,7 @@ function checkGamepad(index, gamepad) {
 
         // If that doesn't exist, then dip
         if (target.length <= 0) {
-            target = $($("button:visible").get(0));
+            return;
         }
 
         offset = ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2);
@@ -185,7 +191,7 @@ function checkGamepad(index, gamepad) {
         console.log(target);
         // If there is none after that, then just return
         if (target.length <= 0) {
-            target = $($("button:visible").get(0));
+            return;
         }
 
         offset = ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2);
@@ -199,6 +205,9 @@ function checkGamepad(index, gamepad) {
 }
 
 function setupWorkspaces() {
+    workspaces.sort(function(a, b) {
+        return a.localeCompare(b);
+    });
     var htmlText = "";
     for (var i = 0; i < workspaces.length; i++) {
         htmlText += `<button onclick="showWorkspace(${i})" class="flex-item">
@@ -256,7 +265,7 @@ function setActive() {
     if (isNx) {
         window.nx.sendMessage(JSON.stringify({
             "SetActive": {
-                "id": active_workspace
+                "name": active_workspace
             }
         }));
     }
@@ -267,6 +276,11 @@ function renameWorkspace() {
 
     var res = prompt("Rename workspace", workspaces[selected_workspace]);
     if (res == null || res == undefined) { return; }
+
+    if (workspaces.includes(res)) {
+        alert("Workspace with that name already exists!");
+        return;
+    }
 
     sourceName = workspaces[selected_workspace];
     targetName = res;
@@ -282,6 +296,10 @@ function renameWorkspace() {
                 "target_name": targetName,
             }
         }));
+
+        if (active_workspace == sourceName) {
+            setActive();
+        }
     }
 }
 
@@ -307,6 +325,12 @@ function removeWorkspace() {
 function createWorkspace() {
     var res = prompt("Enter new workspace name");
     if (res == null || res == undefined) { return; }
+
+    if (workspaces.includes(res)) {
+        alert("Workspace with that name already exists!");
+        return;
+    }
+
     workspaces.push(res);
     // send nx message
     if (isNx) {

@@ -24,20 +24,16 @@ pub enum WorkspacesMessage {
     ClosureRequest,
 }
 
-pub fn save_workspaces(workspace_list: &HashMap<String, String>){
-    // let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-    // storage.set_field_json("workspace_list", workspace_list).unwrap_or_default();
-}
-
 pub fn show_workspaces() {
 
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-    let active_workspace: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+    let mut active_workspace: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+    let prev_set_workspace: String = active_workspace.clone();
     let mut workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
 
     let info: Information = Information {
         workspaces: workspace_list.iter().map(|(k, v)| k.clone()).collect(),
-        active_workspace: active_workspace
+        active_workspace: active_workspace.clone()
     };
 
     let mut workspace_to_edit: Option<String> = None; 
@@ -58,18 +54,16 @@ pub fn show_workspaces() {
     while let Ok(message) = session.recv_json::<WorkspacesMessage>() {
         match message {
             WorkspacesMessage::Create { name } => {
-                workspace_list.insert(name, format!("preset{}", workspace_list.len() + 1));
-            }
-            WorkspacesMessage::WriteItDown { text } => {
-                fs::write("sd:/nx.info", text).expect("Unable to write file");
+                workspace_list.insert(name.clone(), format!("{}_preset{}", name, workspace_list.len() + 1));
             }
             WorkspacesMessage::SetActive { name } => {
+                active_workspace = name.clone();
                 storage.set_field("workspace", name).unwrap();
             }
             WorkspacesMessage::Edit { name } => {
                 session.wait_for_exit();
                 session.exit();
-                save_workspaces(&workspace_list);
+                storage.set_field_json("workspace_list", &workspace_list).unwrap_or_default();
                 workspace_to_edit = Some(name);
                 break;
             }
@@ -84,19 +78,27 @@ pub fn show_workspaces() {
             WorkspacesMessage::ClosureRequest => {
                 session.wait_for_exit();
                 session.exit();
-                save_workspaces(&workspace_list);
+                storage.set_field_json("workspace_list", &workspace_list).unwrap_or_default();
                 break;
             }
         }
     }
 
-    println!("Opening ARCadia from Workspaces.rs...");
+    drop(storage);
 
+    
     match workspace_to_edit {
         Some(s) => {            
-           crate::menus::arcadia::show_arcadia(Some(s))
+            println!("Opening ARCadia from workspaces.rs...");
+            crate::menus::arcadia::show_arcadia(Some(s))
         },
         None => {}
+    }
+    
+    if active_workspace.ne(&prev_set_workspace){
+        if skyline_web::Dialog::yes_no(format!("Your active workspace has successfully been changed to {} !<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?", active_workspace)) {
+            unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
+        }
     }
 
 }
