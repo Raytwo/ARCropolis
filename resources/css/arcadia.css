@@ -106,7 +106,7 @@ table.main td {
 .marquee {
     overflow: hidden !important;
     width: 403px !important;
-    height: 44px !important;
+    height: 55px !important;
     display: block !important;
 }
 
@@ -221,11 +221,11 @@ table.main td {
 
 .abstract-button.is-focused .abstract-button-text span:nth-child(1) {
     position: relative;
-    display: block;
     margin-left: 0;
     margin-top: 0;
     color: white;
     z-index: -1;
+    -webkit-text-stroke: 2.5px #000000;
 }
 
 .abstract-button-text {

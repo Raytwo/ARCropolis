@@ -40,7 +40,7 @@ function createMod(mod_id) {
                 </div>
             </div>
             <div class="abstract-button-text f-u-bold mod-name"
-                style="margin-top: 8px; display: block; font-size: 3vmin;" data-display_name="${mods[mod_id]['display_name']}">
+                style="display: block; font-size: 26px; text-indent: 10px; margin-top: 8px;" data-display_name="${mods[mod_id]['display_name']}">
                 <span class="marquee" data-msgid="textbox_id-4-1">${mods[mod_id]['display_name']}</span>
             </div>
         </div>

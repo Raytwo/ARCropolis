@@ -56,6 +56,7 @@ pub fn show_workspaces() {
         match message {
             WorkspacesMessage::Create { name } => {
                 workspace_list.insert(name.clone(), format!("{}_preset{}", name, workspace_list.len() + 1));
+                storage.set_field_json("workspace_list", &workspace_list).unwrap_or_default();
             }
             WorkspacesMessage::SetActive { name } => {
                 active_workspace = name.clone();
@@ -72,9 +73,11 @@ pub fn show_workspaces() {
                 let preset_name = workspace_list[&source_name].clone();
                 workspace_list.remove(&source_name);
                 workspace_list.insert(target_name, preset_name);
+                storage.set_field_json("workspace_list", &workspace_list).unwrap_or_default();
             }
             WorkspacesMessage::Remove { name } => {
                 workspace_list.remove(&name);
+                storage.set_field_json("workspace_list", &workspace_list).unwrap_or_default();
             }
             WorkspacesMessage::Duplicate { source_name, target_name } => {
                 let source_preset_name = &workspace_list[&source_name];
@@ -84,6 +87,7 @@ pub fn show_workspaces() {
                 
                 workspace_list.insert(target_name, target_preset_name.clone());
                 storage.set_field_json(target_preset_name, &presets).unwrap();
+                storage.set_field_json("workspace_list", &workspace_list).unwrap_or_default();
             }
             WorkspacesMessage::ClosureRequest => {
                 session.wait_for_exit();
