@@ -10,6 +10,7 @@ const categories = [
     "Music",
     "Misc",
 ];
+var categoriesToUse = [];
 
 var currentState = MOD_MENU;
 
@@ -296,7 +297,7 @@ function showSubMenu() {
 }
 
 function updateCurrentModsWCategories() {
-    var categoriesToUse = [];
+    categoriesToUse = [];
     $('#filters input:checkbox:checked').each(function(idx) {
         categoriesToUse.push($(this).attr('id'));
     });
@@ -305,8 +306,9 @@ function updateCurrentModsWCategories() {
 
 function showModMenu() {
     $("#submenu").css("display", "none");
+    document.querySelector('meta[name="focus-ring-visibility"]').setAttribute("content", "hidden");
     updateCurrentModsWCategories();
-    if (currentMods == 0) {
+    if (currentMods.length == 0) {
         $("#description").html(`No mods found under:<br />${categoriesToUse.join("<br />")}`);
     }
     refreshCurrentMods();
