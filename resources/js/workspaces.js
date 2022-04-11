@@ -18,7 +18,7 @@ window.addEventListener("DOMContentLoaded", (e) => {
             url: "workspaces.json",
             success: (data) => {
                 workspaces = data["workspaces"];
-                active_workspace = workspaces.indexOf(data["active_workspace"]);
+                active_workspace = data["active_workspace"];
                 setupWorkspaces();
             }
         });
@@ -210,7 +210,7 @@ function setupWorkspaces() {
     });
     var htmlText = "";
     for (var i = 0; i < workspaces.length; i++) {
-        var img = i == selected_workspace ? `<img class="abstract-icon is-appear" src="check.svg" />` : "";
+        var img = workspaces[i] == active_workspace ? `<img class="abstract-icon is-appear" src="check.svg" />` : "";
         htmlText += `<button onclick="showWorkspace(${i})" class="flex-item">
         <div class="icon-background">${img}</div>
         <div class="item-container">
