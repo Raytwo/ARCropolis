@@ -133,8 +133,6 @@ table.main td {
 
 .l-screen-shot-wrapper {
     margin-bottom: 0;
-    padding-left: 131px;
-    padding-right: 126px;
 }
 
 .l-info {
@@ -296,8 +294,8 @@ table.main td {
 }
 
 .screen-shot {
-    width: 373px;
-    height: 210px;
+    width: 463px;
+    height: 248px;
     border: 5px solid #000000;
 }
 
