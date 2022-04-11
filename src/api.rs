@@ -1,10 +1,12 @@
 pub mod callback;
 pub mod event;
 pub mod file;
+pub mod utils;
 
 pub use callback::*;
 pub use event::*;
 pub use file::*;
+pub use utils::*;
 
 #[repr(C)]
 pub struct ApiVersion {
