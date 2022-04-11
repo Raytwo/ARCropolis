@@ -284,6 +284,11 @@ function checkOverflow(el) {
 }
 
 function showSubMenu() {
+    $("#modsCount").html(`${mods.length} mod${mods.length > 1 ? 's' : ''}`);
+    var activeMods = 0;
+    mods.forEach(mod => activeMods = mod["is_disabled"] ? activeMods : activeMods + 1);
+    $("#activeModsCount").html(`${activeMods} active mod${activeMods > 1 ? 's' : ''}`);
+
     $("#submenu").css("display", "flex");
     $("#Fighter").focus();
     document.querySelector('meta[name="focus-ring-visibility"]').setAttribute("content", "");
