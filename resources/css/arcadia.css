@@ -138,8 +138,8 @@ table.main td {
 .l-info {
     display: flex;
     justify-content: flex-end;
-    padding-left: 131px;
-    padding-right: 127px;
+    padding-left: 96px;
+    padding-right: 96px;
 }
 
 .l-info .sentence {
