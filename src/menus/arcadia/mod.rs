@@ -42,6 +42,7 @@ pub struct ConfigChanged {
 pub enum ArcadiaMessage {
     ToggleModRequest { id: usize, state: bool },
     ChangeAllRequest { state: bool },
+    ChangeIndexesRequest { state: bool, indexes: Vec<usize> },
     ClosureRequest,
 }
 
@@ -186,6 +187,19 @@ pub fn show_arcadia(workspace: Option<String>) {
                         let hash = Hash40::from(path.as_str());
 
                         new_presets.insert(hash);
+                    }
+                }
+            },
+            ArcadiaMessage::ChangeIndexesRequest { state, indexes } => {
+                for idx in indexes {
+                    let path = format!("{}/{}", umm_path.display(), mods.entries[idx].folder_name.as_ref().unwrap());
+                    let hash = Hash40::from(path.as_str());
+                    debug!("Setting {} to {}", path, state);
+    
+                    if state {
+                        new_presets.insert(hash);
+                    } else {
+                        new_presets.remove(&hash);
                     }
                 }
             },
