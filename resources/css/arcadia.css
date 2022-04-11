@@ -2,6 +2,10 @@
     background-image: var(--var-bg-detail-palette);
 }
 
+#ret-button {
+    background-color: #00829A;
+}
+
 .Fighter>.abstract-icon-back-decoration,
 .Fighter>div.abstract-button-border>div>div.abstract-icon-wrapper {
     background: #FE3636 !important;

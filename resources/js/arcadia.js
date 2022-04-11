@@ -94,6 +94,7 @@ function checkGamepad(index, gamepad) {
 
     if (currentState == MOD_MENU) {
 
+        // Y Button
         if (gamepad.buttons[2].pressed) {
             showSubMenu();
         }
