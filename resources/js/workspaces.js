@@ -18,7 +18,7 @@ window.addEventListener("DOMContentLoaded", (e) => {
             url: "workspaces.json",
             success: (data) => {
                 workspaces = data["workspaces"];
-                active_workspace = data["active_workspace"];
+                active_workspace = workspaces.indexOf(data["active_workspace"]);
                 setupWorkspaces();
             }
         });
@@ -301,6 +301,30 @@ function renameWorkspace() {
         if (active_workspace == sourceName) {
             setActive();
         }
+    }
+}
+
+function duplicateWorkspace() {
+    var res = prompt("Name for duplicated workspace", workspaces[selected_workspace]);
+    if (res == null || res == undefined) { return; }
+
+    if (workspaces.includes(res)) {
+        alert("Workspace with that name already exists!");
+        return;
+    }
+
+    sourceName = workspaces[selected_workspace];
+    targetName = res;
+
+    workspaces.push(targetName);
+
+    if (isNx) {
+        window.nx.sendMessage(JSON.stringify({
+            "Duplicate": {
+                "source_name": sourceName,
+                "target_name": targetName,
+            }
+        }));
     }
 }
 

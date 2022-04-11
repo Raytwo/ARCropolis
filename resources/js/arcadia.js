@@ -351,10 +351,11 @@ function setCurrentModsState(state, src) {
     }
     refreshCurrentMods();
     src != undefined || src != null ? src.focus() : false;
+    if (currentMods.length <= 0) { return; }
     window.nx.sendMessage(JSON.stringify({
         "ChangeIndexesRequest": {
             "state": state,
-            "indexs": currentMods
+            "indexes": currentMods
         }
     }));
 }

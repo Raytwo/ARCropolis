@@ -6,6 +6,7 @@ use std::{
 use skyline_web::Webpage;
 use serde::{Deserialize, Serialize};
 use crate::config;
+use smash_arc::Hash40;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Information {
@@ -20,6 +21,7 @@ pub enum WorkspacesMessage {
     Edit { name: String },
     Rename { source_name: String, target_name: String },
     Remove { name: String },
+    Duplicate { source_name: String, target_name: String },
     ClosureRequest,
 }
 
@@ -73,6 +75,15 @@ pub fn show_workspaces() {
             }
             WorkspacesMessage::Remove { name } => {
                 workspace_list.remove(&name);
+            }
+            WorkspacesMessage::Duplicate { source_name, target_name } => {
+                let source_preset_name = &workspace_list[&source_name];
+                let target_preset_name = format!("{}_preset{}", target_name, workspace_list.len() + 1);
+                
+                let presets: HashSet<Hash40> = storage.get_field_json(source_preset_name).unwrap_or_default();
+                
+                workspace_list.insert(target_name, target_preset_name.clone());
+                storage.set_field_json(target_preset_name, &presets).unwrap();
             }
             WorkspacesMessage::ClosureRequest => {
                 session.wait_for_exit();
