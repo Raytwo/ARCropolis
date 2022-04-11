@@ -295,14 +295,17 @@ function showSubMenu() {
     currentState = SUB_MENU;
 }
 
-function showModMenu() {
-    $("#submenu").css("display", "none");
-    document.querySelector('meta[name="focus-ring-visibility"]').setAttribute("content", "hidden");
+function updateCurrentModsWCategories() {
     var categoriesToUse = [];
     $('#filters input:checkbox:checked').each(function(idx) {
         categoriesToUse.push($(this).attr('id'));
     });
     currentMods = categoriesToUse.length == 0 ? mods.map(x => x["id"]) : mods.filter(mod => categoriesToUse.includes(mod["category"])).map(x => x["id"]);
+}
+
+function showModMenu() {
+    $("#submenu").css("display", "none");
+    updateCurrentModsWCategories();
     if (currentMods == 0) {
         $("#description").html(`No mods found under:<br />${categoriesToUse.join("<br />")}`);
     }
@@ -337,6 +340,21 @@ function setAllState(state, src) {
     window.nx.sendMessage(JSON.stringify({
         "ChangeAllRequest": {
             "state": state
+        }
+    }));
+}
+
+function setCurrentModsState(state, src) {
+    updateCurrentModsWCategories();
+    for (var i = 0; i < currentMods.length; i++) {
+        mods[currentMods[i]]["is_disabled"] = !state;
+    }
+    refreshCurrentMods();
+    src != undefined || src != null ? src.focus() : false;
+    window.nx.sendMessage(JSON.stringify({
+        "ChangeIndexesRequest": {
+            "state": state,
+            "indexs": currentMods
         }
     }));
 }
