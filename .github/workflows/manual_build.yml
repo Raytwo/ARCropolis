@@ -1,17 +1,17 @@
 # No idea if this will work
-name: Build commit
+name: Build a branch
 on: [workflow_dispatch]
 jobs:
   build:
-    env:
-      PLUGIN_NAME: arcropolis
+    name: Build and release
     runs-on: ubuntu-latest
-    container: 
-      image: jugeeya/cargo-skyline:2.1.0-dkp
     steps:
     - name: Build ARCropolis and package it
-      run: export PATH=$PATH:/root/.cargo/bin:/opt/devkitpro/devkitA64/bin \
-        && cargo skyline package --no-skyline
+      uses: baptiste0928/cargo-install@v1
+      with:
+        crate: cargo-skyline
+        version: latest
+    - run: cargo skyline package --no-skyline
     - name: Upload package
       uses: actions/upload-artifact@v2
       with:
