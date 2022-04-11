@@ -22,7 +22,7 @@ pub struct ApiVersion {
 /// Do your changes only add new APIs in a backwards compatible way: Minor bump
 ///
 /// Are your changes only internal? No version bump
-static API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 6 };
+static API_VERSION: ApiVersion = ApiVersion { major: 1, minor: 7 };
 
 #[no_mangle]
 pub extern "C" fn arcrop_api_version() -> &'static ApiVersion {
