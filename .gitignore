@@ -11,5 +11,6 @@ Cargo.lock
 *.sh
 
 
-# Ignore a folder I'm using for testing web stuff
+# Ignore a folder and script I'm using for testing web stuff
 /resources/testing
+/resources/copy.py

@@ -343,6 +343,26 @@ function updateSort() {
             if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
             return 0;
         });
+    } else if (sortType == "enabled") {
+        currentMods = JSON.parse(JSON.stringify(currentMods)).sort((a, b) => {
+            if (!mods[a]["is_disabled"] != !mods[b]["is_disabled"]) {
+                return mods[b]["is_disabled"] ? -1 : 1;
+            } else {
+                if (mods[a]["display_name"] < mods[b]["display_name"]) { return -1; }
+                if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
+            }
+            return 0;
+        });
+    } else if (sortType == "disabled") {
+        currentMods = JSON.parse(JSON.stringify(currentMods)).sort((a, b) => {
+            if (!mods[a]["is_disabled"] != !mods[b]["is_disabled"]) {
+                return mods[b]["is_disabled"] ? 1 : -1;
+            } else {
+                if (mods[a]["display_name"] < mods[b]["display_name"]) { return -1; }
+                if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
+            }
+            return 0;
+        });
     }
 
     if (descending) {
