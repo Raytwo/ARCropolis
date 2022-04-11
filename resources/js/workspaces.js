@@ -1,8 +1,13 @@
+const WORKSPACES_CONTROL = "&#xe000 Set Active &nbsp; &#xe002 Duplicate Workspace &nbsp; &#xe003 Show Options";
+const WORKSPACE_CONTROL = "&#xe000 Select Option";
+
 var workspaces = [];
 var selected_workspace = 0;
 var active_workspace = "";
 var AButtonHeld = false;
 var BButtonHeld = false;
+var XButtonHeld = false;
+var YButtonHeld = false;
 
 window.addEventListener("DOMContentLoaded", (e) => {
     if (!isNx) {
@@ -34,22 +39,16 @@ window.addEventListener("DOMContentLoaded", (e) => {
         //     }
         // }));
 
+        window.nx.footer.setAssign("A", "", () => {});
         window.nx.footer.setAssign("B", "", () => {});
         window.nx.footer.setAssign("X", "", () => {});
+        window.nx.footer.setAssign("Y", "", () => {});
     }
 
     // Listen to the keydown event and prevent the default
     window.addEventListener('keydown', function(e) {
         e.preventDefault();
     });
-
-    // Listen to the gamepadconnected event
-    window.addEventListener("gamepadconnected", function(e) {
-        if ($(".is-focused").length <= 0) {
-            getCurrentActiveContainer().find("button").get(0).focus();
-        }
-    });
-
 });
 
 function goBack() {
@@ -78,9 +77,11 @@ function changeDivFromTo(from, to) {
         $("#workspaceArrow").show();
         $("#workspace").html(workspaces[selected_workspace]);
         $("#workspace").show();
+        $("#message").html(WORKSPACE_CONTROL);
     } else if (to == "workspaces") {
         $("#workspaceArrow").hide();
         $("#workspace").hide();
+        $("#message").html(WORKSPACES_CONTROL);
     }
 
     $(`#${from}`).fadeOut(200);
@@ -108,7 +109,7 @@ function checkGamepad(index, gamepad) {
             if ($(".is-focused").length <= 0) {
                 $("button:visible").get(0).focus();
             } else {
-                $(".is-focused").last().click();
+                $(".is-focused").get(0).click();
             }
         }
     } else {
@@ -124,6 +125,42 @@ function checkGamepad(index, gamepad) {
     } else {
         BButtonHeld = false;
     }
+
+    // Check Y button
+    if (gamepad.buttons[2].pressed) {
+        if (!YButtonHeld) {
+            YButtonHeld = true;
+            if (getCurrentActiveContainer().attr('id') == "workspaces") {
+                selected_workspace = parseInt($(".is-focused").attr('data-id'));
+                if (selected_workspace == undefined || isNaN(selected_workspace) || selected_workspace == null) {
+                    return;
+                }
+                showWorkspace(selected_workspace);
+            }
+        }
+    } else {
+        YButtonHeld = false;
+    }
+
+    // Check X button
+    if (gamepad.buttons[3].pressed) {
+        if (!XButtonHeld) {
+            XButtonHeld = true;
+            if (getCurrentActiveContainer().attr('id') == "workspaces") {
+                selected_workspace = parseInt($(".is-focused").attr('data-id'));
+                if (selected_workspace == undefined || isNaN(selected_workspace) || selected_workspace == null) {
+                    return;
+                }
+
+                if (duplicateWorkspace()) {
+                    changeDivFromTo('workspaces', 'workspaces');
+                }
+            }
+        }
+    } else {
+        XButtonHeld = false;
+    }
+
 
     var target = undefined;
     var offset = undefined;
@@ -210,9 +247,9 @@ function setupWorkspaces() {
     });
     var htmlText = "";
     for (var i = 0; i < workspaces.length; i++) {
-        var img = workspaces[i] == active_workspace ? `<img class="abstract-icon is-appear" src="check.svg" />` : "";
-        htmlText += `<button onclick="showWorkspace(${i})" class="flex-item">
-        <div class="icon-background">${img}</div>
+        var display = workspaces[i] == active_workspace ? 'block' : 'none';
+        htmlText += `<button onclick="selected_workspace = ${i}; setActive();" data-id='${i}' class="flex-item">
+        <div class="icon-background"><img class="abstract-icon is-appear" style="display: ${display}" src="check.svg" /></div>
         <div class="item-container">
             <h2>${workspaces[i]}</h2>
         </div>
@@ -239,6 +276,8 @@ function setupWorkspaces() {
             btn.classList.remove("is-focused");
         });
     });
+
+    $("#workspacesContainer>button:first-child").get(0).focus();
 }
 
 function showWorkspace(idx) {
@@ -262,7 +301,13 @@ function showWorkspace(idx) {
 
 function setActive() {
     active_workspace = workspaces[selected_workspace];
-    $("#is-active img").show();
+    if (getCurrentActiveContainer().attr('id') == "workspaceOption") {
+        $("#is-active img").show();
+    } else {
+        $("button:visible img").hide();
+        $(`button:visible[data-id='${selected_workspace}'] img`).show();
+    }
+
     if (isNx) {
         window.nx.sendMessage(JSON.stringify({
             "SetActive": {
@@ -306,11 +351,11 @@ function renameWorkspace() {
 
 function duplicateWorkspace() {
     var res = prompt("Name for duplicated workspace", workspaces[selected_workspace]);
-    if (res == null || res == undefined) { return; }
+    if (res == null || res == undefined) { return false; }
 
     if (workspaces.includes(res)) {
         alert("Workspace with that name already exists!");
-        return;
+        return false;
     }
 
     sourceName = workspaces[selected_workspace];
@@ -326,6 +371,8 @@ function duplicateWorkspace() {
             }
         }));
     }
+
+    return true;
 }
 
 function removeWorkspace() {
