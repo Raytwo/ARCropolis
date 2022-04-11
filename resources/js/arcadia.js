@@ -303,7 +303,9 @@ function showModMenu() {
         categoriesToUse.push($(this).attr('id'));
     });
     currentMods = categoriesToUse.length == 0 ? mods.map(x => x["id"]) : mods.filter(mod => categoriesToUse.includes(mod["category"])).map(x => x["id"]);
-    currentMods = currentMods.length == 0 ? mods.map(x => x["id"]) : currentMods;
+    if (currentMods == 0) {
+        $("#description").html(`No mods found under:<br />${categoriesToUse.join("<br />")}`);
+    }
     refreshCurrentMods();
     currentState = MOD_MENU;
 }
