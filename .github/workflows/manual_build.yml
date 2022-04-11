@@ -10,7 +10,8 @@ jobs:
       image: jugeeya/cargo-skyline:2.1.0-dkp
     steps:
     - name: Build ARCropolis and package it
-      run: cargo skyline package --no-skyline
+      run: export PATH=$PATH:/root/.cargo/bin:/opt/devkitpro/devkitA64/bin \
+        && cargo skyline package --no-skyline
     - name: Upload package
       uses: actions/upload-artifact@v2
       with:
