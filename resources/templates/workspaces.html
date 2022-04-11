@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,height=device-height,user-scalable=no" />
+    <meta name="focus-ring-visibility" content="hidden" />
+    <title>Menu</title>
+    <script src="./help/js/jquery-3.3.1.min.js"></script>
+    <link rel="stylesheet" href="./workspaces.css" />
+    <link rel="stylesheet" href="./help/css/common.css" />
+    <script src="./common/js/wsnd.min.js"></script>
+    <script src="./common/js/keyhelp.js"></script>
+    <script src="./help/js/common.js"></script>
+    <script src="./common.js"></script>
+    <script src="./workspaces.js"></script>
+</head>
+
+<body>
+    <div id="bg"></div>
+
+    <div id="footer">
+        <h3 id="message" style='font-family: Arial, Helvetica, sans-serif;'>&#xe000 Set Active &nbsp; &#xe002 Duplicate Workspace &nbsp; &#xe003 Show Options</h3>
+    </div>
+
+    <div class="l-header">
+        <span class="background-clip"></span>
+        <div class="header">
+            <a id="ret-button" tabindex="-1" class="header-decoration" nx-se-disabled="">
+                <div class="ret-icon-wrapper">
+                    <img class="ret-icon-shadow" ref="./help/img/icon/m_retnormal.svg" />
+                    <img class="ret-icon" ref="./help/img/icon/m_retnormal.svg" />
+                </div>
+            </a>
+            <div class="breadcrumb-list f-u-bold">
+                <p>
+                    <span data-msgcom="true" data-msgid="textbox_id-10002" style="color: orangered; -webkit-text-stroke-width: 2px; -webkit-text-stroke-color: black; z-index: 1;" id="test">Workspaces</span>
+                </p>
+                <p>
+                    <span data-msgid="textbox_id-2" id="workspaceArrow" style="
+                    color: #797979;
+                    -webkit-text-stroke-width: 2px;
+                    -webkit-text-stroke-color: black;
+                    display: none;">▶</span>
+                </p>
+                <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
+                  color: white;
+                  -webkit-text-stroke-width: 2px;
+                  -webkit-text-stroke-color: black;
+                  z-index: 1;
+                  display: none;" id="workspace">Workspace</span></p>
+            </div>
+        </div>
+    </div>
+
+
+
+    <div class="main" id="workspaces">
+        <div class="scrollbar">
+            <div class="flex-container" id="workspacesContainer">
+                <button onclick="createWorkspace()" class="flex-item">
+                    <div class="icon-background"></div>
+                    <div class="item-container">
+                        <h2>Create Workspace</h2>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main" id="workspaceOption">
+        <div class="scrollbar">
+            <div class="flex-container">
+                <button onclick="changeDivFromTo('workspaceOption', 'workspaces', 'index')" class="flex-item">
+                    <div class="icon-background"></div>
+                    <div class="item-container">
+                        <h2>Go back</h2>
+                    </div>
+                </button>
+                <button onclick="setActive()" class="flex-item" id="is-active">
+                    <div class="icon-background"><img class="abstract-icon is-appear" src="check.svg" /></div>
+                    <div class="item-container">
+                        <h2>Set Active</h2>
+                    </div>
+                </button>
+                <button onclick="editWorkspace()" class="flex-item">
+                    <div class="icon-background"></div>
+                    <div class="item-container">
+                        <h2>Change Active Mods</h2>
+                    </div>
+                </button>
+                <button onclick="duplicateWorkspace()" class="flex-item">
+                    <div class="icon-background"></div>
+                    <div class="item-container">
+                        <h2>Duplicate Workspace</h2>
+                    </div>
+                </button>
+                <button onclick="renameWorkspace()" class="flex-item" id="renameWorkspace">
+                    <div class="icon-background"></div>
+                    <div class="item-container">
+                        <h2>Rename Workspace</h2>
+                    </div>
+                </button>
+                <button onclick="removeWorkspace()" class="flex-item" id="removeWorkspace">
+                    <div class="icon-background"></div>
+                    <div class="item-container">
+                        <h2>Remove Workspace</h2>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

@@ -74,6 +74,8 @@
                                 <h3>Sorting Options:</h3>
                                 <select id="sortOptions">
                                     <option value="alphabetical">Alphabetical</option>
+                                    <option value="enabled">Enabled</option>
+                                    <option value="disabled">Disabled</option>
                                 </select>
                                 <input type="checkbox" id="desc" onclick="updateSort();">
                                 <label for="desc">Descending</label>
@@ -85,12 +87,22 @@
                             <td>
                                 <button class="submenu-btn" onclick="setAllState(true, this);">Enable All</button>
                                 <button class="submenu-btn" onclick="setAllState(false, this);">Disable All</button>
+                                <br />
+                                <br />
+                                <button class="submenu-btn" onclick="updateCurrentModsWCategories(); setCurrentModsState(true, this);">Enable All in selected categories</button>
+                                <button class="submenu-btn" onclick="updateCurrentModsWCategories(); setCurrentModsState(false, this);">Disable All in selected categories</button>
                             </td>
                         </tr>
                     </tbody>
                 </table>
+                <br />
+                <h2 id="modsCount">{} mods</h2>
+                <h2 id="activeModsCount">{} active mods</h2>
             </div>
         </div>
+    </div>
+    <div id="footer">
+        <h3 style='font-family: Arial, Helvetica, sans-serif;'>&#xe000 Toggle Mod &nbsp; &#xe003 Show Submenu</h3>
     </div>
 
     <div id="header">
@@ -143,7 +155,7 @@
                 <div id="about-mods" class="l-main-content">
                     <div class="l-screen-shot-wrapper" id="about-img">
                         <div class="screen-shot-wrapper">
-                            <img id="preview" width="280" height="127" class="screen-shot video is-appear" src="missing.webp" onerror="this.src = 'missing.webp';" />
+                            <img id="preview" width="463" height="249" class="screen-shot video is-appear" src="missing.webp" onerror="this.src = 'missing.webp';" />
                         </div>
                     </div>
                     <div class="l-info">

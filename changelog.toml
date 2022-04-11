@@ -1,0 +1,33 @@
+title = "ARCropolis update: Ver. 3.1.2"
+date = "04/10/2022"
+description = "Thank you for updating to the latest version of ARCropolis.<br/>Please read the following changelog."
+
+[[entries]]
+section_title = "Bug fixe(s)"
+contents = """
+<ul>
+    <li>Opening the mod manager on boot has been fixed. Hold the - (Minus) button down when the Nintendo Switch boot loop is displayed (not before) to do so. Button subject to change in the future.</li>
+    <li>Crashes after updating should not occur anymore.</li>
+</ul>"""
+
+[[entries]]
+section_title = "What's next"
+contents = """
+<ul>
+    <li>(3.1.3) Visual bugfixes for the mod manager and some small QoL.</li>
+    <li>(3.2.0) Implement reworked support for "workspaces".</li>
+</ul>"""
+
+[[entries]]
+section_title = "Note(s)"
+contents = """
+<ul>
+    <li>The homebrew version of ARCadia by Coolsonickirby is now discontinued in favor of ARCropolis' build manager. Please note before complaining about the one in ARCropolis that it is ALSO made by Coolsonickirby and replaces the homebrew one just fine.</li>
+</ul>"""
+
+[[entries]]
+section_title = "Special Thanks"
+contents = """
+<ul>
+    <li>jozz024, for the updater fix.</li>
+</ul>"""

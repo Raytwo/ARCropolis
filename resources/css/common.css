@@ -54,6 +54,7 @@ body {
     width: var(--var-body-width);
     height: var(--var-body-height);
     background-color: black;
+    position: relative;
 }
 
 #bg {
@@ -87,7 +88,6 @@ body {
     padding-left: 20px;
     -webkit-clip-path: polygon(0 0, 100% 0, 66% 99%, 0 81%);
     clip-path: polygon(0 0, 100% 0, 66% 99%, 0 81%);
-    background-color: #00829A;
 }
 
 .background-clip {
@@ -227,4 +227,14 @@ body {
 img,
 svg {
     opacity: 1 !important;
+}
+
+#footer {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    height: 36px;
+    text-align: right;
+    margin-left: -10px;
 }

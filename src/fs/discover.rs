@@ -13,7 +13,13 @@ lazy_static! {
     static ref PRESET_HASHES: HashSet<Hash40> = {
         let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
 
-        let presets = match storage.get_field_json("presets") {
+        let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+        let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
+
+        // Get the name of the preset file from the workspace list
+        let presets: String = workspace_list.get(&workspace_name).unwrap_or(&"presets".to_string()).to_string();
+
+        let presets = match storage.get_field_json(&presets) {
             Ok(presets) => {
                 trace!("Preset properly deserialized");
                 presets
@@ -140,6 +146,18 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         // No matter what, the cache has to be updated
         storage.set_field_json("mod_cache", &new_cache).unwrap();
     }
+
+    // I'm well aware this sucks, but the stack size in main is too small to do it there.
+    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
+
+    if storage.get_flag("first_boot") {
+        if skyline_web::Dialog::yes_no("A default configuration for ARCropolis has been created.<br>It is heavily recommended to set the Region to the one you configured for the game.<br>Would you like to review it?") {
+            crate::menus::show_config_editor(&mut storage);
+        }
+        storage.set_flag("first_boot", false);
+    }
+
+    drop(storage);
 
     let mut launchpad = LaunchPad::new(StandardLoader, ConflictHandler::NoRoot);
 

@@ -1,10 +1,10 @@
 var selected_workspace = 0;
 var AButtonHeld = [false, false, false, false];
 
-window.onload = function () {
+window.addEventListener("DOMContentLoaded", (e) => {
     var buttons = document.querySelectorAll('button');
 
-    [].forEach.call(buttons, function (btn) {
+    [].forEach.call(buttons, function(btn) {
         btn.addEventListener("focus", () => {
             btn.classList.add("is-focused");
         });
@@ -15,17 +15,17 @@ window.onload = function () {
     });
 
     // Listen to the keydown event and prevent the default
-    window.addEventListener('keydown', function (e) {
+    window.addEventListener('keydown', function(e) {
         e.preventDefault();
     });
 
     // Listen to the gamepadconnected event
-    window.addEventListener("gamepadconnected", function (e) {
+    window.addEventListener("gamepadconnected", function(e) {
         if ($(".is-focused").length <= 0) {
             getCurrentActiveContainer().find("button").get(0).focus();
         }
         // Once a gamepad has connected, start an interval function that will run every 100ms to check for input
-        setInterval(function () {
+        setInterval(function() {
             var gpl = navigator.getGamepads();
             if (gpl.length > 0) {
                 for (var i = 0; i < gpl.length; i++) {
@@ -35,13 +35,12 @@ window.onload = function () {
         }, 100);
     });
 
-    window.nx.addEventListener("message", function (e) {
-        //
+    window.nx.addEventListener("message", function(e) {
         document.getElementById(e.data).classList.toggle("hidden");
     });
 
     window.nx.sendMessage("loaded");
-}
+});
 
 function getCurrentActiveContainer() {
     if ($("#workspaces").is(":visible")) {
@@ -54,16 +53,16 @@ function getCurrentActiveContainer() {
 }
 
 function changeDivFromTo(from, to, workspace) {
-    if(from == "workspaces") {
+    if (from == "workspaces") {
         selected_workspace = workspace;
     }
 
     $(`#${from}`).fadeOut(200);
-    $(`#${from}`).promise().done(function () {
+    $(`#${from}`).promise().done(function() {
         $(`#${to}`).fadeIn(200);
-        
 
-        if(to == "workspaces") {
+
+        if (to == "workspaces") {
             $(`#${to}`).find($("button")[parseInt(selected_workspace)]).get(0).focus();
         } else {
             $(`#${to}`).find("button").get(0).focus();
@@ -113,7 +112,7 @@ function checkGamepad(index, gamepad) {
         if (target.length <= 0) {
             return;
         }
-        scroll(target, $(getCurrentActiveContainer()).scrollTop() + target.position().top - 50);
+        scroll(target, $(getCurrentActiveContainer()).scrollTop() + target.position().top - 50, getCurrentActiveContainer());
     }
     // Check if D-pad Up pressed or Y-Axis
     else if (gamepad.buttons[12].pressed || axisY < -0.7) {
@@ -129,7 +128,7 @@ function checkGamepad(index, gamepad) {
             return;
         }
 
-        scroll(target, $(getCurrentActiveContainer()).scrollTop() + target.position().top - 50);
+        scroll(target, $(getCurrentActiveContainer()).scrollTop() + target.position().top - 50, getCurrentActiveContainer());
     }
     // Check if D-pad Right pressed or X Axis > 0.7
     else if (gamepad.buttons[15].pressed || axisX > 0.7) {
@@ -147,7 +146,7 @@ function checkGamepad(index, gamepad) {
             return;
         }
 
-        scroll(target, ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2));
+        scroll(target, ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2), getCurrentActiveContainer());
     }
     // Check if D-pad Down pressed or Y Axis > 0.7
     else if (gamepad.buttons[13].pressed || axisY > 0.7) {
@@ -164,47 +163,10 @@ function checkGamepad(index, gamepad) {
             return;
         }
         console.log(target);
-        scroll(target, ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2));
+        scroll(target, ($(getCurrentActiveContainer()).scrollTop()) + (target.height() * 2), getCurrentActiveContainer());
     };
     //#endregion
 }
 
-function scroll(target, offset) {
-    // Check to see if mod is completely in view
-    var fully = checkInView(target) == undefined ? false : true;
-
-    // If so, then just focus and dip
-    if (fully) {
-        target.focus();
-    } else {
-        // Remove focus from currently focused one
-        $(".is-focused").focusout();
-        // Stop any animation going on in the container
-        getCurrentActiveContainer().stop();
-        // Animate the mod container scrolling with a speed of 0 (fastest)
-        getCurrentActiveContainer().animate({
-            scrollTop: offset
-        }, 0);
-        // Focus on the previous mod
-        target.focus();
-    }
-}
-
-// yonked from here https://stackoverflow.com/questions/16308037/detect-when-elements-within-a-scrollable-div-are-out-of-view
-function checkInView(elem, partial) {
-    var container = $(getCurrentActiveContainer());
-    var contHeight = container.height();
-    var contTop = container.scrollTop();
-    var contBottom = contTop + contHeight;
-
-    var elemTop = $(elem).offset().top - container.offset().top;
-    var elemBottom = elemTop + $(elem).height();
-
-    var isTotal = (elemTop >= 0 && elemBottom <= contHeight);
-    var isPart = ((elemTop < 0 && elemBottom > 0) || (elemTop > 0 && elemTop <= container.height())) && partial;
-
-    return isTotal || isPart;
-}
-
 // Code to handle this session wasn't made to detect a closure by button
-window.nx.footer.unsetAssign( "B" );
+window.nx.footer.unsetAssign("B");

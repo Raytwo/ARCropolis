@@ -2,6 +2,10 @@
     background-image: var(--var-bg-detail-palette);
 }
 
+#ret-button {
+    background-color: #00829A;
+}
+
 .Fighter>.abstract-icon-back-decoration,
 .Fighter>div.abstract-button-border>div>div.abstract-icon-wrapper {
     background: #FE3636 !important;
@@ -106,7 +110,7 @@ table.main td {
 .marquee {
     overflow: hidden !important;
     width: 403px !important;
-    height: 44px !important;
+    height: 55px !important;
     display: block !important;
 }
 
@@ -133,15 +137,13 @@ table.main td {
 
 .l-screen-shot-wrapper {
     margin-bottom: 0;
-    padding-left: 131px;
-    padding-right: 126px;
 }
 
 .l-info {
     display: flex;
     justify-content: flex-end;
-    padding-left: 131px;
-    padding-right: 127px;
+    padding-left: 96px;
+    padding-right: 96px;
 }
 
 .l-info .sentence {
@@ -221,11 +223,11 @@ table.main td {
 
 .abstract-button.is-focused .abstract-button-text span:nth-child(1) {
     position: relative;
-    display: block;
     margin-left: 0;
     margin-top: 0;
     color: white;
     z-index: -1;
+    -webkit-text-stroke: 2.5px #000000;
 }
 
 .abstract-button-text {
@@ -296,8 +298,8 @@ table.main td {
 }
 
 .screen-shot {
-    width: 373px;
-    height: 210px;
+    width: 463px;
+    height: 248px;
     border: 5px solid #000000;
 }
 

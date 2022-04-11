@@ -10,6 +10,7 @@ const categories = [
     "Music",
     "Misc",
 ];
+var categoriesToUse = [];
 
 var currentState = MOD_MENU;
 
@@ -27,9 +28,9 @@ var mods = [];
 var currentMods = [];
 var pageCount = 0;
 
-function createMod(mod, arrIdx) {
-    var hidden = mod['is_disabled'] ? "hidden" : "";
-    return `<button id="btn-mods-${mod['id']}" data-mod-index="${mod['id']}" data-current-mod-idx="${arrIdx}" tabindex="0" class="flex-button abstract-button All ${mod['category']}" nx-se-disabled="">
+function createMod(mod_id) {
+    var hidden = mods[mod_id]['is_disabled'] ? "hidden" : "";
+    return `<button id="btn-mods-${mod_id}" data-mod-index="${mod_id}" tabindex="0" class="flex-button abstract-button All ${mods[mod_id]['category']}" nx-se-disabled="">
     <div class="abstract-icon-back-decoration"></div>
     <div class="abstract-button-border">
         <div class="abstract-button-inner">
@@ -39,8 +40,8 @@ function createMod(mod, arrIdx) {
                 </div>
             </div>
             <div class="abstract-button-text f-u-bold mod-name"
-                style="margin-top: 8px; display: block; font-size: 3vmin;" data-display_name="${mod['display_name']}">
-                <span class="marquee" data-msgid="textbox_id-4-1">${mod['display_name']}</span>
+                style="display: block; font-size: 26px; text-indent: 10px; margin-top: 8px;" data-display_name="${mods[mod_id]['display_name']}">
+                <span class="marquee" data-msgid="textbox_id-4-1">${mods[mod_id]['display_name']}</span>
             </div>
         </div>
     </div>
@@ -57,12 +58,10 @@ function createMods(mods) {
 
 function toggleMod() {
     var index = parseInt($(".is-focused").attr("data-mod-index"));
-    var currentIndex = parseInt($(".is-focused").attr("data-current-mod-idx"));
     var checkContainer = $(".is-focused .img-check");
     checkContainer.toggleClass("hidden");
     var enabled = !checkContainer.hasClass("hidden");
     mods[index]["is_disabled"] = !enabled;
-    currentMods[currentIndex]["is_disabled"] = !enabled;
     // Send mod index and status
     window.nx.sendMessage(JSON.stringify({
         "ToggleModRequest": {
@@ -89,12 +88,13 @@ function updateCurrentDesc() {
     }
 }
 
-function checkGamepad(gamepad) {
+function checkGamepad(index, gamepad) {
     var axisX = gamepad.axes[0];
     var axisY = gamepad.axes[1];
 
     if (currentState == MOD_MENU) {
 
+        // Y Button
         if (gamepad.buttons[2].pressed) {
             showSubMenu();
         }
@@ -183,7 +183,10 @@ function moveUp() {
     }
 
     if (target == undefined) {
+        prevPage();
         target = document.querySelector("#mods>button:last-child");
+        move(document.querySelector("#mods>button.is-focused"), target);
+        return;
     }
 
     move(source, target);
@@ -198,7 +201,10 @@ function moveDown() {
     }
 
     if (target == undefined) {
+        nextPage();
         target = document.querySelector("#mods>button:first-child");
+        move(document.querySelector("#mods>button.is-focused"), target);
+        return;
     }
 
     move(source, target);
@@ -280,21 +286,32 @@ function checkOverflow(el) {
 }
 
 function showSubMenu() {
+    $("#modsCount").html(`${mods.length} mod${mods.length > 1 ? 's' : ''}`);
+    var activeMods = 0;
+    mods.forEach(mod => activeMods = mod["is_disabled"] ? activeMods : activeMods + 1);
+    $("#activeModsCount").html(`${activeMods} active mod${activeMods > 1 ? 's' : ''}`);
+
     $("#submenu").css("display", "flex");
     $("#Fighter").focus();
     document.querySelector('meta[name="focus-ring-visibility"]').setAttribute("content", "");
     currentState = SUB_MENU;
 }
 
-function showModMenu() {
-    $("#submenu").css("display", "none");
-    document.querySelector('meta[name="focus-ring-visibility"]').setAttribute("content", "hidden");
-    var categoriesToUse = [];
+function updateCurrentModsWCategories() {
+    categoriesToUse = [];
     $('#filters input:checkbox:checked').each(function(idx) {
         categoriesToUse.push($(this).attr('id'));
     });
-    currentMods = categoriesToUse.length == 0 ? mods : mods.filter(mod => categoriesToUse.includes(mod["category"]));
-    currentMods = currentMods.length == 0 ? mods : currentMods;
+    currentMods = categoriesToUse.length == 0 ? mods.map(x => x["id"]) : mods.filter(mod => categoriesToUse.includes(mod["category"])).map(x => x["id"]);
+}
+
+function showModMenu() {
+    $("#submenu").css("display", "none");
+    document.querySelector('meta[name="focus-ring-visibility"]').setAttribute("content", "hidden");
+    updateCurrentModsWCategories();
+    if (currentMods.length == 0) {
+        $("#description").html(`No mods found under:<br />${categoriesToUse.join("<br />")}`);
+    }
     refreshCurrentMods();
     currentState = MOD_MENU;
 }
@@ -330,6 +347,22 @@ function setAllState(state, src) {
     }));
 }
 
+function setCurrentModsState(state, src) {
+    updateCurrentModsWCategories();
+    for (var i = 0; i < currentMods.length; i++) {
+        mods[currentMods[i]]["is_disabled"] = !state;
+    }
+    refreshCurrentMods();
+    src != undefined || src != null ? src.focus() : false;
+    if (currentMods.length <= 0) { return; }
+    window.nx.sendMessage(JSON.stringify({
+        "ChangeIndexesRequest": {
+            "state": state,
+            "indexes": currentMods
+        }
+    }));
+}
+
 function exit() {
     window.nx.sendMessage(JSON.stringify("ClosureRequest"));
     window.location.href = "http://localhost/quit";
@@ -341,8 +374,28 @@ function updateSort() {
 
     if (sortType == "alphabetical") {
         currentMods = JSON.parse(JSON.stringify(currentMods)).sort((a, b) => {
-            if (a["display_name"] < b["display_name"]) { return -1; }
-            if (a["display_name"] > b["display_name"]) { return 1; }
+            if (mods[a]["display_name"] < mods[b]["display_name"]) { return -1; }
+            if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
+            return 0;
+        });
+    } else if (sortType == "enabled") {
+        currentMods = JSON.parse(JSON.stringify(currentMods)).sort((a, b) => {
+            if (!mods[a]["is_disabled"] != !mods[b]["is_disabled"]) {
+                return mods[b]["is_disabled"] ? -1 : 1;
+            } else {
+                if (mods[a]["display_name"] < mods[b]["display_name"]) { return -1; }
+                if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
+            }
+            return 0;
+        });
+    } else if (sortType == "disabled") {
+        currentMods = JSON.parse(JSON.stringify(currentMods)).sort((a, b) => {
+            if (!mods[a]["is_disabled"] != !mods[b]["is_disabled"]) {
+                return mods[b]["is_disabled"] ? 1 : -1;
+            } else {
+                if (mods[a]["display_name"] < mods[b]["display_name"]) { return -1; }
+                if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
+            }
             return 0;
         });
     }
@@ -367,7 +420,7 @@ window.addEventListener("DOMContentLoaded", (e) => {
             });
         }
 
-        currentMods = mods;
+        currentMods = mods.map(x => x["id"]);
         refreshCurrentMods();
     } else {
 
@@ -375,9 +428,9 @@ window.addEventListener("DOMContentLoaded", (e) => {
             dataType: "json",
             url: "mods.json",
             success: (data) => {
-                mods = data;
-                $("#workspace").html(mods.length);
-                currentMods = mods;
+                mods = data["entries"];
+                $("#workspace").html(data["workspace"]);
+                currentMods = mods.map(x => x["id"]);
                 refreshCurrentMods();
             }
         });
