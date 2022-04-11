@@ -7,9 +7,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Build ARCropolis and package it
-      uses: dtolnay/install@master
+      uses: baptiste0928/cargo-install@v1
       with:
         crate: cargo-skyline
+        version: latest
     - run: cargo skyline package --no-skyline
     - name: Upload package
       uses: actions/upload-artifact@v2
