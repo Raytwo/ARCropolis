@@ -181,7 +181,10 @@ function moveUp() {
     }
 
     if (target == undefined) {
+        prevPage();
         target = document.querySelector("#mods>button:last-child");
+        move(document.querySelector("#mods>button.is-focused"), target);
+        return;
     }
 
     move(source, target);
@@ -196,7 +199,10 @@ function moveDown() {
     }
 
     if (target == undefined) {
+        nextPage();
         target = document.querySelector("#mods>button:first-child");
+        move(document.querySelector("#mods>button.is-focused"), target);
+        return;
     }
 
     move(source, target);
