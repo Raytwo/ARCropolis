@@ -7,7 +7,7 @@ const categories = [
     "Effects",
     "UI",
     "Param",
-    "Music",
+    "Audio",
     "Misc",
 ];
 var categoriesToUse = [];
