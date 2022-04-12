@@ -120,7 +120,7 @@ pub fn show_arcadia(workspace: Option<String>) {
 
     let mut mods: Information = Information {
         entries: get_mods(&presets),
-        workspace: workspace_name
+        workspace: workspace_name.clone()
     };
 
     // region Setup Preview Images
@@ -211,6 +211,8 @@ pub fn show_arcadia(workspace: Option<String>) {
         }
     }
 
+    let active_workspace: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+
     storage.set_field_json(&preset_name, &new_presets).unwrap();
     storage.flush();
 
@@ -219,8 +221,10 @@ pub fn show_arcadia(workspace: Option<String>) {
     if new_presets != presets {
         // Acquire the filesystem so we can check if it's already finished or not (for boot-time mod manager)
         if let Some(filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
-            if skyline_web::Dialog::yes_no("Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?") {
-                unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
+            if active_workspace.eq(&workspace_name){
+                if skyline_web::Dialog::yes_no("Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?") {
+                    unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
+                }
             }
         }
     }
