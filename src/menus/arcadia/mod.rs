@@ -74,12 +74,10 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                 ..Default::default()
             };
 
-            id += 1;
-
             let mod_info = match toml::from_str::<Entry>(&std::fs::read_to_string(&info_path).unwrap_or_default()) {
                 Ok(res) => {
                     Entry {
-                        id: Some(i as u32),
+                        id: Some(id as u32),
                         folder_name: Some(folder_name.clone()),
                         display_name: res.display_name.or(Some(folder_name.clone())),
                         authors: res.authors.or(Some(String::from("???"))),
@@ -95,6 +93,8 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                     default_entry
                 },
             };
+
+            id += 1;
 
             Some(mod_info)
         })
