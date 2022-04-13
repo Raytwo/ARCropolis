@@ -1,24 +1,8 @@
 name: Incorrect behavior
-description: Your mod is properly installed, but it doesn't behave properly
-title: "[Incorrect behavior][ARCropolis version]: Brief description of the issue"
+description: Something does not behave the way it should
+title: "[Incorrect behavior] Brief description of the issue"
 labels: ["bug", "incorrect behavior"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        # DISCLAIMER
-        Before posting, make sure to check if the ARCropolis version appears on the title screen. If it does not, you did not install it properly and should not open an issue.  
-        
-        Please make sure the issue comes from ARCropolis itself by disabling any other plugin you may have and confirming you still can reproduce the panic message.  
-        
-        Finally, any issues where the user is using SX OS or ReiNX are not considered and issues with said CFW should not be submitted.
-  - type: checkboxes
-    id: disclaimer-read
-    attributes:
-      label: Have you read the disclaimer before proceeding?
-      options:
-        - label: I have read the disclaimer.
-          required: true
   - type: input
     id: sys-ver
     attributes:
@@ -79,32 +63,29 @@ body:
         - "No"
     validations:
       required: true
+  - type: checkboxes
+    id: config
+    attributes:
+      label: Configuration
+      description: Check the relevant boxes
+      options:
+      - label: Legacy discovery
+      - label: Modern discovery (>= 3.0.0)
+      - label: Irrelevant/Not provided
   - type: textarea
     id: expectation
     attributes:
       label: Expected behavior
-      description: Explain what SHOULD have happened but didn't.
+      description: Explain what SHOULD have happened but didn't, and detailed steps to observe it.
     validations:
       required: true
-  - type: textarea
-    id: context
-    attributes:
-      label: Context
-      description: What were you doing when it happened?
   - type: textarea
     id: screenshot
     attributes:
       label: Screenshot
-      description: If the incorrect behavior can be shown, please provide a screenshot of it if possible.
-  - type: textarea
-    id: config
-    attributes:
-      label: Configuration
-      description: Copy/paste the content of your configuration file here
-    validations:
-      required: true
+      description: If the incorrect behavior can be shown, please provide a screenshot if possible.
   - type: input
     id: modpack
     attributes:
-      label: Minimal modpack to observe the issue
-      description: If the incorrect behavior is consistent, please provide a link to download a modpack containing the strict minimum files to reproduce it.
+      label: Minimal modpack to reproduce the panic
+      description: If a specific set of mods is necessary to observe the issue, please provide it
