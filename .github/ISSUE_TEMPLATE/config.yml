@@ -1,5 +1,8 @@
-blank_issues_enabled: false
+blank_issues_enabled: true
 contact_links:
+  - name: A word to users
+    url: https://github.com/Raytwo/ARCropolis/discussions
+    about: This page is not for you to use. Please head to the Discussions tab instead!
   - name: Smash Ultimate Modding Hub
     url: https://discord.gg/ASJyTrZ
     about: If you have trouble installing ARCropolis, want to learn or ask questions, ask here
