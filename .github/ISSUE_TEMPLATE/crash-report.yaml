@@ -54,15 +54,6 @@ body:
         - exFat
     validations:
       required: true
-  - type: checkboxes
-    id: config
-    attributes:
-      label: Configuration
-      description: Check the relevant boxes
-      options:
-      - label: Legacy discovery
-      - label: Modern discovery (>= 3.0.0)
-      - label: Irrelevant/Not provided
   - type: dropdown
     id: reproducibility
     attributes:
@@ -72,6 +63,15 @@ body:
         - "No"
     validations:
       required: true
+  - type: checkboxes
+    id: config
+    attributes:
+      label: Configuration
+      description: Check the relevant boxes
+      options:
+      - label: Legacy discovery
+      - label: Modern discovery (>= 3.0.0)
+      - label: Irrelevant/Not provided
   - type: checkboxes
     id: crash-timing
     attributes:
