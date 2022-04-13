@@ -1,0 +1,17 @@
+name: New feature
+description: New feature for ARCropolis
+title: "[Feature] Brief description of the what it does"
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: details
+    attributes:
+      label: Provide details
+      description: Please describe what the new feature is and provide details about it.
+    validations:
+      required: true
+  - type: textarea
+    id: implementation
+    attributes:
+      label: How should it be implemented?
+      description: Describe how you'd like the feature to work, what checks are needed and where or even provide a [Mermaid diagram](https://github.blog/2022-02-14-include-diagrams-markdown-files-mermaid/), if necessary.
