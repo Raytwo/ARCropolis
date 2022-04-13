@@ -1,24 +1,8 @@
 name: Crash Report
-description: If you did everything right and get a crash, fill this template
-title: "[Crash] [ARCropolis version]: Brief description of the issue"
+description: Software aborted or outright crashed
+title: "[Crash] Short summary of the context"
 labels: ["bug", "crash"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        # DISCLAIMER
-        Before posting, make sure to check if the ARCropolis version appears on the title screen. If it does not, you did not install it properly and should not open an issue.  
-        
-        Please make sure the issue comes from ARCropolis itself by disabling any other plugin you may have and confirming you still can reproduce the crash.  
-        
-        Finally, any issues where the user is using SX OS or ReiNX are not considered and issues with said CFW should not be submitted.
-  - type: checkboxes
-    id: disclaimer-read
-    attributes:
-      label: Have you read the disclaimer before proceeding?
-      options:
-        - label: I have read the disclaimer.
-          required: true
   - type: input
     id: sys-ver
     attributes:
@@ -70,6 +54,15 @@ body:
         - exFat
     validations:
       required: true
+  - type: checkboxes
+    id: config
+    attributes:
+      label: Configuration
+      description: Check the relevant boxes
+      options:
+      - label: Legacy discovery
+      - label: Modern discovery (>= 3.0.0)
+      - label: Irrelevant/Not provided
   - type: dropdown
     id: reproducibility
     attributes:
@@ -95,26 +88,21 @@ body:
         - label: At random
         - label: After a long time playing
   - type: textarea
-    id: context
+    id: details
     attributes:
-      label: Context
-      description: What happened and what was the context?
+      label: Details
+      description: Provide more details, such as the steps to take to reproduce the crash
     validations:
       required: true
-  - type: textarea
-    id: config
-    attributes:
-      label: Configuration
-      description: Copy/paste the content of your configuration file here
   - type: textarea
     id: report
     attributes:
       label: Crash report
-      description: Get the most recent ``.log`` file from ``sd:/atmosphere/crash_reports/`` and post it here (the first 100 lines should suffice).
+      description: Get the most recent ``.log`` file from ``sd:/atmosphere/crash_reports/`` right after the crash and post the first ~100 lines
     validations:
       required: true
   - type: input
     id: modpack
     attributes:
       label: Minimal modpack to reproduce the crash
-      description: If the crash is consistent, please provide a link to download a modpack containing the strict minimum files to reproduce it.
+      description: If a specific set of mods is necessary to reproduce the crash, please provide it
