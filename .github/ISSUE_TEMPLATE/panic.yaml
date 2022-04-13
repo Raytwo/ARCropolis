@@ -1,24 +1,8 @@
 name: Panic
-description: A window showed up telling you a plugin has panicked
-title: "[Panic][ARCropolis version]: Brief description of the issue"
+description: Plugin has panicked
+title: "[Panic] Brief description of the issue"
 labels: ["bug", "panic"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        # DISCLAIMER
-        Before posting, make sure to check if the ARCropolis version appears on the title screen. If it does not, you did not install it properly and should not open an issue. This also means the panic comes from another plugin. 
-        
-        Please make sure the issue comes from ARCropolis itself by disabling any other plugin you may have and confirming you still can reproduce the panic message.  
-        
-        Finally, any issues where the user is using SX OS or ReiNX are not considered and issues with said CFW should not be submitted.
-  - type: checkboxes
-    id: disclaimer-read
-    attributes:
-      label: Have you read the disclaimer before proceeding?
-      options:
-        - label: I have read the disclaimer.
-          required: true
   - type: input
     id: sys-ver
     attributes:
@@ -70,31 +54,31 @@ body:
         - exFat
     validations:
       required: true
-  - type: dropdown
-    id: reproducibility
-    attributes:
-      label: Can the panic be consistently reproduced?
-      options:
-        - "Yes"
-        - "No"
-    validations:
-      required: true
-  - type: textarea
-    id: context
-    attributes:
-      label: Context
-      description: What were you doing when it happened?
-    validations:
-      required: true
-  - type: textarea
-    id: screenshot
-    attributes:
-      label: Screenshot
-      description: If a panic window with a code ending in ``69`` shows up, please select "Details" and provide a screenshot of the message. If you cannot provide a screenshot, write down the message in its entirety.
-    validations:
-      required: true
-  - type: textarea
+  - type: checkboxes
     id: config
     attributes:
       label: Configuration
-      description: Copy/paste the content of your configuration file here
+      description: Check the relevant boxes
+      options:
+      - label: Legacy discovery
+      - label: Modern discovery (>= 3.0.0)
+      - label: Irrelevant/Not provided
+  - type: textarea
+    id: reproducing
+    attributes:
+      label: Steps to reproduce
+      description: Give the surrounding context and detailed informations on how to reproduce the panic.
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: If a panic window with a code ending in ``69`` shows up, please select "Details" and provide a screenshot of the message. If you cannot provide a screenshot, write down the message in its entirety.
+    validations:
+      required: true
+  - type: input
+    id: modpack
+    attributes:
+      label: Minimal modpack to reproduce the panic
+      description: If a specific set of mods is necessary to reproduce the panic, please provide it
