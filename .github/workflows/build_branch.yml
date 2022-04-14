@@ -31,14 +31,18 @@ jobs:
       env:
         HOME: /root
 
+    - name: make folder structure
+      run: |
+        mkdir -p arcropolis-package/atmosphere/contents/01006a800016e000/romfs/skyline/plugins/
+
     - name: find the plugin
       run: |
         find ./target/ -name *.nro
-        cp $(find ./target/ -name *.nro) .
+        cp $(find ./target/ -name *.nro) arcropolis-package/atmosphere/contents/01006a800016e000/romfs/skyline/plugins/
 
 
     - name: Upload plugin
       uses: actions/upload-artifact@v2
       with:
-        name: plugin
-        path: libarcropolis.nro
+        name: arcropolis
+        path: arcropolis-package
