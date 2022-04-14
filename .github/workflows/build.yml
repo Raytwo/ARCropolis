@@ -1,6 +1,9 @@
-name: build_branch
+name: build
 on: 
   workflow_dispatch:
+  pull_request:
+    branches:
+      - master
 
 jobs:
   plugin_build:
@@ -13,8 +16,17 @@ jobs:
     - name: checkout version
       uses: actions/checkout@v2
 
+    - name: install rustfmt
+      uses: actions-rs/toolchain@v1
+      if: github.event_name != 'pull_request'
+      with:
+        toolchain: stable
+        components: rustfmt
+        override: true
+
     # format if necessary
     - uses: mbrobbel/rustfmt-check@master
+      if: github.event_name != 'pull_request'
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -25,14 +37,18 @@ jobs:
       env:
         HOME: /root
 
+    - name: make folder structure
+      run: |
+        mkdir -p arcropolis-package/atmosphere/contents/01006a800016e000/romfs/skyline/plugins/
+
     - name: find the plugin
       run: |
         find ./target/ -name *.nro
-        cp $(find ./target/ -name *.nro) .
+        cp $(find ./target/ -name *.nro) arcropolis-package/atmosphere/contents/01006a800016e000/romfs/skyline/plugins/
 
 
     - name: Upload plugin
       uses: actions/upload-artifact@v2
       with:
-        name: plugin
-        path: libarcropolis.nro
+        name: arcropolis
+        path: arcropolis-package
