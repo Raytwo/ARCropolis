@@ -10,7 +10,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
         file_path
     } else {
         error!("Failed to generate a FilePath from {}!", path.display());
-        return
+        return;
     };
 
     let filepath_idx = FilePathIdx(ctx.filepaths.len() as u32);
@@ -78,7 +78,7 @@ pub fn add_shared_file(ctx: &mut AdditionContext, path: &Path, shared_to: Hash40
                 hashes::find(shared_to),
                 shared_to.0
             );
-            return
+            return;
         },
     };
 
@@ -86,7 +86,7 @@ pub fn add_shared_file(ctx: &mut AdditionContext, path: &Path, shared_to: Hash40
         Some(filepath) => filepath,
         None => {
             error!("Failed to convert path '{}' to FilePath struct!", path.display());
-            return
+            return;
         },
     };
 
@@ -110,40 +110,38 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
                 ctx.path_list_indices.push(ctx.paths.len() as u32);
                 ctx.paths.push(new_path);
                 ctx.folder_paths.push(new_folder_path);
-                return
+                return;
             } else {
                 error!("Unable to generate new folder path list entry for {}", path.display());
-                return
+                return;
             }
         },
-        Some(parent) => {
-            match parent.smash_hash() {
-                Ok(hash) => {
-                    let len = ctx.path_list_indices.len();
-                    match ctx.get_folder_path_mut(hash) {
-                        Some(parent) => (parent, len),
-                        None => {
-                            add_searchable_folder_recursive(ctx, parent);
-                            let len = ctx.path_list_indices.len();
-                            match ctx.get_folder_path_mut(hash) {
-                                Some(parent) => (parent, len),
-                                None => {
-                                    error!("Unable to add folder '{}'", parent.display());
-                                    return
-                                },
-                            }
-                        },
-                    }
-                },
-                Err(e) => {
-                    error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
-                    return
-                },
-            }
+        Some(parent) => match parent.smash_hash() {
+            Ok(hash) => {
+                let len = ctx.path_list_indices.len();
+                match ctx.get_folder_path_mut(hash) {
+                    Some(parent) => (parent, len),
+                    None => {
+                        add_searchable_folder_recursive(ctx, parent);
+                        let len = ctx.path_list_indices.len();
+                        match ctx.get_folder_path_mut(hash) {
+                            Some(parent) => (parent, len),
+                            None => {
+                                error!("Unable to add folder '{}'", parent.display());
+                                return;
+                            },
+                        }
+                    },
+                }
+            },
+            Err(e) => {
+                error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
+                return;
+            },
         },
         None => {
             error!("Failed to get the parent for path '{}'", path.display());
-            return
+            return;
         },
     };
 
@@ -167,36 +165,34 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
     let (parent, current_path_list_indices_len) = match path.parent() {
         Some(parent) if parent == Path::new("") => {
             error!("Cannot add file {} as root file!", path.display());
-            return
+            return;
         },
-        Some(parent) => {
-            match parent.smash_hash() {
-                Ok(hash) => {
-                    let len = ctx.path_list_indices.len();
-                    match ctx.get_folder_path_mut(hash) {
-                        Some(parent) => (parent, len),
-                        None => {
-                            add_searchable_folder_recursive(ctx, parent);
-                            let len = ctx.path_list_indices.len();
-                            match ctx.get_folder_path_mut(hash) {
-                                Some(parent) => (parent, len),
-                                None => {
-                                    error!("Unable to add folder '{}'", parent.display());
-                                    return
-                                },
-                            }
-                        },
-                    }
-                },
-                Err(e) => {
-                    error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
-                    return
-                },
-            }
+        Some(parent) => match parent.smash_hash() {
+            Ok(hash) => {
+                let len = ctx.path_list_indices.len();
+                match ctx.get_folder_path_mut(hash) {
+                    Some(parent) => (parent, len),
+                    None => {
+                        add_searchable_folder_recursive(ctx, parent);
+                        let len = ctx.path_list_indices.len();
+                        match ctx.get_folder_path_mut(hash) {
+                            Some(parent) => (parent, len),
+                            None => {
+                                error!("Unable to add folder '{}'", parent.display());
+                                return;
+                            },
+                        }
+                    },
+                }
+            },
+            Err(e) => {
+                error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
+                return;
+            },
         },
         None => {
             error!("Failed to get the parent for path '{}'", path.display());
-            return
+            return;
         },
     };
 
@@ -231,7 +227,7 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
         Ok(dir) => dir.file_info_range(),
         Err(_) => {
             error!("Cannot get file info range for '{}' ({:#x})", hashes::find(directory), directory.0);
-            return
+            return;
         },
     };
 
@@ -251,7 +247,7 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
 
     for file in files {
         if contained_files.contains(&file) {
-            continue
+            continue;
         }
 
         if let Some(file_index) = get_path_idx(ctx, file) {

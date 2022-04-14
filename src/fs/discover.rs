@@ -252,20 +252,18 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             }
 
             let should_log = match serde_json::to_string_pretty(&conflict_map) {
-                Ok(json) => {
-                    match std::fs::write("sd:/ultimate/arcropolis/conflicts.json", json.as_bytes()) {
-                        Ok(_) => {
-                            crate::dialog_error("Please check sd:/ultimate/arcropolis/conflicts.json for all of the file conflicts.");
-                            false
-                        },
-                        Err(e) => {
-                            crate::dialog_error(format!(
-                                "Failed to write conflict map to sd:/ultimate/arcropolis/conflicts.json<br>{:?}",
-                                e
-                            ));
-                            true
-                        },
-                    }
+                Ok(json) => match std::fs::write("sd:/ultimate/arcropolis/conflicts.json", json.as_bytes()) {
+                    Ok(_) => {
+                        crate::dialog_error("Please check sd:/ultimate/arcropolis/conflicts.json for all of the file conflicts.");
+                        false
+                    },
+                    Err(e) => {
+                        crate::dialog_error(format!(
+                            "Failed to write conflict map to sd:/ultimate/arcropolis/conflicts.json<br>{:?}",
+                            e
+                        ));
+                        true
+                    },
                 },
                 Err(e) => {
                     crate::dialog_error(format!("Failed to serialize conflict map to JSON. {:?}", e));
@@ -307,16 +305,14 @@ where
     let fighter_nro_parent = Path::new("prebuilt;/nro/release");
     let mut fighter_nro_nrr = NrrBuilder::new();
 
-    tree.walk_paths(|node, entry_type| {
-        match node.get_local().parent() {
-            Some(parent) if entry_type.is_file() && parent == fighter_nro_parent => {
-                info!("Reading '{}' for module registration.", node.full_path().display());
-                if let Ok(data) = std::fs::read(node.full_path()) {
-                    fighter_nro_nrr.add_module(data.as_slice());
-                }
-            },
-            _ => {},
-        }
+    tree.walk_paths(|node, entry_type| match node.get_local().parent() {
+        Some(parent) if entry_type.is_file() && parent == fighter_nro_parent => {
+            info!("Reading '{}' for module registration.", node.full_path().display());
+            if let Ok(data) = std::fs::read(node.full_path()) {
+                fighter_nro_nrr.add_module(data.as_slice());
+            }
+        },
+        _ => {},
     });
 
     fighter_nro_nrr.register()
@@ -354,7 +350,7 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
 
     if modules.is_empty() {
         info!("No plugins found for chainloading.");
-        return
+        return;
     }
 
     let mut registration_info = match plugin_nrr.register() {
@@ -363,20 +359,18 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
         Err(e) => {
             error!("{:?}", e);
             crate::dialog_error("ARCropolis failed to register plugin module info.");
-            return
+            return;
         },
     };
 
     let modules: Vec<Module> = modules
         .into_iter()
-        .filter_map(|x| {
-            match x.mount() {
-                Ok(module) => Some(module),
-                Err(e) => {
-                    error!("Failed to mount chainloaded plugin. {:?}", e);
-                    None
-                },
-            }
+        .filter_map(|x| match x.mount() {
+            Ok(module) => Some(module),
+            Err(e) => {
+                error!("Failed to mount chainloaded plugin. {:?}", e);
+                None
+            },
         })
         .collect();
 

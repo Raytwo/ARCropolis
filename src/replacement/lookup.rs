@@ -48,18 +48,16 @@ lazy_static! {
     static ref UNSHARE_LOOKUP: RwLock<UnshareLookupState> = {
         let path = crate::CACHE_PATH.join("unshare.lut");
         let lut = match std::fs::read(&path) {
-            Ok(data) => {
-                match bincode::deserialize(&data) {
-                    Ok(lut) => UnshareLookupState::Generated(lut),
-                    Err(e) => {
-                        error!(
-                            "Unable to parse '{}' for unsharing. Reason: {:?}. Boot time might be a bit slow.",
-                            path.display(),
-                            *e
-                        );
-                        UnshareLookupState::Missing
-                    },
-                }
+            Ok(data) => match bincode::deserialize(&data) {
+                Ok(lut) => UnshareLookupState::Generated(lut),
+                Err(e) => {
+                    error!(
+                        "Unable to parse '{}' for unsharing. Reason: {:?}. Boot time might be a bit slow.",
+                        path.display(),
+                        *e
+                    );
+                    UnshareLookupState::Missing
+                },
             },
             Err(err) => {
                 error!("Unable to read '{}'. Reason: {:?}", path.display(), err);
@@ -72,18 +70,16 @@ lazy_static! {
     static ref SHARE_LOOKUP: RwLock<ShareLookupState> = {
         let path = crate::CACHE_PATH.join("share.lut");
         let lut = match std::fs::read(&path) {
-            Ok(data) => {
-                match bincode::deserialize(&data) {
-                    Ok(lut) => ShareLookupState::Generated(lut),
-                    Err(e) => {
-                        error!(
-                            "Unable to parse '{}' for share lookup. Reason: {:?}. Boot time might be a bit slow.",
-                            path.display(),
-                            *e
-                        );
-                        ShareLookupState::Missing
-                    },
-                }
+            Ok(data) => match bincode::deserialize(&data) {
+                Ok(lut) => ShareLookupState::Generated(lut),
+                Err(e) => {
+                    error!(
+                        "Unable to parse '{}' for share lookup. Reason: {:?}. Boot time might be a bit slow.",
+                        path.display(),
+                        *e
+                    );
+                    ShareLookupState::Missing
+                },
             },
             Err(err) => {
                 error!("Unable to read '{}'. Reason: {:?}", path.display(), err);
@@ -98,7 +94,7 @@ lazy_static! {
 pub fn initialize_unshare(arc: Option<&LoadedArc>) {
     if arc.is_none() {
         lazy_static::initialize(&UNSHARE_LOOKUP);
-        return
+        return;
     }
     let arc = arc.unwrap();
     let mut lookup_state = UNSHARE_LOOKUP.write();
@@ -136,7 +132,7 @@ pub fn initialize_unshare(arc: Option<&LoadedArc>) {
 pub fn initialize_share(arc: Option<&LoadedArc>) {
     if arc.is_none() {
         lazy_static::initialize(&SHARE_LOOKUP);
-        return
+        return;
     }
 
     let arc = arc.unwrap();
@@ -155,7 +151,7 @@ pub fn initialize_share(arc: Option<&LoadedArc>) {
                 let shared_file_index = match arc.get_shared_file(hash) {
                     Ok(idx) => {
                         if usize::from(idx) == current_index {
-                            continue
+                            continue;
                         }
                         idx
                     },
@@ -165,7 +161,7 @@ pub fn initialize_share(arc: Option<&LoadedArc>) {
                             hashes::find(hash),
                             hash.0
                         );
-                        continue
+                        continue;
                     },
                 };
 
@@ -266,11 +262,10 @@ pub fn get_shared_file_count<H: Into<Hash40>>(hash: H) -> usize {
 pub fn get_shared_file<H: Into<Hash40>>(hash: H, index: usize) -> Option<Hash40> {
     let lut = SHARE_LOOKUP.read();
     match &*lut {
-        ShareLookupState::Generated(lut) => {
-            lut.shared_file_lookup
-                .get(&hash.into())
-                .map_or_else(|| None, |hashes| hashes.get(index).map(|hash| *hash))
-        },
+        ShareLookupState::Generated(lut) => lut
+            .shared_file_lookup
+            .get(&hash.into())
+            .map_or_else(|| None, |hashes| hashes.get(index).map(|hash| *hash)),
         _ => None,
     }
 }

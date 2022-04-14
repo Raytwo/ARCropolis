@@ -1,7 +1,7 @@
 // #![feature(proc_macro_hygiene)]
 
 use std::{
-    collections::{HashSet, HashMap},
+    collections::{HashMap, HashSet},
     ffi::CString,
     path::{Path, PathBuf},
 };
@@ -17,7 +17,7 @@ use crate::config;
 #[derive(Debug, Serialize)]
 pub struct Information {
     entries: Vec<Entry>,
-    workspace: String
+    workspace: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -55,7 +55,7 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
             let path_to_be_used = path.unwrap().path();
 
             if path_to_be_used.is_file() {
-                return None
+                return None;
             }
 
             let disabled = if !presets.contains(&Hash40::from(path_to_be_used.to_str().unwrap())) { true } else { false };
@@ -75,25 +75,23 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
             };
 
             let mod_info = match toml::from_str::<Entry>(&std::fs::read_to_string(&info_path).unwrap_or_default()) {
-                Ok(res) => {
-                    Entry {
-                        id: Some(id),
-                        folder_name: Some(folder_name.clone()),
-                        display_name: res.display_name.or(Some(folder_name.clone())),
-                        authors: res.authors.or(Some(String::from("???"))),
-                        is_disabled: Some(disabled),
-                        version: res.version.or(Some(String::from("???"))),
-                        category: res.category.or(Some(String::from("Misc"))),
-                        description: Some(res.description.unwrap_or_else(String::new).replace("\n", "<br />")),
-                        ..res
-                    }
+                Ok(res) => Entry {
+                    id: Some(id),
+                    folder_name: Some(folder_name.clone()),
+                    display_name: res.display_name.or(Some(folder_name.clone())),
+                    authors: res.authors.or(Some(String::from("???"))),
+                    is_disabled: Some(disabled),
+                    version: res.version.or(Some(String::from("???"))),
+                    category: res.category.or(Some(String::from("Misc"))),
+                    description: Some(res.description.unwrap_or_else(String::new).replace("\n", "<br />")),
+                    ..res
                 },
                 Err(e) => {
                     skyline_web::DialogOk::ok(&format!("The following info.toml is not valid: \n\n* '{}'\n\nError: {}", folder_name, e,));
                     default_entry
                 },
             };
-            
+
             id += 1;
 
             Some(mod_info)
@@ -106,21 +104,20 @@ pub fn show_arcadia(workspace: Option<String>) {
 
     if !umm_path.exists() {
         skyline_web::DialogOk::ok("It seems the directory specified in your configuration does not exist.");
-        return
+        return;
     }
-    
+
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
     let workspace_name: String = workspace.unwrap_or(storage.get_field("workspace").unwrap_or("Default".to_string()));
     let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
     let preset_name = &workspace_list[&workspace_name];
-    
+
     let presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
     let mut new_presets = presets.clone();
 
-
     let mut mods: Information = Information {
         entries: get_mods(&presets),
-        workspace: workspace_name.clone()
+        workspace: workspace_name.clone(),
     };
 
     // region Setup Preview Images
@@ -195,7 +192,7 @@ pub fn show_arcadia(workspace: Option<String>) {
                     let path = format!("{}/{}", umm_path.display(), mods.entries[idx].folder_name.as_ref().unwrap());
                     let hash = Hash40::from(path.as_str());
                     debug!("Setting {} to {}", path, state);
-    
+
                     if state {
                         new_presets.insert(hash);
                     } else {
@@ -221,7 +218,7 @@ pub fn show_arcadia(workspace: Option<String>) {
     if new_presets != presets {
         // Acquire the filesystem so we can check if it's already finished or not (for boot-time mod manager)
         if let Some(filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
-            if active_workspace.eq(&workspace_name){
+            if active_workspace.eq(&workspace_name) {
                 if skyline_web::Dialog::yes_no("Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?") {
                     unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
                 }

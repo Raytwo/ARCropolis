@@ -9,7 +9,7 @@ use std::{
 use log::info;
 use serde::Deserialize;
 use skyline::nn;
-use skyline_config::{StorageHolder, ConfigStorage};
+use skyline_config::{ConfigStorage, StorageHolder};
 use skyline_web::{ramhorns, Visibility, Webpage};
 use smash_arc::Hash40;
 
@@ -42,7 +42,6 @@ pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
 
     // Loaded
     let _ = session.recv();
-
 
     if storage.get_flag("beta_updates") {
         session.send("beta");

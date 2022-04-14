@@ -1,4 +1,3 @@
-
 pub static COMMON_JAVASCRIPT_TEXT: &str = include_str!("../../../resources/js/common.js");
 pub static COMMON_CSS_TEXT: &str = include_str!("../../../resources/css/common.css");
 

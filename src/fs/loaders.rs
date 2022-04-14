@@ -383,18 +383,16 @@ impl ApiLoader {
     fn get_stream_cb_path(&self, local: &Path) -> Option<String> {
         if let Some((root_path, callback)) = self.use_virtual_file(local) {
             let result = match ApiLoadType::from_root(root_path) {
-                Ok(ApiLoadType::Stream) => {
-                    match ApiLoadType::Stream.load_path(local, callback) {
-                        Ok((sz, data)) => unsafe {
-                            if let Some(prev_size) = (*self.stream_size_map.get()).get_mut(local) {
-                                *prev_size = sz;
-                            } else {
-                                (*self.stream_size_map.get()).insert(local.to_path_buf(), sz);
-                            }
-                            Some(skyline::from_c_str(data.as_ptr()))
-                        },
-                        _ => self.get_stream_cb_path(local),
-                    }
+                Ok(ApiLoadType::Stream) => match ApiLoadType::Stream.load_path(local, callback) {
+                    Ok((sz, data)) => unsafe {
+                        if let Some(prev_size) = (*self.stream_size_map.get()).get_mut(local) {
+                            *prev_size = sz;
+                        } else {
+                            (*self.stream_size_map.get()).insert(local.to_path_buf(), sz);
+                        }
+                        Some(skyline::from_c_str(data.as_ptr()))
+                    },
+                    _ => self.get_stream_cb_path(local),
                 },
                 _ => self.get_stream_cb_path(local),
             };
@@ -422,7 +420,7 @@ impl FileLoader for ApiLoader {
 
     fn get_file_size(&self, _root_path: &Path, local_path: &Path) -> Option<usize> {
         if let Some(sz) = unsafe { (*self.stream_size_map.get()).get(local_path) } {
-            return Some(*sz)
+            return Some(*sz);
         }
         if let Some((root_path, _)) = self.use_virtual_file(local_path) {
             let result = ApiLoadType::from_root(root_path)
@@ -458,10 +456,9 @@ impl FileLoader for ApiLoader {
     fn load_path(&self, _root_path: &Path, local_path: &Path) -> Result<Vec<u8>, Self::ErrorType> {
         if let Some((root_path, callback)) = self.use_virtual_file(local_path) {
             let result = match ApiLoadType::from_root(root_path) {
-                Ok(ty) => {
-                    ty.load_path(local_path, callback)
-                        .map_or_else(|_| self.load_path(root_path, local_path), |(_, data)| Ok(data))
-                },
+                Ok(ty) => ty
+                    .load_path(local_path, callback)
+                    .map_or_else(|_| self.load_path(root_path, local_path), |(_, data)| Ok(data)),
                 Err(e) => Err(e),
             };
             self.release_virtual_file(local_path);
@@ -509,21 +506,18 @@ impl FileLoader for ArcLoader {
 
     fn get_file_size(&self, _: &Path, local_path: &Path) -> Option<usize> {
         match crate::get_smash_hash(local_path) {
-            Ok(hash) => {
-                self.get_file_data_from_hash(hash, config::region())
-                    .map_or_else(|_| None, |data| Some(data.decomp_size as usize))
-            },
+            Ok(hash) => self
+                .get_file_data_from_hash(hash, config::region())
+                .map_or_else(|_| None, |data| Some(data.decomp_size as usize)),
             Err(_) => None,
         }
     }
 
     fn get_path_type(&self, _: &Path, local_path: &Path) -> Result<FileEntryType, Self::ErrorType> {
         match crate::get_smash_hash(local_path) {
-            Ok(hash) => {
-                match self.get_path_list_entry_from_hash(hash)?.is_directory() {
-                    true => Ok(FileEntryType::Directory),
-                    false => Ok(FileEntryType::File),
-                }
+            Ok(hash) => match self.get_path_list_entry_from_hash(hash)?.is_directory() {
+                true => Ok(FileEntryType::Directory),
+                false => Ok(FileEntryType::File),
             },
             _ => Err(LookupError::Missing),
         }

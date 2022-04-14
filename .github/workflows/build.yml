@@ -1,0 +1,60 @@
+name: build
+on: 
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+jobs:
+  plugin_build:
+    env:
+      PLUGIN_NAME: ARCropolis
+    runs-on: ubuntu-latest
+    container: 
+      image: jugeeya/cargo-skyline:2.1.0-dkp
+    steps:
+    - name: checkout version
+      uses: actions/checkout@v2
+
+    - name: check event type
+      run: echo ${{ github.event_name }}
+
+    - name: install rustfmt
+      uses: actions-rs/toolchain@v1
+      if: github.event_name == 'push'
+      with:
+        toolchain: stable
+        components: rustfmt
+        override: true
+
+    # format if necessary
+    - uses: mbrobbel/rustfmt-check@master
+      if: github.event_name == 'push'
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    # build the project  
+    - run: |
+        export PATH=$PATH:/root/.cargo/bin:/opt/devkitpro/devkitA64/bin \
+        && cargo skyline build --release --no-default-features
+      env:
+        HOME: /root
+
+    - name: make folder structure
+      run: |
+        mkdir -p arcropolis-package/atmosphere/contents/01006a800016e000/romfs/skyline/plugins/
+
+    - name: find the plugin
+      run: |
+        find ./target/ -name *.nro
+        cp $(find ./target/ -name *.nro) arcropolis-package/atmosphere/contents/01006a800016e000/romfs/skyline/plugins/
+
+
+    - name: Upload plugin
+      uses: actions/upload-artifact@v2
+      with:
+        name: arcropolis
+        path: arcropolis-package
