@@ -18,7 +18,7 @@ jobs:
     # build the project
     - run: |
         export PATH=$PATH:/root/.cargo/bin:/opt/devkitpro/devkitA64/bin \
-        && cargo skyline build --release
+        && cargo skyline build --release --no-default-features
       env:
         HOME: /root
 
@@ -27,15 +27,9 @@ jobs:
         find ./target/ -name *.nro
         cp $(find ./target/ -name *.nro) .
 
-    - name: Upload full package to nightlies
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: "libarcropolis.nro"
-        prerelease: true
-        file_glob: true
-        asset_name: plugin
-        release_name: Nightly Arcropolis
-        tag: nightly
-        overwrite: true
-        body: "This is the nightly Arcropolis build. If you are looking for a stable build please look at the [latest release.](https://github.com/Raytwo/ARCropolis/releases/latest)"
+
+    - name: Upload plugin
+        uses: actions/upload-artifact@v2
+        with:
+          name: plugin
+          path: libarcropolis.nro
