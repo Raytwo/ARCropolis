@@ -1,6 +1,9 @@
-name: build_branch
+name: build
 on: 
   workflow_dispatch:
+  pull_request:
+    branches:
+      - master
 
 jobs:
   plugin_build:
@@ -13,7 +16,9 @@ jobs:
     - name: checkout version
       uses: actions/checkout@v2
 
-    - uses: actions-rs/toolchain@v1
+    - name: install rustfmt
+      uses: actions-rs/toolchain@v1
+      if: github.event_name != 'pull_request'
       with:
         toolchain: stable
         components: rustfmt
@@ -21,6 +26,7 @@ jobs:
 
     # format if necessary
     - uses: mbrobbel/rustfmt-check@master
+      if: github.event_name != 'pull_request'
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
