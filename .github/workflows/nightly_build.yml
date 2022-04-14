@@ -1,0 +1,42 @@
+name: build_nightly
+on: 
+  push:
+    branches:
+      - dev
+
+jobs:
+  plugin_build:
+    env:
+      PLUGIN_NAME: ARCropolis
+    runs-on: ubuntu-latest
+    needs: version_and_changelog
+    container: 
+      image: jugeeya/cargo-skyline:2.1.0-dkp
+    steps:
+    - name: checkout version
+      uses: actions/checkout@v2
+
+    # build the project
+    - run: |
+        export PATH=$PATH:/root/.cargo/bin:/opt/devkitpro/devkitA64/bin \
+        && cargo skyline build --release
+      env:
+        HOME: /root
+
+    - name: find the plugin
+      run: |
+        find ./target/ -name *.nro
+        cp $(find ./target/ -name *.nro) .
+
+    - name: Upload full package to nightlies
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: "libarcropolis.nro"
+        prerelease: true
+        file_glob: true
+        asset_name: plugin
+        release_name: Nightly Arcropolis
+        tag: nightly
+        overwrite: true
+        body: "This is the nightly Arcropolis build. If you are looking for a stable build please look at the [latest release.](https://github.com/Raytwo/ARCropolis/releases/latest)"
