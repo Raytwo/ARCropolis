@@ -9,7 +9,6 @@ jobs:
     env:
       PLUGIN_NAME: ARCropolis
     runs-on: ubuntu-latest
-    needs: version_and_changelog
     container: 
       image: jugeeya/cargo-skyline:2.1.0-dkp
     steps:
