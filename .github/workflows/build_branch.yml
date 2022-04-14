@@ -1,4 +1,4 @@
-name: build_nightly
+name: build_branch
 on: 
   workflow_dispatch:
 
