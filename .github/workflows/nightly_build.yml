@@ -27,7 +27,7 @@ jobs:
 
 
     - name: Upload plugin
-        uses: actions/upload-artifact@v2
-        with:
-          name: plugin
-          path: libarcropolis.nro
+      uses: actions/upload-artifact@v2
+      with:
+        name: plugin
+        path: libarcropolis.nro
