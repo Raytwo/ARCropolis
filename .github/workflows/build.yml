@@ -36,7 +36,7 @@ jobs:
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
-    # build the project
+    # build the project  
     - run: |
         export PATH=$PATH:/root/.cargo/bin:/opt/devkitpro/devkitA64/bin \
         && cargo skyline build --release --no-default-features
