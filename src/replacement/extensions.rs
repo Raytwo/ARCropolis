@@ -96,11 +96,9 @@ impl SearchContext {
     pub fn get_folder_path(&self, hash: Hash40) -> Option<&FolderPathListEntry> {
         match self.search.get_folder_path_entry_from_hash(hash) {
             Ok(entry) => Some(entry),
-            Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(&self.folder_paths[*index]),
-                    None => None,
-                }
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(&self.folder_paths[*index]),
+                None => None,
             },
         }
     }
@@ -108,11 +106,9 @@ impl SearchContext {
     pub fn get_path_index(&self, hash: Hash40) -> Option<usize> {
         match self.search.get_path_list_index_from_hash(hash) {
             Ok(index) => Some(index as usize),
-            Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(self.path_list_indices[*index] as usize),
-                    None => None,
-                }
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(self.path_list_indices[*index] as usize),
+                None => None,
             },
         }
     }
@@ -120,11 +116,9 @@ impl SearchContext {
     pub fn get_path(&self, hash: Hash40) -> Option<&PathListEntry> {
         let index = match self.search.get_path_list_index_from_hash(hash) {
             Ok(index) => Some(index as usize),
-            Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(self.path_list_indices[*index] as usize),
-                    None => None,
-                }
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(self.path_list_indices[*index] as usize),
+                None => None,
             },
         };
         index.map(move |x| &self.paths[self.path_list_indices[x] as usize])
@@ -133,11 +127,9 @@ impl SearchContext {
     pub fn get_folder_path_mut(&mut self, hash: Hash40) -> Option<&mut FolderPathListEntry> {
         match self.search.get_folder_path_index_from_hash(hash) {
             Ok(entry) => Some(&mut self.folder_paths[entry.index() as usize]),
-            Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(&mut self.folder_paths[*index]),
-                    None => None,
-                }
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(&mut self.folder_paths[*index]),
+                None => None,
             },
         }
     }
@@ -145,11 +137,9 @@ impl SearchContext {
     pub fn get_path_index_mut(&mut self, hash: Hash40) -> Option<&mut u32> {
         match self.search.get_path_list_index_from_hash_mut(hash) {
             Ok(index) => Some(index),
-            Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(&mut self.path_list_indices[*index]),
-                    None => None,
-                }
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(&mut self.path_list_indices[*index]),
+                None => None,
             },
         }
     }
@@ -157,11 +147,9 @@ impl SearchContext {
     pub fn get_path_mut(&mut self, hash: Hash40) -> Option<&mut PathListEntry> {
         let index = match self.search.get_path_list_index_from_hash(hash) {
             Ok(index) => Some(index as usize),
-            Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(self.path_list_indices[*index] as usize),
-                    None => None,
-                }
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(self.path_list_indices[*index] as usize),
+                None => None,
             },
         };
         index.map(move |x| &mut self.paths[self.path_list_indices[x] as usize])
@@ -403,7 +391,7 @@ pub trait SearchEx: SearchLookup {
         ) -> Result<(), LookupError> {
             let path_entry = search.get_path_list_entry_from_hash(hash)?;
             if !path_entry.is_directory() {
-                return Ok(())
+                return Ok(());
             }
 
             let mut child = search.get_first_child_in_folder(path_entry.path.hash40());
@@ -470,7 +458,7 @@ pub trait SearchEx: SearchLookup {
         let index_idx = folder_path.get_first_child_index();
 
         if index_idx == 0xFF_FFFF {
-            return Err(LookupError::Missing)
+            return Err(LookupError::Missing);
         }
 
         let path_entry_index = self.get_path_list_indices()[index_idx];
@@ -484,7 +472,7 @@ pub trait SearchEx: SearchLookup {
     fn get_next_child_in_folder_mut(&mut self, current_child: &PathListEntry) -> Result<&mut PathListEntry, LookupError> {
         let index_idx = current_child.path.index() as usize;
         if index_idx == 0xFF_FFFF {
-            return Err(LookupError::Missing)
+            return Err(LookupError::Missing);
         }
 
         let path_entry_index = self.get_path_list_indices()[index_idx];
@@ -689,11 +677,9 @@ impl FromPathExt for FilePath {
         };
 
         let ext_hash = match path.extension().map(|x| x.to_str()).flatten() {
-            Some(str) => {
-                match get_smash_hash(str) {
-                    Ok(hash) => hash,
-                    Err(_) => return None,
-                }
+            Some(str) => match get_smash_hash(str) {
+                Ok(hash) => hash,
+                Err(_) => return None,
             },
             None => return None,
         };
@@ -782,11 +768,9 @@ impl FromPathExt for PathListEntry {
         };
 
         let ext_hash = match path.extension().map(|x| x.to_str()).flatten() {
-            Some(str) => {
-                match get_smash_hash(str) {
-                    Ok(hash) => hash,
-                    Err(_) => return None,
-                }
+            Some(str) => match get_smash_hash(str) {
+                Ok(hash) => hash,
+                Err(_) => return None,
             },
             None => return None,
         };

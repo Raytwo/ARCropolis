@@ -71,11 +71,9 @@ table: Commands to help scan the filesystem tables for analysis/troubleshooting 
 pub fn parse_index(arg: &str) -> Option<u32> {
     match arg.parse::<u32>() {
         Ok(val) => Some(val),
-        Err(_) => {
-            match u32::from_str_radix(arg.trim_start_matches("0x"), 16) {
-                Ok(val) => Some(val),
-                Err(_) => None,
-            }
+        Err(_) => match u32::from_str_radix(arg.trim_start_matches("0x"), 16) {
+            Ok(val) => Some(val),
+            Err(_) => None,
         },
     }
 }
@@ -127,7 +125,7 @@ pub fn get_flag_and_option(flag: &str, args: &mut Vec<String>) -> Option<String>
 
 pub fn handle_command(mut args: Vec<String>) -> String {
     if args.len() == 0 || args.get(0).unwrap() == "help" {
-        return String::from(USAGE)
+        return String::from(USAGE);
     }
     let category = args.remove(0);
     match category.as_str() {

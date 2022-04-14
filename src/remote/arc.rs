@@ -50,13 +50,11 @@ mod directory {
         static USAGE: &'static str = "Usage: get_directory [-i | -h] [<index> | <hashable>]";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(idx) => {
-                    match arc.get_dir_infos().get(idx as usize) {
-                        Some(info) => {
-                            format!("{:#x?}", info)
-                        },
-                        None => String::from("Out of bounds"),
-                    }
+                Some(idx) => match arc.get_dir_infos().get(idx as usize) {
+                    Some(info) => {
+                        format!("{:#x?}", info)
+                    },
+                    None => String::from("Out of bounds"),
                 },
                 None => String::from(USAGE),
             }
@@ -79,22 +77,20 @@ mod directory {
         static USAGE: &'static str = "get_directory_file_group [-i | -h] [<index> | <hashable>]\n    Note: The index/hashable item in this command are for directories, not file groups";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(idx) => {
-                    match arc.get_dir_infos().get(idx as usize) {
-                        Some(info) => {
-                            if info.path.index() != 0xFF_FFFF {
-                                match arc.get_folder_offsets().get(info.path.index() as usize) {
-                                    Some(folder) => {
-                                        format!("{:#x?}", folder)
-                                    },
-                                    None => String::from("DirInfo file group index is out of bounds"),
-                                }
-                            } else {
-                                String::from("DirInfo does not have associated file group")
+                Some(idx) => match arc.get_dir_infos().get(idx as usize) {
+                    Some(info) => {
+                        if info.path.index() != 0xFF_FFFF {
+                            match arc.get_folder_offsets().get(info.path.index() as usize) {
+                                Some(folder) => {
+                                    format!("{:#x?}", folder)
+                                },
+                                None => String::from("DirInfo file group index is out of bounds"),
                             }
-                        },
-                        None => String::from("Out of bounds"),
-                    }
+                        } else {
+                            String::from("DirInfo does not have associated file group")
+                        }
+                    },
+                    None => String::from("Out of bounds"),
                 },
                 None => String::from(USAGE),
             }
@@ -127,25 +123,23 @@ mod directory {
         static USAGE: &'static str = "get_directory_redirect [-i | -h] [<index> | <hashable>]\n    Note: The index/hashable item in this command are for directories, not file groups\n          This can either be a DirInfo or a DirectoryOffset";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(idx) => {
-                    match arc.get_dir_infos().get(idx as usize) {
-                        Some(info) => {
-                            if info.flags.redirected() {
-                                match arc.get_directory_dependency(info) {
-                                    Some(RedirectionType::Symlink(redirection)) => {
-                                        format!("{:#x?}", redirection)
-                                    },
-                                    Some(RedirectionType::Shared(redirection)) => {
-                                        format!("{:#x?}", redirection)
-                                    },
-                                    None => String::from("Directory redirection index is in valid"),
-                                }
-                            } else {
-                                String::from("Directory does not redirect")
+                Some(idx) => match arc.get_dir_infos().get(idx as usize) {
+                    Some(info) => {
+                        if info.flags.redirected() {
+                            match arc.get_directory_dependency(info) {
+                                Some(RedirectionType::Symlink(redirection)) => {
+                                    format!("{:#x?}", redirection)
+                                },
+                                Some(RedirectionType::Shared(redirection)) => {
+                                    format!("{:#x?}", redirection)
+                                },
+                                None => String::from("Directory redirection index is in valid"),
                             }
-                        },
-                        None => String::from("Out of bounds"),
-                    }
+                        } else {
+                            String::from("Directory does not redirect")
+                        }
+                    },
+                    None => String::from("Out of bounds"),
                 },
                 None => String::from(USAGE),
             }
@@ -178,12 +172,12 @@ mod directory {
         for arg in args.into_iter() {
             if let Some(idx) = parse_index(arg.as_str()) {
                 if let Some(file_group) = arc.get_folder_offsets().get(idx as usize) {
-                    return format!("{:#x?}", file_group)
+                    return format!("{:#x?}", file_group);
                 } else {
-                    return String::from("Out of bounds")
+                    return String::from("Out of bounds");
                 }
             } else {
-                return String::from(USAGE)
+                return String::from(USAGE);
             }
         }
         String::from(USAGE)
@@ -207,26 +201,22 @@ mod files {
         static USAGE: &'static str = "get_file_path [-i | -h] [<index> | <hashable>]";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(val) => {
-                    match arc.get_file_paths().get(val as usize) {
-                        Some(path) => {
-                            format!("{:#x?}", path)
-                        },
-                        None => String::from("Out of bounds"),
-                    }
+                Some(val) => match arc.get_file_paths().get(val as usize) {
+                    Some(path) => {
+                        format!("{:#x?}", path)
+                    },
+                    None => String::from("Out of bounds"),
                 },
                 None => String::from(USAGE),
             }
         } else if let Some(hash) = get_flag_and_option("-h", &mut args) {
             let hash = parse_hash(hash.as_str());
             match arc.get_file_path_index_from_hash(hash) {
-                Ok(idx) => {
-                    match arc.get_file_paths().get(usize::from(idx)) {
-                        Some(path) => {
-                            format!("{:#x?}", path)
-                        },
-                        None => String::from("File path index is out of bounds"),
-                    }
+                Ok(idx) => match arc.get_file_paths().get(usize::from(idx)) {
+                    Some(path) => {
+                        format!("{:#x?}", path)
+                    },
+                    None => String::from("File path index is out of bounds"),
                 },
                 Err(e) => {
                     format!("{:#x?}", e)
@@ -241,31 +231,25 @@ mod files {
         static USAGE: &'static str = "get_file_info_index [-i | -h] [<index> | <hashable>]";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(val) => {
-                    match arc.get_file_info_indices().get(val as usize) {
-                        Some(idx) => {
-                            format!("{:#x?}", idx)
-                        },
-                        None => String::from("Out of bounds"),
-                    }
+                Some(val) => match arc.get_file_info_indices().get(val as usize) {
+                    Some(idx) => {
+                        format!("{:#x?}", idx)
+                    },
+                    None => String::from("Out of bounds"),
                 },
                 None => String::from(USAGE),
             }
         } else if let Some(hash) = get_flag_and_option("-h", &mut args) {
             let hash = parse_hash(hash.as_str());
             match arc.get_file_path_index_from_hash(hash) {
-                Ok(idx) => {
-                    match arc.get_file_paths().get(usize::from(idx)) {
-                        Some(path) => {
-                            match arc.get_file_info_indices().get(path.path.index() as usize) {
-                                Some(idx) => {
-                                    format!("{:#x?}", idx)
-                                },
-                                None => String::from("FileInfoIndex index is out of bounds"),
-                            }
+                Ok(idx) => match arc.get_file_paths().get(usize::from(idx)) {
+                    Some(path) => match arc.get_file_info_indices().get(path.path.index() as usize) {
+                        Some(idx) => {
+                            format!("{:#x?}", idx)
                         },
-                        None => String::from("File path index is out of bounds"),
-                    }
+                        None => String::from("FileInfoIndex index is out of bounds"),
+                    },
+                    None => String::from("File path index is out of bounds"),
                 },
                 Err(e) => {
                     format!("{:#x?}", e)
@@ -280,13 +264,11 @@ mod files {
         static USAGE: &'static str = "get_file_info [-i | -h] [<index> | <hashable>]";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(val) => {
-                    match arc.get_file_infos().get(val as usize) {
-                        Some(info) => {
-                            format!("{:#x?}", info)
-                        },
-                        None => String::from("Out of bounds"),
-                    }
+                Some(val) => match arc.get_file_infos().get(val as usize) {
+                    Some(info) => {
+                        format!("{:#x?}", info)
+                    },
+                    None => String::from("Out of bounds"),
                 },
                 None => String::from(USAGE),
             }
@@ -309,13 +291,11 @@ mod files {
         static USAGE: &'static str = "get_file_info_to_data [-i | -h] [<index> | <hashable>] [-r <region>]\n    Note: The region is only used when passing the hashable item and is assumed to be Region::None by default";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(idx) => {
-                    match arc.get_file_info_to_datas().get(idx as usize) {
-                        Some(info) => {
-                            format!("{:#x?}", info)
-                        },
-                        None => String::from("Out of bounds"),
-                    }
+                Some(idx) => match arc.get_file_info_to_datas().get(idx as usize) {
+                    Some(info) => {
+                        format!("{:#x?}", info)
+                    },
+                    None => String::from("Out of bounds"),
                 },
                 None => String::from(USAGE),
             }
@@ -348,13 +328,11 @@ mod files {
         static USAGE: &'static str = "get_file_data [-i | -h] [-i | -h] [<index> | <hashable>] [-r <region>]\n    Note: The region is only used when passing the hashable item and is assumed to be Region::None by default";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(idx) => {
-                    match arc.get_file_datas().get(idx as usize) {
-                        Some(data) => {
-                            format!("{:#x?}", data)
-                        },
-                        None => String::from("Out of bounds"),
-                    }
+                Some(idx) => match arc.get_file_datas().get(idx as usize) {
+                    Some(data) => {
+                        format!("{:#x?}", data)
+                    },
+                    None => String::from("Out of bounds"),
                 },
                 None => String::from(USAGE),
             }
@@ -537,11 +515,9 @@ mod utils {
         static USAGE: &'static str = "walk_directory [-i | -h] [<index> | <hashable>] [-r] [-p] [-s]\n    Note: The index/hashable item in this command are for directories, not file groups.\n          Pass -r if you want to walk recursively.\n          Pass -p if you want to pretty print with colors.\n          Pass -s if you want to see which files are shared";
         let dir_info = if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(idx) => {
-                    match arc.get_dir_infos().get(idx as usize) {
-                        Some(info) => info,
-                        None => return String::from("Out of bounds"),
-                    }
+                Some(idx) => match arc.get_dir_infos().get(idx as usize) {
+                    Some(info) => info,
+                    None => return String::from("Out of bounds"),
                 },
                 None => return String::from(USAGE),
             }
@@ -552,7 +528,7 @@ mod utils {
                 Err(e) => return format!("{:#?}", e),
             }
         } else {
-            return String::from(USAGE)
+            return String::from(USAGE);
         };
         let pretty_print = check_for_flag("-p", &mut args);
         let recursive = check_for_flag("-r", &mut args);
@@ -605,11 +581,9 @@ mod utils {
         static USAGE: &'static str = "get_shared_file [-i | -h] [<index> | <hashable>] [-r]\n    Note: If passing by index, pass the file path index\n      Pass -r if you want to get the lowest level shared file";
         let file_path = if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(idx) => {
-                    match arc.get_file_paths().get(idx as usize) {
-                        Some(path) => path,
-                        None => return String::from("Out of bounds"),
-                    }
+                Some(idx) => match arc.get_file_paths().get(idx as usize) {
+                    Some(path) => path,
+                    None => return String::from("Out of bounds"),
                 },
                 None => return String::from(USAGE),
             }
@@ -620,7 +594,7 @@ mod utils {
                 Err(e) => return format!("{:#?}", e),
             }
         } else {
-            return String::from(USAGE)
+            return String::from(USAGE);
         };
 
         let recursive = check_for_flag("-r", &mut args);
@@ -645,7 +619,7 @@ mod utils {
                     loop {
                         let next_file_path = &file_paths[arc.get_file_info_from_hash(current_file_path.path.hash40()).unwrap().file_path_index];
                         if next_file_path.path.hash40() == current_file_path.path.hash40() {
-                            break
+                            break;
                         }
                         current_file_path = next_file_path;
                     }
@@ -669,7 +643,7 @@ mod utils {
 pub fn handle_command(mut args: Vec<String>) -> String {
     let arc = resource::arc();
     if args.len() == 0 {
-        return String::from(USAGE)
+        return String::from(USAGE);
     }
     let command = args.remove(0);
     match command.as_str() {

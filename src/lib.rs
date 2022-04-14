@@ -21,9 +21,11 @@ use semver::Version;
 use smash_arc::{ArcLookup, LoadedSearchSection, SearchLookup};
 use thiserror::Error;
 
-#[macro_use] extern crate lazy_static;
+#[macro_use]
+extern crate lazy_static;
 
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
 use parking_lot::RwLock;
 use skyline::{hooks::InlineCtx, libc::c_char, nn};
@@ -40,7 +42,8 @@ mod offsets;
 mod remote;
 mod replacement;
 mod resource;
-#[cfg(feature = "updater")] mod update;
+#[cfg(feature = "updater")]
+mod update;
 
 use fs::GlobalFilesystem;
 use replacement::extensions::SearchEx;
@@ -148,7 +151,7 @@ impl PathExtension for Path {
                 .flatten()
                 .map(|x| Hash40(x));
             if let Some(hash) = hash {
-                return Ok(hash)
+                return Ok(hash);
             }
         }
         let mut path = self
@@ -359,11 +362,9 @@ pub fn main() {
 
         let msg = match info.payload().downcast_ref::<&'static str>() {
             Some(s) => *s,
-            None => {
-                match info.payload().downcast_ref::<String>() {
-                    Some(s) => &s[..],
-                    None => "Box<Any>",
-                }
+            None => match info.payload().downcast_ref::<String>() {
+                Some(s) => &s[..],
+                None => "Box<Any>",
             },
         };
 

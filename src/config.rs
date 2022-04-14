@@ -1,12 +1,16 @@
-use std::{collections::{HashSet, HashMap}, path::PathBuf, sync::Mutex};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+    sync::Mutex,
+};
 
 use owo_colors::OwoColorize;
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use skyline::nn;
 use skyline_config::*;
 use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
-use semver::Version;
 
 fn arcropolis_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
@@ -33,7 +37,7 @@ lazy_static! {
         match version {
             Ok(config_version) => {
                 let curr_version = Version::parse(&arcropolis_version()).expect("Parsing of ARCropolis' version string failed. Please open an issue on www.arcropolis.com to let us know!");
-                
+
                 // Check if the configuration is from a previous version
                 if curr_version > config_version {
                     // TODO: Code to perform changes for each version
@@ -142,7 +146,7 @@ fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
     storage.set_field_json("extra_paths", &Vec::<String>::new()).unwrap();
     storage.set_flag("auto_update", true);
     storage.set_field_json("presets", &HashSet::<Hash40>::new());
-    
+
     let mut default_workspace = HashMap::<&str, &str>::new();
     default_workspace.insert("Default", "presets");
     storage.set_field_json("workspace_list", &default_workspace).unwrap();
