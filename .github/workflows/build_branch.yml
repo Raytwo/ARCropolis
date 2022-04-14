@@ -13,6 +13,11 @@ jobs:
     - name: checkout version
       uses: actions/checkout@v2
 
+    # format if necessary
+    - uses: mbrobbel/rustfmt-check@master
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
     # build the project
     - run: |
         export PATH=$PATH:/root/.cargo/bin:/opt/devkitpro/devkitA64/bin \
