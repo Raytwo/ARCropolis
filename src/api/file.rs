@@ -1,3 +1,5 @@
+use std::collections::{HashSet, HashMap};
+
 use owo_colors::OwoColorize;
 use smash_arc::*;
 
@@ -69,5 +71,25 @@ pub extern "C" fn arcrop_is_file_loaded(hash: Hash40) -> bool {
             Ok(file_path_index) => filesystem_info.get_loaded_filepaths()[file_path_index.0 as usize].is_loaded == 1,
             _ => false,
         }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn arcrop_is_mod_enabled(hash: Hash40) -> bool {
+    debug!("arcrop_is_mod_enabled -> Received hash {} ({:#x})", hashes::find(hash).green(), hash.0);
+
+    let storage = crate::config::GLOBAL_CONFIG.lock().unwrap();
+
+    if storage.get_flag("legacy_discovery") {
+        unimplemented!()
+    } else {
+        let preset: HashSet<Hash40> = {
+            let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+            let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
+            let preset_name = &workspace_list[&workspace_name];
+            storage.get_field_json(preset_name).unwrap_or_default()
+        };
+        
+        preset.contains(&hash)
     }
 }
