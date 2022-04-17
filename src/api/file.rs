@@ -2,6 +2,7 @@ use std::collections::{HashSet, HashMap};
 
 use owo_colors::OwoColorize;
 use smash_arc::*;
+use walkdir::WalkDir;
 
 use crate::{config, hashes, resource};
 
@@ -80,16 +81,37 @@ pub extern "C" fn arcrop_is_mod_enabled(hash: Hash40) -> bool {
 
     let storage = crate::config::GLOBAL_CONFIG.lock().unwrap();
 
-    if storage.get_flag("legacy_discovery") {
-        unimplemented!()
+    let preset: HashSet<Hash40> = if storage.get_flag("legacy_discovery") {
+        WalkDir::new(crate::config::umm_path()).max_depth(1).into_iter().filter_map(|entry| {
+            if let Ok(entry) = entry {
+                // Make this less gross
+                if !entry.file_type().is_dir() {
+                    return None;
+                }
+
+                let path = entry.path();
+    
+                if path
+                    .file_name()
+                    .map(|name| name.to_str())
+                    .flatten()
+                    .map(|name| !name.starts_with("."))
+                    .unwrap_or(false)
+                {
+                    Some(Hash40::from(path.to_str().unwrap()))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }).collect()
     } else {
-        let preset: HashSet<Hash40> = {
             let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
             let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
             let preset_name = &workspace_list[&workspace_name];
             storage.get_field_json(preset_name).unwrap_or_default()
-        };
-        
-        preset.contains(&hash)
-    }
+    };
+
+    preset.contains(&hash)
 }
