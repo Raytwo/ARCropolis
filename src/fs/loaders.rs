@@ -160,7 +160,19 @@ impl ApiLoadType {
                     };
 
                     let mut xml = String::from_utf16(slice_u16).unwrap();
-                    let xmsbt: XMSBT = serde_xml_rs::from_str(&xml).unwrap();
+
+                    let xmsbt: XMSBT = match serde_xml_rs::from_str(&xml) {
+                        Ok(xmsbt) => xmsbt,
+                        Err(err) => {
+                            match err.kind() {
+                                serde_xml_rs::ErrorKind::Syntax(err)  => {
+                                    warn!("XMSBT file `{}` could not be read due to the following syntax error: `{}`, skipping.", patch_path.display(), err.msg())
+                                },
+                                _ => warn!("XMSBT file `{}` is malformed, skipping.", patch_path.display()),
+                            }
+                            continue;
+                        },
+                    };
 
                     for entry in &xmsbt.entries {
                         labels.insert(entry.label.to_owned(), entry.text.value.to_owned());
