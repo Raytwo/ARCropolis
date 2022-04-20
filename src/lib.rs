@@ -295,7 +295,11 @@ pub fn main() {
     lazy_static::initialize(&GLOBAL_CONFIG);
 
     // Initialize hid
-    ninput::init();
+    let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
+
+    if !is_emulator {
+        ninput::init();
+    }
 
     // Attempt to initialize the logger, and if we fail we will just do a regular println
     if let Err(err) = logging::init(LevelFilter::from_str(&config::logger_level()).unwrap_or(LevelFilter::Warn)) {

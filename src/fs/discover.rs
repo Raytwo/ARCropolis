@@ -46,9 +46,11 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     let legacy_discovery = config::legacy_discovery();
 
-    // Open the ARCropolis menu if Minus is held before mod discovery
-    if ninput::any::is_down(ninput::Buttons::PLUS) {
-        crate::menus::show_main_menu();
+    if !is_emulator {
+        // Open the ARCropolis menu if Minus is held before mod discovery
+        if ninput::any::is_down(ninput::Buttons::PLUS) {
+            crate::menus::show_main_menu();
+        }
     }
 
     let filter = |path: &Path| {
