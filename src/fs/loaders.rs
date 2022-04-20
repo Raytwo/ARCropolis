@@ -3,6 +3,7 @@ use std::collections::VecDeque;
 use msbt::{builder::MsbtBuilder, Msbt};
 use serde::*;
 use serde_xml_rs;
+use xml::common::Position;
 
 use super::*;
 
@@ -164,9 +165,10 @@ impl ApiLoadType {
                     let xmsbt: XMSBT = match serde_xml_rs::from_str(&xml) {
                         Ok(xmsbt) => xmsbt,
                         Err(err) => {
-                            match err.kind() {
-                                serde_xml_rs::ErrorKind::Syntax(err)  => {
-                                    warn!("XMSBT file `{}` could not be read due to the following syntax error: `{}`, skipping.", patch_path.display(), err.msg())
+                            match err {
+                                serde_xml_rs::Error::Syntax { source }  => {
+                                    let position = source.position();
+                                    warn!("XMSBT file `{}` could not be read due to the following syntax error at line {}, column {}: `{}`, skipping.", patch_path.display(), position.row + 1, position.column, source.msg())
                                 },
                                 _ => warn!("XMSBT file `{}` is malformed, skipping.", patch_path.display()),
                             }
