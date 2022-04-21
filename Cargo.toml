@@ -43,7 +43,8 @@ arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api" }
 nn-fuse = { git = "https://github.com/blu-dev/nn-fuse" }
 prcx = { git = "https://github.com/blu-dev/prcx", branch = "xml-style" }
 # For xmsbt
-serde-xml-rs = "0.3.1"
+xml-rs = "0.8"
+serde-xml-rs = "0.5.1"
 msbt = { git = "https://github.com/RoccoDev/msbt-rs", branch = "feature/builder-from-impl" }
 # For inputs
 ninput = { git = "https://github.com/blu-dev/ninput" }
