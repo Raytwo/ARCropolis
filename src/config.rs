@@ -1,16 +1,17 @@
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
-    sync::Mutex,
 };
 
-use owo_colors::OwoColorize;
+use parking_lot::RwLock;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use skyline::nn;
 use skyline_config::*;
 use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
+
+use crate::util::env;
 
 fn arcropolis_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
@@ -29,7 +30,7 @@ fn default_region() -> String {
 }
 
 lazy_static! {
-    pub static ref GLOBAL_CONFIG: Mutex<StorageHolder<ArcStorage>> = {
+    pub static ref GLOBAL_CONFIG: RwLock<StorageHolder<ArcStorage>> = {
         let mut storage = StorageHolder::new(ArcStorage::new());
 
         let version: Result<Version, _> = storage.get_field("version");
@@ -60,9 +61,9 @@ lazy_static! {
                         // Parsing successful, migrate everything to the new system
                         Ok(config) => {
                             // Prepare default files for the current version in the new storage
-                            generate_default_config(&mut storage);
+                            generate_default_config(&mut storage).unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
                             // Overwrite default files with the values from the old configuration file.
-                            migrate_config_to_storage(&mut storage, &config);
+                            migrate_config_to_storage(&mut storage, &config).unwrap_or_else(|err| panic!("ARCropolis encountered an error when trying to migrate your configuration: {}", err));
 
                             // Perform checks on deprecated custom mod directories (ARCropolis < 3.0.0)
                             if &config.paths.arc != &arc_path(){
@@ -76,10 +77,8 @@ lazy_static! {
 
                             let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
 
-                            let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
-
                             // Ryujinx cannot show the web browser, and a second check is performed during file discovery
-                            if !is_emulator {
+                            if !env::is_emulator() {
                                 if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?<br>It offers advantages such as:<br>* Mod manager on the eShop button<br>* Separate enabled mods per user profile<br><br>If you accept, disabled mods will be renamed to strip the period.") {
                                     storage.set_field_json("presets", &convert_legacy_to_presets());
                                 } else {
@@ -90,7 +89,7 @@ lazy_static! {
                         // Parsing unsuccessful, generate default files and delete the broken config
                         Err(_) => {
                             error!("Unable to parse legacy configuration file");
-                            generate_default_config(&mut storage);
+                            generate_default_config(&mut storage).unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
                             let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
                         }
                     },
@@ -98,15 +97,13 @@ lazy_static! {
                     Err(_) => {
                         error!("Unable to find legacy config file, generating default values.");
                         // [3.2.0] Removed migration from DebugSavedataStorage so we don't create a partition for the user just to check if they had one anymore.
-                        generate_default_config(&mut storage);
-
-                        storage.set_flag("first_boot", true);
+                        generate_default_config(&mut storage).unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
                     }
                 }
             }
         }
 
-        Mutex::new(storage)
+        RwLock::new(storage)
     };
 
     static ref REGION: Region = {
@@ -121,36 +118,39 @@ lazy_static! {
     };
 }
 
-fn migrate_config_to_storage<CS: ConfigStorage>(storage: &mut StorageHolder<CS>, config: &Config) {
+fn migrate_config_to_storage<CS: ConfigStorage>(storage: &mut StorageHolder<CS>, config: &Config) -> Result<(), ConfigError> {
     info!("Converting legacy configuration file to ConfigStorage.");
 
-    storage.set_field("version", arcropolis_version()).unwrap();
-    storage.set_field("region", &config.region).unwrap();
-    storage.set_field("logging_level", &config.logger.logger_level).unwrap();
-    storage.set_field_json("extra_paths", &config.paths.extra_paths).unwrap();
-    storage.set_flag("auto_update", config.auto_update);
-    storage.set_flag("beta_updates", config.beta_updates);
-    storage.set_flag("debug", config.debug);
-    storage.set_flag("log_to_file", config.logger.log_to_file);
+    storage.set_field("version", arcropolis_version())?;
+    storage.set_field("region", &config.region)?;
+    storage.set_field("logging_level", &config.logger.logger_level)?;
+    storage.set_field_json("extra_paths", &config.paths.extra_paths)?;
+    storage.set_flag("auto_update", config.auto_update)?;
+    storage.set_flag("beta_updates", config.beta_updates)?;
+    storage.set_flag("debug", config.debug)?;
+    storage.set_flag("log_to_file", config.logger.log_to_file)
 }
 
-fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
+fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) -> Result<(), ConfigError> {
     info!("Populating ConfigStorage with default values.");
 
     // Just so we don't keep outdated fields
     storage.clear_storage();
 
-    storage.set_field("version", arcropolis_version()).unwrap();
-    storage.set_field("region", "us_en").unwrap();
-    storage.set_field("logging_level", "Warn").unwrap();
-    storage.set_field_json("extra_paths", &Vec::<String>::new()).unwrap();
-    storage.set_flag("auto_update", true);
-    storage.set_field_json("presets", &HashSet::<Hash40>::new());
+    storage.set_field("version", arcropolis_version())?;
+    storage.set_field("region", "us_en")?;
+    storage.set_field("logging_level", "Warn")?;
+    storage.set_field_json("extra_paths", &Vec::<String>::new())?;
+    storage.set_flag("auto_update", true)?;
+    storage.set_field_json("presets", &HashSet::<Hash40>::new())?;
 
     let mut default_workspace = HashMap::<&str, &str>::new();
     default_workspace.insert("Default", "presets");
-    storage.set_field_json("workspace_list", &default_workspace).unwrap();
-    storage.set_field("workspace", "Default");
+
+    storage.set_field_json("workspace_list", &default_workspace)?;
+    storage.set_field("workspace", "Default")?;
+
+    storage.set_flag("first_boot", true)
 }
 
 fn convert_legacy_to_presets() -> HashSet<Hash40> {
@@ -265,16 +265,60 @@ impl ConfigLogger {
     }
 }
 
+pub mod workspaces {
+    use std::collections::HashMap;
+
+    pub fn get_list() -> HashMap<String, String> {
+        let storage = super::GLOBAL_CONFIG.read();
+        storage.get_field_json("workspace_list").unwrap_or_default()
+    }
+
+    pub fn get_active_workspace() -> String {
+        let storage = super::GLOBAL_CONFIG.read();
+        storage.get_field("workspace").unwrap_or("Default".to_string())
+    }
+}
+
+pub mod presets {
+    use std::collections::{HashSet, HashMap};
+
+    use skyline_config::ConfigError;
+    use smash_arc::Hash40;
+
+    lazy_static! {
+        static ref PRESET: HashSet<Hash40> = {
+            HashSet::new()
+        };
+    }
+
+    pub fn get_active_preset() -> Result<HashSet<Hash40>, ConfigError> {
+        let storage = super::GLOBAL_CONFIG.read();
+        let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+        let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
+        let preset_name = &workspace_list[&workspace_name];
+        storage.get_field_json(preset_name)
+    }
+
+    pub fn set_active_preset(preset: &HashSet<Hash40>) -> Result<(), skyline_config::ConfigError> {
+        let mut storage = super::GLOBAL_CONFIG.write();
+        let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+        let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
+        let preset_name = &workspace_list[&workspace_name];
+        storage.set_field_json(preset_name, preset)
+
+    }
+}
+
 pub fn auto_update_enabled() -> bool {
-    GLOBAL_CONFIG.lock().unwrap().get_flag("auto_update")
+    GLOBAL_CONFIG.read().get_flag("auto_update")
 }
 
 pub fn debug_enabled() -> bool {
-    GLOBAL_CONFIG.lock().unwrap().get_flag("debug")
+    GLOBAL_CONFIG.read().get_flag("debug")
 }
 
 pub fn beta_updates() -> bool {
-    GLOBAL_CONFIG.lock().unwrap().get_flag("beta_updates")
+    GLOBAL_CONFIG.read().get_flag("beta_updates")
 }
 
 pub fn region() -> Region {
@@ -282,14 +326,13 @@ pub fn region() -> Region {
 }
 
 pub fn region_str() -> String {
-    let region: String = GLOBAL_CONFIG.lock().unwrap().get_field("region").unwrap_or(String::from("us_en"));
+    let region: String = GLOBAL_CONFIG.read().get_field("region").unwrap_or(String::from("us_en"));
     region
 }
 
 pub fn version() -> String {
     let version: String = GLOBAL_CONFIG
-        .lock()
-        .unwrap()
+        .read()
         .get_field("version")
         .unwrap_or(String::from(env!("CARGO_PKG_VERSION")));
     version
@@ -310,20 +353,20 @@ pub fn umm_path() -> PathBuf {
 }
 
 pub fn extra_paths() -> Vec<String> {
-    GLOBAL_CONFIG.lock().unwrap().get_field_json("extra_paths").unwrap_or(vec![])
+    GLOBAL_CONFIG.read().get_field_json("extra_paths").unwrap_or(vec![])
 }
 
 pub fn logger_level() -> String {
-    let level: String = GLOBAL_CONFIG.lock().unwrap().get_field("logging_level").unwrap_or(String::from("Warn"));
+    let level: String = GLOBAL_CONFIG.read().get_field("logging_level").unwrap_or(String::from("Warn"));
     level
 }
 
 pub fn file_logging_enabled() -> bool {
-    GLOBAL_CONFIG.lock().unwrap().get_flag("log_to_file")
+    GLOBAL_CONFIG.read().get_flag("log_to_file")
 }
 
 pub fn legacy_discovery() -> bool {
-    GLOBAL_CONFIG.lock().unwrap().get_flag("legacy_discovery")
+    GLOBAL_CONFIG.read().get_flag("legacy_discovery")
 }
 
 pub struct ArcStorage(std::path::PathBuf);

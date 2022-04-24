@@ -1,6 +1,6 @@
 use owo_colors::OwoColorize;
 use skyline::{hook, hooks::InlineCtx};
-use smash_arc::{ArcLookup, FilePathIdx, Hash40};
+use smash_arc::{ArcLookup, Hash40};
 
 use super::FileInfoFlagsExt;
 use crate::{
@@ -32,17 +32,10 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
     let mut fs = GLOBAL_FILESYSTEM.write();
 
-    let should_add = if let Some(path) = fs.hash(path_hash) {
+    // Is setting incoming to None needed? Considering take() is called to acquire the incoming hash, it'd already be None.
+    if let Some(path) = fs.get_path_by_hash40(path_hash) {
         info!("Added file '{}' to the queue.", path.display().yellow());
-        true
-    } else {
-        false
-    };
-
-    if should_add {
-        fs.set_incoming(Some(path_hash));
-    } else {
-        fs.set_incoming(None);
+        fs.set_incoming_file(path_hash);
     }
 }
 
@@ -57,9 +50,8 @@ fn inflate_dir_file(arg: u64, out_decomp_data: &mut InflateFile, comp_data: &Inf
     let result = call_original!(arg, out_decomp_data, comp_data);
 
     if result == 0x0 {
-        // returns 0x0 on the very last read, since they can be read in chunks
-        let hash = crate::GLOBAL_FILESYSTEM.write().get_incoming();
-        if let Some(hash) = hash {
+        // Returns 0x0 on the very last read, since they can be read in chunks
+        if let Some(hash) = crate::GLOBAL_FILESYSTEM.write().get_incoming_file() {
             handle_file_replace(hash);
         }
     }
@@ -107,28 +99,29 @@ pub fn handle_file_replace(hash: Hash40) {
 
     let mut fs = crate::GLOBAL_FILESYSTEM.write();
 
-    let buffer = unsafe {
+    let mut buffer = unsafe {
         std::slice::from_raw_parts_mut(
             filesystem_info.get_loaded_datas()[file_info_indice_index].data as *mut u8,
             decompressed_size as usize,
         )
     };
 
-    if let Some(size) = fs.load_into(hash, buffer) {
+    if let Some(size) = fs.load_file_into(hash, &mut buffer) {
         if arc.get_file_paths()[filepath_index].ext.hash40() == Hash40::from("nutexb") {
             if size < decompressed_size as usize {
                 let (contents, footer) = buffer.split_at_mut((decompressed_size - 0xb0) as usize);
                 footer.copy_from_slice(&contents[(size - 0xb0)..size]);
             }
-        } else if file_info.flags.unshared_nus3bank() {
-            static GRP_BYTES: &[u8] = &[0x47, 0x52, 0x50, 0x20];
-            if let Some(id) = fs.get_bank_id(hash) {
-                let buffer = &mut buffer[0x30..];
-                if let Some(offset) = buffer.windows(GRP_BYTES.len()).position(|window| window == GRP_BYTES) {
-                    buffer[(offset - 4)..offset].copy_from_slice(&id.to_le_bytes());
-                }
-            }
-        }
+        } 
+        // else if file_info.flags.unshared_nus3bank() {
+        //     static GRP_BYTES: &[u8] = &[0x47, 0x52, 0x50, 0x20];
+        //     if let Some(id) = fs.get_bank_id(hash) {
+        //         let buffer = &mut buffer[0x30..];
+        //         if let Some(offset) = buffer.windows(GRP_BYTES.len()).position(|window| window == GRP_BYTES) {
+        //             buffer[(offset - 4)..offset].copy_from_slice(&id.to_le_bytes());
+        //         }
+        //     }
+        // }
         info!(
             "Replaced file '{}' ({:#x}) with buffer size {:#x} and file size {:#x}. Game buffer size: {:#x}",
             hashes::find(hash),
@@ -158,6 +151,13 @@ fn res_loop_refresh(_: &InlineCtx) {
     res_loop_common();
 }
 
+// basically when we unshare or add files we mark them with the standalone_file flag. When the ResLoadingThread goes to load the files, it will either load it as part of a directory or as it's own file (all of UI is loaded as regular files, for example). If it's unshared or added, when the game goes to load the file as part of a directory, it's just going to crash because it points to invalid data. So what we do is right before it begins the process of loading directories/files, we:
+// 1.  iterate through the list of what it is about to load
+// 2. check if what it is loading is a directory
+// 3. grab that directory index and iterate through all of it's files
+// 4. if we find a file that is marked with standalone_file, we push it to the front of the list and ask that it be loaded as a regular file
+// the game will check to see if the file is already loaded before attempting to load/decompress the data, so it will skip that file when loading as part of a directory
+// - blujay
 fn res_loop_common() {
     let arc = resource::arc();
     let service = resource::res_service_mut();

@@ -8,17 +8,13 @@
 #![feature(allocator_api)]
 
 use std::{
-    alloc::GlobalAlloc,
     fmt,
-    io::{BufWriter, Write},
     path::{Path, PathBuf},
     str::FromStr,
 };
 
 use arcropolis_api::Event;
 use log::LevelFilter;
-use semver::Version;
-use smash_arc::{ArcLookup, LoadedSearchSection, SearchLookup};
 use thiserror::Error;
 
 #[macro_use]
@@ -44,11 +40,10 @@ mod replacement;
 mod resource;
 #[cfg(feature = "updater")]
 mod update;
+mod util;
 
-use fs::GlobalFilesystem;
-use replacement::extensions::SearchEx;
+use fs::PlaceholderFs;
 use smash_arc::Hash40;
-use walkdir::WalkDir;
 
 use crate::config::GLOBAL_CONFIG;
 
@@ -57,7 +52,8 @@ use crate::config::GLOBAL_CONFIG;
 static UNIX_ALLOCATOR: skyline::unix_alloc::UnixAllocator = skyline::unix_alloc::UnixAllocator;
 
 lazy_static! {
-    pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = RwLock::new(GlobalFilesystem::Uninitialized);
+    //pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = RwLock::new(GlobalFilesystem::Uninitialized);
+    pub static ref GLOBAL_FILESYSTEM: RwLock<PlaceholderFs> = RwLock::new(PlaceholderFs::default());
     pub static ref CACHE_PATH: PathBuf = {
         let version_string = get_version_string();
         let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(version_string);
@@ -85,9 +81,7 @@ macro_rules! reg_w {
 
 /// Basic code for displaying an ARCropolis dialog error informing the user to check their logs, or enable them if they don't currently.
 fn dialog_error<S: AsRef<str>>(msg: S) {
-    let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
-
-    if is_emulator {
+    if crate::util::env::is_emulator() {
         if config::file_logging_enabled() {
             error!("{}<br>See the latest log for more information.", msg.as_ref());
         } else {
@@ -219,33 +213,33 @@ fn initial_loading(_ctx: &InlineCtx) {
     check_for_changelog();
 
     // menus::show_arcadia();
-    let arc = resource::arc();
+    //let arc = resource::arc();
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
-    replacement::lookup::initialize(Some(arc));
+    //replacement::lookup::initialize(Some(arc));
     let mut filesystem = GLOBAL_FILESYSTEM.write();
-    *filesystem = filesystem.take().finish(arc).unwrap();
-    filesystem.process_mods();
-    filesystem.share_hashes();
-    filesystem.patch_files();
+    // *filesystem = filesystem.take().finish().unwrap();
+    // filesystem.process_mods();
+    // filesystem.share_hashes();
+    // filesystem.patch_files();
 
-    if config::debug_enabled() {
-        let mut output = BufWriter::new(std::fs::File::create("sd:/ultimate/arcropolis/filesystem_dump.txt").unwrap());
-        filesystem.get().walk_patch(|node, entry_type| {
-            let depth = node.get_local().components().count() - 1;
-            for _ in 0..depth {
-                let _ = write!(output, "    ");
-            }
-            if entry_type.is_dir() {
-                let _ = writeln!(output, "{}", node.get_local().display());
-            } else {
-                let _ = writeln!(output, "{}", node.full_path().display());
-            }
-        });
-    }
-    drop(filesystem);
-    fuse::mods::install_mod_fs();
-    api::event::send_event(Event::ModFilesystemMounted);
+    // if config::debug_enabled() {
+    //     let mut output = BufWriter::new(std::fs::File::create("sd:/ultimate/arcropolis/filesystem_dump.txt").unwrap());
+    //     filesystem.get().walk_patch(|node, entry_type| {
+    //         let depth = node.get_local().components().count() - 1;
+    //         for _ in 0..depth {
+    //             let _ = write!(output, "    ");
+    //         }
+    //         if entry_type.is_dir() {
+    //             let _ = writeln!(output, "{}", node.get_local().display());
+    //         } else {
+    //             let _ = writeln!(output, "{}", node.full_path().display());
+    //         }
+    //     });
+    // }
+    // drop(filesystem);
+    // fuse::mods::install_mod_fs();
+    // api::event::send_event(Event::ModFilesystemMounted);
 }
 
 #[skyline::hook(offset = offsets::title_screen_version())]
@@ -295,9 +289,7 @@ pub fn main() {
     lazy_static::initialize(&GLOBAL_CONFIG);
 
     // Initialize hid
-    let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
-
-    if !is_emulator {
+    if !crate::util::env::is_emulator() {
         ninput::init();
     }
 
@@ -306,26 +298,27 @@ pub fn main() {
         println!("[arcropolis] Failed to initialize logger. Reason: {:?}", err);
     }
 
+    // lazy_static::initialize(&GLOBAL_FILESYSTEM);
     // Acquire the filesystem and promise it to the initial_loading hook
-    let mut filesystem = GLOBAL_FILESYSTEM.write();
+    //let mut filesystem = GLOBAL_FILESYSTEM.write();
 
-    *filesystem = GlobalFilesystem::Promised(
-        std::thread::Builder::new()
-            .stack_size(0x40000)
-            .spawn(|| {
-                std::thread::sleep(std::time::Duration::from_millis(5000));
-                fs::perform_discovery()
-            })
-            .unwrap(),
-    );
+    // *filesystem = GlobalFilesystem::Promised(
+    //     std::thread::Builder::new()
+    //         .stack_size(0x40000)
+    //         .spawn(|| {
+    //             std::thread::sleep(std::time::Duration::from_millis(5000));
+    //             fs::perform_discovery()
+    //         })
+    //         .unwrap(),
+    // );
 
-    let resources = std::thread::Builder::new()
-        .stack_size(0x40000)
-        .spawn(|| {
-            hashes::init();
-            replacement::lookup::initialize(None);
-        })
-        .unwrap();
+    // let resources = std::thread::Builder::new()
+    //     .stack_size(0x40000)
+    //     .spawn(|| {
+    //         hashes::init();
+    //         replacement::lookup::initialize(None);
+    //     })
+    //     .unwrap();
 
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
     #[cfg(feature = "updater")]
@@ -339,18 +332,7 @@ pub fn main() {
                 } else {
                     if config::auto_update_enabled() {
                         update::check_for_updates(config::beta_updates(), |update_kind| {
-                            // skyline_web::Dialog::yes_no(format!(
-                            //     "{} has been detected. Do you want to install it?",
-                            //     update_kind
-                            // ))
-
-                            // This didn't compile
                             skyline_web::Dialog::no_yes(format!("{} has been detected. Do you want to install it?", update_kind))
-
-                            // match skyline_web::Dialog::yes_no(format!("{} has been detected. Do you want to install it?", update_kind)) {
-                            //     true => true,
-                            //     false => false,
-                            // }
                         });
                     }
                 }
@@ -391,7 +373,7 @@ pub fn main() {
     }
 
     // Wait on hashes/lut to finish
-    let _ = resources.join();
+    //let _ = resources.join();
 
     api::event::setup();
 }

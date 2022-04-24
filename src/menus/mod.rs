@@ -36,7 +36,7 @@ pub fn show_main_menu() {
                 show_workspaces();
             },
             "http://localhost/config" => {
-                show_config_editor(&mut crate::config::GLOBAL_CONFIG.lock().unwrap());
+                show_config_editor(&mut crate::config::GLOBAL_CONFIG.write());
             },
             _ => {},
         },

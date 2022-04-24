@@ -6,7 +6,7 @@ use smash_arc::{ArcFile, ArcLookup, Hash40};
 use crate::PathExtension;
 
 lazy_static! {
-    static ref ARC_FILE: ArcFile = { ArcFile::open("rom:/data.arc").unwrap() };
+    static ref ARC_FILE: ArcFile = ArcFile::open("rom:/data.arc").unwrap();
 }
 
 pub struct ArcFileAccessor(Hash40);

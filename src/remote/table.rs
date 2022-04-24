@@ -1,4 +1,4 @@
-use crate::resource::{self, FilesystemInfo};
+use crate::resource;
 
 static USAGE: &'static str = r#"table: Commands to help scan the filesystem tables for analysis/troubleshooting at runtime.
 Entry Lookups:
