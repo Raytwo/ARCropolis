@@ -3,7 +3,7 @@ use smash_arc::{ArcLookup, Hash40, LoadedArc};
 
 use crate::{hashes, offsets};
 
-// TODO: Rewrite this to have so many early returns
+// TODO: Rewrite this to not have so many early returns
 #[skyline::hook(offset = offsets::lookup_stream_hash())]
 fn lookup_stream_hash(out_path: *mut c_char, loaded_arc: &LoadedArc, size_out: &mut usize, offset_out: &mut u64, hash: Hash40) {
     // let fs = crate::GLOBAL_FILESYSTEM.read();
