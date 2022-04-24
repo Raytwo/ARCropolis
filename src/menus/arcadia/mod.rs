@@ -2,14 +2,11 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    ffi::CString,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
-use log::info;
 use serde::{Deserialize, Serialize};
-use skyline::nn;
-use skyline_web::{ramhorns, Webpage};
+use skyline_web::Webpage;
 use smash_arc::Hash40;
 
 use crate::config;
@@ -115,13 +112,13 @@ pub fn show_arcadia(workspace: Option<String>) {
         return
     }
 
-    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
+    let presets = crate::config::presets::get_active_preset().unwrap();
+    let mut new_presets = presets.clone();
+
+    let mut storage = config::GLOBAL_CONFIG.write();
     let workspace_name: String = workspace.unwrap_or(storage.get_field("workspace").unwrap_or("Default".to_string()));
     let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
     let preset_name = &workspace_list[&workspace_name];
-
-    let presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
-    let mut new_presets = presets.clone();
 
     let mut mods: Information = Information {
         entries: get_mods(&presets),

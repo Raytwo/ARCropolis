@@ -2,7 +2,7 @@ use std::{collections::HashSet, path::Path};
 
 use smash_arc::*;
 
-use super::{lookup, AdditionContext, FromPathExt, SearchContext, SearchEx};
+use super::{lookup, AdditionContext, FromPathExt, SearchContext};
 use crate::{hashes, replacement::FileInfoFlagsExt, resource::LoadedFilepath, PathExtension};
 
 pub fn add_file(ctx: &mut AdditionContext, path: &Path) {

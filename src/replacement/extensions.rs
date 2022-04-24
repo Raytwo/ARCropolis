@@ -8,7 +8,7 @@ use std::{
 use smash_arc::{
     ArcLookup, FileData, FileInfo, FileInfoBucket, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx,
     FileSystemHeader, FolderPathListEntry, Hash40, HashToIndex, LoadedArc, LoadedSearchSection, LookupError, PathListEntry, Region, SearchListEntry,
-    SearchLookup, SearchSectionBody, SearchSectionHeader,
+    SearchLookup, SearchSectionBody,
 };
 
 use crate::{
@@ -398,7 +398,7 @@ pub trait SearchEx: SearchLookup {
         fn internal(
             search: &(impl SearchLookup + ?Sized),
             hash: impl Into<Hash40>,
-            f: &mut (impl FnMut(DirectoryChild, usize)),
+            f: &mut impl FnMut(DirectoryChild, usize),
             depth: usize,
         ) -> Result<(), LookupError> {
             let path_entry = search.get_path_list_entry_from_hash(hash)?;

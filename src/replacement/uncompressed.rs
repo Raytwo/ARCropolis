@@ -17,12 +17,15 @@ use crate::{offsets, reg_x};
 fn memcpy_uncompressed_fix(ctx: &InlineCtx) {
     // For now, we will leave this as an unconditionally true if statement
     let buffer_size = reg_x!(ctx, 2) as usize;
+
     let hash = crate::GLOBAL_FILESYSTEM.write().sub_remaining_bytes(buffer_size);
+
     if let Some(hash) = hash {
         super::threads::handle_file_replace(hash);
     } else {
         let dest = reg_x!(ctx, 0) as *mut c_void;
         let src = reg_x!(ctx, 1) as *const c_void;
+        
         unsafe {
             memcpy(dest, src, buffer_size);
         }

@@ -1,4 +1,6 @@
-use crate::resource::{self, FilesystemInfo};
+//use crate::resource;
+
+use crate::resource;
 
 static USAGE: &'static str = r#"arc: Commands to help scan data.arc tables/entries at runtime.
 Directory Lookups:
