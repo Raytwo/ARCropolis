@@ -126,6 +126,7 @@ pub fn perform_discovery() {
         // We found hashes that weren't in the cache
         if !new_mods.is_empty() {
             if skyline_web::Dialog::yes_no("New mods have been detected.\nWould you like to enable them?") {
+                todo!("Reimplement new mod discovery so it takes workspaces into account");
                 // Add the new mods to the presets file
                 presets.extend(new_mods);
                 // Save it back
