@@ -41,6 +41,7 @@ mod util;
 
 use fs::PlaceholderFs;
 use smash_arc::Hash40;
+use util::env;
 
 use crate::config::GLOBAL_CONFIG;
 
@@ -76,7 +77,7 @@ macro_rules! reg_w {
 
 /// Basic code for displaying an ARCropolis dialog error informing the user to check their logs, or enable them if they don't currently.
 fn dialog_error<S: AsRef<str>>(msg: S) {
-    if crate::util::env::is_emulator() {
+    if env::is_emulator() {
         if config::file_logging_enabled() {
             error!("{}<br>See the latest log for more information.", msg.as_ref());
         } else {
@@ -216,7 +217,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
     //replacement::lookup::initialize(Some(arc));
-    let mut filesystem = GLOBAL_FILESYSTEM.write();
+    let filesystem = GLOBAL_FILESYSTEM.write();
     // *filesystem = filesystem.take().finish().unwrap();
     // filesystem.process_mods();
     // filesystem.share_hashes();
@@ -241,6 +242,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     // api::event::send_event(Event::ModFilesystemMounted);
 }
 
+// TODO: Rewrite this to make use of my Layout research. This is called every time they change a string in a layout at the moment. This needs to be turned into a inline hook.
 #[skyline::hook(offset = offsets::title_screen_version())]
 fn change_version_string(arg: u64, string: *const c_char) {
     let original_str = unsafe { skyline::from_c_str(string) };

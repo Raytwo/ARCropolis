@@ -161,6 +161,7 @@ fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) -
 }
 
 fn convert_legacy_to_presets() -> HashSet<Hash40> {
+    todo!("Rewrite this to take workspaces into account");
     let mut presets: HashSet<Hash40> = HashSet::new();
 
     if std::path::PathBuf::from(umm_path()).exists() {
@@ -179,7 +180,7 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
                 {
                     presets.insert(Hash40::from(path.to_str().unwrap()));
                 } else {
-                    // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
+                    todo!("Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.");
                     std::fs::rename(
                         path,
                         format!("sd:/ultimate/mods/{}", path.file_name().unwrap().to_str().unwrap()[1..].to_string()),
