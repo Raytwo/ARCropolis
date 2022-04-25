@@ -293,8 +293,10 @@ pub mod workspaces {
         if list.contains_key(&name) {
             Err(WorkspaceError::AlreadyExists)
         } else {
+            todo!("Implement code to generate a preset name");
+            list.insert(name, "temp".to_string());
             let mut storage = super::GLOBAL_CONFIG.write();
-            Ok(())
+            storage.set_field_json("workspace_list", &list).map_err(WorkspaceError::ConfigError)
         }        
     }
 
