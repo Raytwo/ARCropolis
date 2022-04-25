@@ -1,6 +1,10 @@
-use std::{sync::atomic::AtomicBool, path::PathBuf};
+use std::{sync::atomic::AtomicBool, path::PathBuf, io::Write};
 
 use smash_arc::Hash40;
+
+use thiserror::Error;
+
+use crate::hashes;
 
 // pub mod api;
 // mod event;
@@ -282,8 +286,6 @@ static IS_INIT: AtomicBool = AtomicBool::new(false);
 //                 //         None
 //                 //     },
 //                 // }
-
-//                 // get_modded_file(path)
 //                 Some(vec![])
 //             },
 //             None => {
@@ -656,6 +658,7 @@ static IS_INIT: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Default)]
 pub struct PlaceholderFs {
+    fs: Filesystem,
     incoming_file: Option<Hash40>,
     remaining_bytes: usize,
 }
@@ -675,7 +678,7 @@ impl PlaceholderFs {
         self.incoming_file.take()
     }
 
-    pub fn sub_remaining_bytes(&mut self, size: usize) -> Option<Hash40>{
+    pub fn sub_remaining_bytes(&mut self, size: usize) -> Option<Hash40> {
         if size >= self.remaining_bytes {
             self.get_incoming_file()
         } else {
@@ -684,8 +687,56 @@ impl PlaceholderFs {
         }
     }
 
-    pub fn load_file_into<H: Into<Hash40>, B: AsMut<[u8]>>(&self, hash: H, buffer: B) -> Option<usize> {
-        None
+    pub fn load_file_into<H: Into<Hash40>, B: AsMut<[u8]>>(&self, hash: H, mut buffer: B) -> Result<usize, FilesystemError> {
+        let data = self.load(hash)?;
+        buffer.as_mut().write_all(&data)?;
+        Ok(data.len())
+    }
+
+    pub fn load<H: Into<Hash40>>(&self, hash: H) -> Result<Vec<u8>, FilesystemError> {
+        self.fs.get_file_by_hash(hash.into())
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Filesystem;
+
+#[derive(Error, Debug)]
+pub enum FilesystemError {
+    #[error("could not write file to the buffer")]
+    IoError(#[from] std::io::Error),
+    #[error("failed to find the file {} in the filesystem", hashes::find(*.0))]
+    FileMissing(Hash40),
+}
+
+impl Filesystem {
+    pub fn get_file_by_hash<H: Into<Hash40>>(&self, hash: H) -> Result<Vec<u8>, FilesystemError> {
+
+        if let Some(handler) =  acquire_extension_handler(&Hash40::from("placeholder")) {
+            //handler.patch_file(&Vec::new())
+        }
+
+        Err(FilesystemError::FileMissing(hash.into()))
+    }
+}
+
+
+
+pub struct MsbtHandler;
+
+impl ExtensionHandler for MsbtHandler {
+    fn patch_file<B: AsRef<[u8]>>(&self, buffer: B) -> Vec<u8> {
+        todo!()
+    }
+}
+
+pub trait ExtensionHandler {
+    fn patch_file<B: AsRef<[u8]>>(&self, buffer: B) -> Vec<u8>;
+}
+
+pub fn acquire_extension_handler<H: Into<Hash40>>(extension: H) -> Option<()> {
+    match extension.into() {
+        _ => None
     }
 }
 
@@ -698,14 +749,6 @@ impl PlaceholderFs {
 // impl ModFileSource {
 //     pub fn get_file(&self) -> Vec<u8> {
 //         Vec::new()
-//     }
-// }
-
-// pub struct ExtensionHandler;
-
-// impl ExtensionHandler {
-//     pub fn patch(&self) {
-
 //     }
 // }
 
@@ -736,9 +779,4 @@ impl PlaceholderFs {
 //         ModFileSource::Cache => false,
 //         _ => true
 //     }
-// }
-
-// // TODO: Probably take a Hash40 instead, that way we can acquire it from a FilePath?
-// pub fn acquire_extension_handler(extension: &Path) -> Option<ExtensionHandler> {
-//     Some(ExtensionHandler)
 // }
