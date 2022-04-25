@@ -285,6 +285,8 @@ pub mod workspaces {
         ConfigError(#[from] ConfigError),
         #[error("a workspace with this name already exists")]
         AlreadyExists,
+        #[error("failed to find the preset file for this workspace")]
+        MissingPreset,
         // #[error("failed to call from_str for the desired type")]
         // FromStrErr,
     }
@@ -307,11 +309,17 @@ pub mod workspaces {
         }        
     }
 
-    pub fn get_active_workspace() -> String {
+    pub fn set_active_workspace(name: String) -> Result<(), WorkspaceError> {
+        // Make sure that the preset file actually exists and return a custom error if it doesn't
+        todo!()
+    }
+
+    pub fn get_active_workspace() -> Result<String, WorkspaceError> {
         let storage = super::GLOBAL_CONFIG.read();
         let workspace_list = get_list();
         let workspace_name = storage.get_field("workspace").unwrap_or("Default".to_string());
-        "lol, lmao".to_string()
+        // TODO: Make sure that the preset file exists and return a custom error if it doesn't
+        Ok("lol, lmao".to_string())
     }
 }
 
