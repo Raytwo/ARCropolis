@@ -269,14 +269,40 @@ impl ConfigLogger {
 pub mod workspaces {
     use std::collections::HashMap;
 
-    pub fn get_list() -> HashMap<String, String> {
+    use thiserror::Error;
+    use skyline_config::ConfigError;
+
+    #[derive(Error, Debug)]
+    pub enum WorkspaceError {
+        #[error("a configuration error happened: {0}")]
+        ConfigError(#[from] ConfigError),
+        #[error("a workspace with this name already exists")]
+        AlreadyExists,
+        // #[error("failed to call from_str for the desired type")]
+        // FromStrErr,
+    }
+
+    pub fn get_list() -> Result<HashMap<String, String>, WorkspaceError> {
         let storage = super::GLOBAL_CONFIG.read();
-        storage.get_field_json("workspace_list").unwrap_or_default()
+        storage.get_field_json("workspace_list").map_err(WorkspaceError::ConfigError)
+    }
+    
+    pub fn create_new_workspace(name: String) -> Result<(), WorkspaceError> {
+        let mut list = get_list()?;
+
+        if list.contains_key(&name) {
+            Err(WorkspaceError::AlreadyExists)
+        } else {
+            let mut storage = super::GLOBAL_CONFIG.write();
+            Ok(())
+        }        
     }
 
     pub fn get_active_workspace() -> String {
         let storage = super::GLOBAL_CONFIG.read();
-        storage.get_field("workspace").unwrap_or("Default".to_string())
+        let workspace_list = get_list();
+        let workspace_name = storage.get_field("workspace").unwrap_or("Default".to_string());
+        "lol, lmao".to_string()
     }
 }
 
