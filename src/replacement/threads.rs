@@ -33,7 +33,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
     let mut fs = GLOBAL_FILESYSTEM.write();
 
     // Is setting incoming to None needed? Considering take() is called to acquire the incoming hash, it'd already be None.
-    if let Some(path) = fs.get_path_by_hash40(path_hash) {
+    if let Some(path) = fs.get_physical_path(path_hash) {
         info!("Added file '{}' to the queue.", path.display().yellow());
         fs.set_incoming_file(path_hash);
     }

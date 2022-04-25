@@ -36,10 +36,12 @@ owo-colors = "3.0.1"
 strip-ansi-escapes = "0.1.1"
 bincode = "1.3.3"
 # To manage mods
+trees = "0.4.2"
 smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd", "serialize"] }
 arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api" }
 # For arc:/ and mods:/
 nn-fuse = { git = "https://github.com/blu-dev/nn-fuse" }
+# For prcx/prcxml
 prcx = { git = "https://github.com/blu-dev/prcx", branch = "xml-style" }
 # For xmsbt
 xml-rs = "0.8"
@@ -53,7 +55,6 @@ ring = { git = "https://github.com/skyline-rs/ring", branch = "0.16.20" }
 webpki = { git = "https://github.com/skyline-rs/webpki" }
 
 [features]
-default = ["updater"]
 updater = ["zip", "gh-updater"]
 
 [profile.dev]

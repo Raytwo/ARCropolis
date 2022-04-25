@@ -5,6 +5,8 @@ use std::{
 
 use skyline::nn::{self, ro::*};
 use smash_arc::Hash40;
+use trees::{Node, Tree};
+use walkdir::WalkDir;
 
 use crate::{chainloader::*, config};
 
@@ -151,6 +153,7 @@ pub fn perform_discovery() {
     drop(storage);
 
     // TODO: Discovered, conflicting, ignored file operations go here
+    discover_mods("sd:/ultimate/mods");
 
     // TODO: Reimplement NRR stuff
 
@@ -167,6 +170,43 @@ pub fn perform_discovery() {
 
     //load_and_run_plugins(launchpad.collected_paths());
 
+}
+
+pub fn discover_mods<P: AsRef<Path>>(root: P) {
+    let root = root.as_ref();
+
+    WalkDir::new(root).min_depth(1).into_iter().filter_entry(|entry| {
+        let path = entry.path();
+
+        if path.is_dir() {
+            // Ignore directories starting with a period
+            path.file_name()
+                .map(|name| name.to_str())
+                .flatten()
+                .map(|name| !name.starts_with("."))
+                .unwrap_or(false)
+        } else {
+            // Ignore files
+            false
+        }
+    }).map(|entry| {
+        let entry = entry.unwrap();
+
+        // Ignore the directories, only care about the files
+        if entry.file_type().is_file() {
+            depth_first_tree_build(entry.path());
+        }
+    });
+}
+
+// TODO: Have this return a Tree/Forest?
+pub fn depth_first_tree_build<P: AsRef<Path>>(path: P) {
+    let path = path.as_ref();
+
+    println!("Path: {}", path.display());
+
+    let mut test = Tree::<&Path>::new(&Path::new(path.file_name().unwrap().to_str().unwrap()));
+    
 }
 
 // fn mount_prebuilt_nrr<A: FileLoader>(tree: &Tree<A>) -> Result<Option<RegistrationInfo>, NrrRegistrationFailedError>

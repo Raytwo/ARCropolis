@@ -1,8 +1,9 @@
-use std::{sync::atomic::AtomicBool, path::PathBuf, io::Write};
+use std::{sync::atomic::AtomicBool, path::{PathBuf, Path}, io::Write, collections::BTreeMap};
 
 use smash_arc::Hash40;
 
 use thiserror::Error;
+use trees::Tree;
 
 use crate::hashes;
 
@@ -658,13 +659,14 @@ static IS_INIT: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Default)]
 pub struct PlaceholderFs {
-    fs: Filesystem,
+    fs: Modpack,
     incoming_file: Option<Hash40>,
     remaining_bytes: usize,
 }
 
 impl PlaceholderFs {
-    pub fn get_path_by_hash40<H: Into<Hash40>>(&self, hash: H) -> Option<PathBuf> {
+    // NOTE: Some sources such as API callbacks cannot provide a physical path. This needs proper handling
+    pub fn get_physical_path<H: Into<Hash40>>(&self, hash: H) -> Option<PathBuf> {
         None
     }
 
@@ -687,40 +689,41 @@ impl PlaceholderFs {
         }
     }
 
-    pub fn load_file_into<H: Into<Hash40>, B: AsMut<[u8]>>(&self, hash: H, mut buffer: B) -> Result<usize, FilesystemError> {
+    pub fn load_file_into<H: Into<Hash40>, B: AsMut<[u8]>>(&self, hash: H, mut buffer: B) -> Result<usize, ModpackError> {
         let data = self.load(hash)?;
         buffer.as_mut().write_all(&data)?;
         Ok(data.len())
     }
 
-    pub fn load<H: Into<Hash40>>(&self, hash: H) -> Result<Vec<u8>, FilesystemError> {
+    pub fn load<H: Into<Hash40>>(&self, hash: H) -> Result<Vec<u8>, ModpackError> {
         self.fs.get_file_by_hash(hash.into())
     }
 }
 
+/// The user's set of mods presented in a way that makes referencing easy.
+/// Ultimately this should only be used for files physically present, so no API stuff.
 #[derive(Debug, Default)]
-pub struct Filesystem;
+pub struct Modpack;
 
 #[derive(Error, Debug)]
-pub enum FilesystemError {
+pub enum ModpackError {
     #[error("could not write file to the buffer")]
     IoError(#[from] std::io::Error),
     #[error("failed to find the file {} in the filesystem", hashes::find(*.0))]
     FileMissing(Hash40),
 }
 
-impl Filesystem {
-    pub fn get_file_by_hash<H: Into<Hash40>>(&self, hash: H) -> Result<Vec<u8>, FilesystemError> {
+impl Modpack {
+    pub fn get_file_by_hash<H: Into<Hash40>>(&self, hash: H) -> Result<Vec<u8>, ModpackError> {
 
+        // Does not belong here? This should apply to every source
         if let Some(handler) =  acquire_extension_handler(&Hash40::from("placeholder")) {
             //handler.patch_file(&Vec::new())
         }
 
-        Err(FilesystemError::FileMissing(hash.into()))
+        Err(ModpackError::FileMissing(hash.into()))
     }
 }
-
-
 
 pub struct MsbtHandler;
 
