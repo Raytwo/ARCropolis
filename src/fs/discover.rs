@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use parking_lot::RwLock;
 use skyline::nn::{self, ro::*};
 use smash_arc::Hash40;
 use walkdir::WalkDir;
@@ -10,7 +11,7 @@ use crate::fs::interner::Interner;
 
 use crate::{chainloader::*, config};
 
-const MAX_COMPONENT_COUNT: usize = 10;
+pub const MAX_COMPONENT_COUNT: usize = 10;
 
 lazy_static! {
     static ref PRESET_HASHES: HashSet<Hash40> = {
@@ -19,6 +20,8 @@ lazy_static! {
         trace!("Presets count: {}", presets.len());
         presets
     };
+
+    pub static ref INTERNER: RwLock<Interner> = RwLock::new(Interner::new());
 }
 
 pub fn perform_discovery() {
@@ -169,23 +172,22 @@ pub fn perform_discovery() {
 pub fn discover_mods<P: AsRef<Path>>(root: P) {
     let root = root.as_ref();
 
-    let mut interner = Interner::new();
+    let mut interner = INTERNER.write();
 
-    let paths = WalkDir::new(root).min_depth(1).into_iter().filter_entry(|entry| {
+    // TODO: Make sure we don't read files in the root directory
+    let paths = WalkDir::new(root).min_depth(1).into_iter()
+    // Remove all entries that aren't directories in the root ahead of walk
+    .filter_entry(|entry| {
         let path = entry.path();
 
-        if path.is_dir() {
-            // Ignore directories starting with a period
-            path.file_name()
-                .map(|name| name.to_str())
-                .flatten()
-                .map(|name| !name.starts_with("."))
-                .unwrap_or(false)
-        } else {
-            // Ignore files
-            false
-        }
-    }).filter_map(|entry| {
+        path.file_name()
+            .map(|name| name.to_str())
+            .flatten()
+            // TODO: Restore this for legacy discovery - Ignore directories starting with a period
+            .map(|name| !name.starts_with("."))
+            .unwrap_or(false)
+    })
+    .filter_map(|entry| {
         let entry = entry.unwrap();
 
         // Ignore the directories, only care about the files

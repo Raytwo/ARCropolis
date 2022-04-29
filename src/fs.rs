@@ -1,10 +1,12 @@
-use std::{sync::atomic::AtomicBool, path::{PathBuf, Path}, io::Write, collections::BTreeMap};
+use std::{sync::atomic::AtomicBool, path::{PathBuf, Path}, io::Write, collections::{BTreeMap, HashMap}};
 
 use smash_arc::Hash40;
 
 use thiserror::Error;
 
 use crate::hashes;
+
+use self::interner::InternedPath;
 
 // pub mod api;
 // mod event;
@@ -657,7 +659,7 @@ static IS_INIT: AtomicBool = AtomicBool::new(false);
 //     }
 // }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct PlaceholderFs {
     fs: Modpack,
     incoming_file: Option<Hash40>,
@@ -702,8 +704,8 @@ impl PlaceholderFs {
 
 /// The user's set of mods presented in a way that makes referencing easy.
 /// Ultimately this should only be used for files physically present, so no API stuff.
-#[derive(Debug, Default)]
-pub struct Modpack;
+#[derive(Default)]
+pub struct Modpack(HashMap<Hash40, InternedPath::<{discover::MAX_COMPONENT_COUNT}>>);
 
 #[derive(Error, Debug)]
 pub enum ModpackError {
@@ -715,13 +717,20 @@ pub enum ModpackError {
 
 impl Modpack {
     pub fn get_file_by_hash<H: Into<Hash40>>(&self, hash: H) -> Result<Vec<u8>, ModpackError> {
+        let hash = hash.into();
+        let interner = discover::INTERNER.read();
 
-        // Does not belong here? This should apply to every source
-        if let Some(handler) =  acquire_extension_handler(&Hash40::from("placeholder")) {
-            //handler.patch_file(&Vec::new())
+        match self.0.get(&hash).map(|interned| interned.to_string(&interner)) {
+            Some(path) => {
+                // Does not belong here? This should apply to every source
+                if let Some(handler) =  acquire_extension_handler(&Hash40::from("placeholder")) {
+                    //handler.patch_file(&Vec::new())
+                }
+                
+                Ok(std::fs::read(path)?)
+            },
+            None => Err(ModpackError::FileMissing(hash)),
         }
-
-        Err(ModpackError::FileMissing(hash.into()))
     }
 }
 
