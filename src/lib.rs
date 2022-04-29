@@ -165,6 +165,7 @@ fn get_smash_hash<P: AsRef<Path>>(path: P) -> Result<Hash40, InvalidOsStrError> 
     path.as_ref().smash_hash()
 }
 
+
 fn get_path_from_hash(hash: Hash40) -> PathBuf {
     if let Some(string) = hashes::try_find(hash) {
         PathBuf::from(string)
