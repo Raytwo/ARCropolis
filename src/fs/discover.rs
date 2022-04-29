@@ -5,10 +5,12 @@ use std::{
 
 use skyline::nn::{self, ro::*};
 use smash_arc::Hash40;
-use trees::{Node, Tree};
 use walkdir::WalkDir;
+use crate::fs::interner::Interner;
 
 use crate::{chainloader::*, config};
+
+const MAX_COMPONENT_COUNT: usize = 10;
 
 lazy_static! {
     static ref PRESET_HASHES: HashSet<Hash40> = {
@@ -167,7 +169,9 @@ pub fn perform_discovery() {
 pub fn discover_mods<P: AsRef<Path>>(root: P) {
     let root = root.as_ref();
 
-    WalkDir::new(root).min_depth(1).into_iter().filter_entry(|entry| {
+    let mut interner = Interner::new();
+
+    let paths = WalkDir::new(root).min_depth(1).into_iter().filter_entry(|entry| {
         let path = entry.path();
 
         if path.is_dir() {
@@ -181,24 +185,17 @@ pub fn discover_mods<P: AsRef<Path>>(root: P) {
             // Ignore files
             false
         }
-    }).map(|entry| {
+    }).filter_map(|entry| {
         let entry = entry.unwrap();
 
         // Ignore the directories, only care about the files
         if entry.file_type().is_file() {
-            depth_first_tree_build(entry.path());
+            (entry.path().components().count() <= MAX_COMPONENT_COUNT).then(|| interner.add_path::<MAX_COMPONENT_COUNT>(entry.path()))
         }
-    });
-}
-
-// TODO: Have this return a Tree/Forest?
-pub fn depth_first_tree_build<P: AsRef<Path>>(path: P) {
-    let path = path.as_ref();
-
-    println!("Path: {}", path.display());
-
-    let mut test = Tree::<&Path>::new(&Path::new(path.file_name().unwrap().to_str().unwrap()));
-    
+        else {
+            None
+        }
+    }).take(10000).collect::<Vec<_>>();
 }
 
 // fn mount_prebuilt_nrr<A: FileLoader>(tree: &Tree<A>) -> Result<Option<RegistrationInfo>, NrrRegistrationFailedError>

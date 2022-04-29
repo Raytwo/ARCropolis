@@ -3,7 +3,6 @@ use std::{sync::atomic::AtomicBool, path::{PathBuf, Path}, io::Write, collection
 use smash_arc::Hash40;
 
 use thiserror::Error;
-use trees::Tree;
 
 use crate::hashes;
 
@@ -11,6 +10,7 @@ use crate::hashes;
 // mod event;
 
 mod discover;
+pub mod interner;
 // pub use discover::*;
 // pub mod loaders;
 // pub use loaders::*;
