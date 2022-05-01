@@ -1,5 +1,5 @@
 use std::{
-    collections::HashSet,
+    collections::{HashSet, HashMap},
     path::{Path, PathBuf},
 };
 
@@ -10,6 +10,8 @@ use walkdir::WalkDir;
 use crate::fs::interner::Interner;
 
 use crate::{chainloader::*, config};
+
+use super::{interner::InternedPath, Mod, Modpack};
 
 pub const MAX_COMPONENT_COUNT: usize = 10;
 
@@ -150,7 +152,16 @@ pub fn perform_discovery() {
     drop(storage);
 
     // TODO: Discovered, conflicting, ignored file operations go here
+    let mut fs = crate::GLOBAL_FILESYSTEM.write();
+    //let paths = discover("sd:/ultimate/mods");
     discover_mods("sd:/ultimate/mods");
+    
+    // let interner = INTERNER.read();
+
+    // for path in paths {
+    //     println!("{}", path.to_string(&interner));
+    // }
+    
 
     // TODO: Reimplement NRR stuff
 
@@ -169,35 +180,104 @@ pub fn perform_discovery() {
 
 }
 
-pub fn discover_mods<P: AsRef<Path>>(root: P) {
+/// Utility method to know if a path shouldn't be checked for conflicts
+pub fn is_collectable(x: &Path) -> bool {
+    match x.file_name() {
+        Some(name) if let Some(name) = name.to_str() => {
+            static RESERVED_NAMES: &[&'static str] = &[
+                "config.json",
+                "plugin.nro",
+            ];
+
+            static PATCH_EXTENSIONS: &[&'static str] = &[
+                "prcx",
+                "prcxml",
+                "stdatx",
+                "stdatxml",
+                "stprmx",
+                "stprmxml",
+                "xmsbt"
+            ];
+
+            RESERVED_NAMES.contains(&name) || PATCH_EXTENSIONS.iter().any(|x| name.ends_with(x))
+        },
+        _ => false
+    }
+}
+
+pub fn discover_in_mods<P: AsRef<Path>>(root: P) -> Mod {
     let root = root.as_ref();
 
     let mut interner = INTERNER.write();
 
-    // TODO: Make sure we don't read files in the root directory
-    let paths = WalkDir::new(root).min_depth(1).into_iter()
-    // Remove all entries that aren't directories in the root ahead of walk
-    .filter_entry(|entry| {
-        let path = entry.path();
+    let mut files: Vec<PathBuf> = Vec::new();
+    let mut patches: Vec<PathBuf> = Vec::new();
 
-        path.file_name()
-            .map(|name| name.to_str())
-            .flatten()
-            // TODO: Restore this for legacy discovery - Ignore directories starting with a period
-            .map(|name| !name.starts_with("."))
-            .unwrap_or(false)
-    })
-    .filter_map(|entry| {
+    WalkDir::new(root).min_depth(1).into_iter()
+    .for_each(|entry| {
         let entry = entry.unwrap();
 
         // Ignore the directories, only care about the files
         if entry.file_type().is_file() {
-            (entry.path().components().count() <= MAX_COMPONENT_COUNT).then(|| interner.add_path::<MAX_COMPONENT_COUNT>(entry.path()))
+            let path = entry.path();
+
+            // Is it one of the paths that we need to keep track of? (plugin, config, patches, ...)
+            if is_collectable(path) {
+                patches.push(path.into());
+            } else {
+                // TODO: Handle files to ignore, such as files with a mismatching region
+                let (path, region) = crate::strip_region_from_path(path);
+                println!("Path `{}` with Region: {:?}", path.display(), &region);
+                // TODO: Try to handle a case where we have both a regional and non-regional copy for the same file and have the regional one prevail. Maybe sort the paths by length in ascending order so we always get the regional one last?
+
+                // Turn the path into a InternedPath
+                // TODO: Probably move this in discover_mods, so we don't store components in the interner only for the path to be rejected because of conflicts.
+                // if path.components().count() <= MAX_COMPONENT_COUNT {
+                //     interner.add_path::<MAX_COMPONENT_COUNT>(path);
+                // }
+
+                files.push(path.into());
+            }
         }
-        else {
-            None
-        }
-    }).take(10000).collect::<Vec<_>>();
+    });
+
+    Mod {
+        files,
+        patches
+    }
+}
+
+pub fn discover_mods<P: AsRef<Path>>(root: P) {
+    let root = root.as_ref();
+
+    let files: HashMap<Hash40, PathBuf> = HashMap::new(); 
+
+    let paths = WalkDir::new(root).min_depth(1).max_depth(1).into_iter()
+    .filter_entry(|entry| {
+        // Make sure we ignore files if they are in the same directory where mods are stored
+        entry.file_type().is_dir()
+    })
+    .map(|entry| {
+        let entry = entry.unwrap();
+
+        let mod_files = discover_in_mods(entry.path());
+
+        // TODO: Check for conflicts
+        //let new_mods: HashMap<&Hash40> = new_cache.iter().filter(|cached_mod| !mod_cache.contains(cached_mod)).collect();
+
+        // The folowwing is only for debugging purposes, remove this when we're done 
+        // println!("Mod directory: {}", entry.path().display());
+
+        // let interner = INTERNER.read();
+
+        // for path in paths {
+        //     println!("{}", path.to_string(&interner));
+        // }
+    }).collect::<Vec<_>>();
+
+    // Modpack {
+    //     files
+    // }
 }
 
 // fn mount_prebuilt_nrr<A: FileLoader>(tree: &Tree<A>) -> Result<Option<RegistrationInfo>, NrrRegistrationFailedError>

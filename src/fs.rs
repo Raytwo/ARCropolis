@@ -13,7 +13,7 @@ use self::interner::InternedPath;
 
 mod discover;
 pub mod interner;
-// pub use discover::*;
+pub use discover::*;
 // pub mod loaders;
 // pub use loaders::*;
 
@@ -705,7 +705,9 @@ impl PlaceholderFs {
 /// The user's set of mods presented in a way that makes referencing easy.
 /// Ultimately this should only be used for files physically present, so no API stuff.
 #[derive(Default)]
-pub struct Modpack(HashMap<Hash40, InternedPath::<{discover::MAX_COMPONENT_COUNT}>>);
+pub struct Modpack {
+    files: HashMap<Hash40, InternedPath::<{discover::MAX_COMPONENT_COUNT}>>
+}
 
 #[derive(Error, Debug)]
 pub enum ModpackError {
@@ -720,7 +722,7 @@ impl Modpack {
         let hash = hash.into();
         let interner = discover::INTERNER.read();
 
-        match self.0.get(&hash).map(|interned| interned.to_string(&interner)) {
+        match self.files.get(&hash).map(|interned| interned.to_string(&interner)) {
             Some(path) => {
                 // Does not belong here? This should apply to every source
                 if let Some(handler) =  acquire_extension_handler(&Hash40::from("placeholder")) {
@@ -732,6 +734,11 @@ impl Modpack {
             None => Err(ModpackError::FileMissing(hash)),
         }
     }
+}
+
+pub struct Mod {
+    files: Vec<PathBuf>,
+    patches: Vec<PathBuf>
 }
 
 pub struct MsbtHandler;

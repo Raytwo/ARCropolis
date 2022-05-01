@@ -43,7 +43,7 @@ mod update;
 mod util;
 
 use fs::PlaceholderFs;
-use smash_arc::Hash40;
+use smash_arc::{Hash40, Region};
 use util::env;
 
 use crate::config::GLOBAL_CONFIG;
@@ -178,6 +178,54 @@ fn get_path_from_hash(hash: Hash40) -> PathBuf {
     }
 }
 
+fn get_region_from_suffix(suffix: &str) -> Option<Region> {
+    const REGIONS: &[&str] = &[
+            "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
+            "eu_ru", "kr_ko", "zh_cn", "zh_tw",
+        ];
+
+    let region = Region::from(
+        REGIONS
+        .iter()
+        .position(|&x| {
+            x == suffix
+        })
+        .map(|x| (x + 1) as u32).unwrap_or(0));
+
+
+    // In this case, having a None region is the same as saying the provided region is incorrect.
+    match region {
+        Region::None => None,
+        _ => Some(region),
+    }
+}
+
+pub fn get_region_from_path<P: AsRef<Path>>(path: P) -> Option<Region> {
+    let filename = path.as_ref().file_name().unwrap().to_str().unwrap();
+
+    if let Some(index) = filename.find("+") {
+        // The rest of the filename is dropped, as we don't need it here
+        let (_, end) = filename.split_at(index + 1);
+        get_region_from_suffix(end)
+    } else {
+        None
+    }
+}
+
+pub fn strip_region_from_path<P: AsRef<Path>>(path: P) -> (PathBuf, Option<Region>) {
+    let mut path = path.as_ref().to_str().unwrap().to_string();
+
+    if let Some(index) = path.find("+") {
+        // TODO: Make this more reliable by getting the position of the period too.
+        let region = get_region_from_suffix(&path[index + 1..index + 6]);
+        path.replace_range(index..index + 6, "");
+
+        (path.into(), region)
+    } else{
+        (path.into(), None)
+    }
+}
+
 /// Initializes the `nn::time` library, for creating a log file based off of the current time. For some reason Smash does not initialize this
 fn init_time() {
     unsafe {
@@ -219,7 +267,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
     //replacement::lookup::initialize(Some(arc));
-    let filesystem = GLOBAL_FILESYSTEM.write();
+    //let filesystem = GLOBAL_FILESYSTEM.write();
     // *filesystem = filesystem.take().finish().unwrap();
     // filesystem.process_mods();
     // filesystem.share_hashes();
@@ -252,9 +300,9 @@ fn change_version_string(arg: u64, string: *const c_char) {
     if original_str.contains("Ver.") {
         let new_str = format!("Smash {}\nARCropolis Ver. {}\0", original_str, env!("CARGO_PKG_VERSION"));
 
-        original!()(arg, skyline::c_str(&new_str))
+        call_original!(arg, skyline::c_str(&new_str))
     } else {
-        original!()(arg, string)
+        call_original!(arg, string)
     }
 }
 
@@ -314,6 +362,14 @@ pub fn main() {
     //         })
     //         .unwrap(),
     // );
+
+    std::thread::Builder::new()
+            .stack_size(0x40000)
+            .spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(5000));
+                fs::perform_discovery()
+            })
+            .unwrap();
 
     // let resources = std::thread::Builder::new()
     //     .stack_size(0x40000)
