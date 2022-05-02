@@ -5,6 +5,7 @@
 #![feature(map_try_insert)] // for not overwriting previously stored hashes
 #![feature(vec_into_raw_parts)]
 #![allow(unaligned_references)]
+#![feature(string_remove_matches)]
 #![feature(allocator_api)]
 
 use std::{
