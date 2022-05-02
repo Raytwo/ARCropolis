@@ -65,8 +65,8 @@ impl FileSystemAccessor for ArcFuse {
         for region in REGIONS.iter() {
             if path.file_name().unwrap().to_string_lossy().contains(region) {
                 let mut new_path = path.display().to_string();
-                let region_string = format!("+{}", region);
-                new_path.remove_matches(region_string);
+                let mut region_string = format!("+{}", region);
+                new_path.remove_matches(&region_string);
                 file_region = Region::from_str(region).unwrap();
                 let path = std::path::Path::new(&new_path);
             }
