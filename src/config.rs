@@ -110,12 +110,8 @@ lazy_static! {
     };
 
     static ref REGION: Region = {
-        const REGIONS: &[&str] = &[
-            "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
-            "eu_ru", "kr_ko", "zh_cn", "zh_tw",
-        ];
 
-        Region::from(REGIONS.iter().position(|&x| {
+        Region::from(crate::REGIONS.iter().position(|&x| {
             x == &region_str()
         }).map(|x| (x + 1) as u32).unwrap_or(0))
     };

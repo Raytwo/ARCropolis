@@ -56,15 +56,11 @@ impl FileSystemAccessor for ArcFuse {
         let read = mode >> 0 & 1;
         let write = mode >> 1 & 1;
         let append = mode >> 2 & 1;
-        const REGIONS: &[&str] = &[
-            "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
-            "eu_ru", "kr_ko", "zh_cn", "zh_tw",
-        ];
         debug!("Path: {}, read: {}, write: {}, append: {}", path.display(), read, write, append);
         let mut file_region = crate::config::region();
-        for region in REGIONS.iter() {
-            if path.file_name().unwrap().to_string_lossy().contains(region) {
-                let mut new_path = path.display().to_string();
+        let mut new_path = path.display().to_string();
+        for region in crate::REGIONS.iter() {
+            if new_path.contains(region) {
                 let mut region_string = format!("+{}", region);
                 new_path.remove_matches(&region_string);
                 file_region = Region::from_str(region).unwrap();
