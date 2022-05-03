@@ -1,9 +1,10 @@
 use std::{
     collections::{HashSet, HashMap},
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, iter::FromIterator,
 };
 
 use parking_lot::RwLock;
+use serde::Serialize;
 use skyline::nn::{self, ro::*};
 use smash_arc::Hash40;
 use walkdir::WalkDir;
@@ -226,11 +227,12 @@ pub fn discover_in_mods<P: AsRef<Path>>(root: P) -> Mod {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Hash, Eq, Serialize)]
 pub struct Conflict {
+    #[serde(rename = "Conflicting mod")] 
     conflicting_mod: PathBuf,
+    #[serde(rename = "Conflicting with")] 
     conflict_with: PathBuf,
-    conflicting_files: Vec<PathBuf>
 }
 
 pub fn discover_mods<P: AsRef<Path>>(root: P) {
@@ -239,7 +241,8 @@ pub fn discover_mods<P: AsRef<Path>>(root: P) {
     let mut interner = INTERNER.write();
 
     let mut files: HashMap<Hash40, PathBuf> = HashMap::new();
-    let mut conflict_list: Vec<Conflict> = Vec::new();
+    
+    let mut conflict_list: HashMap<Conflict, Vec<PathBuf>> = HashMap::new();
 
     WalkDir::new(root).min_depth(1).max_depth(1).into_iter()
     .filter_entry(|entry| {
@@ -256,18 +259,24 @@ pub fn discover_mods<P: AsRef<Path>>(root: P) {
 
         // If any file is conflicting with what we already have found, discard this mod and warn the user.
         if !conflicts.is_empty() {
-            // Get the first conflicting file to work with
-            let (hash, full_path) = conflicts.iter().next().unwrap();
-            // The part of the path that is used to navigate data.arc
-            let local_path = full_path.strip_prefix(entry.path()).unwrap();
-            // Get the root of the mod we're conflicting with
-            let first_mod_root = files.get(hash).unwrap().to_str().unwrap().strip_suffix(local_path.to_str().unwrap()).unwrap();
+            conflicts.iter().for_each(|(hash, full_path)| {
+                // The part of the path that is used to navigate data.arc
+                let local_path = full_path.strip_prefix(entry.path()).unwrap();
+                // Get the root of the mod we're conflicting with
+                let first_mod_root = files.get(hash).unwrap().to_str().unwrap().strip_suffix(local_path.to_str().unwrap()).unwrap();
 
-            conflict_list.push(Conflict {
-                conflicting_mod: entry.path().to_path_buf(),
-                conflict_with: first_mod_root.into(),
-                conflicting_files: conflicts.values().map(PathBuf::from).collect(),
-            })
+                let conflict = Conflict {
+                    conflicting_mod: entry.path().strip_prefix("sd:/ultimate/mods/").unwrap().into(),
+                    conflict_with: first_mod_root.strip_prefix("sd:/ultimate/mods/").unwrap().trim_end_matches("/").into(),
+                };
+
+                match conflict_list.get_mut(&conflict) {
+                    // We already have an existing conflict for these two mods, so add the file to that list
+                    Some(entries) => entries.push(local_path.into()),
+                    // There wasn't an existing conflict yet, add it to the list
+                    None => { conflict_list.insert(conflict, vec![local_path.into()]); },
+                }
+            });
         } else {
             // The following is only for debugging purposes, remove this when we're done 
             println!("Mod directory: {}", entry.path().display());
@@ -284,7 +293,9 @@ pub fn discover_mods<P: AsRef<Path>>(root: P) {
         // }
     });
 
-    dbg!(conflict_list);
+    //dbg!(conflict_list);
+    let yaml = serde_yaml::to_string(&Vec::from_iter(conflict_list.iter())).unwrap();
+    std::fs::write("sd:/ultimate/arcropolis/conflicts.txt", yaml.as_bytes()).unwrap();
 
     // Modpack {
     //     files
