@@ -5,7 +5,8 @@
 #![feature(map_try_insert)] // for not overwriting previously stored hashes
 #![feature(vec_into_raw_parts)]
 #![allow(unaligned_references)]
-#![feature(string_remove_matches)]
+#![feature(allocator_api)]
+#![feature(hash_drain_filter)]
 
 use std::{
     fmt,
@@ -153,11 +154,9 @@ impl PathExtension for Path {
             .replace(";", ":")
             .replace(".mp4", ".webm");
 
-        if let Some(regional_idx) = path.find("+") {
-            path.replace_range(regional_idx..regional_idx + 6, "")
-        }
+        let (path, _) = strip_region_from_path(path);
 
-        Ok(Hash40::from(path.trim_start_matches("/")))
+        Ok(Hash40::from(path.to_str().unwrap().to_string().trim_start_matches("/")))
     }
 }
 
