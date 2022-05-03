@@ -20,7 +20,7 @@ thiserror = "1.0.30"
 lazy_static = "1.4.0"
 # Switch utilities
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
-skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
+skyline-web = { git = "https://github.com/skyline-rs/skyline-web", optional = true }
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }
 # For the updater
@@ -56,6 +56,7 @@ webpki = { git = "https://github.com/skyline-rs/webpki" }
 
 [features]
 updater = ["zip", "gh-updater"]
+web = ["skyline-web"]
 
 [profile.dev]
 panic = "abort"

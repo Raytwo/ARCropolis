@@ -35,6 +35,7 @@ pub fn perform_discovery() {
 
     let legacy_discovery = config::legacy_discovery();
 
+    #[cfg(web)]
     if !is_emulator {
         // Open the ARCropolis menu if Minus is held before mod discovery
         if ninput::any::is_down(ninput::Buttons::PLUS) {
@@ -42,6 +43,7 @@ pub fn perform_discovery() {
         }
     }
 
+    // Maybe have some sort of FileWalker trait and two implementations for both legacy and modern? Sounds a bit overengineered but it'd allow for more fine-tuning per system.
     let filter = |path: &Path| {
         // If we're not running on emulator
         if !is_emulator && !legacy_discovery {
@@ -124,6 +126,7 @@ pub fn perform_discovery() {
         let new_mods: HashSet<&Hash40> = new_cache.iter().filter(|cached_mod| !mod_cache.contains(cached_mod)).collect();
 
         // We found hashes that weren't in the cache
+        #[cfg(feature = "web")]
         if !new_mods.is_empty() {
             if skyline_web::Dialog::yes_no("New mods have been detected.\nWould you like to enable them?") {
                 todo!("Reimplement new mod discovery so it takes workspaces into account");
@@ -143,6 +146,7 @@ pub fn perform_discovery() {
     let mut storage = config::GLOBAL_CONFIG.write();
 
     if storage.get_flag("first_boot") {
+        #[cfg(feature = "web")]
         if skyline_web::Dialog::yes_no("A default configuration for ARCropolis has been created.<br>It is important that both your region & language in this config match your Smash copy.<br>By default, it is set to American English. Would you like to adjust it?") {
             crate::menus::show_config_editor(&mut storage);
         }

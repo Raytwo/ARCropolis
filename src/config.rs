@@ -79,6 +79,7 @@ lazy_static! {
 
                             // Ryujinx cannot show the web browser, and a second check is performed during file discovery
                             if !env::is_emulator() {
+                                #[cfg(feature = "web")]
                                 if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?<br>It offers advantages such as:<br>* Mod manager on the eShop button<br>* Separate enabled mods per user profile<br><br>If you accept, disabled mods will be renamed to strip the period.") {
                                     storage.set_field_json("presets", &convert_legacy_to_presets());
                                 } else {

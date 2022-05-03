@@ -33,6 +33,7 @@ mod fs;
 mod fuse;
 mod hashes;
 mod logging;
+#[cfg(feature = "web")]
 mod menus;
 mod offsets;
 mod remote;
@@ -90,9 +91,9 @@ fn dialog_error<S: AsRef<str>>(msg: S) {
         }
     } else {
         if config::file_logging_enabled() {
-            skyline_web::DialogOk::ok(format!("{}<br>See the latest log for more information.", msg.as_ref()));
+            api::show_dialog(&format!("{}<br>See the latest log for more information.", msg.as_ref()));
         } else {
-            skyline_web::DialogOk::ok(format!("{}<br>Enable file logging and run again for more information.", msg.as_ref()));
+            api::show_dialog(&format!("{}<br>Enable file logging and run again for more information.", msg.as_ref()));
         }
     }
 }
@@ -201,6 +202,7 @@ fn get_region_from_suffix(suffix: &str) -> Option<Region> {
 }
 
 pub fn get_region_from_path<P: AsRef<Path>>(path: P) -> Option<Region> {
+    // Take the filename so we don't have to deal with the extension
     let filename = path.as_ref().file_name().unwrap().to_str().unwrap();
 
     if let Some(index) = filename.find("+") {
@@ -215,12 +217,12 @@ pub fn get_region_from_path<P: AsRef<Path>>(path: P) -> Option<Region> {
 pub fn strip_region_from_path<P: AsRef<Path>>(path: P) -> (PathBuf, Option<Region>) {
     let mut path = path.as_ref().to_str().unwrap().to_string();
 
-    if let Some(index) = path.find("+") {
-        // TODO: Make this more reliable by getting the position of the period too.
-        let region = get_region_from_suffix(&path[index + 1..index + 6]);
-        path.replace_range(index..index + 6, "");
-
-        (path.into(), region)
+    if let Some(index) = path.rfind("+") {
+        // TODO: Need to make sure the file has an extension. Probably return a Result instead
+        let period = path.rfind(".").unwrap();
+        let region: String = path.drain(index..period).collect();
+        // Remove the +
+        (path.into(), get_region_from_suffix(&region[1..]))
     } else{
         (path.into(), None)
     }
@@ -244,6 +246,8 @@ fn get_version_string() -> String {
     }
 }
 
+// TODO: Move this to menu.rs
+#[cfg(feature = "web")]
 fn check_for_changelog() {
     if let Ok(changelog) = std::fs::read_to_string("sd:/ultimate/arcropolis/changelog.toml") {
         match toml::from_str(&changelog) {
@@ -256,6 +260,11 @@ fn check_for_changelog() {
             },
         }
     }
+}
+
+#[cfg(not(feature = "web"))]
+fn check_for_changelog() {
+    println!("check_for_changelog called but web feature is disabled.");
 }
 
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
@@ -326,6 +335,7 @@ fn show_eshop() {
         // stop_all_bgm();
         // let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
         // play_bgm(instance as _, 0xd9ffff202a04c55b, false);
+        #[cfg(feature = "web")]
         menus::show_main_menu();
         // play_menu_bgm();
     }
