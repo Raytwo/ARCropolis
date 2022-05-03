@@ -737,7 +737,7 @@ impl Modpack {
 }
 
 pub struct Mod {
-    files: Vec<PathBuf>,
+    files: HashMap<Hash40, PathBuf>,
     patches: Vec<PathBuf>
 }
 
