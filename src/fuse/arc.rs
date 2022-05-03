@@ -61,7 +61,7 @@ impl FileSystemAccessor for ArcFuse {
             "eu_ru", "kr_ko", "zh_cn", "zh_tw",
         ];
         debug!("Path: {}, read: {}, write: {}, append: {}", path.display(), read, write, append);
-        let mut file_region = Region::UsEnglish;
+        let mut file_region = crate::config::region();
         for region in REGIONS.iter() {
             if path.file_name().unwrap().to_string_lossy().contains(region) {
                 let mut new_path = path.display().to_string();
