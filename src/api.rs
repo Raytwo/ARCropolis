@@ -31,8 +31,14 @@ pub extern "C" fn arcrop_api_version() -> &'static ApiVersion {
     &API_VERSION
 }
 
+#[cfg(feature = "web")]
 pub fn show_dialog(text: &str) {
     skyline_web::DialogOk::ok(text);
+}
+
+#[cfg(not(feature = "web"))]
+pub fn show_dialog(text: &str) {
+    skyline::error::show_error(69, text, text);
 }
 
 #[no_mangle]
