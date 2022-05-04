@@ -1,7 +1,8 @@
 use std::io::Write;
+use std::str::FromStr;
 
 use nn_fuse::{AccessorResult, DAccessor, DirectoryAccessor, FAccessor, FileAccessor, FileSystemAccessor, FsAccessor, FsEntryType};
-use smash_arc::{ArcFile, ArcLookup, Hash40};
+use smash_arc::{ArcFile, ArcLookup, Hash40, Region};
 
 use crate::PathExtension;
 
@@ -9,19 +10,19 @@ lazy_static! {
     static ref ARC_FILE: ArcFile = { ArcFile::open("rom:/data.arc").unwrap() };
 }
 
-pub struct ArcFileAccessor(Hash40);
+pub struct ArcFileAccessor(Hash40, Region);
 
 impl FileAccessor for ArcFileAccessor {
     fn read(&mut self, mut buffer: &mut [u8], offset: usize) -> Result<usize, AccessorResult> {
         debug!("ArcFileAccessor::read - Buffer length: {:x}", buffer.len());
-        let file = ARC_FILE.get_file_contents(self.0, smash_arc::Region::UsEnglish).unwrap();
+        let file = ARC_FILE.get_file_contents(self.0, self.1).unwrap();
         Ok(buffer.write(&file.as_slice()[offset..]).unwrap())
     }
 
     fn get_size(&mut self) -> Result<usize, AccessorResult> {
         debug!("ArcFileAccessor::get_size");
         Ok(ARC_FILE
-            .get_file_data_from_hash(self.0, smash_arc::Region::UsEnglish)
+            .get_file_data_from_hash(self.0, self.1)
             .unwrap()
             .decomp_size as _)
     }
@@ -55,14 +56,25 @@ impl FileSystemAccessor for ArcFuse {
         let read = mode >> 0 & 1;
         let write = mode >> 1 & 1;
         let append = mode >> 2 & 1;
-
         debug!("Path: {}, read: {}, write: {}, append: {}", path.display(), read, write, append);
+        let mut file_region = crate::config::region();
+        let mut new_path = path.display().to_string();
+        for region in crate::REGIONS.iter() {
+            if new_path.contains(region) {
+                let mut region_string = format!("+{}", region);
+                new_path.remove_matches(&region_string);
+                file_region = Region::from_str(region).unwrap();
+                let path = std::path::Path::new(&new_path);
+            }
+        }
 
         let hash = path.smash_hash().unwrap();
-
+        if !ARC_FILE.get_file_info_from_hash(hash).unwrap().flags.is_regional() {
+            file_region = Region::None;
+        }
         if read != 0 {
             if ARC_FILE.get_file_path_index_from_hash(hash).is_ok() {
-                Ok(FAccessor::new(ArcFileAccessor(hash), mode))
+                Ok(FAccessor::new(ArcFileAccessor(hash, file_region), mode))
             } else {
                 Err(AccessorResult::PathNotFound)
             }

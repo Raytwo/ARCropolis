@@ -5,6 +5,7 @@
 #![feature(map_try_insert)] // for not overwriting previously stored hashes
 #![feature(vec_into_raw_parts)]
 #![allow(unaligned_references)]
+#![feature(string_remove_matches)]
 #![feature(allocator_api)]
 
 use std::{
@@ -182,6 +183,10 @@ fn get_path_from_hash(hash: Hash40) -> PathBuf {
     }
 }
 
+pub const REGIONS: &[&str] = &[
+    "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
+    "eu_ru", "kr_ko", "zh_cn", "zh_tw",
+];
 /// Initializes the `nn::time` library, for creating a log file based off of the current time. For some reason Smash does not initialize this
 fn init_time() {
     unsafe {
