@@ -8,7 +8,7 @@ use serde::Serialize;
 use skyline::nn::{self, ro::*};
 use smash_arc::Hash40;
 use walkdir::WalkDir;
-use crate::{fs::interner::Interner, PathExtension};
+use crate::{fs::{interner::Interner, Conflict}, PathExtension};
 
 use crate::{chainloader::*, config};
 
@@ -227,22 +227,14 @@ pub fn discover_in_mods<P: AsRef<Path>>(root: P) -> Mod {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Hash, Eq, Serialize)]
-pub struct Conflict {
-    #[serde(rename = "Conflicting mod")] 
-    conflicting_mod: PathBuf,
-    #[serde(rename = "Conflicting with")] 
-    conflict_with: PathBuf,
-}
-
 pub fn discover_mods<P: AsRef<Path>>(root: P) {
     let root = root.as_ref();
 
     let mut interner = INTERNER.write();
 
     let mut files: HashMap<Hash40, PathBuf> = HashMap::new();
-    
     let mut conflict_list: HashMap<Conflict, Vec<PathBuf>> = HashMap::new();
+    let mut patches = Vec::new();
 
     WalkDir::new(root).min_depth(1).max_depth(1).into_iter()
     .filter_entry(|entry| {
@@ -281,7 +273,8 @@ pub fn discover_mods<P: AsRef<Path>>(root: P) {
             // The following is only for debugging purposes, remove this when we're done 
             println!("Mod directory: {}", entry.path().display());
 
-            files.extend(dbg!(mod_files.files));
+            files.extend(mod_files.files);
+            patches.extend(mod_files.patches);
         }
 
         // for path in paths {
@@ -296,6 +289,10 @@ pub fn discover_mods<P: AsRef<Path>>(root: P) {
     //dbg!(conflict_list);
     let yaml = serde_yaml::to_string(&Vec::from_iter(conflict_list.iter())).unwrap();
     std::fs::write("sd:/ultimate/arcropolis/conflicts.txt", yaml.as_bytes()).unwrap();
+
+    dbg!(files);
+    dbg!(patches);
+    dbg!(conflict_list);
 
     // Modpack {
     //     files
@@ -321,93 +318,91 @@ pub fn discover_mods<P: AsRef<Path>>(root: P) {
 
 //     fighter_nro_nrr.register()
 
-pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
-    let mut plugin_nrr = NrrBuilder::new();
+// pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
+//     let mut plugin_nrr = NrrBuilder::new();
 
-    let modules: Vec<NroBuilder> = plugins
-        .iter()
-        .filter_map(|(root, local)| {
-            let full_path = root.join(local);
+//     let modules: Vec<NroBuilder> = plugins
+//         .iter()
+//         .filter_map(|(root, local)| {
+//             let full_path = root.join(local);
 
-            if full_path.exists() && full_path.ends_with("plugin.nro") {
-                match NroBuilder::open(&full_path) {
-                    Ok(builder) => {
-                        info!("Loaded plugin at '{}' for chainloading.", full_path.display());
-                        plugin_nrr.add_module(&builder);
-                        Some(builder)
-                    },
-                    Err(e) => {
-                        error!("Failed to load plugin at '{}'. {:?}", full_path.display(), e);
-                        None
-                    },
-                }
-            } else {
-                error!(
-                    "File discovery collected path '{}' but it does not exist and/or is invalid!",
-                    full_path.display()
-                );
-                None
-            }
-        })
-        .collect();
+//             if full_path.exists() && full_path.ends_with("plugin.nro") {
+//                 match NroBuilder::open(&full_path) {
+//                     Ok(builder) => {
+//                         info!("Loaded plugin at '{}' for chainloading.", full_path.display());
+//                         plugin_nrr.add_module(&builder);
+//                         Some(builder)
+//                     },
+//                     Err(e) => {
+//                         error!("Failed to load plugin at '{}'. {:?}", full_path.display(), e);
+//                         None
+//                     },
+//                 }
+//             } else {
+//                 error!(
+//                     "File discovery collected path '{}' but it does not exist and/or is invalid!",
+//                     full_path.display()
+//                 );
+//                 None
+//             }
+//         })
+//         .collect();
 
-    if modules.is_empty() {
-        info!("No plugins found for chainloading.");
-        return
-    }
+//     if modules.is_empty() {
+//         info!("No plugins found for chainloading.");
+//         return;
+//     }
 
-    let mut registration_info = match plugin_nrr.register() {
-        Ok(Some(info)) => info,
-        Ok(_) => return,
-        Err(e) => {
-            error!("{:?}", e);
-            crate::dialog_error("ARCropolis failed to register plugin module info.");
-            return
-        },
-    };
+//     let mut registration_info = match plugin_nrr.register() {
+//         Ok(Some(info)) => info,
+//         Ok(_) => return,
+//         Err(e) => {
+//             error!("{:?}", e);
+//             crate::dialog_error("ARCropolis failed to register plugin module info.");
+//             return;
+//         },
+//     };
 
-    let modules: Vec<Module> = modules
-        .into_iter()
-        .filter_map(|x| {
-            match x.mount() {
-                Ok(module) => Some(module),
-                Err(e) => {
-                    error!("Failed to mount chainloaded plugin. {:?}", e);
-                    None
-                },
-            }
-        })
-        .collect();
+//     let modules: Vec<Module> = modules
+//         .into_iter()
+//         .filter_map(|x| match x.mount() {
+//             Ok(module) => Some(module),
+//             Err(e) => {
+//                 error!("Failed to mount chainloaded plugin. {:?}", e);
+//                 None
+//             },
+//         })
+//         .collect();
 
-    unsafe {
-        // Unfortunately, without unregistering this it will cause the game to crash, cause is unknown, but likely due to page alignment I'd guess
-        // It does not matter if we use only one NRR for both the prebuilt modules and the plugins, it will still cause a crash
-        nn::ro::UnregisterModuleInfo(&mut registration_info);
-    }
+//     unsafe {
+//         // Unfortunately, without unregistering this it will cause the game to crash, cause is unknown, but likely due to page alignment I'd guess
+//         // It does not matter if we use only one NRR for both the prebuilt modules and the plugins, it will still cause a crash
+//         nn::ro::UnregisterModuleInfo(&mut registration_info);
+//     }
 
-    // 3.0.0: The plugins are apparently loaded despite the mismatch in module vs plugin count, leaving it here for now
-    // if modules.len() < plugins.len() {
-    //     crate::dialog_error("ARCropolis failed to load/mount some plugins.");
-    // } else {
-    info!("Successfully chainloaded all collected plugins.");
-    // }
+//     // 3.0.0: The plugins are apparently loaded despite the mismatch in module vs plugin count, leaving it here for now
+//     // if modules.len() < plugins.len() {
+//     //     crate::dialog_error("ARCropolis failed to load/mount some plugins.");
+//     // } else {
+//     info!("Successfully chainloaded all collected plugins.");
+//     // }
 
-    for module in modules.into_iter() {
-        let callable = unsafe {
-            let mut sym_loc = 0usize;
-            let rc = nn::ro::LookupModuleSymbol(&mut sym_loc, &module, "main\0".as_ptr() as _);
-            if rc != 0 {
-                warn!("Failed to find symbol 'main' in chainloaded plugin.");
-                None
-            } else {
-                Some(std::mem::transmute::<usize, extern "C" fn()>(sym_loc))
-            }
-        };
+//     for module in modules.into_iter() {
+//         let callable = unsafe {
+//             let mut sym_loc = 0usize;
+//             let rc = nn::ro::LookupModuleSymbol(&mut sym_loc, &module, "main\0".as_ptr() as _);
+//             if rc != 0 {
+//                 warn!("Failed to find symbol 'main' in chainloaded plugin.");
+//                 None
+//             } else {
+//                 Some(std::mem::transmute::<usize, extern "C" fn()>(sym_loc))
+//             }
+//         };
 
-        if let Some(entrypoint) = callable {
-            info!("Calling 'main' in chainloaded plugin");
-            entrypoint();
-            info!("Finished calling 'main' in chainloaded plugin");
-        }
-    }
-}
+//         if let Some(entrypoint) = callable {
+//             info!("Calling 'main' in chainloaded plugin");
+//             entrypoint();
+//             info!("Finished calling 'main' in chainloaded plugin");
+//         }
+//     }
+// }
