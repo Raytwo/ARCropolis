@@ -1,0 +1,16 @@
+name: Auto issue closer
+on:
+  issues:
+    types: [opened]
+permissions:
+  contents: write
+  issues: write
+jobs:
+  autoclose:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Close Issue
+      uses: jam1garner/contributors-only@v3
+      with:
+        token: ${{ secrets.AUTOCLOSEISSUE }}
+        comment: Issues are only meant for ARCropolis contributors, please read the [guidelines](https://github.com/Raytwo/ARCropolis/issues/288) to report an issue or suggest a change.
