@@ -233,20 +233,6 @@ fn initial_loading(_ctx: &InlineCtx) {
     // filesystem.share_hashes();
     // filesystem.patch_files();
 
-    // if config::debug_enabled() {
-    //     let mut output = BufWriter::new(std::fs::File::create("sd:/ultimate/arcropolis/filesystem_dump.txt").unwrap());
-    //     filesystem.get().walk_patch(|node, entry_type| {
-    //         let depth = node.get_local().components().count() - 1;
-    //         for _ in 0..depth {
-    //             let _ = write!(output, "    ");
-    //         }
-    //         if entry_type.is_dir() {
-    //             let _ = writeln!(output, "{}", node.get_local().display());
-    //         } else {
-    //             let _ = writeln!(output, "{}", node.full_path().display());
-    //         }
-    //     });
-    // }
     // drop(filesystem);
     // fuse::mods::install_mod_fs();
     // api::event::send_event(Event::ModFilesystemMounted);
