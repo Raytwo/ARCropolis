@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::PathBuf, str::FromStr,
 };
 
 use camino::Utf8PathBuf;
@@ -111,19 +111,8 @@ lazy_static! {
         RwLock::new(storage)
     };
 
-pub static REGION: Lazy<Region> = Lazy::new(|| {
-    Region::from(
-        crate::REGIONS
-            .iter()
-            .position(|&x| x == &region_str())
-            .map(|x| (x + 1) as u32)
-            .unwrap_or(0),
-    )
-});
-
-        Region::from(REGIONS.iter().position(|&x| {
-            x == &region_str()
-        }).map(|x| (x + 1) as u32).unwrap_or(0))
+    static ref REGION: Region = {
+        Region::from_str(&region_str()).unwrap_or(Region::None)
     };
 }
 
