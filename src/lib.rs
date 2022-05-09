@@ -251,35 +251,19 @@ fn get_version_string() -> String {
     }
 }
 
-// TODO: Move this to menu.rs
-#[cfg(feature = "web")]
-fn check_for_changelog() {
-    if let Ok(changelog) = std::fs::read_to_string("sd:/ultimate/arcropolis/changelog.toml") {
-        match toml::from_str(&changelog) {
-            Ok(changelog) => {
-                menus::display_update_page(&changelog);
-                std::fs::remove_file("sd:/ultimate/arcropolis/changelog.toml").unwrap();
-            },
-            Err(_) => {
-                warn!("Changelog could not be parsed. Is the file malformed?");
-            },
-        }
-    }
-}
-
-#[cfg(not(feature = "web"))]
-fn check_for_changelog() {
-    println!("check_for_changelog called but web feature is disabled.");
-}
-
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
-    check_for_changelog();
+    #[cfg(feature = "web")]
+    menus::changelog::check_for_changelog();
 
     // menus::show_arcadia();
     //let arc = resource::arc();
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
+
+    // TODO: Perform the conflict check here and display a web page
+
+
     //replacement::lookup::initialize(Some(arc));
     //let filesystem = GLOBAL_FILESYSTEM.write();
     // *filesystem = filesystem.take().finish().unwrap();
