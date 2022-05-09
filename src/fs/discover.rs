@@ -3,6 +3,7 @@ use std::{
     path::{Path, PathBuf}, iter::FromIterator,
 };
 
+use camino::{Utf8PathBuf, Utf8Path};
 use parking_lot::RwLock;
 use serde::Serialize;
 use skyline::nn::{self, ro::*};
@@ -162,9 +163,9 @@ pub fn perform_discovery() {
 }
 
 /// Utility method to know if a path shouldn't be checked for conflicts
-pub fn is_collectable(x: &Path) -> bool {
+pub fn is_collectable(x: &Utf8Path) -> bool {
     match x.file_name() {
-        Some(name) if let Some(name) = name.to_str() => {
+        Some(name) => {
             static RESERVED_NAMES: &[&'static str] = &[
                 "config.json",
                 "plugin.nro",
@@ -186,11 +187,11 @@ pub fn is_collectable(x: &Path) -> bool {
     }
 }
 
-pub fn discover_in_mods<P: AsRef<Path>>(root: P) -> Mod {
+pub fn discover_in_mods<P: AsRef<Utf8Path>>(root: P) -> Mod {
     let root = root.as_ref();
 
-    let mut files: HashMap<Hash40, PathBuf> = HashMap::new();
-    let mut patches: Vec<PathBuf> = Vec::new();
+    let mut files: HashMap<Hash40, Utf8PathBuf> = HashMap::new();
+    let mut patches: Vec<Utf8PathBuf> = Vec::new();
 
     WalkDir::new(root).min_depth(1).into_iter()
     .for_each(|entry| {
@@ -198,7 +199,7 @@ pub fn discover_in_mods<P: AsRef<Path>>(root: P) -> Mod {
 
         // Ignore the directories, only care about the files
         if entry.file_type().is_file() {
-            let path = entry.path();
+            let path = Utf8Path::from_path(entry.path()).unwrap();
 
             // Is it one of the paths that we need to keep track of? (plugin, config, patches, ...)
             if is_collectable(path) {
@@ -207,7 +208,7 @@ pub fn discover_in_mods<P: AsRef<Path>>(root: P) -> Mod {
                 let (path, _) = crate::strip_region_from_path(path);
                 // TODO: Try to handle a case where we have both a regional and non-regional copy for the same file and have the regional one prevail. Maybe sort the paths by length in ascending order so we always get the regional one last?
 
-                files.insert(path.strip_prefix(root).unwrap().smash_hash().unwrap(), path.into());
+                files.insert(Hash40::from(path.strip_prefix(root).unwrap().to_string().as_str()), path);
             }
         }
     });
@@ -218,13 +219,13 @@ pub fn discover_in_mods<P: AsRef<Path>>(root: P) -> Mod {
     }
 }
 
-pub fn discover_mods<P: AsRef<Path>>(root: P) {
+pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) {
     let root = root.as_ref();
 
     let mut interner = INTERNER.write();
 
-    let mut files: HashMap<Hash40, PathBuf> = HashMap::new();
-    let mut conflict_list: HashMap<Conflict, Vec<PathBuf>> = HashMap::new();
+    let mut files: HashMap<Hash40, Utf8PathBuf> = HashMap::new();
+    let mut conflict_list: HashMap<Conflict, Vec<Utf8PathBuf>> = HashMap::new();
     let mut patches = Vec::new();
 
     WalkDir::new(root).min_depth(1).max_depth(1).into_iter()
@@ -234,22 +235,23 @@ pub fn discover_mods<P: AsRef<Path>>(root: P) {
     })
     .for_each(|entry| {
         let entry = entry.unwrap();
+        let path = Utf8Path::from_path(entry.path()).unwrap();
 
-        let mut mod_files = discover_in_mods(entry.path());
+        let mut mod_files = discover_in_mods(path);
 
         // Remove the conflicting files from mod_files and store them
-        let conflicts: HashMap<Hash40, PathBuf> = mod_files.files.drain_filter(|hash, _| files.contains_key(hash)).collect();
+        let conflicts: HashMap<Hash40, Utf8PathBuf> = mod_files.files.drain_filter(|hash, _| files.contains_key(hash)).collect();
 
         // If any file is conflicting with what we already have found, discard this mod and warn the user.
         if !conflicts.is_empty() {
             conflicts.iter().for_each(|(hash, full_path)| {
                 // The part of the path that is used to navigate data.arc
-                let local_path = full_path.strip_prefix(entry.path()).unwrap();
+                let local_path = full_path.strip_prefix(path).unwrap();
                 // Get the root of the mod we're conflicting with
-                let first_mod_root = files.get(hash).unwrap().to_str().unwrap().strip_suffix(local_path.to_str().unwrap()).unwrap();
+                let first_mod_root = files.get(hash).unwrap().as_str().strip_suffix(local_path.as_str()).unwrap();
 
                 let conflict = Conflict {
-                    conflicting_mod: entry.path().strip_prefix("sd:/ultimate/mods/").unwrap().into(),
+                    conflicting_mod: path.strip_prefix("sd:/ultimate/mods/").unwrap().into(),
                     conflict_with: first_mod_root.strip_prefix("sd:/ultimate/mods/").unwrap().trim_end_matches("/").into(),
                 };
 

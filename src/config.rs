@@ -3,6 +3,7 @@ use std::{
     path::PathBuf,
 };
 
+use camino::Utf8PathBuf;
 use parking_lot::RwLock;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -372,12 +373,12 @@ pub fn version() -> String {
     version
 }
 
-pub fn arc_path() -> PathBuf {
-    PathBuf::from("rom:/arc")
+pub fn arc_path() -> Utf8PathBuf {
+    Utf8PathBuf::from("rom:/arc")
 }
 
-pub fn umm_path() -> PathBuf {
-    let path = PathBuf::from("sd:/ultimate/mods");
+pub fn umm_path() -> Utf8PathBuf {
+    let path = Utf8PathBuf::from("sd:/ultimate/mods");
 
     if !path.exists() {
         std::fs::create_dir_all("sd:/ultimate/mods").unwrap();

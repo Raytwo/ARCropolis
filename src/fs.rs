@@ -1,5 +1,6 @@
-use std::{sync::atomic::AtomicBool, path::{PathBuf, Path}, io::Write, collections::{BTreeMap, HashMap}};
+use std::{sync::atomic::AtomicBool, path::{PathBuf}, io::Write, collections::HashMap};
 
+use camino::Utf8PathBuf;
 use serde::Serialize;
 use smash_arc::Hash40;
 
@@ -738,16 +739,16 @@ impl Modpack {
 }
 
 pub struct Mod {
-    files: HashMap<Hash40, PathBuf>,
-    patches: Vec<PathBuf>
+    files: HashMap<Hash40, Utf8PathBuf>,
+    patches: Vec<Utf8PathBuf>
 }
 
 #[derive(Debug, Default, PartialEq, Hash, Eq, Serialize)]
 pub struct Conflict {
     #[serde(rename = "Conflicting mod")] 
-    conflicting_mod: PathBuf,
+    conflicting_mod: Utf8PathBuf,
     #[serde(rename = "Conflicting with")] 
-    conflict_with: PathBuf,
+    conflict_with: Utf8PathBuf,
 }
 
 pub struct MsbtHandler;

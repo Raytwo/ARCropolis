@@ -16,6 +16,7 @@ use std::{
 };
 
 use arcropolis_api::Event;
+use camino::{Utf8PathBuf, Utf8Path};
 use log::LevelFilter;
 use thiserror::Error;
 
@@ -161,21 +162,21 @@ impl PathExtension for Path {
 
         let (path, _) = strip_region_from_path(path);
 
-        Ok(Hash40::from(path.to_str().unwrap().to_string().trim_start_matches("/")))
+        Ok(Hash40::from(path.to_string().trim_start_matches("/")))
     }
 }
 
 /// Basic code for getting a hash40 from a path, ignoring things like if it exists
-fn get_smash_hash<P: AsRef<Path>>(path: P) -> Result<Hash40, InvalidOsStrError> {
-    path.as_ref().smash_hash()
+fn get_smash_hash<P: AsRef<Utf8Path>>(path: P) -> Result<Hash40, InvalidOsStrError> {
+    Ok(Hash40::from(path.as_ref().to_string().as_str()))
 }
 
 
-fn get_path_from_hash(hash: Hash40) -> PathBuf {
+fn get_path_from_hash(hash: Hash40) -> Utf8PathBuf {
     if let Some(string) = hashes::try_find(hash) {
-        PathBuf::from(string)
+        Utf8PathBuf::from(string)
     } else {
-        PathBuf::from(format!("{:#x}", hash.0))
+        Utf8PathBuf::from(format!("{:#x}", hash.0))
     }
 }
 
@@ -201,9 +202,9 @@ fn get_region_from_suffix(suffix: &str) -> Option<Region> {
     }
 }
 
-pub fn get_region_from_path<P: AsRef<Path>>(path: P) -> Option<Region> {
+pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
     // Take the filename so we don't have to deal with the extension
-    let filename = path.as_ref().file_name().unwrap().to_str().unwrap();
+    let filename = path.as_ref().file_name().unwrap();
 
     if let Some(index) = filename.find("+") {
         // The rest of the filename is dropped, as we don't need it here
@@ -214,7 +215,7 @@ pub fn get_region_from_path<P: AsRef<Path>>(path: P) -> Option<Region> {
     }
 }
 
-pub fn strip_region_from_path<P: AsRef<Path>>(path: P) -> (PathBuf, Option<Region>) {
+pub fn strip_region_from_path<P: AsRef<Path>>(path: P) -> (Utf8PathBuf, Option<Region>) {
     let mut path = path.as_ref().to_str().unwrap().to_string();
 
     if let Some(index) = path.rfind("+") {
