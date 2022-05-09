@@ -26,4 +26,11 @@ pub mod env {
             _ => true,
         }
     }
+
+    pub fn is_ryujinx() -> bool {
+        match get_running_env() {
+            RunEnvironment::Ryujinx => true,
+            _ => false,
+        }
+    }
 }
