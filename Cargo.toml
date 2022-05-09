@@ -24,7 +24,6 @@ camino = { version = "1.0.7", features = ["serde1"] }
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web", optional = true }
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
-skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }
 # For the updater
 zip = { version = "0.5", default-features = false, features = ["deflate"], optional = true }
 gh-updater = { git = "https://github.com/blu-dev/gh-updater", optional = true }
@@ -38,7 +37,6 @@ owo-colors = "3.0.1"
 strip-ansi-escapes = "0.1.1"
 bincode = "1.3.3"
 # To manage mods
-#path-intern = { path = "../path-intern" }
 smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd", "serialize"] }
 arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api" }
 serde_yaml = "0.8.24"
