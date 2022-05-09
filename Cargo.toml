@@ -18,6 +18,8 @@ walkdir = "2.3.2"
 parking_lot = "0.11"
 once_cell = "1.12.0"
 thiserror = "1.0.30"
+lazy_static = "1.4.0"
+camino = { version = "1.0.7", features = ["serde1"] } 
 # Switch utilities
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web", optional = true }
