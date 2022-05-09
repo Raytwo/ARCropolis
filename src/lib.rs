@@ -84,23 +84,6 @@ macro_rules! reg_w {
     };
 }
 
-/// Basic code for displaying an ARCropolis dialog error informing the user to check their logs, or enable them if they don't currently.
-fn dialog_error<S: AsRef<str>>(msg: S) {
-    if env::is_emulator() {
-        if config::file_logging_enabled() {
-            error!("{}<br>See the latest log for more information.", msg.as_ref());
-        } else {
-            error!("{}<br>Enable file logging and run again for more information.", msg.as_ref());
-        }
-    } else {
-        if config::file_logging_enabled() {
-            api::show_dialog(&format!("{}<br>See the latest log for more information.", msg.as_ref()));
-        } else {
-            api::show_dialog(&format!("{}<br>Enable file logging and run again for more information.", msg.as_ref()));
-        }
-    }
-}
-
 #[derive(Error, Debug)]
 pub struct InvalidOsStrError;
 
@@ -111,17 +94,12 @@ impl fmt::Display for InvalidOsStrError {
 }
 
 pub trait PathExtension {
-    fn to_str(&self) -> Option<&str>;
     fn is_stream(&self) -> bool;
     fn has_extension<S: AsRef<str>>(&self, ext: S) -> bool;
     fn smash_hash(&self) -> Result<Hash40, InvalidOsStrError>;
 }
 
 impl PathExtension for Path {
-    fn to_str(&self) -> Option<&str> {
-        self.as_os_str().to_str()
-    }
-
     fn is_stream(&self) -> bool {
         static VALID_PREFIXES: &[&str] = &["/stream;", "/stream:", "stream;", "stream:"];
 
@@ -168,7 +146,7 @@ impl PathExtension for Path {
 
 /// Basic code for getting a hash40 from a path, ignoring things like if it exists
 fn get_smash_hash<P: AsRef<Utf8Path>>(path: P) -> Result<Hash40, InvalidOsStrError> {
-    Ok(Hash40::from(path.as_ref().to_string().as_str()))
+    Ok(Hash40::from(path.as_ref().as_str()))
 }
 
 
@@ -181,25 +159,8 @@ fn get_path_from_hash(hash: Hash40) -> Utf8PathBuf {
 }
 
 fn get_region_from_suffix(suffix: &str) -> Option<Region> {
-    const REGIONS: &[&str] = &[
-            "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
-            "eu_ru", "kr_ko", "zh_cn", "zh_tw",
-        ];
-
-    let region = Region::from(
-        REGIONS
-        .iter()
-        .position(|&x| {
-            x == suffix
-        })
-        .map(|x| (x + 1) as u32).unwrap_or(0));
-
-
     // In this case, having a None region is the same as saying the provided region is incorrect.
-    match region {
-        Region::None => None,
-        _ => Some(region),
-    }
+    Region::from_str(suffix).ok().map(|region| if region == Region::None { None } else { Some(region) } ).flatten()
 }
 
 pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
@@ -215,8 +176,8 @@ pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
     }
 }
 
-pub fn strip_region_from_path<P: AsRef<Path>>(path: P) -> (Utf8PathBuf, Option<Region>) {
-    let mut path = path.as_ref().to_str().unwrap().to_string();
+pub fn strip_region_from_path<P: AsRef<Utf8Path>>(path: P) -> (Utf8PathBuf, Option<Region>) {
+    let mut path = path.as_ref().to_string();
 
     if let Some(index) = path.rfind("+") {
         // TODO: Need to make sure the file has an extension. Probably return a Result instead
@@ -233,6 +194,7 @@ pub const REGIONS: &[&str] = &[
     "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
     "eu_ru", "kr_ko", "zh_cn", "zh_tw",
 ];
+
 /// Initializes the `nn::time` library, for creating a log file based off of the current time. For some reason Smash does not initialize this
 fn init_time() {
     unsafe {
@@ -304,29 +266,11 @@ fn change_version_string(arg: u64, string: *const c_char) {
     }
 }
 
-// pub struct UiSoundManager {
-//     vtable: *const u8,
-//     pub unk: *const u8,
-// }
-
-// #[skyline::from_offset(0x33135f0)]
-// pub fn play_bgm(unk1: *const u8, some_hash: u64, unk3: bool);
-
-// #[skyline::from_offset(0x336d810)]
-// pub fn play_menu_bgm();
-
-// #[skyline::from_offset(0x336d890)]
-// pub fn stop_all_bgm();
-
 #[skyline::hook(offset = offsets::eshop_show())]
 fn show_eshop() {
     unsafe {
-        // stop_all_bgm();
-        // let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
-        // play_bgm(instance as _, 0xd9ffff202a04c55b, false);
         #[cfg(feature = "web")]
         menus::show_main_menu();
-        // play_menu_bgm();
     }
 }
 
@@ -419,16 +363,6 @@ pub fn main() {
             err_msg.as_str(),
         );
     }));
-
-    if config::debug_enabled() {
-        std::thread::spawn(|| {
-            fn handle_command(args: Vec<String>) {
-                skyline_communicate::send(remote::handle_command(args).as_str());
-            }
-            skyline_communicate::set_on_receive(skyline_communicate::Receiver::CLIStyle(handle_command));
-            skyline_communicate::start_server("arcropolis", 6968);
-        });
-    }
 
     // Wait on hashes/lut to finish
     //let _ = resources.join();

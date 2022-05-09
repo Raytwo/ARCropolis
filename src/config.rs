@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf,
+    path::PathBuf, str::FromStr,
 };
 
 use camino::Utf8PathBuf;
@@ -109,10 +109,7 @@ lazy_static! {
     };
 
     static ref REGION: Region = {
-
-        Region::from(crate::REGIONS.iter().position(|&x| {
-            x == &region_str()
-        }).map(|x| (x + 1) as u32).unwrap_or(0))
+        Region::from_str(&region_str()).unwrap_or(Region::None)
     };
 }
 

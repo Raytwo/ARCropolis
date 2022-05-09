@@ -264,7 +264,7 @@ pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) {
             });
         } else {
             // The following is only for debugging purposes, remove this when we're done 
-            println!("Mod directory: {}", entry.path().display());
+            println!("Mod directory: {}", path);
 
             files.extend(mod_files.files);
             patches.extend(mod_files.patches);
