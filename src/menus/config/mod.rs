@@ -101,12 +101,6 @@ pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
                 info!("Set legacy_discovery flag to {}", curr_value);
                 session.send("legacy_discovery");
             },
-            "debug" => {
-                let curr_value = !storage.get_flag("debug");
-                storage.set_flag("debug", curr_value).unwrap();
-                info!("Set debug flag to {}", curr_value);
-                session.send("debug");
-            },
             "log_to_file" => {
                 let curr_value = !storage.get_flag("log_to_file");
                 storage.set_flag("log_to_file", curr_value).unwrap();
