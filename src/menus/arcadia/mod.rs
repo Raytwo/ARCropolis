@@ -82,7 +82,15 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                     authors: res.authors.or(Some(String::from("???"))),
                     is_disabled: Some(disabled),
                     version: res.version.or(Some(String::from("???"))),
-                    category: res.category.or(Some(String::from("Misc"))),
+                    category: res.category.map_or(Some(String::from("Misc")),
+                     |cat|
+                            if cat == "Music" {
+                                Some("Audio".to_string())
+                            }
+                            else {
+                                Some(cat)
+                            },
+                    ),
                     description: Some(res.description.unwrap_or_else(String::new).replace("\n", "<br />")),
                     ..res
                 },
