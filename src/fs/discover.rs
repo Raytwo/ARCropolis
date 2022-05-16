@@ -132,16 +132,22 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             })
             .collect();
 
-        let new_mods: HashSet<&Hash40> = new_cache.iter().filter(|cached_mod| !mod_cache.contains(cached_mod)).collect();
+        // Get the workspace name and workspace list
+        let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+        let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
+
+        // Get the preset name from the 
+        let preset_name = &workspace_list[&workspace_name];
+        let mut presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
+        let new_mods: HashSet<&Hash40> = new_cache.iter().filter(|cached_mod| !mod_cache.contains(cached_mod)).filter(|cached_mod| !presets.contains(cached_mod)).collect();
 
         // We found hashes that weren't in the cache
         if !new_mods.is_empty() {
             if skyline_web::Dialog::yes_no("New mods have been detected.\nWould you like to enable them?") {
                 // Add the new mods to the presets file
-                let mut presets: HashSet<Hash40> = storage.get_field_json("presets").unwrap_or_default();
                 presets.extend(new_mods);
                 // Save it back
-                storage.set_field_json("presets", &presets).unwrap();
+                storage.set_field_json(preset_name, &presets).unwrap();
             }
         }
 
