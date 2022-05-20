@@ -160,7 +160,8 @@ impl PathExtension for Path {
             .to_str()
             .map_or(Err(InvalidOsStrError), |x| Ok(x))?
             .to_lowercase()
-            .replace(";", ":");
+            .replace(";", ":")
+            .replace(".mp4", ".webm");
 
         if let Some(regional_idx) = path.find("+") {
             path.replace_range(regional_idx..regional_idx + 6, "")
