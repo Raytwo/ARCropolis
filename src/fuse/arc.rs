@@ -69,9 +69,14 @@ impl FileSystemAccessor for ArcFuse {
         }
 
         let hash = path.smash_hash().unwrap();
-        if !ARC_FILE.get_file_info_from_hash(hash).unwrap().flags.is_regional() {
-            file_region = Region::None;
-        }
+        match ARC_FILE.get_file_info_from_hash(hash) {
+            Ok(info) => {
+              if !info.flags.is_regional(){
+                file_region = Region::None;
+              }
+            },
+            Err(_)=> file_region = Region::None
+          }
         if read != 0 {
             if ARC_FILE.get_file_path_index_from_hash(hash).is_ok() {
                 Ok(FAccessor::new(ArcFileAccessor(hash, file_region), mode))
