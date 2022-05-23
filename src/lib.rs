@@ -6,10 +6,8 @@
 #![feature(vec_into_raw_parts)]
 #![allow(unaligned_references)]
 #![feature(string_remove_matches)]
-#![feature(allocator_api)]
 
 use std::{
-    alloc::GlobalAlloc,
     fmt,
     io::{BufWriter, Write},
     path::{Path, PathBuf},
@@ -46,16 +44,11 @@ mod resource;
 #[cfg(feature = "updater")]
 mod update;
 
-use fs::GlobalFilesystem;
 use replacement::extensions::SearchEx;
 use smash_arc::Hash40;
 use walkdir::WalkDir;
 
 use crate::config::GLOBAL_CONFIG;
-
-// Temporary fix for Vec
-#[global_allocator]
-static UNIX_ALLOCATOR: skyline::unix_alloc::UnixAllocator = skyline::unix_alloc::UnixAllocator;
 
 lazy_static! {
     pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = RwLock::new(GlobalFilesystem::Uninitialized);
