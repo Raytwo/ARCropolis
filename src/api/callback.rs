@@ -13,9 +13,7 @@ pub enum PendingApiCall {
 unsafe impl Send for PendingApiCall {}
 unsafe impl Sync for PendingApiCall {}
 
-lazy_static! {
-    pub static ref PENDING_CALLBACKS: Mutex<Vec<PendingApiCall>> = Mutex::new(Vec::new());
-}
+pub static PENDING_CALLBACKS: Mutex<Vec<PendingApiCall>> = Mutex::new(Vec::new());
 
 #[no_mangle]
 pub extern "C" fn arcrop_register_callback(hash: Hash40, max_size: usize, cb: CallbackFn) {

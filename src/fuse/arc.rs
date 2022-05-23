@@ -6,9 +6,9 @@ use smash_arc::{ArcFile, ArcLookup, Hash40, Region};
 
 use crate::PathExtension;
 
-lazy_static! {
-    static ref ARC_FILE: ArcFile = { ArcFile::open("rom:/data.arc").unwrap() };
-}
+use once_cell::sync::Lazy;
+
+pub static ARC_FILE: Lazy<ArcFile> = Lazy::new(|| ArcFile::open("rom:/data.arc").unwrap());
 
 pub struct ArcFileAccessor(Hash40, Region);
 

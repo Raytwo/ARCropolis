@@ -10,6 +10,8 @@ use smash_arc::{ArcLookup, Hash40, LoadedArc};
 use super::LoadedArcEx;
 use crate::hashes;
 
+use once_cell::sync::Lazy;
+
 // FilePath -> (DirInfo, child_index)
 #[derive(Deserialize, Serialize)]
 pub struct UnshareLookup(HashMap<Hash40, (Hash40, usize)>);
@@ -44,56 +46,55 @@ enum ShareLookupState {
     Generated(ShareLookup),
 }
 
-lazy_static! {
-    static ref UNSHARE_LOOKUP: RwLock<UnshareLookupState> = {
-        let path = crate::CACHE_PATH.join("unshare.lut");
-        let lut = match std::fs::read(&path) {
-            Ok(data) => match bincode::deserialize(&data) {
-                Ok(lut) => UnshareLookupState::Generated(lut),
-                Err(e) => {
-                    error!(
-                        "Unable to parse '{}' for unsharing. Reason: {:?}. Boot time might be a bit slow.",
-                        path.display(),
-                        *e
-                    );
-                    UnshareLookupState::Missing
-                },
-            },
-            Err(err) => {
-                error!("Unable to read '{}'. Reason: {:?}", path.display(), err);
+static UNSHARE_LOOKUP: Lazy<RwLock<UnshareLookupState>> = Lazy::new(|| {
+    let path = crate::CACHE_PATH.join("unshare.lut");
+    let lut = match std::fs::read(&path) {
+        Ok(data) => match bincode::deserialize(&data) {
+            Ok(lut) => UnshareLookupState::Generated(lut),
+            Err(e) => {
+                error!(
+                    "Unable to parse '{}' for unsharing. Reason: {:?}. Boot time might be a bit slow.",
+                    path.display(),
+                    *e
+                );
                 UnshareLookupState::Missing
             },
-        };
-
-        RwLock::new(lut)
+        },
+        Err(err) => {
+            error!("Unable to read '{}'. Reason: {:?}", path.display(), err);
+            UnshareLookupState::Missing
+        },
     };
-    static ref SHARE_LOOKUP: RwLock<ShareLookupState> = {
-        let path = crate::CACHE_PATH.join("share.lut");
-        let lut = match std::fs::read(&path) {
-            Ok(data) => match bincode::deserialize(&data) {
-                Ok(lut) => ShareLookupState::Generated(lut),
-                Err(e) => {
-                    error!(
-                        "Unable to parse '{}' for share lookup. Reason: {:?}. Boot time might be a bit slow.",
-                        path.display(),
-                        *e
-                    );
-                    ShareLookupState::Missing
-                },
-            },
-            Err(err) => {
-                error!("Unable to read '{}'. Reason: {:?}", path.display(), err);
+
+    RwLock::new(lut)
+});
+
+static SHARE_LOOKUP: Lazy<RwLock<ShareLookupState>> = Lazy::new(||{
+    let path = crate::CACHE_PATH.join("share.lut");
+    let lut = match std::fs::read(&path) {
+        Ok(data) => match bincode::deserialize(&data) {
+            Ok(lut) => ShareLookupState::Generated(lut),
+            Err(e) => {
+                error!(
+                    "Unable to parse '{}' for share lookup. Reason: {:?}. Boot time might be a bit slow.",
+                    path.display(),
+                    *e
+                );
                 ShareLookupState::Missing
             },
-        };
-
-        RwLock::new(lut)
+        },
+        Err(err) => {
+            error!("Unable to read '{}'. Reason: {:?}", path.display(), err);
+            ShareLookupState::Missing
+        },
     };
-}
+
+    RwLock::new(lut)
+});
 
 pub fn initialize_unshare(arc: Option<&LoadedArc>) {
     if arc.is_none() {
-        lazy_static::initialize(&UNSHARE_LOOKUP);
+        Lazy::force(&UNSHARE_LOOKUP);
         return;
     }
     let arc = arc.unwrap();
@@ -131,7 +132,7 @@ pub fn initialize_unshare(arc: Option<&LoadedArc>) {
 
 pub fn initialize_share(arc: Option<&LoadedArc>) {
     if arc.is_none() {
-        lazy_static::initialize(&SHARE_LOOKUP);
+        Lazy::force(&SHARE_LOOKUP);
         return;
     }
 

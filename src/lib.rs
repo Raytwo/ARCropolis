@@ -21,12 +21,10 @@ use smash_arc::{ArcLookup, LoadedSearchSection, SearchLookup};
 use thiserror::Error;
 
 #[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
 extern crate log;
 
-use parking_lot::RwLock;
+use parking_lot::{const_rwlock, RwLock};
+use once_cell::sync::Lazy;
 use skyline::{hooks::InlineCtx, libc::c_char, nn};
 
 mod api;
@@ -48,20 +46,21 @@ use replacement::extensions::SearchEx;
 use smash_arc::Hash40;
 use walkdir::WalkDir;
 
+use fs::GlobalFilesystem;
+
 use crate::config::GLOBAL_CONFIG;
 
-lazy_static! {
-    pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = RwLock::new(GlobalFilesystem::Uninitialized);
-    pub static ref CACHE_PATH: PathBuf = {
-        let version_string = get_version_string();
-        let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(version_string);
-        match std::fs::create_dir_all(&path) {
-            Err(e) => panic!("Unable to create cache directory! Reason: {:?}", e),
-            _ => {},
-        }
-        path
-    };
-}
+pub static GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = const_rwlock(GlobalFilesystem::Uninitialized);
+
+pub static CACHE_PATH: Lazy<PathBuf> = Lazy::new(|| {
+    let version_string = get_version_string();
+    let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(version_string);
+    match std::fs::create_dir_all(&path) {
+        Err(e) => panic!("Unable to create cache directory! Reason: {:?}", e),
+        _ => {},
+    }
+    path
+});
 
 #[macro_export]
 macro_rules! reg_x {
@@ -291,7 +290,7 @@ pub fn main() {
     init_time();
 
     // Force the configuration to be initialized right away, so we can be sure default files exist (hopefully)
-    lazy_static::initialize(&GLOBAL_CONFIG);
+    Lazy::force(&GLOBAL_CONFIG);
 
     // Initialize hid
     let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;

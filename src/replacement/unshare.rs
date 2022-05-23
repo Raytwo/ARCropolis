@@ -8,9 +8,9 @@ use crate::{
     resource::{self, LoadedFilepath},
 };
 
-lazy_static! {
-    static ref SHARED_FILE_INDEX: u32 = resource::arc().get_shared_data_index();
-}
+use once_cell::sync::Lazy;
+
+pub static SHARED_FILE_INDEX: Lazy<u32> = Lazy::new(|| resource::arc().get_shared_data_index());
 
 fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: Hash40) {
     info!("Attempting to reshare files dependent on '{}' ({:#x})", hashes::find(hash), hash.0);

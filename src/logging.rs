@@ -8,6 +8,7 @@ use std::{
 
 use log::{LevelFilter, Metadata, Record, SetLoggerError};
 use parking_lot::Mutex;
+use once_cell::sync::Lazy;
 
 use crate::config;
 
@@ -68,34 +69,32 @@ impl FileLogger {
     }
 }
 
-lazy_static! {
-    // Summon the file logger and create a file for it based on the current time (requires time to be initialized)
-    static ref FILE_WRITER: FileLogger = {
-        let seconds = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .expect("Clock may have gone backwards!");
-        let path = Path::new(LOG_PATH).join(format!("{}.log", format_time_string(seconds.as_secs())));
-        let _ = std::fs::create_dir_all(LOG_PATH);
-        std::fs::File::create(path).map_or_else(
-            |_| {
-                error!(target: "std", "Unable to initialize the file logger!");
-                FileLogger(None)
-            },
-            |file| {
-                // Spawn a log flusher, since we don't have the ability to flush the logger on application close, home button press,
-                // or crash (crashing technically can be done but ARCropolis is not the place to implement)
-                let _ = std::thread::spawn(|| {
-                    std::thread::sleep(std::time::Duration::from_millis(2000));
-                    log::logger().flush();
-                });
-                FileLogger(Some(Mutex::new(BufWriter::with_capacity(
-                    FILE_LOG_BUFFER,
-                    file,
-                ))))
-            },
-        )
-    };
-}
+// Summon the file logger and create a file for it based on the current time (requires time to be initialized)
+static FILE_WRITER: Lazy<FileLogger> = Lazy::new(|| {
+    let seconds = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("Clock may have gone backwards!");
+    let path = Path::new(LOG_PATH).join(format!("{}.log", format_time_string(seconds.as_secs())));
+    let _ = std::fs::create_dir_all(LOG_PATH);
+    std::fs::File::create(path).map_or_else(
+        |_| {
+            error!(target: "std", "Unable to initialize the file logger!");
+            FileLogger(None)
+        },
+        |file| {
+            // Spawn a log flusher, since we don't have the ability to flush the logger on application close, home button press,
+            // or crash (crashing technically can be done but ARCropolis is not the place to implement)
+            let _ = std::thread::spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(2000));
+                log::logger().flush();
+            });
+            FileLogger(Some(Mutex::new(BufWriter::with_capacity(
+                FILE_LOG_BUFFER,
+                file,
+            ))))
+        },
+    )
+});
 
 struct ArcLogger;
 

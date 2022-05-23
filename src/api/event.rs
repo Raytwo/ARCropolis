@@ -1,5 +1,6 @@
 use arcropolis_api::{Event, EventCallbackFn};
-use parking_lot::RwLock;
+use parking_lot::{ const_rwlock, RwLock};
+use once_cell::sync::Lazy;
 
 pub struct EventCallbacks {
     arc_fs_mounted: Vec<EventCallbackFn>,
@@ -15,10 +16,8 @@ impl EventCallbacks {
     }
 }
 
-lazy_static! {
-    pub static ref EVENT_CALLBACKS: RwLock<EventCallbacks> = RwLock::new(EventCallbacks::new());
-    pub static ref EVENT_QUEUE: RwLock<Vec<Event>> = RwLock::new(Vec::new());
-}
+pub static EVENT_CALLBACKS: Lazy<RwLock<EventCallbacks>> = Lazy::new(|| RwLock::new(EventCallbacks::new()));
+pub static EVENT_QUEUE: RwLock<Vec<Event>> = RwLock::new(Vec::new());
 
 impl std::ops::Index<Event> for EventCallbacks {
     type Output = Vec<EventCallbackFn>;
@@ -69,7 +68,5 @@ pub fn send_event(e: Event) {
 }
 
 pub fn setup() {
-    lazy_static::initialize(&EVENT_CALLBACKS);
-    lazy_static::initialize(&EVENT_QUEUE);
     let _ = std::thread::spawn(event_loop);
 }

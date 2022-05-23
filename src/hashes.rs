@@ -2,11 +2,12 @@ use std::{collections::HashMap, fs};
 
 use parking_lot::RwLock;
 use smash_arc::Hash40;
+use once_cell::sync::Lazy;
 
 static HASH_FILEPATH: &'static str = "sd:/ultimate/arcropolis/hashes.txt";
 
-lazy_static! {
-    static ref HASHES: RwLock<HashMap<Hash40, &'static str>> = {
+
+static HASHES: Lazy<RwLock<HashMap<Hash40, &'static str>>> = Lazy::new(|| {
         let mut hashes = HashMap::default();
 
         let str_path = "sd:/ultimate/arcropolis/hashes.txt";
@@ -27,8 +28,7 @@ lazy_static! {
         }
 
         RwLock::new(hashes)
-    };
-}
+});
 
 fn string_to_static_str(s: String) -> &'static str {
     Box::leak(s.into_boxed_str())
@@ -50,5 +50,5 @@ pub fn add<S: AsRef<str>>(new_hash: S) {
 }
 
 pub fn init() {
-    lazy_static::initialize(&HASHES);
+    Lazy::force(&HASHES);
 }

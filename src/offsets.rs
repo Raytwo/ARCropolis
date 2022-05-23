@@ -1,33 +1,33 @@
 use serde::{Deserialize, Serialize};
 use skyline::hooks::{getRegionAddress, Region};
 
-lazy_static! {
-    static ref OFFSETS: Offsets = {
-        let path = crate::CACHE_PATH.join("offsets.toml");
-        let offsets = match std::fs::read_to_string(&path) {
-            Ok(string) => match toml::de::from_str(string.as_str()) {
-                Ok(offsets) => offsets,
-                Err(err) => {
-                    error!("Unable to parse 'offsets.toml'. Reason: {:?}", err);
-                    Offsets::new()
-                },
-            },
+use once_cell::sync::Lazy;
+
+static OFFSETS: Lazy<Offsets> = Lazy::new(|| {
+    let path = crate::CACHE_PATH.join("offsets.toml");
+    let offsets = match std::fs::read_to_string(&path) {
+        Ok(string) => match toml::de::from_str(string.as_str()) {
+            Ok(offsets) => offsets,
             Err(err) => {
-                error!("Unable to read 'offsets.toml'. Reason: {:?}", err);
+                error!("Unable to parse 'offsets.toml'. Reason: {:?}", err);
                 Offsets::new()
             },
-        };
-
-        match toml::ser::to_string_pretty(&offsets) {
-            Ok(string) => match std::fs::write(path, string.as_bytes()) {
-                Err(_) => error!("Unable to write 'offsets.toml'."),
-                _ => {},
-            },
-            Err(_) => error!("Failed to serialize offsets."),
-        }
-        offsets
+        },
+        Err(err) => {
+            error!("Unable to read 'offsets.toml'. Reason: {:?}", err);
+            Offsets::new()
+        },
     };
-}
+
+    match toml::ser::to_string_pretty(&offsets) {
+        Ok(string) => match std::fs::write(path, string.as_bytes()) {
+            Err(_) => error!("Unable to write 'offsets.toml'."),
+            _ => {},
+        },
+        Err(_) => error!("Failed to serialize offsets."),
+    }
+    offsets
+});
 
 static FILESYSTEM_INFO_ADRP_SEARCH_CODE: &[u8] = &[0xf3, 0x03, 0x00, 0xaa, 0x1f, 0x01, 0x09, 0x6b, 0xe0, 0x04, 0x00, 0x54];
 

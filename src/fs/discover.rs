@@ -7,10 +7,11 @@ use orbits::{ConflictHandler, ConflictKind, FileLoader, LaunchPad, StandardLoade
 use skyline::nn::{self, ro::*};
 use smash_arc::Hash40;
 
+use once_cell::sync::Lazy;
+
 use crate::{chainloader::*, config, PathExtension};
 
-lazy_static! {
-    static ref PRESET_HASHES: HashSet<Hash40> = {
+static PRESET_HASHES: Lazy<HashSet<Hash40>> = Lazy::new(|| {
         let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
 
         let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
@@ -34,8 +35,7 @@ lazy_static! {
 
         trace!("Presets count: {}", presets.len());
         presets
-    };
-}
+});
 
 pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;

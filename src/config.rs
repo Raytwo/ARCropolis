@@ -12,6 +12,8 @@ use skyline_config::*;
 use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
 
+use once_cell::sync::Lazy;
+
 fn arcropolis_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
@@ -28,8 +30,8 @@ fn default_region() -> String {
     "us_en".to_string()
 }
 
-lazy_static! {
-    pub static ref GLOBAL_CONFIG: Mutex<StorageHolder<ArcStorage>> = {
+
+pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| {
         let mut storage = StorageHolder::new(ArcStorage::new());
 
         let version: Result<Version, _> = storage.get_field("version");
@@ -107,15 +109,13 @@ lazy_static! {
         }
 
         Mutex::new(storage)
-    };
+    });
 
-    static ref REGION: Region = {
-
+pub static REGION: Lazy<Region> = Lazy::new(|| {
         Region::from(crate::REGIONS.iter().position(|&x| {
             x == &region_str()
         }).map(|x| (x + 1) as u32).unwrap_or(0))
-    };
-}
+});
 
 fn migrate_config_to_storage<CS: ConfigStorage>(storage: &mut StorageHolder<CS>, config: &Config) {
     info!("Converting legacy configuration file to ConfigStorage.");
