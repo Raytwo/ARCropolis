@@ -1,14 +1,12 @@
-use std::{sync::atomic::AtomicBool, path::{PathBuf}, io::Write, collections::HashMap};
+use std::{collections::HashMap, io::Write, path::PathBuf, sync::atomic::AtomicBool};
 
 use camino::Utf8PathBuf;
 use serde::Serialize;
 use smash_arc::Hash40;
-
 use thiserror::Error;
 
-use crate::hashes;
-
 use self::interner::InternedPath;
+use crate::hashes;
 
 // pub mod api;
 // mod event;
@@ -323,22 +321,22 @@ static IS_INIT: AtomicBool = AtomicBool::new(false);
 //         }
 //     }
 
-    /// Sets the incoming file to be loaded
-    // pub fn set_incoming(&mut self, hash: Option<Hash40>) {
-    //     if let Some(hash) = self.incoming_load.take() {
-    //         warn!(
-    //             "Removing file '{}' ({:#x}) from incoming load before using it.",
-    //             hashes::find(hash),
-    //             hash.0
-    //         );
-    //     }
-    //     self.incoming_load = hash;
-    //     if let Some(hash) = hash {
-    //         self.bytes_remaining = *self.hash_size_cache.get(&hash).unwrap_or(&0);
-    //     } else {
-    //         self.bytes_remaining = 0;
-    //     }
-    // }
+/// Sets the incoming file to be loaded
+// pub fn set_incoming(&mut self, hash: Option<Hash40>) {
+//     if let Some(hash) = self.incoming_load.take() {
+//         warn!(
+//             "Removing file '{}' ({:#x}) from incoming load before using it.",
+//             hashes::find(hash),
+//             hash.0
+//         );
+//     }
+//     self.incoming_load = hash;
+//     if let Some(hash) = hash {
+//         self.bytes_remaining = *self.hash_size_cache.get(&hash).unwrap_or(&0);
+//     } else {
+//         self.bytes_remaining = 0;
+//     }
+// }
 
 //     /// Gets the incoming file to be loaded
 //     pub fn get_incoming(&mut self) -> Option<Hash40> {
@@ -708,7 +706,7 @@ impl PlaceholderFs {
 /// Ultimately this should only be used for files physically present, so no API stuff.
 #[derive(Default)]
 pub struct Modpack {
-    files: HashMap<Hash40, InternedPath::<{discover::MAX_COMPONENT_COUNT}>>
+    files: HashMap<Hash40, InternedPath<{ discover::MAX_COMPONENT_COUNT }>>,
 }
 
 #[derive(Error, Debug)]
@@ -727,10 +725,10 @@ impl Modpack {
         match self.files.get(&hash).map(|interned| interned.to_string(&interner)) {
             Some(path) => {
                 // Does not belong here? This should apply to every source
-                if let Some(handler) =  acquire_extension_handler(&Hash40::from("placeholder")) {
-                    //handler.patch_file(&Vec::new())
+                if let Some(handler) = acquire_extension_handler(&Hash40::from("placeholder")) {
+                    // handler.patch_file(&Vec::new())
                 }
-                
+
                 Ok(std::fs::read(path)?)
             },
             None => Err(ModpackError::FileMissing(hash)),
@@ -740,14 +738,14 @@ impl Modpack {
 
 pub struct Mod {
     files: HashMap<Hash40, Utf8PathBuf>,
-    patches: Vec<Utf8PathBuf>
+    patches: Vec<Utf8PathBuf>,
 }
 
 #[derive(Debug, Default, PartialEq, Hash, Eq, Serialize)]
 pub struct Conflict {
-    #[serde(rename = "Conflicting mod")] 
+    #[serde(rename = "Conflicting mod")]
     conflicting_mod: Utf8PathBuf,
-    #[serde(rename = "Conflicting with")] 
+    #[serde(rename = "Conflicting with")]
     conflict_with: Utf8PathBuf,
 }
 
@@ -765,7 +763,7 @@ pub trait ExtensionHandler {
 
 pub fn acquire_extension_handler<H: Into<Hash40>>(extension: H) -> Option<()> {
     match extension.into() {
-        _ => None
+        _ => None,
     }
 }
 

@@ -7,6 +7,7 @@
 #![allow(unaligned_references)]
 #![feature(allocator_api)]
 #![feature(hash_drain_filter)]
+#![feature(string_remove_matches)]
 
 use std::{
     fmt,
@@ -15,7 +16,7 @@ use std::{
 };
 
 use arcropolis_api::Event;
-use camino::{Utf8PathBuf, Utf8Path};
+use camino::{Utf8Path, Utf8PathBuf};
 use log::LevelFilter;
 use thiserror::Error;
 
@@ -32,14 +33,12 @@ mod fs;
 mod fuse;
 mod hashes;
 mod logging;
-#[cfg(feature = "web")]
-mod menus;
+#[cfg(feature = "web")] mod menus;
 mod offsets;
 mod remote;
 mod replacement;
 mod resource;
-#[cfg(feature = "updater")]
-mod update;
+#[cfg(feature = "updater")] mod update;
 mod util;
 
 use fs::PlaceholderFs;
@@ -48,21 +47,17 @@ use util::env;
 
 use crate::config::GLOBAL_CONFIG;
 
-pub static GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = const_rwlock(GlobalFilesystem::Uninitialized);
+pub static GLOBAL_FILESYSTEM: Lazy<RwLock<PlaceholderFs>> = Lazy::new(|| const_rwlock(PlaceholderFs::default()));
 
-lazy_static! {
-    //pub static ref GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = RwLock::new(GlobalFilesystem::Uninitialized);
-    pub static ref GLOBAL_FILESYSTEM: RwLock<PlaceholderFs> = RwLock::new(PlaceholderFs::default());
-    pub static ref CACHE_PATH: PathBuf = {
-        let version_string = get_version_string();
-        let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(version_string);
-        match std::fs::create_dir_all(&path) {
-            Err(e) => panic!("Unable to create cache directory! Reason: {:?}", e),
-            _ => {},
-        }
-        path
-    };
-}
+pub static CACHE_PATH: Lazy<PathBuf> = Lazy::new(|| {
+    let version_string = get_version_string();
+    let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(version_string);
+    match std::fs::create_dir_all(&path) {
+        Err(e) => panic!("Unable to create cache directory! Reason: {:?}", e),
+        _ => {},
+    }
+    path
+});
 
 #[macro_export]
 macro_rules! reg_x {
@@ -144,11 +139,9 @@ fn get_smash_hash<P: AsRef<Utf8Path>>(path: P) -> Result<Hash40, InvalidOsStrErr
     Ok(Hash40::from(path.as_ref().as_str()))
 }
 
-
 fn get_path_from_hash(hash: Hash40) -> Utf8PathBuf {
     if let Some(string) = hashes::try_find(hash) {
         Utf8PathBuf::from(string)
-<<<<<<< HEAD
     } else {
         Utf8PathBuf::from(format!("{:#x}", hash.0))
     }
@@ -156,7 +149,10 @@ fn get_path_from_hash(hash: Hash40) -> Utf8PathBuf {
 
 fn get_region_from_suffix(suffix: &str) -> Option<Region> {
     // In this case, having a None region is the same as saying the provided region is incorrect.
-    Region::from_str(suffix).ok().map(|region| if region == Region::None { None } else { Some(region) } ).flatten()
+    Region::from_str(suffix)
+        .ok()
+        .map(|region| if region == Region::None { None } else { Some(region) })
+        .flatten()
 }
 
 pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
@@ -168,27 +164,6 @@ pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
         let (_, end) = filename.split_at(index + 1);
         get_region_from_suffix(end)
     } else {
-=======
-    } else {
-        Utf8PathBuf::from(format!("{:#x}", hash.0))
-    }
-}
-
-fn get_region_from_suffix(suffix: &str) -> Option<Region> {
-    // In this case, having a None region is the same as saying the provided region is incorrect.
-    Region::from_str(suffix).ok().map(|region| if region == Region::None { None } else { Some(region) } ).flatten()
-}
-
-pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
-    // Take the filename so we don't have to deal with the extension
-    let filename = path.as_ref().file_name().unwrap();
-
-    if let Some(index) = filename.find("+") {
-        // The rest of the filename is dropped, as we don't need it here
-        let (_, end) = filename.split_at(index + 1);
-        get_region_from_suffix(end)
-    } else {
->>>>>>> rewrite
         None
     }
 }
@@ -202,14 +177,13 @@ pub fn strip_region_from_path<P: AsRef<Utf8Path>>(path: P) -> (Utf8PathBuf, Opti
         let region: String = path.drain(index..period).collect();
         // Remove the +
         (path.into(), get_region_from_suffix(&region[1..]))
-    } else{
+    } else {
         (path.into(), None)
     }
 }
 
 pub const REGIONS: &[&str] = &[
-    "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
-    "eu_ru", "kr_ko", "zh_cn", "zh_tw",
+    "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it", "eu_ru", "kr_ko", "zh_cn", "zh_tw",
 ];
 
 /// Initializes the `nn::time` library, for creating a log file based off of the current time. For some reason Smash does not initialize this
@@ -236,15 +210,14 @@ fn initial_loading(_ctx: &InlineCtx) {
     menus::changelog::check_for_changelog();
 
     // menus::show_arcadia();
-    //let arc = resource::arc();
+    // let arc = resource::arc();
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
 
     // TODO: Perform the conflict check here and display a web page
 
-
-    //replacement::lookup::initialize(Some(arc));
-    //let filesystem = GLOBAL_FILESYSTEM.write();
+    // replacement::lookup::initialize(Some(arc));
+    // let filesystem = GLOBAL_FILESYSTEM.write();
     // *filesystem = filesystem.take().finish().unwrap();
     // filesystem.process_mods();
     // filesystem.share_hashes();
@@ -297,7 +270,7 @@ pub fn main() {
 
     // lazy_static::initialize(&GLOBAL_FILESYSTEM);
     // Acquire the filesystem and promise it to the initial_loading hook
-    //let mut filesystem = GLOBAL_FILESYSTEM.write();
+    // let mut filesystem = GLOBAL_FILESYSTEM.write();
 
     // *filesystem = GlobalFilesystem::Promised(
     //     std::thread::Builder::new()
@@ -310,12 +283,12 @@ pub fn main() {
     // );
 
     std::thread::Builder::new()
-            .stack_size(0x40000)
-            .spawn(|| {
-                std::thread::sleep(std::time::Duration::from_millis(5000));
-                fs::perform_discovery()
-            })
-            .unwrap();
+        .stack_size(0x40000)
+        .spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(5000));
+            fs::perform_discovery()
+        })
+        .unwrap();
 
     // let resources = std::thread::Builder::new()
     //     .stack_size(0x40000)
@@ -370,7 +343,7 @@ pub fn main() {
     }));
 
     // Wait on hashes/lut to finish
-    //let _ = resources.join();
+    // let _ = resources.join();
 
     api::event::setup();
 }

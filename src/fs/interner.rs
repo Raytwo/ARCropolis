@@ -22,9 +22,7 @@ impl Interner {
     }
 
     pub fn get(&self, id: StrId) -> &str {
-        self.strings
-            .get(id.0.get().saturating_sub(1) as usize)
-            .unwrap()
+        self.strings.get(id.0.get().saturating_sub(1) as usize).unwrap()
     }
 
     pub fn add(&mut self, string: String) -> StrId {
@@ -42,10 +40,7 @@ impl Interner {
     pub fn add_path<const N: usize>(&mut self, path: &Path) -> InternedPath<N> {
         let component_count = path.components().count();
         if component_count > N {
-            panic!(
-                "Path has {} components, only a max of {} are allowed.",
-                component_count, N
-            );
+            panic!("Path has {} components, only a max of {} are allowed.", component_count, N);
         }
 
         let components = path.components().filter_map(|component| {
@@ -87,8 +82,6 @@ impl<const N: usize> InternedPath<N> {
     }
 
     pub fn components<'a>(&'a self, interner: &'a Interner) -> impl Iterator<Item = &'a str> + 'a {
-        self.0
-            .iter()
-            .filter_map(move |c| c.map(|comp| interner.get(comp)))
+        self.0.iter().filter_map(move |c| c.map(|comp| interner.get(comp)))
     }
 }

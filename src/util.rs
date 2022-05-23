@@ -1,4 +1,6 @@
 pub mod env {
+    use once_cell::sync::Lazy;
+
     #[non_exhaustive]
     pub enum RunEnvironment {
         Switch,
@@ -6,15 +8,13 @@ pub mod env {
         // Yuzu
     }
 
-    lazy_static! {
-        static ref PLATFORM: RunEnvironment = {
-            if unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000 {
-                RunEnvironment::Ryujinx
-            } else {
-                RunEnvironment::Switch
-            }
-        };
-    }
+    static PLATFORM: Lazy<RunEnvironment> = Lazy::new(|| {
+        if unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000 {
+            RunEnvironment::Ryujinx
+        } else {
+            RunEnvironment::Switch
+        }
+    });
 
     pub fn get_running_env() -> &'static RunEnvironment {
         &PLATFORM

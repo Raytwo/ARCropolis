@@ -63,7 +63,11 @@ pub fn handle_file_replace(hash: Hash40) {
     let arc = resource::arc();
     let filesystem_info = resource::filesystem_info();
 
-    let file_info = arc.get_file_info_from_hash(hash).expect(&format!("Failed to find file info for '{}' ({:#x}) when replacing.", hashes::find(hash), hash.as_u64()));
+    let file_info = arc.get_file_info_from_hash(hash).expect(&format!(
+        "Failed to find file info for '{}' ({:#x}) when replacing.",
+        hashes::find(hash),
+        hash.as_u64()
+    ));
 
     let filepath_index = usize::from(file_info.file_path_index);
     let file_info_indice_index = usize::from(file_info.file_info_indice_index);
@@ -110,7 +114,7 @@ pub fn handle_file_replace(hash: Hash40) {
         }
 
         // TODO: Move this to a extension handler
-        
+
         // else if file_info.flags.unshared_nus3bank() {
         //     static GRP_BYTES: &[u8] = &[0x47, 0x52, 0x50, 0x20];
         //     if let Some(id) = fs.get_bank_id(hash) {

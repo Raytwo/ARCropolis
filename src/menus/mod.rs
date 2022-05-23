@@ -26,17 +26,19 @@ pub fn show_main_menu() {
 
     match response.get_last_url().unwrap() {
         "http://localhost/" => {},
-        url => match url {
-            "http://localhost/arcadia" => {
-                show_arcadia(None);
-            },
-            "http://localhost/workspaces" => {
-                show_workspaces();
-            },
-            "http://localhost/config" => {
-                show_config_editor(&mut crate::config::GLOBAL_CONFIG.write());
-            },
-            _ => {},
+        url => {
+            match url {
+                "http://localhost/arcadia" => {
+                    show_arcadia(None);
+                },
+                "http://localhost/workspaces" => {
+                    show_workspaces();
+                },
+                "http://localhost/config" => {
+                    show_config_editor(&mut crate::config::GLOBAL_CONFIG.write());
+                },
+                _ => {},
+            }
         },
     }
 }

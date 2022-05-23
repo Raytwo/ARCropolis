@@ -25,7 +25,7 @@ fn memcpy_uncompressed_fix(ctx: &InlineCtx) {
     } else {
         let dest = reg_x!(ctx, 0) as *mut c_void;
         let src = reg_x!(ctx, 1) as *const c_void;
-        
+
         unsafe {
             memcpy(dest, src, buffer_size);
         }

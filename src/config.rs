@@ -1,9 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
-    path::PathBuf, str::FromStr,
+    path::PathBuf,
+    str::FromStr,
 };
 
 use camino::Utf8PathBuf;
+use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -30,9 +32,8 @@ fn default_region() -> String {
     "us_en".to_string()
 }
 
-lazy_static! {
-    pub static ref GLOBAL_CONFIG: RwLock<StorageHolder<ArcStorage>> = {
-        let mut storage = StorageHolder::new(ArcStorage::new());
+pub static GLOBAL_CONFIG: Lazy<RwLock<StorageHolder<ArcStorage>>> = Lazy::new(|| {
+    let mut storage = StorageHolder::new(ArcStorage::new());
 
     let version: Result<Version, _> = storage.get_field("version");
 
@@ -64,9 +65,11 @@ lazy_static! {
                         // Parsing successful, migrate everything to the new system
                         Ok(config) => {
                             // Prepare default files for the current version in the new storage
-                            generate_default_config(&mut storage).unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
+                            generate_default_config(&mut storage)
+                                .unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
                             // Overwrite default files with the values from the old configuration file.
-                            migrate_config_to_storage(&mut storage, &config).unwrap_or_else(|err| panic!("ARCropolis encountered an error when trying to migrate your configuration: {}", err));
+                            migrate_config_to_storage(&mut storage, &config)
+                                .unwrap_or_else(|err| panic!("ARCropolis encountered an error when trying to migrate your configuration: {}", err));
 
                             // Perform checks on deprecated custom mod directories (ARCropolis < 3.0.0)
                             if &config.paths.arc != &arc_path() {
@@ -83,38 +86,37 @@ lazy_static! {
                             // Ryujinx cannot show the web browser, and a second check is performed during file discovery
                             if !env::is_emulator() {
                                 #[cfg(feature = "web")]
-                                if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?<br>It offers advantages such as:<br>* Mod manager on the eShop button<br>* Separate enabled mods per user profile<br><br>If you accept, disabled mods will be renamed to strip the period.") {
-                                    storage.set_field_json("presets", &convert_legacy_to_presets());
-                                } else {
-                                    storage.set_flag("legacy_discovery", true);
-                                }
+                            if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?<br>It offers advantages such as:<br>* Mod manager on the eShop button<br>* Separate enabled mods per user profile<br><br>If you accept, disabled mods will be renamed to strip the period.") {
+                                storage.set_field_json("presets", &convert_legacy_to_presets());
+                            } else {
+                                storage.set_flag("legacy_discovery", true);
+                            }
                             }
                         },
                         // Parsing unsuccessful, generate default files and delete the broken config
                         Err(_) => {
                             error!("Unable to parse legacy configuration file");
-                            generate_default_config(&mut storage).unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
+                            generate_default_config(&mut storage)
+                                .unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
                             let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
-                        }
-                    },
-                    // Could not find a legacy configuration
-                    Err(_) => {
-                        error!("Unable to find legacy config file, generating default values.");
-                        // [3.2.0] Removed migration from DebugSavedataStorage so we don't create a partition for the user just to check if they had one anymore.
-                        generate_default_config(&mut storage).unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
+                        },
                     }
-                }
+                },
+                // Could not find a legacy configuration
+                Err(_) => {
+                    error!("Unable to find legacy config file, generating default values.");
+                    // [3.2.0] Removed migration from DebugSavedataStorage so we don't create a partition for the user just to check if they had one anymore.
+                    generate_default_config(&mut storage)
+                        .unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
+                },
             }
         },
     }
 
-        RwLock::new(storage)
-    };
+    RwLock::new(storage)
+});
 
-    static ref REGION: Region = {
-        Region::from_str(&region_str()).unwrap_or(Region::None)
-    };
-}
+static REGION: Lazy<Region> = Lazy::new(|| Region::from_str(&region_str()).unwrap_or(Region::None));
 
 fn migrate_config_to_storage<CS: ConfigStorage>(storage: &mut StorageHolder<CS>, config: &Config) -> Result<(), ConfigError> {
     info!("Converting legacy configuration file to ConfigStorage.");
@@ -267,8 +269,8 @@ impl ConfigLogger {
 pub mod workspaces {
     use std::collections::HashMap;
 
-    use thiserror::Error;
     use skyline_config::ConfigError;
+    use thiserror::Error;
 
     #[derive(Error, Debug)]
     pub enum WorkspaceError {
@@ -286,7 +288,7 @@ pub mod workspaces {
         let storage = super::GLOBAL_CONFIG.read();
         storage.get_field_json("workspace_list").map_err(WorkspaceError::ConfigError)
     }
-    
+
     pub fn create_new_workspace(name: String) -> Result<(), WorkspaceError> {
         let mut list = get_list()?;
 
@@ -297,7 +299,7 @@ pub mod workspaces {
             list.insert(name, "temp".to_string());
             let mut storage = super::GLOBAL_CONFIG.write();
             storage.set_field_json("workspace_list", &list).map_err(WorkspaceError::ConfigError)
-        }        
+        }
     }
 
     pub fn set_active_workspace(name: String) -> Result<(), WorkspaceError> {
@@ -315,16 +317,13 @@ pub mod workspaces {
 }
 
 pub mod presets {
-    use std::collections::{HashSet, HashMap};
+    use std::collections::{HashMap, HashSet};
 
+    use once_cell::sync::Lazy;
     use skyline_config::ConfigError;
     use smash_arc::Hash40;
 
-    lazy_static! {
-        static ref PRESET: HashSet<Hash40> = {
-            HashSet::new()
-        };
-    }
+    static PRESET: Lazy<HashSet<Hash40>> = Lazy::new(|| HashSet::new());
 
     pub fn get_active_preset() -> Result<HashSet<Hash40>, ConfigError> {
         let storage = super::GLOBAL_CONFIG.read();
@@ -340,7 +339,6 @@ pub mod presets {
         let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
         let preset_name = &workspace_list[&workspace_name];
         storage.set_field_json(preset_name, preset)
-
     }
 }
 
