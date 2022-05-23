@@ -319,7 +319,6 @@ pub fn main() {
         std::thread::Builder::new()
             .stack_size(0x40000)
             .spawn(|| {
-                std::thread::sleep(std::time::Duration::from_millis(5000));
                 fs::perform_discovery()
             })
             .unwrap(),
