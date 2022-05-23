@@ -148,6 +148,7 @@ fn get_smash_hash<P: AsRef<Utf8Path>>(path: P) -> Result<Hash40, InvalidOsStrErr
 fn get_path_from_hash(hash: Hash40) -> Utf8PathBuf {
     if let Some(string) = hashes::try_find(hash) {
         Utf8PathBuf::from(string)
+<<<<<<< HEAD
     } else {
         Utf8PathBuf::from(format!("{:#x}", hash.0))
     }
@@ -167,6 +168,27 @@ pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
         let (_, end) = filename.split_at(index + 1);
         get_region_from_suffix(end)
     } else {
+=======
+    } else {
+        Utf8PathBuf::from(format!("{:#x}", hash.0))
+    }
+}
+
+fn get_region_from_suffix(suffix: &str) -> Option<Region> {
+    // In this case, having a None region is the same as saying the provided region is incorrect.
+    Region::from_str(suffix).ok().map(|region| if region == Region::None { None } else { Some(region) } ).flatten()
+}
+
+pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
+    // Take the filename so we don't have to deal with the extension
+    let filename = path.as_ref().file_name().unwrap();
+
+    if let Some(index) = filename.find("+") {
+        // The rest of the filename is dropped, as we don't need it here
+        let (_, end) = filename.split_at(index + 1);
+        get_region_from_suffix(end)
+    } else {
+>>>>>>> rewrite
         None
     }
 }
