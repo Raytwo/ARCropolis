@@ -126,7 +126,7 @@ fn handle_walk_directory(search: &LoadedSearchSection, mut args: Vec<String>) ->
     let hash = if let Some(hash) = get_flag_and_option("-h", &mut args) {
         parse_hash(hash.as_str())
     } else {
-        return String::from("");
+        return String::from("")
     };
 
     let is_pretty = check_for_flag("-p", &mut args);
@@ -140,7 +140,7 @@ fn handle_walk_directory(search: &LoadedSearchSection, mut args: Vec<String>) ->
 
     let _ = search.walk_directory(hash, |child, depth| {
         if !(min_depth..max_depth + 1).contains(&depth) {
-            return;
+            return
         }
         write_indent(depth - min_depth);
         print!("-| ");
@@ -169,7 +169,7 @@ fn handle_walk_directory(search: &LoadedSearchSection, mut args: Vec<String>) ->
 pub fn handle_command(mut args: Vec<String>) -> String {
     let search = resource::search();
     if args.len() == 0 {
-        return String::from("");
+        return String::from("")
     }
     let command = args.remove(0);
     match command.as_str() {

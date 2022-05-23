@@ -55,7 +55,7 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
             let path_to_be_used = path.unwrap().path();
 
             if path_to_be_used.is_file() {
-                return None;
+                return None
             }
 
             let disabled = if !presets.contains(&Hash40::from(path_to_be_used.to_str().unwrap())) { true } else { false };
@@ -75,24 +75,24 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
             };
 
             let mod_info = match toml::from_str::<Entry>(&std::fs::read_to_string(&info_path).unwrap_or_default()) {
-                Ok(res) => Entry {
-                    id: Some(id),
-                    folder_name: Some(folder_name.clone()),
-                    display_name: res.display_name.or(Some(folder_name.clone())),
-                    authors: res.authors.or(Some(String::from("???"))),
-                    is_disabled: Some(disabled),
-                    version: res.version.or(Some(String::from("???"))),
-                    category: res.category.map_or(Some(String::from("Misc")),
-                     |cat|
+                Ok(res) => {
+                    Entry {
+                        id: Some(id),
+                        folder_name: Some(folder_name.clone()),
+                        display_name: res.display_name.or(Some(folder_name.clone())),
+                        authors: res.authors.or(Some(String::from("???"))),
+                        is_disabled: Some(disabled),
+                        version: res.version.or(Some(String::from("???"))),
+                        category: res.category.map_or(Some(String::from("Misc")), |cat| {
                             if cat == "Music" {
                                 Some("Audio".to_string())
-                            }
-                            else {
+                            } else {
                                 Some(cat)
-                            },
-                    ),
-                    description: Some(res.description.unwrap_or_else(String::new).replace("\n", "<br />")),
-                    ..res
+                            }
+                        }),
+                        description: Some(res.description.unwrap_or_else(String::new).replace("\n", "<br />")),
+                        ..res
+                    }
                 },
                 Err(e) => {
                     skyline_web::DialogOk::ok(&format!("The following info.toml is not valid: \n\n* '{}'\n\nError: {}", folder_name, e,));
@@ -112,7 +112,7 @@ pub fn show_arcadia(workspace: Option<String>) {
 
     if !umm_path.exists() {
         skyline_web::DialogOk::ok("It seems the directory specified in your configuration does not exist.");
-        return;
+        return
     }
 
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
@@ -211,7 +211,7 @@ pub fn show_arcadia(workspace: Option<String>) {
             ArcadiaMessage::ClosureRequest => {
                 session.exit();
                 session.wait_for_exit();
-                break;
+                break
             },
         }
     }

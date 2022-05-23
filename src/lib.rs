@@ -20,11 +20,10 @@ use semver::Version;
 use smash_arc::{ArcLookup, LoadedSearchSection, SearchLookup};
 use thiserror::Error;
 
-#[macro_use]
-extern crate log;
+#[macro_use] extern crate log;
 
-use parking_lot::{const_rwlock, RwLock};
 use once_cell::sync::Lazy;
+use parking_lot::{const_rwlock, RwLock};
 use skyline::{hooks::InlineCtx, libc::c_char, nn};
 
 mod api;
@@ -39,14 +38,12 @@ mod offsets;
 mod remote;
 mod replacement;
 mod resource;
-#[cfg(feature = "updater")]
-mod update;
+#[cfg(feature = "updater")] mod update;
 
+use fs::GlobalFilesystem;
 use replacement::extensions::SearchEx;
 use smash_arc::Hash40;
 use walkdir::WalkDir;
-
-use fs::GlobalFilesystem;
 
 use crate::config::GLOBAL_CONFIG;
 
@@ -144,7 +141,7 @@ impl PathExtension for Path {
                 .flatten()
                 .map(|x| Hash40(x));
             if let Some(hash) = hash {
-                return Ok(hash);
+                return Ok(hash)
             }
         }
         let mut path = self
@@ -177,8 +174,7 @@ fn get_path_from_hash(hash: Hash40) -> PathBuf {
 }
 
 pub const REGIONS: &[&str] = &[
-    "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it",
-    "eu_ru", "kr_ko", "zh_cn", "zh_tw",
+    "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it", "eu_ru", "kr_ko", "zh_cn", "zh_tw",
 ];
 /// Initializes the `nn::time` library, for creating a log file based off of the current time. For some reason Smash does not initialize this
 fn init_time() {
@@ -307,14 +303,7 @@ pub fn main() {
     // Acquire the filesystem and promise it to the initial_loading hook
     let mut filesystem = GLOBAL_FILESYSTEM.write();
 
-    *filesystem = GlobalFilesystem::Promised(
-        std::thread::Builder::new()
-            .stack_size(0x40000)
-            .spawn(|| {
-                fs::perform_discovery()
-            })
-            .unwrap(),
-    );
+    *filesystem = GlobalFilesystem::Promised(std::thread::Builder::new().stack_size(0x40000).spawn(|| fs::perform_discovery()).unwrap());
 
     let resources = std::thread::Builder::new()
         .stack_size(0x40000)
@@ -363,9 +352,11 @@ pub fn main() {
 
         let msg = match info.payload().downcast_ref::<&'static str>() {
             Some(s) => *s,
-            None => match info.payload().downcast_ref::<String>() {
-                Some(s) => &s[..],
-                None => "Box<Any>",
+            None => {
+                match info.payload().downcast_ref::<String>() {
+                    Some(s) => &s[..],
+                    None => "Box<Any>",
+                }
             },
         };
 

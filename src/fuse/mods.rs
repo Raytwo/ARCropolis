@@ -39,21 +39,25 @@ impl DirectoryAccessor for ModDirAccessor {
         let children = fs.get().get_children(&self.0);
         for (idx, path) in children.iter().enumerate() {
             if idx >= buffer.len() {
-                break;
+                break
             }
 
             buffer[idx].path = path.to_path_buf();
             let ty = match fs.get().get_virtual_entry_type(path) {
-                Err(_) => match fs.get().get_patch_entry_type(path) {
-                    Ok(ty) => ty,
-                    Err(_) => return Err(AccessorResult::PathNotFound),
+                Err(_) => {
+                    match fs.get().get_patch_entry_type(path) {
+                        Ok(ty) => ty,
+                        Err(_) => return Err(AccessorResult::PathNotFound),
+                    }
                 },
                 Ok(ty) => ty,
             };
             match ty {
-                FileEntryType::File => match fs.get().query_max_filesize(path) {
-                    Some(size) => buffer[idx].ty = DirectoryEntryType::File(size as i64),
-                    None => return Err(AccessorResult::Unexpected),
+                FileEntryType::File => {
+                    match fs.get().query_max_filesize(path) {
+                        Some(size) => buffer[idx].ty = DirectoryEntryType::File(size as i64),
+                        None => return Err(AccessorResult::Unexpected),
+                    }
                 },
                 FileEntryType::Directory => buffer[idx].ty = DirectoryEntryType::Directory,
             }
@@ -73,16 +77,22 @@ impl FileSystemAccessor for ModFsAccessor {
 
         let fs = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
         match fs.get().get_virtual_entry_type(path) {
-            Err(_) => match fs.get().get_patch_entry_type(path) {
-                Ok(ty) => match ty {
+            Err(_) => {
+                match fs.get().get_patch_entry_type(path) {
+                    Ok(ty) => {
+                        match ty {
+                            FileEntryType::File => Ok(FsEntryType::File),
+                            FileEntryType::Directory => Ok(FsEntryType::Directory),
+                        }
+                    },
+                    Err(_) => Err(AccessorResult::PathNotFound),
+                }
+            },
+            Ok(ty) => {
+                match ty {
                     FileEntryType::File => Ok(FsEntryType::File),
                     FileEntryType::Directory => Ok(FsEntryType::Directory),
-                },
-                Err(_) => Err(AccessorResult::PathNotFound),
-            },
-            Ok(ty) => match ty {
-                FileEntryType::File => Ok(FsEntryType::File),
-                FileEntryType::Directory => Ok(FsEntryType::Directory),
+                }
             },
         }
     }
@@ -97,7 +107,7 @@ impl FileSystemAccessor for ModFsAccessor {
         let fs = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
 
         if write || append {
-            return Err(AccessorResult::Unsupported);
+            return Err(AccessorResult::Unsupported)
         }
 
         if fs.get().contains(path) {

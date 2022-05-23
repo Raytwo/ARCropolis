@@ -1,33 +1,32 @@
 use std::{collections::HashMap, fs};
 
+use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use smash_arc::Hash40;
-use once_cell::sync::Lazy;
 
 static HASH_FILEPATH: &'static str = "sd:/ultimate/arcropolis/hashes.txt";
 
-
 static HASHES: Lazy<RwLock<HashMap<Hash40, &'static str>>> = Lazy::new(|| {
-        let mut hashes = HashMap::default();
+    let mut hashes = HashMap::default();
 
-        let str_path = "sd:/ultimate/arcropolis/hashes.txt";
+    let str_path = "sd:/ultimate/arcropolis/hashes.txt";
 
-        let s = match fs::read_to_string(str_path) {
-            Err(e) => {
-                warn!(
-                    "Failed to read '{}' for hashes. Reason: {:?}. There won't be any hash lookups in this run's logs.",
-                    HASH_FILEPATH, e
-                );
-                return RwLock::new(hashes);
-            },
-            Ok(s) => s,
-        };
+    let s = match fs::read_to_string(str_path) {
+        Err(e) => {
+            warn!(
+                "Failed to read '{}' for hashes. Reason: {:?}. There won't be any hash lookups in this run's logs.",
+                HASH_FILEPATH, e
+            );
+            return RwLock::new(hashes)
+        },
+        Ok(s) => s,
+    };
 
-        for hs in string_to_static_str(s).lines() {
-            hashes.insert(Hash40::from(hs), hs);
-        }
+    for hs in string_to_static_str(s).lines() {
+        hashes.insert(Hash40::from(hs), hs);
+    }
 
-        RwLock::new(hashes)
+    RwLock::new(hashes)
 });
 
 fn string_to_static_str(s: String) -> &'static str {

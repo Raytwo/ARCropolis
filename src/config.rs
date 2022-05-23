@@ -4,6 +4,7 @@ use std::{
     sync::Mutex,
 };
 
+use once_cell::sync::Lazy;
 use owo_colors::OwoColorize;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -11,8 +12,6 @@ use skyline::nn;
 use skyline_config::*;
 use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
-
-use once_cell::sync::Lazy;
 
 fn arcropolis_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
@@ -30,35 +29,36 @@ fn default_region() -> String {
     "us_en".to_string()
 }
 
-
 pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| {
-        let mut storage = StorageHolder::new(ArcStorage::new());
+    let mut storage = StorageHolder::new(ArcStorage::new());
 
-        let version: Result<Version, _> = storage.get_field("version");
+    let version: Result<Version, _> = storage.get_field("version");
 
-        match version {
-            Ok(config_version) => {
-                let curr_version = Version::parse(&arcropolis_version()).expect("Parsing of ARCropolis' version string failed. Please open an issue on www.arcropolis.com to let us know!");
+    match version {
+        Ok(config_version) => {
+            let curr_version = Version::parse(&arcropolis_version())
+                .expect("Parsing of ARCropolis' version string failed. Please open an issue on www.arcropolis.com to let us know!");
 
-                // Check if the configuration is from a previous version
-                if curr_version > config_version {
-                    // TODO: Code to perform changes for each version
-                    if Version::new(3,2,0) > config_version {
-                        let mut default_workspace = HashMap::<&str, &str>::new();
-                        default_workspace.insert("Default", "presets");
-                        storage.set_field_json("workspace_list", &default_workspace).unwrap();
-                        storage.set_field("workspace", "Default").unwrap();
-                    }
-                    // Update the version in the config
-                    storage.set_field("version", arcropolis_version()).unwrap();
+            // Check if the configuration is from a previous version
+            if curr_version > config_version {
+                // TODO: Code to perform changes for each version
+                if Version::new(3, 2, 0) > config_version {
+                    let mut default_workspace = HashMap::<&str, &str>::new();
+                    default_workspace.insert("Default", "presets");
+                    storage.set_field_json("workspace_list", &default_workspace).unwrap();
+                    storage.set_field("workspace", "Default").unwrap();
                 }
+                // Update the version in the config
+                storage.set_field("version", arcropolis_version()).unwrap();
             }
-            // Version file does not exist
-            Err(_) => {
-                // Check if a legacy configuration exists
-                match std::fs::read_to_string("sd:/ultimate/arcropolis/config.toml") {
-                    // Legacy configuration exists, try parsing it
-                    Ok(toml) => match toml::de::from_str::<Config>(toml.as_str()) {
+        },
+        // Version file does not exist
+        Err(_) => {
+            // Check if a legacy configuration exists
+            match std::fs::read_to_string("sd:/ultimate/arcropolis/config.toml") {
+                // Legacy configuration exists, try parsing it
+                Ok(toml) => {
+                    match toml::de::from_str::<Config>(toml.as_str()) {
                         // Parsing successful, migrate everything to the new system
                         Ok(config) => {
                             // Prepare default files for the current version in the new storage
@@ -67,11 +67,11 @@ pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| 
                             migrate_config_to_storage(&mut storage, &config);
 
                             // Perform checks on deprecated custom mod directories (ARCropolis < 3.0.0)
-                            if &config.paths.arc != &arc_path(){
+                            if &config.paths.arc != &arc_path() {
                                 skyline::error::show_error(69, "Usage of custom ARC paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom ARC paths have been deprecated in an effort to reduce user error.<br>Consider moving your modpack to rom:/arc to keep using it.");
                             }
 
-                            if &config.paths.umm != &umm_path(){
+                            if &config.paths.umm != &umm_path() {
                                 skyline::error::show_error(69, "Usage of custom UMM paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom UMM paths have been deprecated in an effort to reduce user error.<br>Consider moving your modpack to sd:/ultimate/mods to keep using it.");
                                 // TODO: Offer to move it for the user if the default umm path doesn't already exist
                             }
@@ -94,27 +94,32 @@ pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| 
                             error!("Unable to parse legacy configuration file");
                             generate_default_config(&mut storage);
                             let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
-                        }
-                    },
-                    // Could not find a legacy configuration
-                    Err(_) => {
-                        error!("Unable to find legacy config file, generating default values.");
-                        // [3.2.0] Removed migration from DebugSavedataStorage so we don't create a partition for the user just to check if they had one anymore.
-                        generate_default_config(&mut storage);
-
-                        storage.set_flag("first_boot", true);
+                        },
                     }
-                }
-            }
-        }
+                },
+                // Could not find a legacy configuration
+                Err(_) => {
+                    error!("Unable to find legacy config file, generating default values.");
+                    // [3.2.0] Removed migration from DebugSavedataStorage so we don't create a partition for the user just to check if they had one anymore.
+                    generate_default_config(&mut storage);
 
-        Mutex::new(storage)
-    });
+                    storage.set_flag("first_boot", true);
+                },
+            }
+        },
+    }
+
+    Mutex::new(storage)
+});
 
 pub static REGION: Lazy<Region> = Lazy::new(|| {
-        Region::from(crate::REGIONS.iter().position(|&x| {
-            x == &region_str()
-        }).map(|x| (x + 1) as u32).unwrap_or(0))
+    Region::from(
+        crate::REGIONS
+            .iter()
+            .position(|&x| x == &region_str())
+            .map(|x| (x + 1) as u32)
+            .unwrap_or(0),
+    )
 });
 
 fn migrate_config_to_storage<CS: ConfigStorage>(storage: &mut StorageHolder<CS>, config: &Config) {

@@ -1,17 +1,18 @@
+use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use skyline::hooks::{getRegionAddress, Region};
-
-use once_cell::sync::Lazy;
 
 static OFFSETS: Lazy<Offsets> = Lazy::new(|| {
     let path = crate::CACHE_PATH.join("offsets.toml");
     let offsets = match std::fs::read_to_string(&path) {
-        Ok(string) => match toml::de::from_str(string.as_str()) {
-            Ok(offsets) => offsets,
-            Err(err) => {
-                error!("Unable to parse 'offsets.toml'. Reason: {:?}", err);
-                Offsets::new()
-            },
+        Ok(string) => {
+            match toml::de::from_str(string.as_str()) {
+                Ok(offsets) => offsets,
+                Err(err) => {
+                    error!("Unable to parse 'offsets.toml'. Reason: {:?}", err);
+                    Offsets::new()
+                },
+            }
         },
         Err(err) => {
             error!("Unable to read 'offsets.toml'. Reason: {:?}", err);
@@ -20,9 +21,11 @@ static OFFSETS: Lazy<Offsets> = Lazy::new(|| {
     };
 
     match toml::ser::to_string_pretty(&offsets) {
-        Ok(string) => match std::fs::write(path, string.as_bytes()) {
-            Err(_) => error!("Unable to write 'offsets.toml'."),
-            _ => {},
+        Ok(string) => {
+            match std::fs::write(path, string.as_bytes()) {
+                Err(_) => error!("Unable to write 'offsets.toml'."),
+                _ => {},
+            }
         },
         Err(_) => error!("Failed to serialize offsets."),
     }

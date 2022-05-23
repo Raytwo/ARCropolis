@@ -48,11 +48,13 @@ mod lookups {
 
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(idx) => match tables.get_loaded_filepaths().get(idx as usize) {
-                    Some(entry) => {
-                        format!("{:#x?}", entry)
-                    },
-                    None => String::from("Out of bounds"),
+                Some(idx) => {
+                    match tables.get_loaded_filepaths().get(idx as usize) {
+                        Some(entry) => {
+                            format!("{:#x?}", entry)
+                        },
+                        None => String::from("Out of bounds"),
+                    }
                 },
                 None => String::from(USAGE),
             }
@@ -60,11 +62,13 @@ mod lookups {
             let hash = parse_hash(hash.as_str());
             let arc = resource::arc();
             match arc.get_file_path_index_from_hash(hash) {
-                Ok(idx) => match tables.get_loaded_filepaths().get(usize::from(idx)) {
-                    Some(entry) => {
-                        format!("{:#x?}", entry)
-                    },
-                    None => String::from("Out of bounds"),
+                Ok(idx) => {
+                    match tables.get_loaded_filepaths().get(usize::from(idx)) {
+                        Some(entry) => {
+                            format!("{:#x?}", entry)
+                        },
+                        None => String::from("Out of bounds"),
+                    }
                 },
                 Err(e) => {
                     format!("{:#?}", e)
@@ -81,11 +85,13 @@ mod lookups {
                   When passing an index, make sure it is not a file path index. This table uses the same indices as the FileInfoIndex table in data.arc"#;
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(idx) => match tables.get_loaded_datas().get(idx as usize) {
-                    Some(entry) => {
-                        format!("{:#x?}", entry)
-                    },
-                    None => String::from("Out of bounds"),
+                Some(idx) => {
+                    match tables.get_loaded_datas().get(idx as usize) {
+                        Some(entry) => {
+                            format!("{:#x?}", entry)
+                        },
+                        None => String::from("Out of bounds"),
+                    }
                 },
                 None => String::from(USAGE),
             }
@@ -130,11 +136,13 @@ mod lookups {
 
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
-                Some(idx) => match tables.get_loaded_directories().get(idx as usize) {
-                    Some(entry) => {
-                        format!("{:#x?}", entry)
-                    },
-                    None => String::from("Out of bounds"),
+                Some(idx) => {
+                    match tables.get_loaded_directories().get(idx as usize) {
+                        Some(entry) => {
+                            format!("{:#x?}", entry)
+                        },
+                        None => String::from("Out of bounds"),
+                    }
                 },
                 None => String::from(USAGE),
             }
@@ -147,7 +155,7 @@ mod lookups {
             for idx in dir_hashes.iter() {
                 if idx.hash40() == hash {
                     index = Some(idx.index() as usize);
-                    break;
+                    break
                 }
             }
             if let Some(idx) = index {
@@ -259,7 +267,7 @@ mod utils {
             };
             if let Some(entry) = t2_entry.as_ref() {
                 if entry.state == LoadState::Loaded && unloaded {
-                    continue;
+                    continue
                 }
             }
             let hash = file_paths[*path_idx as usize].path.hash40();
@@ -470,7 +478,7 @@ mod utils {
             for idx in dir_hashes.iter() {
                 if idx.hash40() == hash {
                     index = Some(idx.index() as u32);
-                    break;
+                    break
                 }
             }
             match index {
@@ -478,7 +486,7 @@ mod utils {
                 None => return String::from("Missing"),
             }
         } else {
-            return String::from(USAGE);
+            return String::from(USAGE)
         };
 
         let _ = match tables.get_loaded_directories().get(index as usize) {
@@ -534,7 +542,7 @@ mod utils {
             let dehashed = hashes::find(hash);
             if let Some(filter) = filter.as_ref() {
                 if !dehashed.contains(filter) {
-                    continue;
+                    continue
                 }
             }
             let _ = write!(&mut output, "'{}' ({:#x}): {:?}\n", dehashed, hash.0, reason);
@@ -546,7 +554,7 @@ mod utils {
 pub fn handle_command(mut args: Vec<String>) -> String {
     let tables = resource::filesystem_info();
     if args.len() == 0 {
-        return String::from(USAGE);
+        return String::from(USAGE)
     }
     let command = args.remove(0);
     match command.as_str() {

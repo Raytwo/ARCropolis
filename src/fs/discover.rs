@@ -3,38 +3,37 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use once_cell::sync::Lazy;
 use orbits::{ConflictHandler, ConflictKind, FileLoader, LaunchPad, StandardLoader, Tree};
 use skyline::nn::{self, ro::*};
 use smash_arc::Hash40;
 
-use once_cell::sync::Lazy;
-
 use crate::{chainloader::*, config, PathExtension};
 
 static PRESET_HASHES: Lazy<HashSet<Hash40>> = Lazy::new(|| {
-        let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
+    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
 
-        let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
-        let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
+    let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+    let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
 
-        // Get the name of the preset file from the workspace list
-        let presets: String = workspace_list.get(&workspace_name).unwrap_or(&"presets".to_string()).to_string();
+    // Get the name of the preset file from the workspace list
+    let presets: String = workspace_list.get(&workspace_name).unwrap_or(&"presets".to_string()).to_string();
 
-        let presets = match storage.get_field_json(&presets) {
-            Ok(presets) => {
-                trace!("Preset properly deserialized");
-                presets
-            },
-            Err(err) => {
-                trace!("Preset deserialize error: {:?}", err);
-                let empty_presets: HashSet<Hash40> = HashSet::new();
-                storage.set_field_json("presets", &empty_presets);
-                empty_presets
-            },
-        };
+    let presets = match storage.get_field_json(&presets) {
+        Ok(presets) => {
+            trace!("Preset properly deserialized");
+            presets
+        },
+        Err(err) => {
+            trace!("Preset deserialize error: {:?}", err);
+            let empty_presets: HashSet<Hash40> = HashSet::new();
+            storage.set_field_json("presets", &empty_presets);
+            empty_presets
+        },
+    };
 
-        trace!("Presets count: {}", presets.len());
-        presets
+    trace!("Presets count: {}", presets.len());
+    presets
 });
 
 pub fn perform_discovery() -> LaunchPad<StandardLoader> {
@@ -139,7 +138,10 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         // Get the preset name from the workspace list
         let preset_name = &workspace_list[&workspace_name];
         let mut presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
-        let new_mods: HashSet<&Hash40> = new_cache.iter().filter(|cached_mod| !mod_cache.contains(cached_mod) && !presets.contains(cached_mod)).collect();
+        let new_mods: HashSet<&Hash40> = new_cache
+            .iter()
+            .filter(|cached_mod| !mod_cache.contains(cached_mod) && !presets.contains(cached_mod))
+            .collect();
 
         // We found hashes that weren't in the cache
         if !new_mods.is_empty() {
@@ -261,18 +263,20 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             }
 
             let should_log = match serde_json::to_string_pretty(&conflict_map) {
-                Ok(json) => match std::fs::write("sd:/ultimate/arcropolis/conflicts.json", json.as_bytes()) {
-                    Ok(_) => {
-                        crate::dialog_error("Please check sd:/ultimate/arcropolis/conflicts.json for all of the file conflicts.");
-                        false
-                    },
-                    Err(e) => {
-                        crate::dialog_error(format!(
-                            "Failed to write conflict map to sd:/ultimate/arcropolis/conflicts.json<br>{:?}",
-                            e
-                        ));
-                        true
-                    },
+                Ok(json) => {
+                    match std::fs::write("sd:/ultimate/arcropolis/conflicts.json", json.as_bytes()) {
+                        Ok(_) => {
+                            crate::dialog_error("Please check sd:/ultimate/arcropolis/conflicts.json for all of the file conflicts.");
+                            false
+                        },
+                        Err(e) => {
+                            crate::dialog_error(format!(
+                                "Failed to write conflict map to sd:/ultimate/arcropolis/conflicts.json<br>{:?}",
+                                e
+                            ));
+                            true
+                        },
+                    }
                 },
                 Err(e) => {
                     crate::dialog_error(format!("Failed to serialize conflict map to JSON. {:?}", e));
@@ -314,14 +318,16 @@ where
     let fighter_nro_parent = Path::new("prebuilt;/nro/release");
     let mut fighter_nro_nrr = NrrBuilder::new();
 
-    tree.walk_paths(|node, entry_type| match node.get_local().parent() {
-        Some(parent) if entry_type.is_file() && parent == fighter_nro_parent => {
-            info!("Reading '{}' for module registration.", node.full_path().display());
-            if let Ok(data) = std::fs::read(node.full_path()) {
-                fighter_nro_nrr.add_module(data.as_slice());
-            }
-        },
-        _ => {},
+    tree.walk_paths(|node, entry_type| {
+        match node.get_local().parent() {
+            Some(parent) if entry_type.is_file() && parent == fighter_nro_parent => {
+                info!("Reading '{}' for module registration.", node.full_path().display());
+                if let Ok(data) = std::fs::read(node.full_path()) {
+                    fighter_nro_nrr.add_module(data.as_slice());
+                }
+            },
+            _ => {},
+        }
     });
 
     fighter_nro_nrr.register()
@@ -359,7 +365,7 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
 
     if modules.is_empty() {
         info!("No plugins found for chainloading.");
-        return;
+        return
     }
 
     let mut registration_info = match plugin_nrr.register() {
@@ -368,18 +374,20 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
         Err(e) => {
             error!("{:?}", e);
             crate::dialog_error("ARCropolis failed to register plugin module info.");
-            return;
+            return
         },
     };
 
     let modules: Vec<Module> = modules
         .into_iter()
-        .filter_map(|x| match x.mount() {
-            Ok(module) => Some(module),
-            Err(e) => {
-                error!("Failed to mount chainloaded plugin. {:?}", e);
-                None
-            },
+        .filter_map(|x| {
+            match x.mount() {
+                Ok(module) => Some(module),
+                Err(e) => {
+                    error!("Failed to mount chainloaded plugin. {:?}", e);
+                    None
+                },
+            }
         })
         .collect();
 

@@ -20,7 +20,7 @@ fn lookup_stream_hash(out_path: *mut c_char, loaded_arc: &LoadedArc, size_out: &
                 let cpath = format!("{}\0", path.display());
                 let out_buffer = unsafe { std::slice::from_raw_parts_mut(out_path, cpath.len()) };
                 out_buffer.copy_from_slice(cpath.as_bytes());
-                return;
+                return
             } else if path.exists() {
                 match std::fs::metadata(&path).map(|x| x.len()) {
                     Ok(size) => {
@@ -29,7 +29,7 @@ fn lookup_stream_hash(out_path: *mut c_char, loaded_arc: &LoadedArc, size_out: &
                         let cpath = format!("{}\0", path.display());
                         let out_buffer = unsafe { std::slice::from_raw_parts_mut(out_path, cpath.len()) };
                         out_buffer.copy_from_slice(cpath.as_bytes());
-                        return;
+                        return
                     },
                     _ => {},
                 }
@@ -45,13 +45,13 @@ fn lookup_stream_hash(out_path: *mut c_char, loaded_arc: &LoadedArc, size_out: &
             let cpath = "rom:/data.arc"; // the game normally populates the out_path with this string in the original function, so we do the same here
             let out_buffer = unsafe { std::slice::from_raw_parts_mut(out_path, cpath.len()) };
             out_buffer.copy_from_slice(cpath.as_bytes());
-            return;
+            return
         },
         _ => {
             error!("Could not find StreamData for '{}' ({:#x}) in data.arc.", hashes::find(hash), hash.0);
             *size_out = 0;
             *offset_out = 0;
-            return;
+            return
         },
     }
 }

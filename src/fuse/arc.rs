@@ -1,12 +1,10 @@
-use std::io::Write;
-use std::str::FromStr;
+use std::{io::Write, str::FromStr};
 
 use nn_fuse::{AccessorResult, DAccessor, DirectoryAccessor, FAccessor, FileAccessor, FileSystemAccessor, FsAccessor, FsEntryType};
+use once_cell::sync::Lazy;
 use smash_arc::{ArcFile, ArcLookup, Hash40, Region};
 
 use crate::PathExtension;
-
-use once_cell::sync::Lazy;
 
 pub static ARC_FILE: Lazy<ArcFile> = Lazy::new(|| ArcFile::open("rom:/data.arc").unwrap());
 
@@ -21,10 +19,7 @@ impl FileAccessor for ArcFileAccessor {
 
     fn get_size(&mut self) -> Result<usize, AccessorResult> {
         debug!("ArcFileAccessor::get_size");
-        Ok(ARC_FILE
-            .get_file_data_from_hash(self.0, self.1)
-            .unwrap()
-            .decomp_size as _)
+        Ok(ARC_FILE.get_file_data_from_hash(self.0, self.1).unwrap().decomp_size as _)
     }
 }
 
@@ -71,12 +66,12 @@ impl FileSystemAccessor for ArcFuse {
         let hash = path.smash_hash().unwrap();
         match ARC_FILE.get_file_info_from_hash(hash) {
             Ok(info) => {
-              if !info.flags.is_regional(){
-                file_region = Region::None;
-              }
+                if !info.flags.is_regional() {
+                    file_region = Region::None;
+                }
             },
-            Err(_)=> file_region = Region::None
-          }
+            Err(_) => file_region = Region::None,
+        }
         if read != 0 {
             if ARC_FILE.get_file_path_index_from_hash(hash).is_ok() {
                 Ok(FAccessor::new(ArcFileAccessor(hash, file_region), mode))

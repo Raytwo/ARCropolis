@@ -75,7 +75,7 @@ pub fn handle_file_replace(hash: Hash40) {
         Ok(info) => info,
         Err(_) => {
             error!("Failed to find file info for '{}' ({:#x}) when replacing.", hashes::find(hash), hash.0);
-            return;
+            return
         },
     };
 
@@ -102,7 +102,7 @@ pub fn handle_file_replace(hash: Hash40) {
             filepath_index,
             file_info_indice_index
         );
-        return;
+        return
     }
 
     let mut fs = crate::GLOBAL_FILESYSTEM.write();

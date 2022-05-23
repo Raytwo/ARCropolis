@@ -14,7 +14,7 @@ pub fn reshare_contained_files(ctx: &mut AdditionContext, dependent: Hash40, sou
                 hashes::find(source),
                 source.0
             );
-            return HashSet::new();
+            return HashSet::new()
         },
     };
 
@@ -26,7 +26,7 @@ pub fn reshare_contained_files(ctx: &mut AdditionContext, dependent: Hash40, sou
                 hashes::find(dependent),
                 dependent.0
             );
-            return HashSet::new();
+            return HashSet::new()
         },
     };
 
