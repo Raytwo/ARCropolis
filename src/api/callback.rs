@@ -2,6 +2,7 @@ use arcropolis_api::{CallbackFn, StreamCallbackFn};
 use owo_colors::OwoColorize;
 use parking_lot::Mutex;
 use smash_arc::Hash40;
+use once_cell::sync::Lazy;
 
 use crate::{fs::*, hashes};
 
@@ -13,7 +14,7 @@ pub enum PendingApiCall {
 unsafe impl Send for PendingApiCall {}
 unsafe impl Sync for PendingApiCall {}
 
-pub static PENDING_CALLBACKS: Mutex<Vec<PendingApiCall>> = Mutex::new(Vec::new());
+pub static PENDING_CALLBACKS: Lazy<Mutex<Vec<PendingApiCall>>> = Lazy::new(|| Mutex::new(Vec::new()));
 
 #[no_mangle]
 pub extern "C" fn arcrop_register_callback(hash: Hash40, max_size: usize, cb: CallbackFn) {

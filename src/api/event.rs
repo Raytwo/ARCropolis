@@ -17,7 +17,7 @@ impl EventCallbacks {
 }
 
 pub static EVENT_CALLBACKS: Lazy<RwLock<EventCallbacks>> = Lazy::new(|| RwLock::new(EventCallbacks::new()));
-pub static EVENT_QUEUE: RwLock<Vec<Event>> = RwLock::new(Vec::new());
+pub static EVENT_QUEUE: Lazy<RwLock<Vec<Event>>> = Lazy::new(|| RwLock::new(Vec::new()));
 
 impl std::ops::Index<Event> for EventCallbacks {
     type Output = Vec<EventCallbackFn>;
