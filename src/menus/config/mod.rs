@@ -1,15 +1,9 @@
 // #![feature(proc_macro_hygiene)]
 
-
-
 use log::info;
 use serde::Deserialize;
-
 use skyline_config::{ConfigStorage, StorageHolder};
 use skyline_web::{Visibility, Webpage};
-
-
-
 
 #[derive(Debug, Deserialize)]
 pub struct ConfigChanged {

@@ -1,6 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-};
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 use skyline_web::Webpage;

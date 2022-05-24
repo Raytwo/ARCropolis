@@ -10,15 +10,13 @@ use std::{
 
 use orbits::{orbit::LaunchPad, Error, FileEntryType, FileLoader, Orbit, StandardLoader, Tree};
 use owo_colors::OwoColorize;
-
 use smash_arc::{serde::Hash40String, ArcLookup, Hash40, LoadedArc, LoadedSearchSection, LookupError, SearchLookup};
 use thiserror::Error;
 
 // pub mod api;
 // mod event;
 use crate::{
-    api,
-    config, get_path_from_hash, hashes,
+    api, config, get_path_from_hash, hashes,
     replacement::{self, config::ModConfig, LoadedArcEx, SearchEx},
     resource, PathExtension,
 };

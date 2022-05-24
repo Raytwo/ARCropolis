@@ -315,21 +315,17 @@ impl ApiLoader {
     }
 
     fn use_virtual_file(&self, local: &Path) -> Option<(&Path, ApiCallback)> {
-        local
-            .smash_hash()
-            .ok()
-            .and_then(|x| self.function_map.get(&x))
-            .and_then(|entry| {
-                let data = entry.get();
-                unsafe {
-                    if let Some((vroot, func)) = (*data).functions.get((*data).function_index) {
-                        (*data).function_index += 1;
-                        Some((vroot.as_path(), *func))
-                    } else {
-                        None
-                    }
+        local.smash_hash().ok().and_then(|x| self.function_map.get(&x)).and_then(|entry| {
+            let data = entry.get();
+            unsafe {
+                if let Some((vroot, func)) = (*data).functions.get((*data).function_index) {
+                    (*data).function_index += 1;
+                    Some((vroot.as_path(), *func))
+                } else {
+                    None
                 }
-            })
+            }
+        })
     }
 
     fn release_virtual_file(&self, local: &Path) {
@@ -338,7 +334,6 @@ impl ApiLoader {
             unsafe {
                 (*data).function_index = ((*data).function_index - 1).min(0);
             }
-            
         });
     }
 
@@ -483,10 +478,7 @@ impl FileLoader for ApiLoader {
 
     fn get_actual_path(&self, root_path: &Path, local_path: &Path) -> Option<PathBuf> {
         if root_path.ends_with("stream-cb") {
-            Some(
-                self.get_stream_cb_path(local_path)
-                    .map_or(root_path.join(local_path), PathBuf::from),
-            )
+            Some(self.get_stream_cb_path(local_path).map_or(root_path.join(local_path), PathBuf::from))
         } else {
             Some(root_path.join(local_path))
         }

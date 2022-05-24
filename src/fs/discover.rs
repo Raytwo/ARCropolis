@@ -213,9 +213,11 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         }
     }
 
-    if should_prompt && skyline_web::Dialog::yes_no(
+    if should_prompt
+        && skyline_web::Dialog::yes_no(
             "During file discovery, ARCropolis encountered file conflicts.<br>Do you want to run it again to list all file conflicts?",
-        ) {
+        )
+    {
         let mut launchpad = LaunchPad::new(StandardLoader, ConflictHandler::First);
 
         let arc_path = config::arc_path();

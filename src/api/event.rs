@@ -1,6 +1,6 @@
 use arcropolis_api::{Event, EventCallbackFn};
 use once_cell::sync::Lazy;
-use parking_lot::{RwLock};
+use parking_lot::RwLock;
 
 pub struct EventCallbacks {
     arc_fs_mounted: Vec<EventCallbackFn>,

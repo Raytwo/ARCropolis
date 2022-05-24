@@ -2,13 +2,11 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    path::{Path},
+    path::Path,
 };
 
-
 use serde::{Deserialize, Serialize};
-
-use skyline_web::{Webpage};
+use skyline_web::Webpage;
 use smash_arc::Hash40;
 
 use crate::config;

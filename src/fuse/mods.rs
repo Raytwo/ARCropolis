@@ -20,10 +20,7 @@ impl FileAccessor for ModFileAccessor {
 
     fn get_size(&mut self) -> Result<usize, AccessorResult> {
         let fs = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
-        let size = fs
-            .get()
-            .query_max_filesize(&self.0)
-            .map_or_else(|| Err(AccessorResult::Unexpected), Ok);
+        let size = fs.get().query_max_filesize(&self.0).map_or_else(|| Err(AccessorResult::Unexpected), Ok);
         if let Ok(size) = size {
             debug!(target: "no-mod-path", "ModFileAccessor::get_size - Size: {:#x}", size);
         } else {

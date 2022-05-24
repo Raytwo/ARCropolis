@@ -254,13 +254,7 @@ mod utils {
                 match info_type {
                     CheckInfoType::State => {
                         if let Some(entry) = t2_entry {
-                            let _ = writeln!(
-                                &mut output,
-                                "| '{}' ({:#x}): {:?}",
-                                hashes::find(hash).bright_red(),
-                                hash.0,
-                                entry.state
-                            );
+                            let _ = writeln!(&mut output, "| '{}' ({:#x}): {:?}", hashes::find(hash).bright_red(), hash.0, entry.state);
                         } else if data_idx {
                             let _ = writeln!(
                                 &mut output,

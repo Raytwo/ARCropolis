@@ -1,8 +1,8 @@
 use arcropolis_api::{CallbackFn, StreamCallbackFn};
+use once_cell::sync::Lazy;
 use owo_colors::OwoColorize;
 use parking_lot::Mutex;
 use smash_arc::Hash40;
-use once_cell::sync::Lazy;
 
 use crate::{fs::*, hashes};
 

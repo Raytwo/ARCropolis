@@ -17,8 +17,6 @@ use std::{
 use arcropolis_api::Event;
 use log::LevelFilter;
 use semver::Version;
-
-
 use thiserror::Error;
 
 #[macro_use] extern crate log;
@@ -42,9 +40,7 @@ mod resource;
 #[cfg(feature = "updater")] mod update;
 
 use fs::GlobalFilesystem;
-
 use smash_arc::Hash40;
-
 
 use crate::config::GLOBAL_CONFIG;
 
@@ -268,11 +264,11 @@ fn change_version_string(arg: u64, string: *const c_char) {
 
 #[skyline::hook(offset = offsets::eshop_show())]
 fn show_eshop() {
-        // stop_all_bgm();
-        // let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
-        // play_bgm(instance as _, 0xd9ffff202a04c55b, false);
-        menus::show_main_menu();
-        // play_menu_bgm();
+    // stop_all_bgm();
+    // let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
+    // play_bgm(instance as _, 0xd9ffff202a04c55b, false);
+    menus::show_main_menu();
+    // play_menu_bgm();
 }
 
 #[skyline::main(name = "arcropolis")]
@@ -298,11 +294,15 @@ pub fn main() {
     // Acquire the filesystem and promise it to the initial_loading hook
     let mut filesystem = GLOBAL_FILESYSTEM.write();
 
-    *filesystem = GlobalFilesystem::Promised(std::thread::Builder::new().stack_size(0x40000).spawn(|| {
-        std::thread::sleep(std::time::Duration::from_millis(5000));
-        fs::perform_discovery()
-    }
-    ).unwrap());
+    *filesystem = GlobalFilesystem::Promised(
+        std::thread::Builder::new()
+            .stack_size(0x40000)
+            .spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(5000));
+                fs::perform_discovery()
+            })
+            .unwrap(),
+    );
 
     let resources = std::thread::Builder::new()
         .stack_size(0x40000)
