@@ -8,12 +8,9 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use orbits::{orbit::LaunchPad, ConflictHandler, ConflictKind, Error, FileEntryType, FileLoader, Orbit, StandardLoader, Tree};
+use orbits::{orbit::LaunchPad, Error, FileEntryType, FileLoader, Orbit, StandardLoader, Tree};
 use owo_colors::OwoColorize;
-use skyline::nn::{
-    self,
-    ro::{Module, RegistrationInfo},
-};
+
 use smash_arc::{serde::Hash40String, ArcLookup, Hash40, LoadedArc, LoadedSearchSection, LookupError, SearchLookup};
 use thiserror::Error;
 
@@ -21,7 +18,6 @@ use thiserror::Error;
 // mod event;
 use crate::{
     api,
-    chainloader::{NroBuilder, NrrBuilder, NrrRegistrationFailedError},
     config, get_path_from_hash, hashes,
     replacement::{self, config::ModConfig, LoadedArcEx, SearchEx},
     resource, PathExtension,
@@ -33,7 +29,7 @@ pub use discover::*;
 pub mod loaders;
 pub use loaders::*;
 
-static DEFAULT_CONFIG: &'static str = include_str!("../resources/override.json");
+static DEFAULT_CONFIG: &str = include_str!("../resources/override.json");
 static IS_INIT: AtomicBool = AtomicBool::new(false);
 // pub type ApiLoader = StandardLoader; // temporary until an actual ApiLoader is implemented
 
@@ -148,7 +144,7 @@ impl CachedFilesystem {
     }
 
     /// Use the file information that was generated during file discovery to fill out a GlobalFilesystem struct
-    fn make_from_promise(mut launchpad: LaunchPad<StandardLoader>) -> CachedFilesystem {
+    fn make_from_promise(launchpad: LaunchPad<StandardLoader>) -> CachedFilesystem {
         let arc = resource::arc();
         // Provide the discovered tree and get two hashmaps, one of the sizes of each file discovered (for patching)
         // and also get hash40 -> PathBuf lookup, since it's going to be a lot faster when the game is loading
@@ -157,7 +153,7 @@ impl CachedFilesystem {
 
         // Add the discovered paths to the global hashes, so that when a file is loading that *we have discovered* we can guarantee
         // that we are printing the real path in the logger.
-        for (hash, path) in hashed_paths.iter() {
+        for (_hash, path) in hashed_paths.iter() {
             if let Some(string) = path.to_str() {
                 hashes::add(string);
             }
@@ -415,7 +411,7 @@ impl CachedFilesystem {
                 return
             }
 
-            let hash = if let Ok(hash) = node.get_local().smash_hash() {
+            let _hash = if let Ok(hash) = node.get_local().smash_hash() {
                 if context.contains_file(hash) {
                     return
                 }
@@ -430,7 +426,7 @@ impl CachedFilesystem {
 
         /// Don't unshare any files in the unshare blacklist (nus3audio handled during filesystem finish)
         let files = self.hash_lookup.iter().filter_map(
-            |(hash, path)| {
+            |(hash, _path)| {
                 if self.config.unshare_blacklist.contains(&Hash40String(*hash)) {
                     None
                 } else {
@@ -485,7 +481,7 @@ impl CachedFilesystem {
 
     /// Gets the cached size
     pub fn get_cached_size(&self, hash: Hash40) -> Option<usize> {
-        self.hash_size_cache.get(&hash).map(|x| *x)
+        self.hash_size_cache.get(&hash).copied()
     }
 }
 
@@ -502,12 +498,12 @@ struct ApiCallResult {
 }
 
 impl GlobalFilesystem {
-    pub fn finish(self, arc: &'static LoadedArc) -> Result<Self, FilesystemUninitializedError> {
+    pub fn finish(self, _arc: &'static LoadedArc) -> Result<Self, FilesystemUninitializedError> {
         match self {
             Self::Uninitialized => Err(FilesystemUninitializedError),
             Self::Promised(promise) => {
                 match promise.join() {
-                    Ok(mut launchpad) => Ok(Self::Initialized(CachedFilesystem::make_from_promise(launchpad))),
+                    Ok(launchpad) => Ok(Self::Initialized(CachedFilesystem::make_from_promise(launchpad))),
                     Err(_) => Err(FilesystemUninitializedError),
                 }
             },
@@ -659,7 +655,7 @@ impl GlobalFilesystem {
 
     pub fn handle_api_request(&mut self, call: api::PendingApiCall) {
         debug!("Incoming API request");
-        let fs = match self {
+        match self {
             Self::Initialized(fs) => fs.handle_late_api_call(call),
             _ => return,
         };

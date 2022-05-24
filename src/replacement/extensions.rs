@@ -8,7 +8,7 @@ use std::{
 use smash_arc::{
     ArcLookup, FileData, FileInfo, FileInfoBucket, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx,
     FileSystemHeader, FolderPathListEntry, Hash40, HashToIndex, LoadedArc, LoadedSearchSection, LookupError, PathListEntry, Region, SearchListEntry,
-    SearchLookup, SearchSectionBody, SearchSectionHeader,
+    SearchLookup, SearchSectionBody,
 };
 
 use crate::{
@@ -109,10 +109,7 @@ impl SearchContext {
         match self.search.get_path_list_index_from_hash(hash) {
             Ok(index) => Some(index as usize),
             Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(self.path_list_indices[*index] as usize),
-                    None => None,
-                }
+                self.new_folder_paths.get(&hash).map(|index| self.path_list_indices[*index] as usize)
             },
         }
     }
@@ -121,10 +118,7 @@ impl SearchContext {
         let index = match self.search.get_path_list_index_from_hash(hash) {
             Ok(index) => Some(index as usize),
             Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(self.path_list_indices[*index] as usize),
-                    None => None,
-                }
+                self.new_folder_paths.get(&hash).map(|index| self.path_list_indices[*index] as usize)
             },
         };
         index.map(move |x| &self.paths[self.path_list_indices[x] as usize])
@@ -548,7 +542,7 @@ impl SearchEx for LoadedSearchSection {
             index.set_index(idx as u32);
             indices.push(index);
         }
-        indices.sort_by(|a, b| a.hash40().cmp(&b.hash40()));
+        indices.sort_by_key(|a| a.hash40());
 
         let tmp = self.folder_path_index;
 
@@ -582,7 +576,7 @@ impl SearchEx for LoadedSearchSection {
             }
             indices.push(index);
         }
-        indices.sort_by(|a, b| a.hash40().cmp(&b.hash40()));
+        indices.sort_by_key(|a| a.hash40());
 
         let tmp = self.path_index;
 
@@ -698,7 +692,7 @@ impl FromPathExt for FilePath {
             None => return None,
         };
 
-        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(|x| get_smash_hash(x)) {
+        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(get_smash_hash) {
             Some(Ok(hash)) => hash,
             _ => return None,
         };
@@ -739,7 +733,7 @@ impl FromPathExt for FolderPathListEntry {
             Err(_) => return None,
         };
 
-        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(|x| get_smash_hash(x)) {
+        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(get_smash_hash) {
             Some(Ok(hash)) => hash,
             _ => return None,
         };
@@ -791,7 +785,7 @@ impl FromPathExt for PathListEntry {
             None => return None,
         };
 
-        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(|x| get_smash_hash(x)) {
+        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(get_smash_hash) {
             Some(Ok(hash)) => hash,
             _ => return None,
         };

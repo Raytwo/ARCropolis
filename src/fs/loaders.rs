@@ -159,7 +159,7 @@ impl ApiLoadType {
                         )
                     };
 
-                    let mut xml = String::from_utf16(slice_u16).unwrap();
+                    let xml = String::from_utf16(slice_u16).unwrap();
 
                     let xmsbt: XMSBT = match serde_xml_rs::from_str(&xml) {
                         Ok(xmsbt) => xmsbt,
@@ -218,7 +218,7 @@ impl ApiLoadType {
                     builder = builder.add_label(lbl.0, slice_u8);
                 }
 
-                let mut out_msbt = builder.build();
+                let out_msbt = builder.build();
 
                 let mut cursor = std::io::Cursor::new(vec![]);
                 out_msbt.write_to(&mut cursor).unwrap();
@@ -338,7 +338,7 @@ impl ApiLoader {
             unsafe {
                 (*data).function_index = ((*data).function_index - 1).min(0);
             }
-            ()
+            
         });
     }
 
@@ -454,7 +454,7 @@ impl FileLoader for ApiLoader {
                 result
                     .unwrap()
                     .get_path_type(local_path)
-                    .map_or_else(|_| self.get_path_type(root_path, local_path), |x| Ok(x))
+                    .map_or_else(|_| self.get_path_type(root_path, local_path), Ok)
             } else {
                 Err(result.unwrap_err())
             };
@@ -485,7 +485,7 @@ impl FileLoader for ApiLoader {
         if root_path.ends_with("stream-cb") {
             Some(
                 self.get_stream_cb_path(local_path)
-                    .map_or(root_path.join(local_path), |x| PathBuf::from(x)),
+                    .map_or(root_path.join(local_path), PathBuf::from),
             )
         } else {
             Some(root_path.join(local_path))

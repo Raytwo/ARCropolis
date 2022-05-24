@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs,
 };
 
 use serde::{Deserialize, Serialize};
@@ -33,7 +32,7 @@ pub fn show_workspaces() {
     let mut workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
 
     let info: Information = Information {
-        workspaces: workspace_list.iter().map(|(k, v)| k.clone()).collect(),
+        workspaces: workspace_list.iter().map(|(k, _v)| k.clone()).collect(),
         active_workspace: active_workspace.clone(),
     };
 
@@ -114,7 +113,7 @@ pub fn show_workspaces() {
     }
 
     if active_workspace.ne(&prev_set_workspace) {
-        if let Some(filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
+        if let Some(_filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
             if skyline_web::Dialog::yes_no(format!("Your active workspace has successfully been changed to {} !<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?", active_workspace)) {
                 unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
             }

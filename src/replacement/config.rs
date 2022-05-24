@@ -1,6 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    path::{Path, PathBuf},
+    path::{PathBuf},
 };
 
 use serde::Deserialize;

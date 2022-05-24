@@ -26,7 +26,7 @@ impl FileAccessor for ArcFileAccessor {
 pub struct ArcDirAccessor;
 
 impl DirectoryAccessor for ArcDirAccessor {
-    fn read(&mut self, buffer: &mut [nn_fuse::DirectoryEntry]) -> Result<usize, AccessorResult> {
+    fn read(&mut self, _buffer: &mut [nn_fuse::DirectoryEntry]) -> Result<usize, AccessorResult> {
         Err(AccessorResult::Unimplemented)
     }
 
@@ -56,10 +56,10 @@ impl FileSystemAccessor for ArcFuse {
         let mut new_path = path.display().to_string();
         for region in crate::REGIONS.iter() {
             if new_path.contains(region) {
-                let mut region_string = format!("+{}", region);
+                let region_string = format!("+{}", region);
                 new_path.remove_matches(&region_string);
                 file_region = Region::from_str(region).unwrap();
-                let path = std::path::Path::new(&new_path);
+                let _path = std::path::Path::new(&new_path);
             }
         }
 
@@ -83,7 +83,7 @@ impl FileSystemAccessor for ArcFuse {
         }
     }
 
-    fn open_directory(&self, path: &std::path::Path, mode: skyline::nn::fs::OpenDirectoryMode) -> Result<*mut DAccessor, AccessorResult> {
+    fn open_directory(&self, _path: &std::path::Path, _mode: skyline::nn::fs::OpenDirectoryMode) -> Result<*mut DAccessor, AccessorResult> {
         Err(AccessorResult::Unimplemented)
     }
 }

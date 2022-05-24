@@ -2,7 +2,7 @@ use std::{collections::HashSet, path::Path};
 
 use smash_arc::*;
 
-use super::{lookup, AdditionContext, FromPathExt, SearchContext, SearchEx};
+use super::{lookup, AdditionContext, FromPathExt, SearchContext};
 use crate::{hashes, replacement::FileInfoFlagsExt, resource::LoadedFilepath, PathExtension};
 
 pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
@@ -72,7 +72,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
 pub fn add_shared_file(ctx: &mut AdditionContext, path: &Path, shared_to: Hash40) {
     let info_indice_idx = match ctx.get_file_info_from_hash(shared_to) {
         Ok(info) => info.file_info_indice_index.0 as u32,
-        Err(e) => {
+        Err(_e) => {
             error!(
                 "Failed to find file '{}' ({:#x}) when attempting to share file to it.",
                 hashes::find(shared_to),
@@ -223,7 +223,7 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
     fn get_path_idx(ctx: &AdditionContext, hash: Hash40) -> Option<FilePathIdx> {
         match ctx.get_file_path_index_from_hash(hash) {
             Ok(idx) => Some(idx),
-            Err(_) => ctx.added_files.get(&hash).map(|idx| *idx),
+            Err(_) => ctx.added_files.get(&hash).copied(),
         }
     }
 

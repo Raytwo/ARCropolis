@@ -5,7 +5,7 @@ use std::{
 };
 
 use once_cell::sync::Lazy;
-use owo_colors::OwoColorize;
+
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use skyline::nn;
@@ -157,7 +157,7 @@ fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
 fn convert_legacy_to_presets() -> HashSet<Hash40> {
     let mut presets: HashSet<Hash40> = HashSet::new();
 
-    if std::path::PathBuf::from(umm_path()).exists() {
+    if umm_path().exists() {
         // TODO: Turn this into a map and use Collect
         for entry in WalkDir::new(umm_path()).max_depth(1).into_iter() {
             if let Ok(entry) = entry {
@@ -167,7 +167,7 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
                 if path
                     .file_name()
                     .and_then(|name| name.to_str())
-                    .map(|name| !name.starts_with("."))
+                    .map(|name| !name.starts_with('.'))
                     .unwrap_or(false)
                 {
                     presets.insert(Hash40::from(path.to_str().unwrap()));
@@ -175,7 +175,7 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
                     // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
                     std::fs::rename(
                         path,
-                        format!("sd:/ultimate/mods/{}", path.file_name().unwrap().to_str().unwrap()[1..].to_string()),
+                        format!("sd:/ultimate/mods/{}", &path.file_name().unwrap().to_str().unwrap()[1..]),
                     )
                     .unwrap();
                 }
@@ -310,7 +310,7 @@ pub fn umm_path() -> PathBuf {
 }
 
 pub fn extra_paths() -> Vec<String> {
-    GLOBAL_CONFIG.lock().unwrap().get_field_json("extra_paths").unwrap_or(vec![])
+    GLOBAL_CONFIG.lock().unwrap().get_field_json("extra_paths").unwrap_or_default()
 }
 
 pub fn logger_level() -> String {
@@ -352,7 +352,7 @@ impl ArcStorage {
 
         let path = PathBuf::from(uid.id[0].to_string()).join(uid.id[1].to_string());
 
-        Self(path.into())
+        Self(path)
     }
 }
 

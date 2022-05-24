@@ -1,6 +1,6 @@
 use owo_colors::OwoColorize;
 use skyline::{hook, hooks::InlineCtx};
-use smash_arc::{ArcLookup, FilePathIdx, Hash40};
+use smash_arc::{ArcLookup, Hash40};
 
 use super::FileInfoFlagsExt;
 use crate::{
@@ -162,7 +162,7 @@ fn res_loop_common() {
     let arc = resource::arc();
     let service = resource::res_service_mut();
     let file_paths = arc.get_file_paths();
-    let file_info_indices = arc.get_file_info_indices();
+    let _file_info_indices = arc.get_file_info_indices();
     let file_infos = arc.get_file_infos();
     let dir_infos = arc.get_dir_infos();
 

@@ -16,8 +16,8 @@ use std::{
 
 use arcropolis_api::Event;
 use log::LevelFilter;
-use semver::Version;
-use smash_arc::{ArcLookup, LoadedSearchSection, SearchLookup};
+
+
 use thiserror::Error;
 
 #[macro_use] extern crate log;
@@ -41,9 +41,9 @@ mod resource;
 #[cfg(feature = "updater")] mod update;
 
 use fs::GlobalFilesystem;
-use replacement::extensions::SearchEx;
+
 use smash_arc::Hash40;
-use walkdir::WalkDir;
+
 
 use crate::config::GLOBAL_CONFIG;
 
@@ -83,12 +83,10 @@ fn dialog_error<S: AsRef<str>>(msg: S) {
         } else {
             error!("{}<br>Enable file logging and run again for more information.", msg.as_ref());
         }
+    } else if config::file_logging_enabled() {
+        skyline_web::DialogOk::ok(format!("{}<br>See the latest log for more information.", msg.as_ref()));
     } else {
-        if config::file_logging_enabled() {
-            skyline_web::DialogOk::ok(format!("{}<br>See the latest log for more information.", msg.as_ref()));
-        } else {
-            skyline_web::DialogOk::ok(format!("{}<br>Enable file logging and run again for more information.", msg.as_ref()));
-        }
+        skyline_web::DialogOk::ok(format!("{}<br>Enable file logging and run again for more information.", msg.as_ref()));
     }
 }
 
@@ -137,7 +135,7 @@ impl PathExtension for Path {
                         }
                     },
                 )
-                .map(|x| Hash40(x));
+                .map(Hash40);
             if let Some(hash) = hash {
                 return Ok(hash)
             }
@@ -145,16 +143,16 @@ impl PathExtension for Path {
         let mut path = self
             .as_os_str()
             .to_str()
-            .map_or(Err(InvalidOsStrError), |x| Ok(x))?
+            .map_or(Err(InvalidOsStrError), Ok)?
             .to_lowercase()
-            .replace(";", ":")
+            .replace(';', ":")
             .replace(".mp4", ".webm");
 
-        if let Some(regional_idx) = path.find("+") {
+        if let Some(regional_idx) = path.find('+') {
             path.replace_range(regional_idx..regional_idx + 6, "")
         }
 
-        Ok(Hash40::from(path.trim_start_matches("/")))
+        Ok(Hash40::from(path.trim_start_matches('/')))
     }
 }
 

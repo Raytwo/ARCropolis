@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+
 
 use owo_colors::OwoColorize;
 use smash_arc::{LoadedSearchSection, *};
@@ -117,7 +117,7 @@ fn handle_get_path(search: &LoadedSearchSection, mut args: Vec<String>) -> Strin
 }
 
 fn handle_walk_directory(search: &LoadedSearchSection, mut args: Vec<String>) -> String {
-    use std::fmt::Write;
+    
     fn write_indent(indent: usize) {
         for _ in 0..indent {
             print!("-");
@@ -168,7 +168,7 @@ fn handle_walk_directory(search: &LoadedSearchSection, mut args: Vec<String>) ->
 
 pub fn handle_command(mut args: Vec<String>) -> String {
     let search = resource::search();
-    if args.len() == 0 {
+    if args.is_empty() {
         return String::from("")
     }
     let command = args.remove(0);

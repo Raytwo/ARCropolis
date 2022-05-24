@@ -23,7 +23,7 @@ impl FileAccessor for ModFileAccessor {
         let size = fs
             .get()
             .query_max_filesize(&self.0)
-            .map_or_else(|| Err(AccessorResult::Unexpected), |size| Ok(size));
+            .map_or_else(|| Err(AccessorResult::Unexpected), Ok);
         if let Ok(size) = size {
             debug!(target: "no-mod-path", "ModFileAccessor::get_size - Size: {:#x}", size);
         } else {
@@ -117,7 +117,7 @@ impl FileSystemAccessor for ModFsAccessor {
         }
     }
 
-    fn open_directory(&self, path: &std::path::Path, mode: skyline::nn::fs::OpenDirectoryMode) -> Result<*mut DAccessor, AccessorResult> {
+    fn open_directory(&self, path: &std::path::Path, _mode: skyline::nn::fs::OpenDirectoryMode) -> Result<*mut DAccessor, AccessorResult> {
         debug!(target: "no-mod-path", "ModFsAccessor::open_directory - Path: {}", path.display());
 
         let fs = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };

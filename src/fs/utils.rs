@@ -38,7 +38,7 @@ where
                         return
                     }
 
-                    let is_regional_variant = if let Some(node) = node.get_local().to_str() { node.contains("+") } else { false };
+                    let is_regional_variant = if let Some(node) = node.get_local().to_str() { node.contains('+') } else { false };
 
                     size_map.insert(hash, size);
                     path_map.insert(hash, node.get_local().to_path_buf());
@@ -128,7 +128,7 @@ pub fn add_prc_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>,
         unreachable!()
     };
     let base_local = if let Some(name) = base_local.file_name().and_then(|os_str| os_str.to_str()) {
-        if let Some(idx) = name.find("+") {
+        if let Some(idx) = name.find('+') {
             let mut new_name = name.to_string();
             new_name.replace_range(idx..idx + 6, "");
             base_local.with_file_name(new_name)
@@ -165,7 +165,7 @@ pub fn add_msbt_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>
     let local = local.as_ref();
     let base_local = local.with_extension("msbt"); // patch files have different extensions
     let base_local = if let Some(name) = base_local.file_name().and_then(|os_str| os_str.to_str()) {
-        if let Some(idx) = name.find("+") {
+        if let Some(idx) = name.find('+') {
             let mut new_name = name.to_string();
             new_name.replace_range(idx..idx + 6, "");
             base_local.with_file_name(new_name)
