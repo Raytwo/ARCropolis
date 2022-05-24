@@ -166,8 +166,7 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
                 // If the mod isn't disabled, add it to the preset
                 if path
                     .file_name()
-                    .map(|name| name.to_str())
-                    .flatten()
+                    .and_then(|name| name.to_str())
                     .map(|name| !name.starts_with("."))
                     .unwrap_or(false)
                 {

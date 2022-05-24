@@ -398,7 +398,7 @@ pub trait SearchEx: SearchLookup {
         fn internal(
             search: &(impl SearchLookup + ?Sized),
             hash: impl Into<Hash40>,
-            f: &mut (impl FnMut(DirectoryChild, usize)),
+            f: &mut impl FnMut(DirectoryChild, usize),
             depth: usize,
         ) -> Result<(), LookupError> {
             let path_entry = search.get_path_list_entry_from_hash(hash)?;
@@ -688,7 +688,7 @@ impl FromPathExt for FilePath {
             Err(_) => return None,
         };
 
-        let ext_hash = match path.extension().map(|x| x.to_str()).flatten() {
+        let ext_hash = match path.extension().and_then(|x| x.to_str()) {
             Some(str) => {
                 match get_smash_hash(str) {
                     Ok(hash) => hash,
@@ -698,7 +698,7 @@ impl FromPathExt for FilePath {
             None => return None,
         };
 
-        let name_hash = match path.file_name().map(|x| x.to_str()).flatten().map(|x| get_smash_hash(x)) {
+        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(|x| get_smash_hash(x)) {
             Some(Ok(hash)) => hash,
             _ => return None,
         };
@@ -739,7 +739,7 @@ impl FromPathExt for FolderPathListEntry {
             Err(_) => return None,
         };
 
-        let name_hash = match path.file_name().map(|x| x.to_str()).flatten().map(|x| get_smash_hash(x)) {
+        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(|x| get_smash_hash(x)) {
             Some(Ok(hash)) => hash,
             _ => return None,
         };
@@ -781,7 +781,7 @@ impl FromPathExt for PathListEntry {
             Err(_) => return None,
         };
 
-        let ext_hash = match path.extension().map(|x| x.to_str()).flatten() {
+        let ext_hash = match path.extension().and_then(|x| x.to_str()) {
             Some(str) => {
                 match get_smash_hash(str) {
                     Ok(hash) => hash,
@@ -791,7 +791,7 @@ impl FromPathExt for PathListEntry {
             None => return None,
         };
 
-        let name_hash = match path.file_name().map(|x| x.to_str()).flatten().map(|x| get_smash_hash(x)) {
+        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(|x| get_smash_hash(x)) {
             Some(Ok(hash)) => hash,
             _ => return None,
         };

@@ -120,16 +120,15 @@ impl PathExtension for Path {
     }
 
     fn has_extension<S: AsRef<str>>(&self, ext: S) -> bool {
-        self.extension().map(|x| x.to_str()).flatten().map(|x| x == ext.as_ref()).unwrap_or(false)
+        self.extension().and_then(|x| x.to_str()).map(|x| x == ext.as_ref()).unwrap_or(false)
     }
 
     fn smash_hash(&self) -> Result<Hash40, InvalidOsStrError> {
         if self.extension().is_none() {
             let hash = self
                 .file_name()
-                .map(|x| x.to_str())
-                .flatten()
-                .map(
+                .and_then(|x| x.to_str())
+                .and_then(
                     |x| {
                         if x.starts_with("0x") {
                             u64::from_str_radix(x.trim_start_matches("0x"), 16).ok()
@@ -138,7 +137,6 @@ impl PathExtension for Path {
                         }
                     },
                 )
-                .flatten()
                 .map(|x| Hash40(x));
             if let Some(hash) = hash {
                 return Ok(hash)
@@ -303,7 +301,11 @@ pub fn main() {
     // Acquire the filesystem and promise it to the initial_loading hook
     let mut filesystem = GLOBAL_FILESYSTEM.write();
 
-    *filesystem = GlobalFilesystem::Promised(std::thread::Builder::new().stack_size(0x40000).spawn(|| fs::perform_discovery()).unwrap());
+    *filesystem = GlobalFilesystem::Promised(std::thread::Builder::new().stack_size(0x40000).spawn(|| {
+        std::thread::sleep(std::time::Duration::from_millis(5000));
+        fs::perform_discovery()
+    }
+    ).unwrap());
 
     let resources = std::thread::Builder::new()
         .stack_size(0x40000)

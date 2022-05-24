@@ -84,8 +84,7 @@ impl ApiLoadType {
                 let arc = resource::arc();
                 crate::get_smash_hash(local)
                     .ok()
-                    .map(|hash| arc.get_file_data_from_hash(hash, config::region()).ok())
-                    .flatten()
+                    .and_then(|hash| arc.get_file_data_from_hash(hash, config::region()).ok())
                     .map(|x| x.decomp_size as usize)
             },
             _ => None,
@@ -319,9 +318,8 @@ impl ApiLoader {
         local
             .smash_hash()
             .ok()
-            .map(|x| self.function_map.get(&x))
-            .flatten()
-            .map(|entry| {
+            .and_then(|x| self.function_map.get(&x))
+            .and_then(|entry| {
                 let data = entry.get();
                 unsafe {
                     if let Some((vroot, func)) = (*data).functions.get((*data).function_index) {
@@ -332,11 +330,10 @@ impl ApiLoader {
                     }
                 }
             })
-            .flatten()
     }
 
     fn release_virtual_file(&self, local: &Path) {
-        let _ = local.smash_hash().ok().map(|x| self.function_map.get(&x)).flatten().map(|entry| {
+        let _ = local.smash_hash().ok().and_then(|x| self.function_map.get(&x)).map(|entry| {
             let data = entry.get();
             unsafe {
                 (*data).function_index = ((*data).function_index - 1).min(0);
@@ -441,8 +438,7 @@ impl FileLoader for ApiLoader {
         if let Some((root_path, _)) = self.use_virtual_file(local_path) {
             let result = ApiLoadType::from_root(root_path)
                 .ok()
-                .map(|x| x.get_file_size(local_path))
-                .flatten()
+                .and_then(|x| x.get_file_size(local_path))
                 .or(self.get_file_size(root_path, local_path));
             self.release_virtual_file(local_path);
             result

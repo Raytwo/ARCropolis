@@ -96,8 +96,7 @@ pub extern "C" fn arcrop_is_mod_enabled(hash: Hash40) -> bool {
 
                     if path
                         .file_name()
-                        .map(|name| name.to_str())
-                        .flatten()
+                        .and_then(|name| name.to_str())
                         .map(|name| !name.starts_with("."))
                         .unwrap_or(false)
                     {

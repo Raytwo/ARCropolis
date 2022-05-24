@@ -247,14 +247,14 @@ mod utils {
 
         write_indent(&mut output, indent + 1);
         if let Some(dir_info) = dir_info.clone() {
-            let _ = write!(
+            let _ = writeln!(
                 &mut output,
-                "| Files in vector: {} / {}\n",
+                "| Files in vector: {} / {}",
                 loaded_dir.child_path_indices.len(),
                 dir_info.file_count
             );
         } else {
-            let _ = write!(&mut output, "| Files in vector: {} / ?\n", loaded_dir.child_path_indices.len());
+            let _ = writeln!(&mut output, "| Files in vector: {} / ?", loaded_dir.child_path_indices.len());
         };
 
         for path_idx in loaded_dir.child_path_indices.iter() {
@@ -360,19 +360,19 @@ mod utils {
                 match info_type {
                     CheckInfoType::State => {
                         if let Some(entry) = t2_entry {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {:?}\n", hashes::find(hash), hash.0, entry.state);
+                            let _ = writeln!(&mut output, "| '{}' ({:#x}): {:?}", hashes::find(hash), hash.0, entry.state);
                         } else if data_idx {
-                            let _ = write!(
+                            let _ = writeln!(
                                 &mut output,
-                                "| '{}' ({:#x}): {:#x}\n",
+                                "| '{}' ({:#x}): {:#x}",
                                 hashes::find(hash),
                                 hash.0,
                                 table1[*path_idx as usize].loaded_data_index
                             );
                         } else {
-                            let _ = write!(
+                            let _ = writeln!(
                                 &mut output,
-                                "| '{}' ({:#x}): {}\n",
+                                "| '{}' ({:#x}): {}",
                                 hashes::find(hash),
                                 hash.0,
                                 "Error! Invalid filepath table state!".red()
@@ -408,19 +408,19 @@ mod utils {
                     },
                     CheckInfoType::Pointer => {
                         if let Some(entry) = t2_entry {
-                            let _ = write!(&mut output, "| '{}' ({:#x}): {:x}\n", hashes::find(hash), hash.0, entry.data as u64);
+                            let _ = writeln!(&mut output, "| '{}' ({:#x}): {:x}", hashes::find(hash), hash.0, entry.data as u64);
                         } else if data_idx {
-                            let _ = write!(
+                            let _ = writeln!(
                                 &mut output,
-                                "| '{}' ({:#x}): {:#x}\n",
+                                "| '{}' ({:#x}): {:#x}",
                                 hashes::find(hash),
                                 hash.0,
                                 table1[*path_idx as usize].loaded_data_index
                             );
                         } else {
-                            let _ = write!(
+                            let _ = writeln!(
                                 &mut output,
-                                "| '{}' ({:#x}): {}\n",
+                                "| '{}' ({:#x}): {}",
                                 hashes::find(hash),
                                 hash.0,
                                 "Error! Invalid filepath table state!".red()
@@ -545,7 +545,7 @@ mod utils {
                     continue
                 }
             }
-            let _ = write!(&mut output, "'{}' ({:#x}): {:?}\n", dehashed, hash.0, reason);
+            let _ = writeln!(&mut output, "'{}' ({:#x}): {:?}", dehashed, hash.0, reason);
         }
         output
     }

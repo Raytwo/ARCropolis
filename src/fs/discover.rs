@@ -61,15 +61,14 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             // Legacy filter, load the mod except if it has a period at the start of the name
 
             path.file_name()
-                .map(|name| name.to_str())
-                .flatten()
+                .and_then(|name| name.to_str())
                 .map(|name| !name.starts_with("."))
                 .unwrap_or(false)
         }
     };
 
     let ignore = |path: &Path| {
-        let name = if let Some(name) = path.file_name().map(|x| x.to_str()).flatten() { name } else { return false };
+        let name = if let Some(name) = path.file_name().and_then(|x| x.to_str()) { name } else { return false };
 
         let is_root = path.parent().map(|parent| parent.as_os_str().is_empty()).unwrap_or(true);
 

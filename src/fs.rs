@@ -76,8 +76,7 @@ impl CachedFilesystem {
             // Read the file data and map it to a json. If that fails, just skip this current JSON.
             let cfg = std::fs::read_to_string(&full_path)
                 .ok()
-                .map(|x| serde_json::from_str::<ModConfig>(x.as_str()).ok())
-                .flatten();
+                .and_then(|x| serde_json::from_str::<ModConfig>(x.as_str()).ok());
 
             if let Some(cfg) = cfg {
                 current.merge(cfg);
@@ -280,7 +279,7 @@ impl CachedFilesystem {
 
     /// Get the "actual path" for a file hash
     pub fn hash(&self, hash: Hash40) -> Option<PathBuf> {
-        self.local_hash(hash).map(|x| self.loader.query_actual_path(x)).flatten()
+        self.local_hash(hash).and_then(|x| self.loader.query_actual_path(x))
     }
 
     /// Load the file data from the Orbits filesystem
