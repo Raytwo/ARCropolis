@@ -32,12 +32,6 @@ pub struct Entry {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ConfigChanged {
-    category: String,
-    value: String,
-}
-
-#[derive(Debug, Deserialize)]
 pub enum ArcadiaMessage {
     ToggleModRequest { id: usize, state: bool },
     ChangeAllRequest { state: bool },

@@ -8,7 +8,7 @@ use orbits::{ConflictHandler, ConflictKind, FileLoader, LaunchPad, StandardLoade
 use skyline::nn::{self, ro::*};
 use smash_arc::Hash40;
 
-use crate::{chainloader::*, config, PathExtension};
+use crate::{chainloader::*, config};
 
 static PRESET_HASHES: Lazy<HashSet<Hash40>> = Lazy::new(|| {
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
@@ -27,7 +27,7 @@ static PRESET_HASHES: Lazy<HashSet<Hash40>> = Lazy::new(|| {
         Err(err) => {
             trace!("Preset deserialize error: {:?}", err);
             let empty_presets: HashSet<Hash40> = HashSet::new();
-            storage.set_field_json("presets", &empty_presets);
+            storage.set_field_json("presets", &empty_presets).unwrap();
             empty_presets
         },
     };
@@ -162,7 +162,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 ") {
             crate::menus::show_config_editor(&mut storage);
         }
-        storage.set_flag("first_boot", false);
+        storage.set_flag("first_boot", false).unwrap();
     }
 
     drop(storage);

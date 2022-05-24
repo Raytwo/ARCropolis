@@ -268,17 +268,17 @@ impl CachedFilesystem {
         }
     }
 
-    /// Search the provided hash for a PathBuf in the hash lookup
+    // Search the provided hash for a PathBuf in the hash lookup
     pub fn local_hash(&self, hash: Hash40) -> Option<&PathBuf> {
         self.hash_lookup.get(&hash)
     }
 
-    /// Get the "actual path" for a file hash
+    // Get the "actual path" for a file hash
     pub fn hash(&self, hash: Hash40) -> Option<PathBuf> {
         self.local_hash(hash).and_then(|x| self.loader.query_actual_path(x))
     }
 
-    /// Load the file data from the Orbits filesystem
+    // Load the file data from the Orbits filesystem
     pub fn load(&self, hash: Hash40) -> Option<Vec<u8>> {
         let path = if let Some(path) = self.hash_lookup.get(&hash) {
             path
@@ -310,7 +310,7 @@ impl CachedFilesystem {
         }
     }
 
-    /// Load the file data from the Orbits filesystem into a pre-allocated buffer
+    // Load the file data from the Orbits filesystem into a pre-allocated buffer
     pub fn load_into(&self, hash: Hash40, mut buffer: &mut [u8]) -> Option<usize> {
         if let Some(data) = self.load(hash) {
             if buffer.len() < data.len() {
@@ -329,7 +329,7 @@ impl CachedFilesystem {
         }
     }
 
-    /// Sets the incoming file to be loaded
+    // Sets the incoming file to be loaded
     pub fn set_incoming(&mut self, hash: Option<Hash40>) {
         if let Some(hash) = self.incoming_load.take() {
             warn!(
@@ -346,13 +346,13 @@ impl CachedFilesystem {
         }
     }
 
-    /// Gets the incoming file to be loaded
+    // Gets the incoming file to be loaded
     pub fn get_incoming(&mut self) -> Option<Hash40> {
         self.incoming_load.take()
     }
 
-    /// Subtracts the amount of bytes remanining from the current load.
-    /// This prevents multiloads on the same file
+    // Subtracts the amount of bytes remanining from the current load.
+    // This prevents multiloads on the same file
     pub fn sub_remaining_bytes(&mut self, count: usize) -> Option<Hash40> {
         if count >= self.bytes_remaining {
             self.bytes_remaining = 0;
@@ -363,7 +363,7 @@ impl CachedFilesystem {
         }
     }
 
-    /// Patch all files in the hash size cache
+    // Patch all files in the hash size cache
     pub fn patch_files(&mut self) {
         let mut hash_cache = HashMap::new();
         std::mem::swap(&mut hash_cache, &mut self.hash_size_cache);
@@ -375,7 +375,7 @@ impl CachedFilesystem {
         self.hash_size_cache = hash_cache;
     }
 
-    /// Reshares all hashes that still need to be shared, so that we don't get fake one-slot behavior
+    // Reshares all hashes that still need to be shared, so that we don't get fake one-slot behavior
     pub fn reshare_files(&mut self) {
         let arc = resource::arc();
         let file_paths = arc.get_file_paths();
@@ -399,13 +399,13 @@ impl CachedFilesystem {
         let mut search_context = LoadedSearchSection::make_context();
 
         let mut hash_ignore = HashSet::new();
-        /// Reshare certain files to the right directories
-        /// This is mostly used for Dark Samus because of her victory bunshin article
+        // Reshare certain files to the right directories
+        // This is mostly used for Dark Samus because of her victory bunshin article
         for (dep, source) in self.config.preprocess_reshare.iter() {
             hash_ignore.extend(replacement::preprocess::reshare_contained_files(&mut context, dep.0, source.0).into_iter());
         }
 
-        /// Go through and add any files that were not found in the data.arc
+        // Go through and add any files that were not found in the data.arc
         self.loader.walk_patch(|node, ty| {
             if node.get_local().is_stream() || !ty.is_file() {
                 return
@@ -424,7 +424,7 @@ impl CachedFilesystem {
             replacement::addition::add_searchable_file_recursive(&mut search_context, node.get_local());
         });
 
-        /// Don't unshare any files in the unshare blacklist (nus3audio handled during filesystem finish)
+        // Don't unshare any files in the unshare blacklist (nus3audio handled during filesystem finish)
         let files = self.hash_lookup.iter().filter_map(
             |(hash, _path)| {
                 if self.config.unshare_blacklist.contains(&Hash40String(*hash)) {
@@ -442,12 +442,12 @@ impl CachedFilesystem {
             }
         }
 
-        /// Reshare any files that depend on files in file groups, as we need to get rid of those else we crash.
+        // Reshare any files that depend on files in file groups, as we need to get rid of those else we crash.
         replacement::unshare::reshare_file_groups(&mut context);
 
         replacement::unshare::unshare_files(&mut context, hash_ignore, files);
 
-        /// Add new files to the dir infos
+        // Add new files to the dir infos
         for (hash, files) in self.config.new_dir_files.iter() {
             replacement::addition::add_files_to_directory(&mut context, hash.0, files.iter().map(|x| x.0).collect());
         }

@@ -15,7 +15,7 @@ pub extern "C" fn arcrop_load_file(hash: Hash40, out_buffer: *mut u8, buf_length
         buf_length
     );
 
-    let mut buffer = unsafe { std::slice::from_raw_parts_mut(out_buffer, buf_length) };
+    let buffer = unsafe { std::slice::from_raw_parts_mut(out_buffer, buf_length) };
 
     // This function is intended to only be called by an arc api, which means that we have already write locked the thread and cannot read lock it
     if let Some(size) = unsafe { (*crate::GLOBAL_FILESYSTEM.data_ptr()).load_into(hash, buffer) } {

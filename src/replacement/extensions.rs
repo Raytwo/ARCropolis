@@ -83,47 +83,6 @@ impl AdditionContext {
 }
 
 impl SearchContext {
-    pub fn get_last_child_in_folder_mut(&mut self, mut index: usize) -> Option<&mut PathListEntry> {
-        let mut previous = None;
-        while index != 0xFF_FFFF {
-            drop(previous);
-            previous = Some(self.path_list_indices[index] as usize);
-            index = self.paths[*previous.as_ref().unwrap()].path.index() as usize;
-        }
-        previous.map(move |x| &mut self.paths[x])
-    }
-
-    pub fn get_folder_path(&self, hash: Hash40) -> Option<&FolderPathListEntry> {
-        match self.search.get_folder_path_entry_from_hash(hash) {
-            Ok(entry) => Some(entry),
-            Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(&self.folder_paths[*index]),
-                    None => None,
-                }
-            },
-        }
-    }
-
-    pub fn get_path_index(&self, hash: Hash40) -> Option<usize> {
-        match self.search.get_path_list_index_from_hash(hash) {
-            Ok(index) => Some(index as usize),
-            Err(_) => {
-                self.new_folder_paths.get(&hash).map(|index| self.path_list_indices[*index] as usize)
-            },
-        }
-    }
-
-    pub fn get_path(&self, hash: Hash40) -> Option<&PathListEntry> {
-        let index = match self.search.get_path_list_index_from_hash(hash) {
-            Ok(index) => Some(index as usize),
-            Err(_) => {
-                self.new_folder_paths.get(&hash).map(|index| self.path_list_indices[*index] as usize)
-            },
-        };
-        index.map(move |x| &self.paths[self.path_list_indices[x] as usize])
-    }
-
     pub fn get_folder_path_mut(&mut self, hash: Hash40) -> Option<&mut FolderPathListEntry> {
         match self.search.get_folder_path_index_from_hash(hash) {
             Ok(entry) => Some(&mut self.folder_paths[entry.index() as usize]),
@@ -134,31 +93,6 @@ impl SearchContext {
                 }
             },
         }
-    }
-
-    pub fn get_path_index_mut(&mut self, hash: Hash40) -> Option<&mut u32> {
-        match self.search.get_path_list_index_from_hash_mut(hash) {
-            Ok(index) => Some(index),
-            Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(&mut self.path_list_indices[*index]),
-                    None => None,
-                }
-            },
-        }
-    }
-
-    pub fn get_path_mut(&mut self, hash: Hash40) -> Option<&mut PathListEntry> {
-        let index = match self.search.get_path_list_index_from_hash(hash) {
-            Ok(index) => Some(index as usize),
-            Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(self.path_list_indices[*index] as usize),
-                    None => None,
-                }
-            },
-        };
-        index.map(move |x| &mut self.paths[self.path_list_indices[x] as usize])
     }
 }
 

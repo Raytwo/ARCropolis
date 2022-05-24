@@ -4,7 +4,7 @@ use std::{
 };
 
 use skyline::nn;
-use smash_arc::{LoadedArc, LoadedSearchSection, Region};
+use smash_arc::{LoadedArc, LoadedSearchSection};
 
 use super::containers::{CppVector, ResList};
 
@@ -154,12 +154,6 @@ pub struct ResServiceNX {
     pub current_index: u32,
     pub current_dir_index: u32,
     // Still need to add some
-}
-
-impl ResServiceNX {
-    pub fn get_region(&self) -> Region {
-        Region::from(self.language_idx + 1)
-    }
 }
 
 #[repr(C)]

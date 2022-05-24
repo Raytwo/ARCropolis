@@ -16,6 +16,7 @@ use std::{
 
 use arcropolis_api::Event;
 use log::LevelFilter;
+use semver::Version;
 
 
 use thiserror::Error;
@@ -267,13 +268,11 @@ fn change_version_string(arg: u64, string: *const c_char) {
 
 #[skyline::hook(offset = offsets::eshop_show())]
 fn show_eshop() {
-    unsafe {
         // stop_all_bgm();
         // let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
         // play_bgm(instance as _, 0xd9ffff202a04c55b, false);
         menus::show_main_menu();
         // play_menu_bgm();
-    }
 }
 
 #[skyline::main(name = "arcropolis")]
@@ -321,7 +320,7 @@ pub fn main() {
             .spawn(|| {
                 // Changed to pre because prerelease doesn't compile
                 if !Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
-                    update::check_for_updates(config::beta_updates(), |update_kind| true);
+                    update::check_for_updates(config::beta_updates(), |_update_kind| true);
                 } else {
                     if config::auto_update_enabled() {
                         update::check_for_updates(config::beta_updates(), |update_kind| {

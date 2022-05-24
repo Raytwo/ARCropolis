@@ -10,8 +10,6 @@ pub mod files;
 pub use files::*;
 use skyline_web::Webpage;
 
-const LOCALHOST: &str = "http://localhost/";
-
 pub fn show_main_menu() {
     let response = std::boxed::Box::new(
         Webpage::new()

@@ -83,9 +83,9 @@ pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| 
                             // Ryujinx cannot show the web browser, and a second check is performed during file discovery
                             if !is_emulator {
                                 if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?<br>It offers advantages such as:<br>* Mod manager on the eShop button<br>* Separate enabled mods per user profile<br><br>If you accept, disabled mods will be renamed to strip the period.") {
-                                    storage.set_field_json("presets", &convert_legacy_to_presets());
+                                    storage.set_field_json("presets", &convert_legacy_to_presets()).unwrap();
                                 } else {
-                                    storage.set_flag("legacy_discovery", true);
+                                    storage.set_flag("legacy_discovery", true).unwrap();
                                 }
                             }
                         },
@@ -103,7 +103,7 @@ pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| 
                     // [3.2.0] Removed migration from DebugSavedataStorage so we don't create a partition for the user just to check if they had one anymore.
                     generate_default_config(&mut storage);
 
-                    storage.set_flag("first_boot", true);
+                    storage.set_flag("first_boot", true).unwrap();
                 },
             }
         },
@@ -129,10 +129,10 @@ fn migrate_config_to_storage<CS: ConfigStorage>(storage: &mut StorageHolder<CS>,
     storage.set_field("region", &config.region).unwrap();
     storage.set_field("logging_level", &config.logger.logger_level).unwrap();
     storage.set_field_json("extra_paths", &config.paths.extra_paths).unwrap();
-    storage.set_flag("auto_update", config.auto_update);
-    storage.set_flag("beta_updates", config.beta_updates);
-    storage.set_flag("debug", config.debug);
-    storage.set_flag("log_to_file", config.logger.log_to_file);
+    storage.set_flag("auto_update", config.auto_update).unwrap();
+    storage.set_flag("beta_updates", config.beta_updates).unwrap();
+    storage.set_flag("debug", config.debug).unwrap();
+    storage.set_flag("log_to_file", config.logger.log_to_file).unwrap();
 }
 
 fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
@@ -145,13 +145,13 @@ fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
     storage.set_field("region", "us_en").unwrap();
     storage.set_field("logging_level", "Warn").unwrap();
     storage.set_field_json("extra_paths", &Vec::<String>::new()).unwrap();
-    storage.set_flag("auto_update", true);
-    storage.set_field_json("presets", &HashSet::<Hash40>::new());
+    storage.set_flag("auto_update", true).unwrap();
+    storage.set_field_json("presets", &HashSet::<Hash40>::new()).unwrap();
 
     let mut default_workspace = HashMap::<&str, &str>::new();
     default_workspace.insert("Default", "presets");
     storage.set_field_json("workspace_list", &default_workspace).unwrap();
-    storage.set_field("workspace", "Default");
+    storage.set_field("workspace", "Default").unwrap();
 }
 
 fn convert_legacy_to_presets() -> HashSet<Hash40> {
@@ -214,20 +214,6 @@ struct Config {
     pub logger: ConfigLogger,
 }
 
-impl Config {
-    pub fn new() -> Self {
-        Self {
-            version: String::from(env!("CARGO_PKG_VERSION")),
-            debug: false,
-            auto_update: true,
-            beta_updates: true,
-            no_web_menus: false,
-            region: String::from("us_en"),
-            paths: ConfigPaths::new(),
-            logger: ConfigLogger::new(),
-        }
-    }
-}
 #[derive(Serialize, Deserialize)]
 struct ConfigPaths {
     pub arc: PathBuf,
@@ -284,15 +270,6 @@ pub fn region() -> Region {
 pub fn region_str() -> String {
     let region: String = GLOBAL_CONFIG.lock().unwrap().get_field("region").unwrap_or(String::from("us_en"));
     region
-}
-
-pub fn version() -> String {
-    let version: String = GLOBAL_CONFIG
-        .lock()
-        .unwrap()
-        .get_field("version")
-        .unwrap_or(String::from(env!("CARGO_PKG_VERSION")));
-    version
 }
 
 pub fn arc_path() -> PathBuf {

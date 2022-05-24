@@ -29,18 +29,6 @@ mod lookups {
         config,
         resource::{self, FilesystemInfo},
     };
-    static USAGE: &str = r#"Entry Lookups:
-    get_filepath_table_entry [-i | -h] [<index> | <hashable>]
-        Note: This is commonly referred to as Table 1
-              This table uses the same indices as the FilePath table in data.arc
-    get_loaded_data_table_entry [-i | -h] [<index> | <hashable>]
-        Note: This is commonly referred to as Table 2
-              When passing an index, make sure it is not a file path index. This table uses the same indices as the FileInfoIndex table in data.arc
-    get_loaded_directory_table_entry [-i | -h] [<index> | <hashable>]
-        Note: When passing a hashable, use the directory path hash. Directories in data.arc are formatted differently than you might expect.
-              For example, when getting Joker's first slot, you will use the directory path of "figher/jack/c00"
-              This table uses the same indices as the DirInfo table in data.arc
-    "#;
     pub fn handle_get_filepath_table_entry(tables: &FilesystemInfo, mut args: Vec<String>) -> String {
         static USAGE: &str = r#"get_filepath_table_entry [-i | -h] [<index> | <hashable>]
         Note: This is commonly referred to as Table 1
@@ -189,12 +177,6 @@ mod utils {
         RefCount,
         Pointer,
     }
-    static USAGE: &str = r#"Utilities:
-    check_directory [-i | -h] [<index> | <hashable>] [-p] [-u] [--ref-count | --pointer]
-        Note: Both hashables and indices are for directories.
-              Pass -p for pretty printing with colors
-              Pass -u to only print unloaded file infos
-              Pass --ref-count or --pointer to only see those fields of the loaded data table entries for each file (the default is the loaded state)"#;
 
     fn check_directory(
         tables: &FilesystemInfo,
