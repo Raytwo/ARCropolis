@@ -257,13 +257,13 @@ impl CachedFilesystem {
         if size > decomp_size {
             match arc.patch_filedata(hash, size as u32, region) {
                 Ok(old_size) => {
-                    info!(
-                        "File '{}' ({:#x}) has a new decompressed filesize! {:#x} -> {:#x}",
-                        hashes::find(hash).bright_yellow(),
-                        hash.0,
-                        old_size.red(),
-                        size.green()
-                    );
+                    // info!(
+                    //     "File '{}' ({:#x}) has a new decompressed filesize! {:#x} -> {:#x}",
+                    //     hashes::find(hash).bright_yellow(),
+                    //     hash.0,
+                    //     old_size.red(),
+                    //     size.green()
+                    // );
                     Some(old_size as usize)
                 },
                 Err(_) => None,

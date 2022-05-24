@@ -201,13 +201,13 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
     };
 
     if let Some(mut new_file) = PathListEntry::from_path(path) {
-        info!(
-            "Adding file '{}' ({:#}) to folder '{}' ({:#x})",
-            hashes::find(new_file.path.hash40()),
-            new_file.path.hash40().0,
-            hashes::find(parent.path.hash40()),
-            parent.path.hash40().0
-        );
+        // info!(
+        //     "Adding file '{}' ({:#}) to folder '{}' ({:#x})",
+        //     hashes::find(new_file.path.hash40()),
+        //     new_file.path.hash40().0,
+        //     hashes::find(parent.path.hash40()),
+        //     parent.path.hash40().0
+        // );
         new_file.path.set_index(parent.get_first_child_index() as u32);
         parent.set_first_child_index(current_path_list_indices_len as u32);
         drop(parent);
@@ -285,5 +285,5 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
         .expect("Failed to get directory after confirming it exists");
     dir_info.file_info_start_index = start_index;
     dir_info.file_count = file_infos.len() as u32;
-    info!("Added files to {} ({:#x})", hashes::find(directory), directory.0);
+    // info!("Added files to {} ({:#x})", hashes::find(directory), directory.0);
 }
