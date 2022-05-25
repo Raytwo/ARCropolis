@@ -72,7 +72,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
 pub fn add_shared_file(ctx: &mut AdditionContext, path: &Path, shared_to: Hash40) {
     let info_indice_idx = match ctx.get_file_info_from_hash(shared_to) {
         Ok(info) => info.file_info_indice_index.0 as u32,
-        Err(e) => {
+        Err(_e) => {
             error!(
                 "Failed to find file '{}' ({:#x}) when attempting to share file to it.",
                 hashes::find(shared_to),
@@ -201,13 +201,13 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
     };
 
     if let Some(mut new_file) = PathListEntry::from_path(path) {
-        info!(
-            "Adding file '{}' ({:#}) to folder '{}' ({:#x})",
-            hashes::find(new_file.path.hash40()),
-            new_file.path.hash40().0,
-            hashes::find(parent.path.hash40()),
-            parent.path.hash40().0
-        );
+        // info!(
+        //     "Adding file '{}' ({:#}) to folder '{}' ({:#x})",
+        //     hashes::find(new_file.path.hash40()),
+        //     new_file.path.hash40().0,
+        //     hashes::find(parent.path.hash40()),
+        //     parent.path.hash40().0
+        // );
         new_file.path.set_index(parent.get_first_child_index() as u32);
         parent.set_first_child_index(current_path_list_indices_len as u32);
         drop(parent);
@@ -223,7 +223,7 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
     fn get_path_idx(ctx: &AdditionContext, hash: Hash40) -> Option<FilePathIdx> {
         match ctx.get_file_path_index_from_hash(hash) {
             Ok(idx) => Some(idx),
-            Err(_) => ctx.added_files.get(&hash).map(|idx| *idx),
+            Err(_) => ctx.added_files.get(&hash).copied(),
         }
     }
 
@@ -285,5 +285,5 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
         .expect("Failed to get directory after confirming it exists");
     dir_info.file_info_start_index = start_index;
     dir_info.file_count = file_infos.len() as u32;
-    info!("Added files to {} ({:#x})", hashes::find(directory), directory.0);
+    // info!("Added files to {} ({:#x})", hashes::find(directory), directory.0);
 }

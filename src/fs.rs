@@ -17,7 +17,7 @@ pub use discover::*;
 // pub mod loaders;
 // pub use loaders::*;
 
-static DEFAULT_CONFIG: &'static str = include_str!("../resources/override.json");
+static DEFAULT_CONFIG: &str = include_str!("../resources/override.json");
 static IS_INIT: AtomicBool = AtomicBool::new(false);
 
 // pub type ArcropolisOrbit = Orbit<ArcLoader, StandardLoader, ApiLoader>;

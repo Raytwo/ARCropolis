@@ -157,7 +157,7 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
     todo!("Rewrite this to take workspaces into account");
     let mut presets: HashSet<Hash40> = HashSet::new();
 
-    if std::path::PathBuf::from(umm_path()).exists() {
+    if umm_path().exists() {
         // TODO: Turn this into a map and use Collect
         for entry in WalkDir::new(umm_path()).max_depth(1).into_iter() {
             if let Ok(entry) = entry {
@@ -166,9 +166,8 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
                 // If the mod isn't disabled, add it to the preset
                 if path
                     .file_name()
-                    .map(|name| name.to_str())
-                    .flatten()
-                    .map(|name| !name.starts_with("."))
+                    .and_then(|name| name.to_str())
+                    .map(|name| !name.starts_with('.'))
                     .unwrap_or(false)
                 {
                     presets.insert(Hash40::from(path.to_str().unwrap()));
@@ -215,20 +214,6 @@ struct Config {
     pub logger: ConfigLogger,
 }
 
-impl Config {
-    pub fn new() -> Self {
-        Self {
-            version: String::from(env!("CARGO_PKG_VERSION")),
-            debug: false,
-            auto_update: true,
-            beta_updates: true,
-            no_web_menus: false,
-            region: String::from("us_en"),
-            paths: ConfigPaths::new(),
-            logger: ConfigLogger::new(),
-        }
-    }
-}
 #[derive(Serialize, Deserialize)]
 struct ConfigPaths {
     pub arc: PathBuf,
@@ -428,7 +413,7 @@ impl ArcStorage {
 
         let path = PathBuf::from(uid.id[0].to_string()).join(uid.id[1].to_string());
 
-        Self(path.into())
+        Self(path)
     }
 }
 

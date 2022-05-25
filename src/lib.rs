@@ -96,16 +96,15 @@ impl PathExtension for Path {
     }
 
     fn has_extension<S: AsRef<str>>(&self, ext: S) -> bool {
-        self.extension().map(|x| x.to_str()).flatten().map(|x| x == ext.as_ref()).unwrap_or(false)
+        self.extension().and_then(|x| x.to_str()).map(|x| x == ext.as_ref()).unwrap_or(false)
     }
 
     fn smash_hash(&self) -> Result<Hash40, InvalidOsStrError> {
         if self.extension().is_none() {
             let hash = self
                 .file_name()
-                .map(|x| x.to_str())
-                .flatten()
-                .map(
+                .and_then(|x| x.to_str())
+                .and_then(
                     |x| {
                         if x.starts_with("0x") {
                             u64::from_str_radix(x.trim_start_matches("0x"), 16).ok()
@@ -114,8 +113,7 @@ impl PathExtension for Path {
                         }
                     },
                 )
-                .flatten()
-                .map(|x| Hash40(x));
+                .map(Hash40);
             if let Some(hash) = hash {
                 return Ok(hash)
             }
@@ -123,9 +121,9 @@ impl PathExtension for Path {
         let mut path = self
             .as_os_str()
             .to_str()
-            .map_or(Err(InvalidOsStrError), |x| Ok(x))?
+            .map_or(Err(InvalidOsStrError), Ok)?
             .to_lowercase()
-            .replace(";", ":")
+            .replace(';', ":")
             .replace(".mp4", ".webm");
 
         let (path, _) = strip_region_from_path(path);
@@ -306,7 +304,7 @@ pub fn main() {
             .spawn(|| {
                 // Changed to pre because prerelease doesn't compile
                 if !Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
-                    update::check_for_updates(config::beta_updates(), |update_kind| true);
+                    update::check_for_updates(config::beta_updates(), |_update_kind| true);
                 } else {
                     if config::auto_update_enabled() {
                         update::check_for_updates(config::beta_updates(), |update_kind| {

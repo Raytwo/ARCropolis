@@ -39,7 +39,7 @@ mod directory {
 
     use super::super::*;
 
-    pub static USAGE: &'static str = r#"Directory Lookups:
+    pub static USAGE: &str = r#"Directory Lookups:
     get_directory [-i | -h] [<index> | <hashable>]
     get_directory_file_group [-i | -h] [<index> | <hashable>]
         Note: The index/hashable item in this command are for directories, not file groups
@@ -49,7 +49,7 @@ mod directory {
     get_file_group <index>"#;
 
     pub fn handle_get_directory(arc: &LoadedArc, mut args: Vec<String>) -> String {
-        static USAGE: &'static str = "Usage: get_directory [-i | -h] [<index> | <hashable>]";
+        static USAGE: &str = "Usage: get_directory [-i | -h] [<index> | <hashable>]";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(idx) => {
@@ -78,7 +78,7 @@ mod directory {
     }
 
     pub fn handle_get_directory_file_group(arc: &LoadedArc, mut args: Vec<String>) -> String {
-        static USAGE: &'static str = "get_directory_file_group [-i | -h] [<index> | <hashable>]\n    Note: The index/hashable item in this command are for directories, not file groups";
+        static USAGE: &str = "get_directory_file_group [-i | -h] [<index> | <hashable>]\n    Note: The index/hashable item in this command are for directories, not file groups";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(idx) => {
@@ -126,7 +126,7 @@ mod directory {
 
     pub fn handle_get_directory_redirect(arc: &LoadedArc, mut args: Vec<String>) -> String {
         use smash_arc::RedirectionType;
-        static USAGE: &'static str = "get_directory_redirect [-i | -h] [<index> | <hashable>]\n    Note: The index/hashable item in this command are for directories, not file groups\n          This can either be a DirInfo or a DirectoryOffset";
+        static USAGE: &str = "get_directory_redirect [-i | -h] [<index> | <hashable>]\n    Note: The index/hashable item in this command are for directories, not file groups\n          This can either be a DirInfo or a DirectoryOffset";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(idx) => {
@@ -176,7 +176,7 @@ mod directory {
     }
 
     pub fn handle_get_file_group(arc: &LoadedArc, args: Vec<String>) -> String {
-        static USAGE: &'static str = "get_file_group <index>";
+        static USAGE: &str = "get_file_group <index>";
         for arg in args.into_iter() {
             if let Some(idx) = parse_index(arg.as_str()) {
                 if let Some(file_group) = arc.get_folder_offsets().get(idx as usize) {
@@ -196,7 +196,7 @@ mod files {
     use smash_arc::{ArcLookup, LoadedArc, Region};
 
     use super::super::*;
-    pub static USAGE: &'static str = r#"File Lookups:
+    pub static USAGE: &str = r#"File Lookups:
     get_file_path [-i | -h] [<index> | <hashable>]
     get_file_info_index [-i | -h] [<index> | <hashable>]
     get_file_info [-i | -h] [<index> | <hashable>]
@@ -206,7 +206,7 @@ mod files {
         Note: The region is only used when passing the hashable item and is assumed to be Region::None by default
     "#;
     pub fn handle_get_file_path(arc: &LoadedArc, mut args: Vec<String>) -> String {
-        static USAGE: &'static str = "get_file_path [-i | -h] [<index> | <hashable>]";
+        static USAGE: &str = "get_file_path [-i | -h] [<index> | <hashable>]";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(val) => {
@@ -240,7 +240,7 @@ mod files {
     }
 
     pub fn handle_get_file_info_index(arc: &LoadedArc, mut args: Vec<String>) -> String {
-        static USAGE: &'static str = "get_file_info_index [-i | -h] [<index> | <hashable>]";
+        static USAGE: &str = "get_file_info_index [-i | -h] [<index> | <hashable>]";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(val) => {
@@ -279,7 +279,7 @@ mod files {
     }
 
     pub fn handle_get_file_info(arc: &LoadedArc, mut args: Vec<String>) -> String {
-        static USAGE: &'static str = "get_file_info [-i | -h] [<index> | <hashable>]";
+        static USAGE: &str = "get_file_info [-i | -h] [<index> | <hashable>]";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(val) => {
@@ -308,7 +308,7 @@ mod files {
     }
 
     pub fn handle_get_file_info_to_data(arc: &LoadedArc, mut args: Vec<String>) -> String {
-        static USAGE: &'static str = "get_file_info_to_data [-i | -h] [<index> | <hashable>] [-r <region>]\n    Note: The region is only used when passing the hashable item and is assumed to be Region::None by default";
+        static USAGE: &str = "get_file_info_to_data [-i | -h] [<index> | <hashable>] [-r <region>]\n    Note: The region is only used when passing the hashable item and is assumed to be Region::None by default";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(idx) => {
@@ -347,7 +347,7 @@ mod files {
     }
 
     pub fn handle_get_file_data(arc: &LoadedArc, mut args: Vec<String>) -> String {
-        static USAGE: &'static str = "get_file_data [-i | -h] [-i | -h] [<index> | <hashable>] [-r <region>]\n    Note: The region is only used when passing the hashable item and is assumed to be Region::None by default";
+        static USAGE: &str = "get_file_data [-i | -h] [-i | -h] [<index> | <hashable>] [-r <region>]\n    Note: The region is only used when passing the hashable item and is assumed to be Region::None by default";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(idx) => {
@@ -392,7 +392,7 @@ mod utils {
     use super::super::*;
     use crate::{hashes, replacement::LoadedArcEx};
 
-    pub static USAGE: &'static str = r#"Utilities:
+    pub static USAGE: &str = r#"Utilities:
     walk_directory [-i | -h] [<index> | <hashable>] [-r] [-p] [-s]
         Note: The index/hashable item in this command are for directories, not file groups.
               Pass -r if you want to walk recursively.
@@ -426,18 +426,16 @@ mod utils {
 
         let mut output = if let Some(current) = current {
             current
+        } else if pretty {
+            format!("'{}' ({:#x}):\n", hashes::find(info.path.hash40()).bright_blue(), info.path.hash40().0)
         } else {
-            if pretty {
-                format!("'{}' ({:#x}):\n", hashes::find(info.path.hash40()).bright_blue(), info.path.hash40().0)
-            } else {
-                format!("'{}' ({:#x}):\n", hashes::find(info.path.hash40()), info.path.hash40().0)
-            }
+            format!("'{}' ({:#x}):\n", hashes::find(info.path.hash40()), info.path.hash40().0)
         };
 
         // print out files
         let file_paths = arc.get_file_paths();
         let file_infos = arc.get_file_infos();
-        let shared_index = arc.get_shared_data_index();
+        let _shared_index = arc.get_shared_data_index();
         for x in info.file_info_range() {
             let shared_str = if !shared {
                 "".to_string()
@@ -462,9 +460,9 @@ mod utils {
                 let _ = write!(&mut output, "| '{}' ({:#x})", hashes::find(hash), hash.0);
             }
             if shared {
-                let _ = write!(&mut output, ": {}\n", shared_str);
+                let _ = writeln!(&mut output, ": {}", shared_str);
             } else {
-                let _ = write!(&mut output, "\n");
+                let _ = writeln!(&mut output);
             }
         }
 
@@ -474,18 +472,18 @@ mod utils {
                     write_indent(&mut output, indent + 1);
                     let hash = dir_info.path.hash40();
                     if pretty {
-                        let _ = write!(&mut output, "| '{}' ({:#x}):\n", hashes::find(hash).bright_green(), hash.0);
+                        let _ = writeln!(&mut output, "| '{}' ({:#x}):", hashes::find(hash).bright_green(), hash.0);
                     } else {
-                        let _ = write!(&mut output, "| Redirect: '{}' ({:#x}):\n", hashes::find(hash), hash.0);
+                        let _ = writeln!(&mut output, "| Redirect: '{}' ({:#x}):", hashes::find(hash), hash.0);
                     }
                     output = walk_directory(arc, &dir_info, pretty, recursive, shared, Some(output), indent + 1);
                 },
                 Some(RedirectionType::Shared(folder)) => {
                     write_indent(&mut output, indent + 1);
                     if pretty {
-                        let _ = write!(&mut output, "| {}:\n", "Unnamed".bright_green());
+                        let _ = writeln!(&mut output, "| {}:", "Unnamed".bright_green());
                     } else {
-                        let _ = write!(&mut output, "| Redirect: Unnamed:\n");
+                        let _ = writeln!(&mut output, "| Redirect: Unnamed:");
                     }
                     for x in folder.range() {
                         let shared_str = if !shared {
@@ -509,9 +507,9 @@ mod utils {
                             let _ = write!(&mut output, "| '{}' ({:#x})", hashes::find(hash), hash.0);
                         }
                         if shared {
-                            let _ = write!(&mut output, ": {}\n", shared_str);
+                            let _ = writeln!(&mut output, ": {}", shared_str);
                         } else {
-                            let _ = write!(&mut output, "\n");
+                            let _ = writeln!(&mut output);
                         }
                     }
                 },
@@ -525,9 +523,9 @@ mod utils {
                 let hash = child_info.path.hash40();
                 write_indent(&mut output, indent + 1);
                 if pretty {
-                    let _ = write!(&mut output, "| '{}' ({:#x}):\n", hashes::find(hash).bright_yellow(), hash.0);
+                    let _ = writeln!(&mut output, "| '{}' ({:#x}):", hashes::find(hash).bright_yellow(), hash.0);
                 } else {
-                    let _ = write!(&mut output, "| Child: '{}' ({:#x}):\n", hashes::find(hash), hash.0);
+                    let _ = writeln!(&mut output, "| Child: '{}' ({:#x}):", hashes::find(hash), hash.0);
                 }
                 output = walk_directory(arc, child_info, pretty, recursive, shared, Some(output), indent + 1);
             }
@@ -536,7 +534,7 @@ mod utils {
     }
 
     pub fn handle_walk_directory(arc: &LoadedArc, mut args: Vec<String>) -> String {
-        static USAGE: &'static str = "walk_directory [-i | -h] [<index> | <hashable>] [-r] [-p] [-s]\n    Note: The index/hashable item in this command are for directories, not file groups.\n          Pass -r if you want to walk recursively.\n          Pass -p if you want to pretty print with colors.\n          Pass -s if you want to see which files are shared";
+        static USAGE: &str = "walk_directory [-i | -h] [<index> | <hashable>] [-r] [-p] [-s]\n    Note: The index/hashable item in this command are for directories, not file groups.\n          Pass -r if you want to walk recursively.\n          Pass -p if you want to pretty print with colors.\n          Pass -s if you want to see which files are shared";
         let dir_info = if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(idx) => {
@@ -563,7 +561,7 @@ mod utils {
     }
 
     pub fn handle_is_file_shared(arc: &LoadedArc, mut args: Vec<String>) -> String {
-        static USAGE: &'static str = "is_file_shared [-i | -h] [<index> | <hashable>]\n    Note: If passing by index, pass the file path index";
+        static USAGE: &str = "is_file_shared [-i | -h] [<index> | <hashable>]\n    Note: If passing by index, pass the file path index";
         if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(idx) => {
@@ -604,7 +602,7 @@ mod utils {
     }
 
     pub fn handle_get_shared_file(arc: &LoadedArc, mut args: Vec<String>) -> String {
-        static USAGE: &'static str = "get_shared_file [-i | -h] [<index> | <hashable>] [-r]\n    Note: If passing by index, pass the file path index\n      Pass -r if you want to get the lowest level shared file";
+        static USAGE: &str = "get_shared_file [-i | -h] [<index> | <hashable>] [-r]\n    Note: If passing by index, pass the file path index\n      Pass -r if you want to get the lowest level shared file";
         let file_path = if let Some(idx) = get_flag_and_option("-i", &mut args) {
             match parse_index(idx.as_str()) {
                 Some(idx) => {
@@ -670,7 +668,7 @@ mod utils {
 
 pub fn handle_command(mut args: Vec<String>) -> String {
     let arc = resource::arc();
-    if args.len() == 0 {
+    if args.is_empty() {
         return String::from(USAGE)
     }
     let command = args.remove(0);

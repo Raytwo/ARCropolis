@@ -217,7 +217,7 @@ pub fn initialize(arc: Option<&LoadedArc>) {
 pub fn get_dir_entry_for_file<H: Into<Hash40>>(hash: H) -> Option<(Hash40, usize)> {
     let lut = UNSHARE_LOOKUP.read();
     match &*lut {
-        UnshareLookupState::Generated(lut) => lut.get(&hash.into()).map(|x| *x),
+        UnshareLookupState::Generated(lut) => lut.get(&hash.into()).copied(),
         _ => None,
     }
 }
@@ -269,7 +269,7 @@ pub fn get_shared_file<H: Into<Hash40>>(hash: H, index: usize) -> Option<Hash40>
         ShareLookupState::Generated(lut) => {
             lut.shared_file_lookup
                 .get(&hash.into())
-                .map_or_else(|| None, |hashes| hashes.get(index).map(|hash| *hash))
+                .map_or_else(|| None, |hashes| hashes.get(index).copied())
         },
         _ => None,
     }

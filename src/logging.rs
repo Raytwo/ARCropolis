@@ -47,7 +47,7 @@ fn format_time_string(seconds: u64) -> String {
     format!("{:04}-{:02}-{:02}_{:02}-{:02}-{:02}", year, month + 1, day_number + 1, hours, min, sec)
 }
 
-static LOG_PATH: &'static str = "sd:/ultimate/arcropolis/logs";
+static LOG_PATH: &str = "sd:/ultimate/arcropolis/logs";
 static FILE_LOG_BUFFER: usize = 0x2000; // Room for 0x2000 characters, might have performance issues if the logger level is "Info" or "Trace"
 struct FileLogger(Option<Mutex<BufWriter<File>>>);
 
@@ -119,10 +119,7 @@ impl log::Log for ArcLogger {
         let skip_mod_path = record.target() == "no-mod-path";
 
         let message = if record.level() == LevelFilter::Debug && !skip_mod_path {
-            let file = match record.file() {
-                Some(file) => file,
-                None => "???",
-            };
+            let file = record.file().unwrap_or("???");
             let number = match record.line() {
                 Some(no) => format!("{}", no),
                 None => "???".to_string(),
@@ -142,13 +139,13 @@ impl log::Log for ArcLogger {
             },
             "file" => {
                 if config::file_logging_enabled() {
-                    FILE_WRITER.write(strip_ansi_escapes::strip(message).unwrap_or(vec![]));
+                    FILE_WRITER.write(strip_ansi_escapes::strip(message).unwrap_or_default());
                 }
             },
             _ => {
                 print!("{}", message);
                 if config::file_logging_enabled() {
-                    FILE_WRITER.write(strip_ansi_escapes::strip(message).unwrap_or(vec![]));
+                    FILE_WRITER.write(strip_ansi_escapes::strip(message).unwrap_or_default());
                 }
             },
         }

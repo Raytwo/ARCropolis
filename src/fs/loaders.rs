@@ -84,8 +84,7 @@ impl ApiLoadType {
                 let arc = resource::arc();
                 crate::get_smash_hash(local)
                     .ok()
-                    .map(|hash| arc.get_file_data_from_hash(hash, config::region()).ok())
-                    .flatten()
+                    .and_then(|hash| arc.get_file_data_from_hash(hash, config::region()).ok())
                     .map(|x| x.decomp_size as usize)
             },
             _ => None,
@@ -160,7 +159,7 @@ impl ApiLoadType {
                         )
                     };
 
-                    let mut xml = String::from_utf16(slice_u16).unwrap();
+                    let xml = String::from_utf16(slice_u16).unwrap();
 
                     let xmsbt: XMSBT = match serde_xml_rs::from_str(&xml) {
                         Ok(xmsbt) => xmsbt,
@@ -219,7 +218,7 @@ impl ApiLoadType {
                     builder = builder.add_label(lbl.0, slice_u8);
                 }
 
-                let mut out_msbt = builder.build();
+                let out_msbt = builder.build();
 
                 let mut cursor = std::io::Cursor::new(vec![]);
                 out_msbt.write_to(&mut cursor).unwrap();
@@ -316,32 +315,25 @@ impl ApiLoader {
     }
 
     fn use_virtual_file(&self, local: &Path) -> Option<(&Path, ApiCallback)> {
-        local
-            .smash_hash()
-            .ok()
-            .map(|x| self.function_map.get(&x))
-            .flatten()
-            .map(|entry| {
-                let data = entry.get();
-                unsafe {
-                    if let Some((vroot, func)) = (*data).functions.get((*data).function_index) {
-                        (*data).function_index += 1;
-                        Some((vroot.as_path(), *func))
-                    } else {
-                        None
-                    }
+        local.smash_hash().ok().and_then(|x| self.function_map.get(&x)).and_then(|entry| {
+            let data = entry.get();
+            unsafe {
+                if let Some((vroot, func)) = (*data).functions.get((*data).function_index) {
+                    (*data).function_index += 1;
+                    Some((vroot.as_path(), *func))
+                } else {
+                    None
                 }
-            })
-            .flatten()
+            }
+        })
     }
 
     fn release_virtual_file(&self, local: &Path) {
-        let _ = local.smash_hash().ok().map(|x| self.function_map.get(&x)).flatten().map(|entry| {
+        let _ = local.smash_hash().ok().and_then(|x| self.function_map.get(&x)).map(|entry| {
             let data = entry.get();
             unsafe {
                 (*data).function_index = ((*data).function_index - 1).min(0);
             }
-            ()
         });
     }
 
@@ -441,8 +433,7 @@ impl FileLoader for ApiLoader {
         if let Some((root_path, _)) = self.use_virtual_file(local_path) {
             let result = ApiLoadType::from_root(root_path)
                 .ok()
-                .map(|x| x.get_file_size(local_path))
-                .flatten()
+                .and_then(|x| x.get_file_size(local_path))
                 .or(self.get_file_size(root_path, local_path));
             self.release_virtual_file(local_path);
             result
@@ -458,7 +449,7 @@ impl FileLoader for ApiLoader {
                 result
                     .unwrap()
                     .get_path_type(local_path)
-                    .map_or_else(|_| self.get_path_type(root_path, local_path), |x| Ok(x))
+                    .map_or_else(|_| self.get_path_type(root_path, local_path), Ok)
             } else {
                 Err(result.unwrap_err())
             };
@@ -487,10 +478,7 @@ impl FileLoader for ApiLoader {
 
     fn get_actual_path(&self, root_path: &Path, local_path: &Path) -> Option<PathBuf> {
         if root_path.ends_with("stream-cb") {
-            Some(
-                self.get_stream_cb_path(local_path)
-                    .map_or(root_path.join(local_path), |x| PathBuf::from(x)),
-            )
+            Some(self.get_stream_cb_path(local_path).map_or(root_path.join(local_path), PathBuf::from))
         } else {
             Some(root_path.join(local_path))
         }

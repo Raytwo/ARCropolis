@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use smash_arc::Hash40;
 
-static HASH_FILEPATH: &'static str = "sd:/ultimate/arcropolis/hashes.txt";
+static HASH_FILEPATH: &str = "sd:/ultimate/arcropolis/hashes.txt";
 
 static HASHES: Lazy<RwLock<HashMap<Hash40, &'static str>>> = Lazy::new(|| {
     let mut hashes = HashMap::default();
@@ -35,7 +35,7 @@ fn string_to_static_str(s: String) -> &'static str {
 
 pub fn try_find(hash: Hash40) -> Option<&'static str> {
     let hashes = HASHES.read();
-    hashes.get(&hash).map(|x| *x)
+    hashes.get(&hash).copied()
 }
 
 pub fn find(hash: Hash40) -> &'static str {

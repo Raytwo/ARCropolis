@@ -145,16 +145,16 @@ fn handle_walk_directory(search: &LoadedSearchSection, mut args: Vec<String>) ->
         match child {
             DirectoryChild::File(file) => {
                 if is_pretty {
-                    print!("{} ({:#x})\n", hashes::find(file.path.hash40()).bright_green(), file.path.hash40().0);
+                    println!("{} ({:#x})", hashes::find(file.path.hash40()).bright_green(), file.path.hash40().0);
                 } else {
-                    print!("File: {} ({:#x})\n", hashes::find(file.path.hash40()), file.path.hash40().0);
+                    println!("File: {} ({:#x})", hashes::find(file.path.hash40()), file.path.hash40().0);
                 }
             },
             DirectoryChild::Folder(folder) => {
                 if is_pretty {
-                    print!("{} ({:#x})\n", hashes::find(folder.path.hash40()).bright_yellow(), folder.path.hash40().0);
+                    println!("{} ({:#x})", hashes::find(folder.path.hash40()).bright_yellow(), folder.path.hash40().0);
                 } else {
-                    print!("Folder: {} ({:#x})\n", hashes::find(folder.path.hash40()), folder.path.hash40().0);
+                    println!("Folder: {} ({:#x})", hashes::find(folder.path.hash40()), folder.path.hash40().0);
                 }
             },
         }
@@ -165,7 +165,7 @@ fn handle_walk_directory(search: &LoadedSearchSection, mut args: Vec<String>) ->
 
 pub fn handle_command(mut args: Vec<String>) -> String {
     let search = resource::search();
-    if args.len() == 0 {
+    if args.is_empty() {
         return String::from("")
     }
     let command = args.remove(0);

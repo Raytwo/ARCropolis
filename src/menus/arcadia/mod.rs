@@ -30,12 +30,6 @@ pub struct Entry {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ConfigChanged {
-    category: String,
-    value: String,
-}
-
-#[derive(Debug, Deserialize)]
 pub enum ArcadiaMessage {
     ToggleModRequest { id: usize, state: bool },
     ChangeAllRequest { state: bool },
@@ -48,16 +42,16 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
     std::fs::read_dir(&config::umm_path())
         .unwrap()
         .enumerate()
-        .filter_map(|(i, path)| {
+        .filter_map(|(_i, path)| {
             let path_to_be_used = path.unwrap().path();
 
             if path_to_be_used.is_file() {
                 return None
             }
 
-            let disabled = if !presets.contains(&Hash40::from(path_to_be_used.to_str().unwrap())) { true } else { false };
+            let disabled = !presets.contains(&Hash40::from(path_to_be_used.to_str().unwrap()));
 
-            let mut folder_name = Path::new(&path_to_be_used).file_name().unwrap().to_os_string().into_string().unwrap();
+            let folder_name = Path::new(&path_to_be_used).file_name().unwrap().to_os_string().into_string().unwrap();
 
             let info_path = format!("{}/info.toml", path_to_be_used.display());
 
@@ -76,7 +70,7 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                     Entry {
                         id: Some(id),
                         folder_name: Some(folder_name.clone()),
-                        display_name: res.display_name.or(Some(folder_name.clone())),
+                        display_name: res.display_name.or(Some(folder_name)),
                         authors: res.authors.or(Some(String::from("???"))),
                         is_disabled: Some(disabled),
                         version: res.version.or(Some(String::from("???"))),
@@ -87,7 +81,7 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                                 Some(cat)
                             }
                         }),
-                        description: Some(res.description.unwrap_or_else(String::new).replace("\n", "<br />")),
+                        description: Some(res.description.unwrap_or_default().replace('\n', "<br />")),
                         ..res
                     }
                 },
@@ -131,7 +125,7 @@ pub fn show_arcadia(workspace: Option<String>) {
         let path = &umm_path.join(item.folder_name.as_ref().unwrap()).join("preview.webp");
 
         if path.exists() {
-            images.push((format!("img/{}", item.id.unwrap().to_string()), std::fs::read(path).unwrap()));
+            images.push((format!("img/{}", item.id.unwrap()), std::fs::read(path).unwrap()));
         };
     }
 
@@ -222,11 +216,9 @@ pub fn show_arcadia(workspace: Option<String>) {
 
     if new_presets != presets {
         // Acquire the filesystem so we can check if it's already finished or not (for boot-time mod manager)
-        if let Some(filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
-            if active_workspace.eq(&workspace_name) {
-                if skyline_web::Dialog::yes_no("Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?") {
-                    unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
-                }
+        if let Some(_filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
+            if active_workspace.eq(&workspace_name) && skyline_web::Dialog::yes_no("Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?") {
+                unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
             }
         }
     }

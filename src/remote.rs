@@ -4,7 +4,7 @@ pub mod arc;
 pub mod search;
 pub mod table;
 
-static USAGE: &'static str = r#"ARCropolis remote CLI server | Usage
+static USAGE: &str = r#"ARCropolis remote CLI server | Usage
 General:
     Common flags are '-i' for passing an index and '-h' for passing a hashable item. Hashable items are either raw hashes (prefixed with 0x) or strings.
     An index can be either decimal or hexadecimal.
@@ -126,7 +126,7 @@ pub fn get_flag_and_option(flag: &str, args: &mut Vec<String>) -> Option<String>
 }
 
 pub fn handle_command(mut args: Vec<String>) -> String {
-    if args.len() == 0 || args.get(0).unwrap() == "help" {
+    if args.is_empty() || args.get(0).unwrap() == "help" {
         return String::from(USAGE)
     }
     let category = args.remove(0);

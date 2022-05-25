@@ -2,7 +2,6 @@ use std::fmt;
 
 use gh_updater::ReleaseFinderConfig;
 use semver::Version;
-use skyline::nn;
 use zip::ZipArchive;
 
 pub enum VersionDifference {

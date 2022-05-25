@@ -83,7 +83,7 @@ impl NrrBuilder {
 
     pub fn register(self) -> Result<Option<RegistrationInfo>, NrrRegistrationFailedError> {
         let Self { hashes: mut module_hashes } = self;
-        if module_hashes.len() == 0 {
+        if module_hashes.is_empty() {
             return Ok(None)
         }
         module_hashes.sort();
