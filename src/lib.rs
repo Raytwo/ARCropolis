@@ -43,7 +43,7 @@ mod util;
 
 use fs::PlaceholderFs;
 use smash_arc::{Hash40, Region};
-use util::env;
+
 
 use crate::config::GLOBAL_CONFIG;
 
@@ -118,7 +118,7 @@ impl PathExtension for Path {
                 return Ok(hash)
             }
         }
-        let mut path = self
+        let path = self
             .as_os_str()
             .to_str()
             .map_or(Err(InvalidOsStrError), Ok)?
@@ -128,7 +128,7 @@ impl PathExtension for Path {
 
         let (path, _) = strip_region_from_path(path);
 
-        Ok(Hash40::from(path.to_string().trim_start_matches("/")))
+        Ok(Hash40::from(path.to_string().trim_start_matches('/')))
     }
 }
 
@@ -149,15 +149,14 @@ fn get_region_from_suffix(suffix: &str) -> Option<Region> {
     // In this case, having a None region is the same as saying the provided region is incorrect.
     Region::from_str(suffix)
         .ok()
-        .map(|region| if region == Region::None { None } else { Some(region) })
-        .flatten()
+        .and_then(|region| if region == Region::None { None } else { Some(region) })
 }
 
 pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
     // Take the filename so we don't have to deal with the extension
     let filename = path.as_ref().file_name().unwrap();
 
-    if let Some(index) = filename.find("+") {
+    if let Some(index) = filename.find('+') {
         // The rest of the filename is dropped, as we don't need it here
         let (_, end) = filename.split_at(index + 1);
         get_region_from_suffix(end)
@@ -169,9 +168,9 @@ pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
 pub fn strip_region_from_path<P: AsRef<Utf8Path>>(path: P) -> (Utf8PathBuf, Option<Region>) {
     let mut path = path.as_ref().to_string();
 
-    if let Some(index) = path.rfind("+") {
+    if let Some(index) = path.rfind('+') {
         // TODO: Need to make sure the file has an extension. Probably return a Result instead
-        let period = path.rfind(".").unwrap();
+        let period = path.rfind('.').unwrap();
         let region: String = path.drain(index..period).collect();
         // Remove the +
         (path.into(), get_region_from_suffix(&region[1..]))

@@ -102,11 +102,11 @@ pub fn init(filter: LevelFilter) -> Result<(), SetLoggerError> {
 
 impl log::Log for ArcLogger {
     // Always log what we tell it to log
-    fn enabled(&self, _metadata: &Metadata) -> bool {
+    fn enabled(&self, _metadata: &Metadata<'_>) -> bool {
         true
     }
 
-    fn log(&self, record: &Record) {
+    fn log(&self, record: &Record<'_>) {
         if !self.enabled(record.metadata()) {
             return
         }

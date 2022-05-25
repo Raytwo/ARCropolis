@@ -2,7 +2,7 @@
 
 use crate::resource;
 
-static USAGE: &'static str = r#"arc: Commands to help scan data.arc tables/entries at runtime.
+static USAGE: &str = r#"arc: Commands to help scan data.arc tables/entries at runtime.
 Directory Lookups:
     get_directory [-i | -h] [<index> | <hashable>]
     get_directory_file_group [-i | -h] [<index> | <hashable>]

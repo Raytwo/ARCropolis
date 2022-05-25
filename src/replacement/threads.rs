@@ -63,11 +63,9 @@ pub fn handle_file_replace(hash: Hash40) {
     let arc = resource::arc();
     let filesystem_info = resource::filesystem_info();
 
-    let file_info = arc.get_file_info_from_hash(hash).expect(&format!(
-        "Failed to find file info for '{}' ({:#x}) when replacing.",
+    let file_info = arc.get_file_info_from_hash(hash).unwrap_or_else(|_| panic!("Failed to find file info for '{}' ({:#x}) when replacing.",
         hashes::find(hash),
-        hash.as_u64()
-    ));
+        hash.as_u64()));
 
     let filepath_index = usize::from(file_info.file_path_index);
     let file_info_indice_index = usize::from(file_info.file_info_indice_index);
@@ -106,11 +104,9 @@ pub fn handle_file_replace(hash: Hash40) {
 
     // TODO: Move this to a extension handler
     if let Ok(size) = fs.load_file_into(hash, &mut buffer) {
-        if arc.get_file_paths()[filepath_index].ext.hash40() == Hash40::from("nutexb") {
-            if size < decompressed_size as usize {
-                let (contents, footer) = buffer.split_at_mut((decompressed_size - 0xb0) as usize);
-                footer.copy_from_slice(&contents[(size - 0xb0)..size]);
-            }
+        if arc.get_file_paths()[filepath_index].ext.hash40() == Hash40::from("nutexb") && size < decompressed_size as usize {
+            let (contents, footer) = buffer.split_at_mut((decompressed_size - 0xb0) as usize);
+            footer.copy_from_slice(&contents[(size - 0xb0)..size]);
         }
 
         // TODO: Move this to a extension handler

@@ -66,11 +66,11 @@ impl<T> CppVector<T> {
         }
     }
 
-    pub fn iter(&self) -> CppVectorIterator<T> {
+    pub fn iter(&self) -> CppVectorIterator<'_, T> {
         self.into_iter()
     }
 
-    pub fn iter_mut(&mut self) -> CppVectorIteratorMut<T> {
+    pub fn iter_mut(&mut self) -> CppVectorIteratorMut<'_, T> {
         self.into_iter()
     }
 
@@ -278,7 +278,7 @@ impl ResList {
         }
     }
 
-    pub fn node_iter(&self) -> NodeIter {
+    pub fn node_iter(&self) -> NodeIter<'_> {
         NodeIter { list: self, count: 0 }
     }
 

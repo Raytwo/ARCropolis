@@ -1,23 +1,21 @@
 use std::{
     collections::{HashMap, HashSet},
     iter::FromIterator,
-    path::{Path, PathBuf},
+    path::{PathBuf},
 };
 
 use camino::{Utf8Path, Utf8PathBuf};
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use serde::Serialize;
-use skyline::nn::{self, ro::*};
+
+
 use smash_arc::Hash40;
 use walkdir::WalkDir;
 
-use super::{interner::InternedPath, Mod, Modpack};
+use super::{Mod};
 use crate::{
-    chainloader::*,
     config,
     fs::{interner::Interner, Conflict},
-    PathExtension,
 };
 
 pub const MAX_COMPONENT_COUNT: usize = 10;
@@ -110,8 +108,8 @@ pub fn perform_discovery() {
 
         // Get the preset name from the workspace list
         let preset_name = &workspace_list[&workspace_name];
-        let mut presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
-        let new_mods: HashSet<&Hash40> = new_cache
+        let presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
+        let _new_mods: HashSet<&Hash40> = new_cache
             .iter()
             .filter(|cached_mod| !mod_cache.contains(cached_mod) && !presets.contains(cached_mod))
             .collect();
@@ -146,7 +144,7 @@ pub fn perform_discovery() {
     }
 
     // TODO: Discovered, conflicting, ignored file operations go here
-    let mut fs = crate::GLOBAL_FILESYSTEM.write();
+    let _fs = crate::GLOBAL_FILESYSTEM.write();
     // let paths = discover("sd:/ultimate/mods");
     discover_mods(umm_path);
 
@@ -176,9 +174,9 @@ pub fn perform_discovery() {
 pub fn is_collectable(x: &Utf8Path) -> bool {
     match x.file_name() {
         Some(name) => {
-            static RESERVED_NAMES: &[&'static str] = &["config.json", "plugin.nro"];
+            static RESERVED_NAMES: &[&str] = &["config.json", "plugin.nro"];
 
-            static PATCH_EXTENSIONS: &[&'static str] = &["prcx", "prcxml", "stdatx", "stdatxml", "stprmx", "stprmxml", "xmsbt"];
+            static PATCH_EXTENSIONS: &[&str] = &["prcx", "prcxml", "stdatx", "stdatxml", "stprmx", "stprmxml", "xmsbt"];
 
             RESERVED_NAMES.contains(&name) || PATCH_EXTENSIONS.iter().any(|x| name.ends_with(x))
         },
@@ -217,7 +215,7 @@ pub fn discover_in_mods<P: AsRef<Utf8Path>>(root: P) -> Mod {
 pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) {
     let root = root.as_ref();
 
-    let mut interner = INTERNER.write();
+    let _interner = INTERNER.write();
 
     let mut files: HashMap<Hash40, Utf8PathBuf> = HashMap::new();
     let mut conflict_list: HashMap<Conflict, Vec<Utf8PathBuf>> = HashMap::new();
@@ -250,7 +248,7 @@ pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) {
 
                     let conflict = Conflict {
                         conflicting_mod: path.strip_prefix("sd:/ultimate/mods/").unwrap().into(),
-                        conflict_with: first_mod_root.strip_prefix("sd:/ultimate/mods/").unwrap().trim_end_matches("/").into(),
+                        conflict_with: first_mod_root.strip_prefix("sd:/ultimate/mods/").unwrap().trim_end_matches('/').into(),
                     };
 
                     match conflict_list.get_mut(&conflict) {

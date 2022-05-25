@@ -668,7 +668,7 @@ pub struct PlaceholderFs {
 
 impl PlaceholderFs {
     // NOTE: Some sources such as API callbacks cannot provide a physical path. This needs proper handling
-    pub fn get_physical_path<H: Into<Hash40>>(&self, hash: H) -> Option<PathBuf> {
+    pub fn get_physical_path<H: Into<Hash40>>(&self, _hash: H) -> Option<PathBuf> {
         None
     }
 
@@ -725,7 +725,7 @@ impl Modpack {
         match self.files.get(&hash).map(|interned| interned.to_string(&interner)) {
             Some(path) => {
                 // Does not belong here? This should apply to every source
-                if let Some(handler) = acquire_extension_handler(&Hash40::from("placeholder")) {
+                if let Some(_handler) = acquire_extension_handler(&Hash40::from("placeholder")) {
                     // handler.patch_file(&Vec::new())
                 }
 
@@ -752,7 +752,7 @@ pub struct Conflict {
 pub struct MsbtHandler;
 
 impl ExtensionHandler for MsbtHandler {
-    fn patch_file<B: AsRef<[u8]>>(&self, buffer: B) -> Vec<u8> {
+    fn patch_file<B: AsRef<[u8]>>(&self, _buffer: B) -> Vec<u8> {
         todo!()
     }
 }
