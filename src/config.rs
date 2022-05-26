@@ -89,8 +89,7 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
 
     if umm_path().exists() {
         // TODO: Turn this into a map and use Collect
-        for entry in WalkDir::new(umm_path()).max_depth(1).into_iter() {
-            if let Ok(entry) = entry {
+        for entry in WalkDir::new(umm_path()).max_depth(1).into_iter().flatten() {
                 let path = entry.path();
 
                 // If the mod isn't disabled, add it to the preset
@@ -109,7 +108,6 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
                     )
                     .unwrap();
                 }
-            }
         }
     }
 
@@ -122,7 +120,7 @@ pub mod workspaces {
     use skyline_config::ConfigError;
     use thiserror::Error;
 
-    #[derive(Error, Debug)]
+    #[derive(Debug, Error)]
     pub enum WorkspaceError {
         #[error("a configuration error happened: {0}")]
         ConfigError(#[from] ConfigError),
@@ -221,10 +219,6 @@ pub fn version() -> String {
     version
 }
 
-pub fn arc_path() -> Utf8PathBuf {
-    Utf8PathBuf::from("rom:/arc")
-}
-
 pub fn umm_path() -> Utf8PathBuf {
     let path = Utf8PathBuf::from("sd:/ultimate/mods");
 
@@ -233,10 +227,6 @@ pub fn umm_path() -> Utf8PathBuf {
     }
 
     path
-}
-
-pub fn extra_paths() -> Vec<String> {
-    GLOBAL_CONFIG.read().get_field_json("extra_paths").unwrap_or_default()
 }
 
 pub fn logger_level() -> String {

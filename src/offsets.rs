@@ -22,10 +22,7 @@ static OFFSETS: Lazy<Offsets> = Lazy::new(|| {
 
     match toml::ser::to_string_pretty(&offsets) {
         Ok(string) => {
-            match std::fs::write(path, string.as_bytes()) {
-                Err(_) => error!("Unable to write 'offsets.toml'."),
-                _ => {},
-            }
+            if std::fs::write(path, string.as_bytes()).is_err() { error!("Unable to write 'offsets.toml'.") }
         },
         Err(_) => error!("Failed to serialize offsets."),
     }

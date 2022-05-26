@@ -35,7 +35,6 @@ mod hashes;
 mod logging;
 #[cfg(feature = "web")] mod menus;
 mod offsets;
-mod remote;
 mod replacement;
 mod resource;
 #[cfg(feature = "updater")] mod update;
@@ -50,12 +49,11 @@ use crate::config::GLOBAL_CONFIG;
 pub static GLOBAL_FILESYSTEM: Lazy<RwLock<PlaceholderFs>> = Lazy::new(|| const_rwlock(PlaceholderFs::default()));
 
 pub static CACHE_PATH: Lazy<PathBuf> = Lazy::new(|| {
-    let version_string = get_version_string();
+    let version_string = util::get_version_string();
     let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(version_string);
-    match std::fs::create_dir_all(&path) {
-        Err(e) => panic!("Unable to create cache directory! Reason: {:?}", e),
-        _ => {},
-    }
+
+    if let Err(e) = std::fs::create_dir_all(&path) { panic!("Unable to create cache directory! Reason: {:?}", e) }
+
     path
 });
 
@@ -192,15 +190,6 @@ fn init_time() {
     }
 }
 
-/// Wrapper function for getting the version string of the game from nnSdk
-fn get_version_string() -> String {
-    unsafe {
-        let mut version_string = nn::oe::DisplayVersion { name: [0x00; 16] };
-        nn::oe::GetDisplayVersion(&mut version_string);
-        skyline::from_c_str(version_string.name.as_ptr())
-    }
-}
-
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     #[cfg(feature = "web")]
@@ -240,11 +229,10 @@ fn change_version_string(arg: u64, string: *const c_char) {
 }
 
 #[skyline::hook(offset = offsets::eshop_show())]
-fn show_eshop() {
-    unsafe {
-        #[cfg(feature = "web")]
-        menus::show_main_menu();
-    }
+fn show_eshop(_lua_state: *const u8) {
+    // Set the is_busy variable and all
+    #[cfg(feature = "web")]
+    menus::show_main_menu();
 }
 
 #[skyline::main(name = "arcropolis")]
@@ -282,7 +270,6 @@ pub fn main() {
     std::thread::Builder::new()
         .stack_size(0x40000)
         .spawn(|| {
-            std::thread::sleep(std::time::Duration::from_millis(5000));
             fs::perform_discovery()
         })
         .unwrap();
