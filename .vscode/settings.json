@@ -1,7 +1,3 @@
 {
-    "rust-analyzer.checkOnSave.overrideCommand": [
-        "cargo",
-        "skyline",
-        "check"
-    ],
+    "rust-analyzer.server.extraEnv": {"RUSTFLAGS" : "--cfg skyline_std_v3"}
 }
