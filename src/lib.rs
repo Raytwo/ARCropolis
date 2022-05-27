@@ -318,7 +318,7 @@ pub fn main() {
             .stack_size(0x40000)
             .spawn(|| {
                 // Changed to pre because prerelease doesn't compile
-                if !Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
+                if !semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
                     update::check_for_updates(config::beta_updates(), |_update_kind| true);
                 }
 
