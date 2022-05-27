@@ -34,7 +34,6 @@ mod hashes;
 mod logging;
 mod menus;
 mod offsets;
-mod remote;
 mod replacement;
 mod resource;
 #[cfg(feature = "updater")] mod update;
@@ -366,16 +365,6 @@ pub fn main() {
             err_msg.as_str(),
         );
     }));
-
-    if config::debug_enabled() {
-        std::thread::spawn(|| {
-            fn handle_command(args: Vec<String>) {
-                skyline_communicate::send(remote::handle_command(args).as_str());
-            }
-            skyline_communicate::set_on_receive(skyline_communicate::Receiver::CLIStyle(handle_command));
-            skyline_communicate::start_server("arcropolis", 6968);
-        });
-    }
 
     // Wait on hashes/lut to finish
     let _ = resources.join();
