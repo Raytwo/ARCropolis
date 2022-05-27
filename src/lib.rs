@@ -16,7 +16,6 @@ use std::{
 
 use arcropolis_api::Event;
 use log::LevelFilter;
-use semver::Version;
 use thiserror::Error;
 
 #[macro_use] extern crate log;
@@ -322,7 +321,7 @@ pub fn main() {
                 if !Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
                     update::check_for_updates(config::beta_updates(), |_update_kind| true);
                 }
-                
+
                 if config::auto_update_enabled() {
                         update::check_for_updates(config::beta_updates(), |update_kind| {
                             // skyline_web::Dialog::yes_no(format!(
