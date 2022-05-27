@@ -174,11 +174,14 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
     };
 
     if let Some(mut new_folder) = FolderPathListEntry::from_path(path) {
+        // Create a new directory that does not have child directories
         new_folder.set_first_child_index(0xFF_FFFF);
+        // Create a new search path
         let mut new_path = new_folder.as_path_entry();
+        // Set the previous head of the linked list as the child of the new path
         new_path.path.set_index(parent.get_first_child_index() as u32);
+        // Set the next path as the first element of the linked list
         parent.set_first_child_index(current_path_list_indices_len as u32);
-        drop(parent);
         ctx.new_folder_paths.insert(new_folder.path.hash40(), ctx.folder_paths.len());
         ctx.new_paths.insert(new_path.path.hash40(), ctx.path_list_indices.len());
         ctx.path_list_indices.push(ctx.paths.len() as u32);
@@ -249,7 +252,9 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
         //     hashes::find(parent.path.hash40()),
         //     parent.path.hash40().0
         // );
+        // Set the previous head of the linked list as the child of the new file
         new_file.path.set_index(parent.get_first_child_index() as u32);
+        // Set the file as the head of the linked list
         parent.set_first_child_index(current_path_list_indices_len as u32);
         ctx.new_paths.insert(new_file.path.hash40(), ctx.path_list_indices.len());
         ctx.path_list_indices.push(ctx.paths.len() as u32);
