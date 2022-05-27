@@ -32,13 +32,7 @@ impl PartialEq for Sha256Hash {
 impl Ord for Sha256Hash {
     fn cmp(&self, other: &Self) -> Ordering {
         let memcmp = unsafe { libc::memcmp(self.hash.as_ptr() as _, other.hash.as_ptr() as _, 0x20) };
-        if memcmp < 0 {
-            Ordering::Less
-        } else if memcmp > 0 {
-            Ordering::Greater
-        } else {
-            Ordering::Equal
-        }
+        memcmp.cmp(&0)
     }
 }
 

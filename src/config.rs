@@ -158,7 +158,7 @@ pub mod workspaces {
     pub fn get_active_workspace() -> Result<String, WorkspaceError> {
         let storage = super::GLOBAL_CONFIG.read();
         let _workspace_list = get_list();
-        let _workspace_name = storage.get_field("workspace").unwrap_or("Default".to_string());
+        let _workspace_name = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
         // TODO: Make sure that the preset file exists and return a custom error if it doesn't
         Ok("lol, lmao".to_string())
     }
@@ -175,7 +175,7 @@ pub mod presets {
 
     pub fn get_active_preset() -> Result<HashSet<Hash40>, ConfigError> {
         let storage = super::GLOBAL_CONFIG.read();
-        let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+        let workspace_name: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
         let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
         let preset_name = &workspace_list[&workspace_name];
         storage.get_field_json(preset_name)
@@ -183,7 +183,7 @@ pub mod presets {
 
     pub fn set_active_preset(preset: &HashSet<Hash40>) -> Result<(), skyline_config::ConfigError> {
         let mut storage = super::GLOBAL_CONFIG.write();
-        let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+        let workspace_name: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
         let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
         let preset_name = &workspace_list[&workspace_name];
         storage.set_field_json(preset_name, preset)
@@ -207,7 +207,7 @@ pub fn region() -> Region {
 }
 
 pub fn region_str() -> String {
-    let region: String = GLOBAL_CONFIG.read().get_field("region").unwrap_or(String::from("us_en"));
+    let region: String = GLOBAL_CONFIG.read().get_field("region").unwrap_or_else(|_| String::from("us_en"));
     region
 }
 
@@ -215,7 +215,7 @@ pub fn version() -> String {
     let version: String = GLOBAL_CONFIG
         .read()
         .get_field("version")
-        .unwrap_or(String::from(env!("CARGO_PKG_VERSION")));
+        .unwrap_or_else(|_| String::from(env!("CARGO_PKG_VERSION")));
     version
 }
 
@@ -230,7 +230,7 @@ pub fn umm_path() -> Utf8PathBuf {
 }
 
 pub fn logger_level() -> String {
-    let level: String = GLOBAL_CONFIG.read().get_field("logging_level").unwrap_or(String::from("Warn"));
+    let level: String = GLOBAL_CONFIG.read().get_field("logging_level").unwrap_or_else(|_| String::from("Warn"));
     level
 }
 
@@ -263,8 +263,6 @@ impl ArcStorage {
             get_user_id(&mut uid, &handle);
             // This closes the UserHandle, making it unusable, and sets the User in a Closed state.
             close_user(&handle);
-            // Make sure we can't use Handle from here
-            drop(handle);
         }
 
         let path = PathBuf::from(uid.id[0].to_string()).join(uid.id[1].to_string());

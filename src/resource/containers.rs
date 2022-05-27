@@ -12,6 +12,12 @@ pub struct CppVector<T> {
     eos: *mut T,
 }
 
+impl<T> Default for CppVector<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> CppVector<T> {
     unsafe fn realloc(&mut self) {
         let current_capacity = self.eos.offset_from(self.start) as usize;
@@ -187,7 +193,7 @@ impl<'a, T> Iterator for CppVectorIterator<'a, T> {
         unsafe {
             if self.vector.start.offset(self.index) != self.vector.end {
                 self.index += 1;
-                Some(std::mem::transmute::<*mut T, &'a T>(self.vector.start.offset(self.index - 1)))
+                Some(&*self.vector.start.offset(self.index - 1))
             } else {
                 None
             }
@@ -207,7 +213,7 @@ impl<'a, T> Iterator for CppVectorIteratorMut<'a, T> {
         unsafe {
             if self.vector.start.offset(self.index) != self.vector.end {
                 self.index += 1;
-                Some(std::mem::transmute::<*mut T, &'a mut T>(self.vector.start.offset(self.index - 1)))
+                Some(&mut *self.vector.start.offset(self.index - 1))
             } else {
                 None
             }

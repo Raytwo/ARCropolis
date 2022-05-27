@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     iter::FromIterator,
-    path::{PathBuf},
 };
 
 use camino::{Utf8Path, Utf8PathBuf};
@@ -83,52 +82,52 @@ pub fn perform_discovery() {
     let umm_path = config::umm_path();
 
     // Emulators can't use presets, so don't run this logic
-    if !is_emulator && !legacy_discovery {
-        let mut storage = config::GLOBAL_CONFIG.write();
-        // Get the mod cache from last run
-        let mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();
+    // if !is_emulator && !legacy_discovery {
+    //     let mut storage = config::GLOBAL_CONFIG.write();
+    //     // Get the mod cache from last run
+    //     let mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();
 
-        // Inspect the list of mods to see if some are new ones
-        let new_cache: HashSet<Hash40> = std::fs::read_dir(&umm_path)
-            .unwrap()
-            .filter_map(|path| {
-                let path = PathBuf::from(&umm_path).join(path.unwrap().path());
+    //     // Inspect the list of mods to see if some are new ones
+    //     let new_cache: HashSet<Hash40> = std::fs::read_dir(&umm_path)
+    //         .unwrap()
+    //         .filter_map(|path| {
+    //             let path = PathBuf::from(&umm_path).join(path.unwrap().path());
 
-                if path.is_file() {
-                    None
-                } else {
-                    Some(Hash40::from(path.to_str().unwrap()))
-                }
-            })
-            .collect();
+    //             if path.is_file() {
+    //                 None
+    //             } else {
+    //                 Some(Hash40::from(path.to_str().unwrap()))
+    //             }
+    //         })
+    //         .collect();
 
-        // Get the workspace name and workspace list
-        let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
-        let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
+    //     // Get the workspace name and workspace list
+    //     let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+    //     let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
 
-        // Get the preset name from the workspace list
-        let preset_name = &workspace_list[&workspace_name];
-        let presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
-        let _new_mods: HashSet<&Hash40> = new_cache
-            .iter()
-            .filter(|cached_mod| !mod_cache.contains(cached_mod) && !presets.contains(cached_mod))
-            .collect();
+    //     // Get the preset name from the workspace list
+    //     let preset_name = &workspace_list[&workspace_name];
+    //     let presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
+    //     let _new_mods: HashSet<&Hash40> = new_cache
+    //         .iter()
+    //         .filter(|cached_mod| !mod_cache.contains(cached_mod) && !presets.contains(cached_mod))
+    //         .collect();
 
-        // We found hashes that weren't in the cache
-        #[cfg(feature = "web")]
-        if !new_mods.is_empty() {
-            if skyline_web::Dialog::yes_no("New mods have been detected.\nWould you like to enable them?") {
-                todo!("Reimplement new mod discovery so it takes workspaces into account");
-                // Add the new mods to the presets file
-                presets.extend(new_mods);
-                // Save it back
-                storage.set_field_json(preset_name, &presets).unwrap();
-            }
-        }
+    //     // We found hashes that weren't in the cache
+    //     #[cfg(feature = "web")]
+    //     if !new_mods.is_empty() {
+    //         if skyline_web::Dialog::yes_no("New mods have been detected.\nWould you like to enable them?") {
+    //             todo!("Reimplement new mod discovery so it takes workspaces into account");
+    //             // Add the new mods to the presets file
+    //             presets.extend(new_mods);
+    //             // Save it back
+    //             storage.set_field_json(preset_name, &presets).unwrap();
+    //         }
+    //     }
 
-        // No matter what, the cache has to be updated
-        storage.set_field_json("mod_cache", &new_cache).unwrap();
-    }
+    //     // No matter what, the cache has to be updated
+    //     storage.set_field_json("mod_cache", &new_cache).unwrap();
+    // }
 
     #[cfg(feature = "web")]
     {
@@ -146,8 +145,11 @@ pub fn perform_discovery() {
     // TODO: Discovered, conflicting, ignored file operations go here
     let _fs = crate::GLOBAL_FILESYSTEM.write();
     // let paths = discover("sd:/ultimate/mods");
+    let before = std::time::Instant::now();
+
     discover_mods(umm_path);
 
+    panic!("File discovery time {}", before.elapsed().as_secs_f32());
     // let interner = INTERNER.read();
 
     // for path in paths {
@@ -203,7 +205,6 @@ pub fn discover_in_mods<P: AsRef<Utf8Path>>(root: P) -> Mod {
             } else {
                 let (path, _) = crate::strip_region_from_path(path);
                 // TODO: Try to handle a case where we have both a regional and non-regional copy for the same file and have the regional one prevail. Maybe sort the paths by length in ascending order so we always get the regional one last?
-
                 files.insert(Hash40::from(path.strip_prefix(root).unwrap().to_string().as_str()), path);
             }
         }
@@ -238,6 +239,7 @@ pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) {
             // Remove the conflicting files from mod_files and store them
             let conflicts: HashMap<Hash40, Utf8PathBuf> = mod_files.files.drain_filter(|hash, _| files.contains_key(hash)).collect();
 
+            // TODO: Move this in initial_loading so we can display the conflict handler before the game loads files?
             // If any file is conflicting with what we already have found, discard this mod and warn the user.
             if !conflicts.is_empty() {
                 conflicts.iter().for_each(|(hash, full_path)| {
@@ -278,12 +280,12 @@ pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) {
         });
 
     // dbg!(conflict_list);
-    let yaml = serde_yaml::to_string(&Vec::from_iter(conflict_list.iter())).unwrap();
-    std::fs::write("sd:/ultimate/arcropolis/conflicts.txt", yaml.as_bytes()).unwrap();
+    // let yaml = serde_yaml::to_string(&Vec::from_iter(conflict_list.iter())).unwrap();
+    // std::fs::write("sd:/ultimate/arcropolis/conflicts.txt", yaml.as_bytes()).unwrap();
 
-    dbg!(files);
+    //dbg!(files);
     dbg!(patches);
-    dbg!(conflict_list);
+    //dbg!(conflict_list);
 
     // Modpack {
     //     files

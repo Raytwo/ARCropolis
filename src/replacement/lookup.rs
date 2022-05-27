@@ -232,8 +232,7 @@ pub fn is_shared_file<H: Into<Hash40>>(hash: H) -> bool {
 
 pub fn add_shared_file<H: Into<Hash40>>(hash: H, shared_to: H) {
     let mut lut = SHARE_LOOKUP.write();
-    match &mut *lut {
-        ShareLookupState::Generated(lut) => {
+    if let ShareLookupState::Generated(lut) = &mut *lut {
             let shared_to = shared_to.into();
             let hash = hash.into();
             lut.is_shared_search.insert(shared_to);
@@ -242,9 +241,7 @@ pub fn add_shared_file<H: Into<Hash40>>(hash: H, shared_to: H) {
             } else {
                 lut.shared_file_lookup.insert(shared_to, vec![hash]);
             }
-        },
-        _ => {},
-    }
+        }
 }
 
 pub fn remove_shared_file<H: Into<Hash40>>(hash: H) -> bool {

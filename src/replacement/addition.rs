@@ -152,7 +152,6 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
         let mut new_path = new_folder.as_path_entry();
         new_path.path.set_index(parent.get_first_child_index() as u32);
         parent.set_first_child_index(current_path_list_indices_len as u32);
-        drop(parent);
         ctx.new_folder_paths.insert(new_folder.path.hash40(), ctx.folder_paths.len());
         ctx.new_paths.insert(new_path.path.hash40(), ctx.path_list_indices.len());
         ctx.path_list_indices.push(ctx.paths.len() as u32);
@@ -210,7 +209,6 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
         // );
         new_file.path.set_index(parent.get_first_child_index() as u32);
         parent.set_first_child_index(current_path_list_indices_len as u32);
-        drop(parent);
         ctx.new_paths.insert(new_file.path.hash40(), ctx.path_list_indices.len());
         ctx.path_list_indices.push(ctx.paths.len() as u32);
         ctx.paths.push(new_file);
@@ -261,7 +259,6 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
             )];
             info_to_data.folder_offset_index = 0x0;
             let data_idx = info_to_data.file_data_index;
-            drop(info_to_data);
             let file_data = &mut ctx.file_datas[usize::from(data_idx)];
             file_data.comp_size = 0x100;
             file_data.decomp_size = 0x100;

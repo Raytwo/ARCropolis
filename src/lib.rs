@@ -164,14 +164,15 @@ pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
 }
 
 pub fn strip_region_from_path<P: AsRef<Utf8Path>>(path: P) -> (Utf8PathBuf, Option<Region>) {
-    let mut path = path.as_ref().to_string();
+    let path = path.as_ref();
+    let mut filename = path.file_name().map(String::from).unwrap();
 
-    if let Some(index) = path.rfind('+') {
+    if let Some(index) = filename.rfind('+') {
         // TODO: Need to make sure the file has an extension. Probably return a Result instead
-        let period = path.rfind('.').unwrap();
-        let region: String = path.drain(index..period).collect();
+        let period = filename.rfind('.').unwrap();
+        let region: String = filename.drain(index..period).collect();
         // Remove the +
-        (path.into(), get_region_from_suffix(&region[1..]))
+        (path.with_file_name(filename), get_region_from_suffix(&region[1..]))
     } else {
         (path.into(), None)
     }
@@ -270,6 +271,7 @@ pub fn main() {
     std::thread::Builder::new()
         .stack_size(0x40000)
         .spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(5000));
             fs::perform_discovery()
         })
         .unwrap();

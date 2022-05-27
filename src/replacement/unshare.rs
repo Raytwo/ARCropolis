@@ -153,7 +153,6 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
         let dependent_filepath_index = dependent_info.file_path_index;
         dependent_info.file_info_indice_index = new_info_indice_idx;
         dependent_info.flags.set_standalone_file(true);
-        drop(dependent_info);
 
         info!(
             "Reshared file '{}' ({:#x}), which depended on '{}' ({:#x})",
