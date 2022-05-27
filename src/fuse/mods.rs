@@ -95,7 +95,7 @@ impl FileSystemAccessor for ModFsAccessor {
     }
 
     fn open_file(&self, path: &std::path::Path, mode: skyline::nn::fs::OpenMode) -> Result<*mut FAccessor, AccessorResult> {
-        let read = mode >> 0 & 1 != 0;
+        let read = mode & 1 != 0;
         let write = mode >> 1 & 1 != 0;
         let append = mode >> 2 & 1 != 0;
 

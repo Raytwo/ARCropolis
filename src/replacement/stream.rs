@@ -22,16 +22,13 @@ fn lookup_stream_hash(out_path: *mut c_char, loaded_arc: &LoadedArc, size_out: &
                 out_buffer.copy_from_slice(cpath.as_bytes());
                 return
             } else if path.exists() {
-                match std::fs::metadata(&path).map(|x| x.len()) {
-                    Ok(size) => {
+                if let Ok(size) = std::fs::metadata(&path).map(|x| x.len()) {
                         *size_out = size as usize;
                         *offset_out = 0;
                         let cpath = format!("{}\0", path.display());
                         let out_buffer = unsafe { std::slice::from_raw_parts_mut(out_path, cpath.len()) };
                         out_buffer.copy_from_slice(cpath.as_bytes());
                         return
-                    },
-                    _ => {},
                 }
             }
         }

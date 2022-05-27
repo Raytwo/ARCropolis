@@ -8,7 +8,7 @@ use xml::common::Position;
 use super::*;
 
 #[derive(Deserialize, Debug)]
-pub struct XMSBT {
+pub struct Xmsbt {
     #[serde(rename = "entry")]
     entries: Vec<Entry>,
 }
@@ -72,10 +72,7 @@ impl ApiLoadType {
     }
 
     pub fn path_exists(self, _local: &Path) -> bool {
-        match self {
-            ApiLoadType::Nus3bankPatch => true,
-            _ => false,
-        }
+        matches!(self, ApiLoadType::Nus3bankPatch)
     }
 
     pub fn get_file_size(self, local: &Path) -> Option<usize> {
@@ -161,7 +158,7 @@ impl ApiLoadType {
 
                     let xml = String::from_utf16(slice_u16).unwrap();
 
-                    let xmsbt: XMSBT = match serde_xml_rs::from_str(&xml) {
+                    let xmsbt: Xmsbt = match serde_xml_rs::from_str(&xml) {
                         Ok(xmsbt) => xmsbt,
                         Err(err) => {
                             match err {
@@ -278,6 +275,7 @@ struct ApiFunctionEntry {
     pub functions: VecDeque<(PathBuf, ApiCallback)>,
 }
 
+#[derive(Default)]
 pub struct ApiLoader {
     function_map: HashMap<Hash40, UnsafeCell<ApiFunctionEntry>>,
     stream_size_map: UnsafeCell<HashMap<PathBuf, usize>>,
@@ -289,15 +287,6 @@ unsafe impl Send for ApiLoader {}
 unsafe impl Sync for ApiLoader {}
 
 impl ApiLoader {
-    pub fn new() -> Self {
-        Self {
-            function_map: HashMap::new(),
-            stream_size_map: UnsafeCell::new(HashMap::new()),
-            param_patches: HashMap::new(),
-            msbt_patches: HashMap::new(),
-        }
-    }
-
     pub fn push_entry(&mut self, hash: Hash40, root: &Path, cb: ApiCallback) {
         if let Some(list) = self.function_map.get_mut(&hash) {
             list.get_mut().functions.push_front((root.to_path_buf(), cb));
@@ -434,7 +423,7 @@ impl FileLoader for ApiLoader {
             let result = ApiLoadType::from_root(root_path)
                 .ok()
                 .and_then(|x| x.get_file_size(local_path))
-                .or(self.get_file_size(root_path, local_path));
+                .or_else(|| self.get_file_size(root_path, local_path));
             self.release_virtual_file(local_path);
             result
         } else {
@@ -445,9 +434,8 @@ impl FileLoader for ApiLoader {
     fn get_path_type(&self, _root_path: &Path, local_path: &Path) -> Result<FileEntryType, Self::ErrorType> {
         if let Some((root_path, _)) = self.use_virtual_file(local_path) {
             let result = ApiLoadType::from_root(root_path);
-            let result = if result.is_ok() {
+            let result = if let Ok(result) = result {
                 result
-                    .unwrap()
                     .get_path_type(local_path)
                     .map_or_else(|_| self.get_path_type(root_path, local_path), Ok)
             } else {

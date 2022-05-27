@@ -25,7 +25,7 @@ pub enum WorkspacesMessage {
 
 pub fn show_workspaces() {
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-    let mut active_workspace: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+    let mut active_workspace: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
     let prev_set_workspace: String = active_workspace.clone();
     let mut workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
 

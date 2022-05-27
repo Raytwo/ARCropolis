@@ -48,7 +48,7 @@ impl FileSystemAccessor for ArcFuse {
     }
 
     fn open_file(&self, path: &std::path::Path, mode: skyline::nn::fs::OpenMode) -> Result<*mut FAccessor, AccessorResult> {
-        let read = mode >> 0 & 1;
+        let read = mode & 1;
         let write = mode >> 1 & 1;
         let append = mode >> 2 & 1;
         debug!("Path: {}, read: {}, write: {}, append: {}", path.display(), read, write, append);

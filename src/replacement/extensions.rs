@@ -286,7 +286,7 @@ impl LoadedArcEx for LoadedArc {
 
         std::thread::sleep(std::time::Duration::from_millis(100));
 
-        for idx in 0..bucket_count {
+        for (idx, _) in start_count.iter().enumerate().take(bucket_count) {
             unsafe {
                 *(self.file_info_buckets as *mut FileInfoBucket).add(1 + idx) = FileInfoBucket {
                     start: start_count[idx].0 as u32,

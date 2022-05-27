@@ -66,11 +66,11 @@ pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| 
                             migrate_config_to_storage(&mut storage, &config);
 
                             // Perform checks on deprecated custom mod directories (ARCropolis < 3.0.0)
-                            if &config.paths.arc != &arc_path() {
+                            if config.paths.arc != arc_path() {
                                 skyline::error::show_error(69, "Usage of custom ARC paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom ARC paths have been deprecated in an effort to reduce user error.<br>Consider moving your modpack to rom:/arc to keep using it.");
                             }
 
-                            if &config.paths.umm != &umm_path() {
+                            if config.paths.umm != umm_path() {
                                 skyline::error::show_error(69, "Usage of custom UMM paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom UMM paths have been deprecated in an effort to reduce user error.<br>Consider moving your modpack to sd:/ultimate/mods to keep using it.");
                                 // TODO: Offer to move it for the user if the default umm path doesn't already exist
                             }
@@ -115,7 +115,7 @@ pub static REGION: Lazy<Region> = Lazy::new(|| {
     Region::from(
         crate::REGIONS
             .iter()
-            .position(|&x| x == &region_str())
+            .position(|&x| x == region_str())
             .map(|x| (x + 1) as u32)
             .unwrap_or(0),
     )
@@ -158,8 +158,7 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
 
     if umm_path().exists() {
         // TODO: Turn this into a map and use Collect
-        for entry in WalkDir::new(umm_path()).max_depth(1).into_iter() {
-            if let Ok(entry) = entry {
+        for entry in WalkDir::new(umm_path()).max_depth(1).into_iter().flatten() {
                 let path = entry.path();
 
                 // If the mod isn't disabled, add it to the preset
@@ -174,7 +173,6 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
                     // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
                     std::fs::rename(path, format!("sd:/ultimate/mods/{}", &path.file_name().unwrap().to_str().unwrap()[1..])).unwrap();
                 }
-            }
         }
     }
 
@@ -263,7 +261,7 @@ pub fn region() -> Region {
 }
 
 pub fn region_str() -> String {
-    let region: String = GLOBAL_CONFIG.lock().unwrap().get_field("region").unwrap_or(String::from("us_en"));
+    let region: String = GLOBAL_CONFIG.lock().unwrap().get_field("region").unwrap_or_else(|_| String::from("us_en"));
     region
 }
 
@@ -286,7 +284,7 @@ pub fn extra_paths() -> Vec<String> {
 }
 
 pub fn logger_level() -> String {
-    let level: String = GLOBAL_CONFIG.lock().unwrap().get_field("logging_level").unwrap_or(String::from("Warn"));
+    let level: String = GLOBAL_CONFIG.lock().unwrap().get_field("logging_level").unwrap_or_else(|_| String::from("Warn"));
     level
 }
 
@@ -318,8 +316,6 @@ impl ArcStorage {
             get_user_id(&mut uid, &handle);
             // This closes the UserHandle, making it unusable, and sets the User in a Closed state.
             close_user(&handle);
-            // Make sure we can't use Handle from here
-            drop(handle);
         }
 
         let path = PathBuf::from(uid.id[0].to_string()).join(uid.id[1].to_string());

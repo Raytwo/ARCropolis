@@ -48,10 +48,11 @@ pub static GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = const_rwlock(GlobalFile
 pub static CACHE_PATH: Lazy<PathBuf> = Lazy::new(|| {
     let version_string = get_version_string();
     let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(version_string);
-    match std::fs::create_dir_all(&path) {
-        Err(e) => panic!("Unable to create cache directory! Reason: {:?}", e),
-        _ => {},
+
+    if let Err(e) = std::fs::create_dir_all(&path) {
+        panic!("Unable to create cache directory! Reason: {:?}", e)
     }
+
     path
 });
 
@@ -320,8 +321,9 @@ pub fn main() {
                 // Changed to pre because prerelease doesn't compile
                 if !Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
                     update::check_for_updates(config::beta_updates(), |_update_kind| true);
-                } else {
-                    if config::auto_update_enabled() {
+                }
+                
+                if config::auto_update_enabled() {
                         update::check_for_updates(config::beta_updates(), |update_kind| {
                             // skyline_web::Dialog::yes_no(format!(
                             //     "{} has been detected. Do you want to install it?",
@@ -337,7 +339,6 @@ pub fn main() {
                             // }
                         });
                     }
-                }
             })
             .unwrap();
     }

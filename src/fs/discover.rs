@@ -13,7 +13,7 @@ use crate::{chainloader::*, config};
 static PRESET_HASHES: Lazy<HashSet<Hash40>> = Lazy::new(|| {
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
 
-    let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+    let workspace_name: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
     let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
 
     // Get the name of the preset file from the workspace list
@@ -131,7 +131,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             .collect();
 
         // Get the workspace name and workspace list
-        let workspace_name: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+        let workspace_name: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
         let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
 
         // Get the preset name from the workspace list
@@ -244,20 +244,17 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         let mut conflict_map: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
 
         for conflict in conflicts.into_iter() {
-            match conflict {
-                ConflictKind::StandardConflict {
+            if let ConflictKind::StandardConflict {
                     error_root,
                     local,
                     source_root,
-                } => {
+                } = conflict {
                     if let Some(conflicting_mods) = conflict_map.get_mut(&local) {
                         conflicting_mods.push(error_root);
                     } else {
                         conflict_map.insert(local, vec![source_root, error_root]);
                     }
-                },
-                _ => {},
-            }
+                }
         }
 
         let should_log = match serde_json::to_string_pretty(&conflict_map) {
@@ -330,7 +327,7 @@ where
     fighter_nro_nrr.register()
 }
 
-pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
+pub fn load_and_run_plugins(plugins: &[(PathBuf, PathBuf)]) {
     let mut plugin_nrr = NrrBuilder::new();
 
     let modules: Vec<NroBuilder> = plugins
@@ -375,7 +372,7 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
         },
     };
 
-    let modules: Vec<Module> = modules
+    let modules = modules
         .into_iter()
         .filter_map(|x| {
             match x.mount() {
@@ -385,8 +382,7 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
                     None
                 },
             }
-        })
-        .collect();
+        });
 
     unsafe {
         // Unfortunately, without unregistering this it will cause the game to crash, cause is unknown, but likely due to page alignment I'd guess
@@ -401,7 +397,7 @@ pub fn load_and_run_plugins(plugins: &Vec<(PathBuf, PathBuf)>) {
     info!("Successfully chainloaded all collected plugins.");
     // }
 
-    for module in modules.into_iter() {
+    for module in modules {
         let callable = unsafe {
             let mut sym_loc = 0usize;
             let rc = nn::ro::LookupModuleSymbol(&mut sym_loc, &module, "main\0".as_ptr() as _);

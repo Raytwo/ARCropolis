@@ -71,9 +71,9 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                         id: Some(id),
                         folder_name: Some(folder_name.clone()),
                         display_name: res.display_name.or(Some(folder_name)),
-                        authors: res.authors.or(Some(String::from("???"))),
+                        authors: res.authors.or_else(|| Some(String::from("???"))),
                         is_disabled: Some(disabled),
-                        version: res.version.or(Some(String::from("???"))),
+                        version: res.version.or_else(|| Some(String::from("???"))),
                         category: res.category.map_or(Some(String::from("Misc")), |cat| {
                             if cat == "Music" {
                                 Some("Audio".to_string())
@@ -82,7 +82,6 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                             }
                         }),
                         description: Some(res.description.unwrap_or_default().replace('\n', "<br />")),
-                        ..res
                     }
                 },
                 Err(e) => {
@@ -107,7 +106,7 @@ pub fn show_arcadia(workspace: Option<String>) {
     }
 
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-    let workspace_name: String = workspace.unwrap_or(storage.get_field("workspace").unwrap_or("Default".to_string()));
+    let workspace_name: String = workspace.unwrap_or_else(|| storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string()));
     let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
     let preset_name = &workspace_list[&workspace_name];
 
@@ -207,7 +206,7 @@ pub fn show_arcadia(workspace: Option<String>) {
         }
     }
 
-    let active_workspace: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+    let active_workspace: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
 
     storage.set_field_json(&preset_name, &new_presets).unwrap();
     storage.flush();

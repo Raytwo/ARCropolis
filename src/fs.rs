@@ -162,7 +162,7 @@ impl CachedFilesystem {
             Ok(cfg) => cfg,
             Err(_) => {
                 error!("Failed to deserialize the default config.");
-                replacement::config::ModConfig::new()
+                replacement::config::ModConfig::default()
             },
         };
 
@@ -175,7 +175,7 @@ impl CachedFilesystem {
         let nus3audio_deps = utils::get_required_nus3banks(launchpad.tree(), &config.unshare_blacklist);
 
         // Create the API file tree and start adding things to it
-        let mut api_tree = Tree::new(ApiLoader::new());
+        let mut api_tree = Tree::new(ApiLoader::default());
 
         // Set up the API tree with prc patch files (soon to be more)
         let mut hashes = Self::initialize_prc_patches(&launchpad, &mut api_tree);
@@ -486,7 +486,7 @@ impl CachedFilesystem {
 pub enum GlobalFilesystem {
     Uninitialized,
     Promised(std::thread::JoinHandle<LaunchPad<StandardLoader>>),
-    Initialized(CachedFilesystem),
+    Initialized(Box<CachedFilesystem>),
 }
 
 struct ApiCallResult {
@@ -501,7 +501,7 @@ impl GlobalFilesystem {
             Self::Uninitialized => Err(FilesystemUninitializedError),
             Self::Promised(promise) => {
                 match promise.join() {
-                    Ok(launchpad) => Ok(Self::Initialized(CachedFilesystem::make_from_promise(launchpad))),
+                    Ok(launchpad) => Ok(Self::Initialized(Box::new(CachedFilesystem::make_from_promise(launchpad)))),
                     Err(_) => Err(FilesystemUninitializedError),
                 }
             },
@@ -653,10 +653,7 @@ impl GlobalFilesystem {
 
     pub fn handle_api_request(&mut self, call: api::PendingApiCall) {
         debug!("Incoming API request");
-        match self {
-            Self::Initialized(fs) => fs.handle_late_api_call(call),
-            _ => return,
-        };
+        if let Self::Initialized(fs) = self { fs.handle_late_api_call(call) }
     }
 
     pub fn get_cached_size(&self, hash: Hash40) -> Option<usize> {

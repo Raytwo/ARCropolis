@@ -170,15 +170,12 @@ fn res_loop_common() {
 
     for (list_idx, list) in service.res_lists.iter().enumerate() {
         for entry in list.iter() {
-            match entry.ty {
-                LoadType::Directory => {
-                    for info in file_infos[dir_infos[entry.directory_index as usize].file_info_range()].iter() {
-                        if info.flags.standalone_file() {
-                            standalone_files[list_idx].push(info.file_path_index);
-                        }
+            if let LoadType::Directory = entry.ty {
+                for info in file_infos[dir_infos[entry.directory_index as usize].file_info_range()].iter() {
+                    if info.flags.standalone_file() {
+                        standalone_files[list_idx].push(info.file_path_index);
                     }
-                },
-                _ => {},
+                }
             }
         }
     }
