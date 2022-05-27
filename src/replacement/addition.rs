@@ -66,7 +66,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
 
     ctx.added_files.insert(file_path.path.hash40(), filepath_idx);
 
-    info!("Added file '{}' ({:#x})", path.display(), file_path.path.hash40().0);
+    // info!("Added file '{}' ({:#x})", path.display(), file_path.path.hash40().0);
 }
 
 pub fn add_shared_file(ctx: &mut AdditionContext, path: &Path, shared_to: Hash40) {

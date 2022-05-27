@@ -293,14 +293,20 @@ pub fn main() {
     // Acquire the filesystem and promise it to the initial_loading hook
     let mut filesystem = GLOBAL_FILESYSTEM.write();
 
+    let discovery = std::thread::Builder::new()
+    .stack_size(0x40000)
+    .spawn(|| {
+        unsafe {
+            let curr_thread = nn::os::GetCurrentThread();
+            nn::os::ChangeThreadPriority(curr_thread, 0);
+        }
+        std::thread::sleep(std::time::Duration::from_millis(5000));
+        fs::perform_discovery()
+    })
+    .unwrap();
+
     *filesystem = GlobalFilesystem::Promised(
-        std::thread::Builder::new()
-            .stack_size(0x40000)
-            .spawn(|| {
-                std::thread::sleep(std::time::Duration::from_millis(5000));
-                fs::perform_discovery()
-            })
-            .unwrap(),
+        discovery
     );
 
     let resources = std::thread::Builder::new()
