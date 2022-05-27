@@ -64,7 +64,7 @@ function toggleMod() {
     mods[index]["is_disabled"] = !enabled;
     // Send mod index and status
     window.nx.sendMessage(JSON.stringify({
-        "ToggleModRequest": {
+        "ToggleMod": {
             "id": index,
             "state": enabled
         }
@@ -341,7 +341,7 @@ function setAllState(state, src) {
     refreshCurrentMods();
     src != undefined || src != null ? src.focus() : false;
     window.nx.sendMessage(JSON.stringify({
-        "ChangeAllRequest": {
+        "ChangeAll": {
             "state": state
         }
     }));
@@ -356,7 +356,7 @@ function setCurrentModsState(state, src) {
     src != undefined || src != null ? src.focus() : false;
     if (currentMods.length <= 0) { return; }
     window.nx.sendMessage(JSON.stringify({
-        "ChangeIndexesRequest": {
+        "ChangeIndexes": {
             "state": state,
             "indexes": currentMods
         }
@@ -364,7 +364,7 @@ function setCurrentModsState(state, src) {
 }
 
 function exit() {
-    window.nx.sendMessage(JSON.stringify("ClosureRequest"));
+    window.nx.sendMessage(JSON.stringify("Closure"));
     window.location.href = "http://localhost/quit";
 }
 
