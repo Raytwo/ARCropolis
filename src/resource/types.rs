@@ -85,10 +85,6 @@ impl FilesystemInfo {
     pub fn get_loaded_datas(&self) -> &[LoadedData] {
         unsafe { std::slice::from_raw_parts(self.loaded_datas, self.loaded_data_len as usize) }
     }
-
-    pub fn get_loaded_directories(&self) -> &[LoadedDirectory] {
-        unsafe { std::slice::from_raw_parts(self.loaded_directories, self.loaded_directory_len as usize) }
-    }
 }
 
 #[repr(C)]

@@ -31,10 +31,10 @@ pub struct Entry {
 
 #[derive(Debug, Deserialize)]
 pub enum ArcadiaMessage {
-    ToggleModRequest { id: usize, state: bool },
-    ChangeAllRequest { state: bool },
-    ChangeIndexesRequest { state: bool, indexes: Vec<usize> },
-    ClosureRequest,
+    ToggleMod { id: usize, state: bool },
+    ChangeAll { state: bool },
+    ChangeIndexes { state: bool, indexes: Vec<usize> },
+    Closure,
 }
 
 pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
@@ -71,9 +71,9 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                         id: Some(id),
                         folder_name: Some(folder_name.clone()),
                         display_name: res.display_name.or(Some(folder_name)),
-                        authors: res.authors.or(Some(String::from("???"))),
+                        authors: res.authors.or_else(|| Some(String::from("???"))),
                         is_disabled: Some(disabled),
-                        version: res.version.or(Some(String::from("???"))),
+                        version: res.version.or_else(|| Some(String::from("???"))),
                         category: res.category.map_or(Some(String::from("Misc")), |cat| {
                             if cat == "Music" {
                                 Some("Audio".to_string())
@@ -82,7 +82,6 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                             }
                         }),
                         description: Some(res.description.unwrap_or_default().replace('\n', "<br />")),
-                        ..res
                     }
                 },
                 Err(e) => {
@@ -159,7 +158,7 @@ pub fn show_arcadia(workspace: Option<String>) {
 
     while let Ok(message) = session.recv_json::<ArcadiaMessage>() {
         match message {
-            ArcadiaMessage::ToggleModRequest { id, state } => {
+            ArcadiaMessage::ToggleMod { id, state } => {
                 let path = format!("{}/{}", umm_path.display(), mods.entries[id].folder_name.as_ref().unwrap());
                 let hash = Hash40::from(path.as_str());
                 debug!("Setting {} to {}", path, state);
@@ -172,7 +171,7 @@ pub fn show_arcadia(workspace: Option<String>) {
 
                 debug!("{} has been {}", path, state);
             },
-            ArcadiaMessage::ChangeAllRequest { state } => {
+            ArcadiaMessage::ChangeAll { state } => {
                 debug!("Changing all to {}", state);
 
                 if !state {
@@ -186,7 +185,7 @@ pub fn show_arcadia(workspace: Option<String>) {
                     }
                 }
             },
-            ArcadiaMessage::ChangeIndexesRequest { state, indexes } => {
+            ArcadiaMessage::ChangeIndexes { state, indexes } => {
                 for idx in indexes {
                     let path = format!("{}/{}", umm_path.display(), mods.entries[idx].folder_name.as_ref().unwrap());
                     let hash = Hash40::from(path.as_str());
@@ -199,7 +198,7 @@ pub fn show_arcadia(workspace: Option<String>) {
                     }
                 }
             },
-            ArcadiaMessage::ClosureRequest => {
+            ArcadiaMessage::Closure => {
                 session.exit();
                 session.wait_for_exit();
                 break
@@ -207,7 +206,7 @@ pub fn show_arcadia(workspace: Option<String>) {
         }
     }
 
-    let active_workspace: String = storage.get_field("workspace").unwrap_or("Default".to_string());
+    let active_workspace: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
 
     storage.set_field_json(&preset_name, &new_presets).unwrap();
     storage.flush();

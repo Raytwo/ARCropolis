@@ -6,7 +6,7 @@ use std::{
 use serde::Deserialize;
 use smash_arc::serde::Hash40String;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct ModConfig {
     #[serde(alias = "unshare-blacklist")]
     #[serde(default = "HashSet::new")]
@@ -34,17 +34,6 @@ pub struct ModConfig {
 }
 
 impl ModConfig {
-    pub fn new() -> Self {
-        Self {
-            unshare_blacklist: HashSet::new(),
-            new_files: HashMap::new(),
-            preprocess_reshare: HashMap::new(),
-            new_dir_files: HashMap::new(),
-            new_shared_files: HashMap::new(),
-            preprocess_reshare_ext: HashMap::new(),
-        }
-    }
-
     pub fn merge(&mut self, other: ModConfig) {
         let Self {
             unshare_blacklist,

@@ -55,10 +55,10 @@ where
 
     let prerelease_tag = prerelease
         .as_ref()
-        .map(|x| Version::parse(x.get_release_tag().trim_start_matches("v")).expect("Failed to parse version strings!"));
+        .map(|x| Version::parse(x.get_release_tag().trim_start_matches('v')).expect("Failed to parse version strings!"));
     let release_tag = release
         .as_ref()
-        .map(|x| Version::parse(x.get_release_tag().trim_start_matches("v")).expect("Failed to parse version strings!"));
+        .map(|x| Version::parse(x.get_release_tag().trim_start_matches('v')).expect("Failed to parse version strings!"));
 
     let release = match (prerelease_tag, release_tag) {
         (None, None) => {
@@ -75,7 +75,7 @@ where
         },
     };
 
-    let version_difference = match compare_tags(env!("CARGO_PKG_VERSION"), release.get_release_tag().trim_start_matches("v")) {
+    let version_difference = match compare_tags(env!("CARGO_PKG_VERSION"), release.get_release_tag().trim_start_matches('v')) {
         Ok(diff) => diff,
         Err(e) => {
             error!("Failed to parse version strings: {:?}", e);

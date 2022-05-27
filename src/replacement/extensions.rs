@@ -310,45 +310,12 @@ impl LoadedArcEx for LoadedArc {
     }
 }
 
-pub enum DirectoryChild {
-    Folder(FolderPathListEntry),
-    File(PathListEntry),
-}
-
 pub trait SearchEx: SearchLookup {
     fn get_folder_path_to_index_mut(&mut self) -> &mut [HashToIndex];
     fn get_folder_path_list_mut(&mut self) -> &mut [FolderPathListEntry];
     fn get_path_to_index_mut(&mut self) -> &mut [HashToIndex];
     fn get_path_list_indices_mut(&mut self) -> &mut [u32];
     fn get_path_list_mut(&mut self) -> &mut [PathListEntry];
-
-    fn walk_directory(&self, hash: impl Into<Hash40>, mut f: impl FnMut(DirectoryChild, usize)) -> Result<(), LookupError> {
-        fn internal(
-            search: &(impl SearchLookup + ?Sized),
-            hash: impl Into<Hash40>,
-            f: &mut impl FnMut(DirectoryChild, usize),
-            depth: usize,
-        ) -> Result<(), LookupError> {
-            let path_entry = search.get_path_list_entry_from_hash(hash)?;
-            if !path_entry.is_directory() {
-                return Ok(())
-            }
-
-            let mut child = search.get_first_child_in_folder(path_entry.path.hash40());
-            while let Ok(child_entry) = child {
-                if child_entry.is_directory() {
-                    let folder_entry = search.get_folder_path_entry_from_hash(child_entry.path.hash40())?;
-                    f(DirectoryChild::Folder(*folder_entry), depth);
-                    internal(search, folder_entry.path.hash40(), f, depth + 1)?;
-                } else {
-                    f(DirectoryChild::File(*child_entry), depth);
-                }
-                child = search.get_next_child_in_folder(child_entry);
-            }
-            Ok(())
-        }
-        internal(self, hash, &mut f, 0)
-    }
 
     fn get_folder_path_index_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut HashToIndex, LookupError> {
         let folder_path_to_index = self.get_folder_path_to_index_mut();
