@@ -276,7 +276,7 @@ impl ConfigStorage for ArcStorage {
     }
 
     fn root_path(&self) -> PathBuf {
-        PathBuf::from("sd:/ultimate/arcropolis/config/")
+        utils::paths::config().into_std_path_buf()
     }
 
     fn storage_path(&self) -> PathBuf {
