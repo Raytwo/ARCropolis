@@ -38,7 +38,7 @@ mod offsets;
 mod replacement;
 mod resource;
 #[cfg(feature = "updater")] mod update;
-mod util;
+mod utils;
 
 use fs::PlaceholderFs;
 use smash_arc::{Hash40, Region};
@@ -49,8 +49,7 @@ use crate::config::GLOBAL_CONFIG;
 pub static GLOBAL_FILESYSTEM: Lazy<RwLock<PlaceholderFs>> = Lazy::new(|| const_rwlock(PlaceholderFs::default()));
 
 pub static CACHE_PATH: Lazy<PathBuf> = Lazy::new(|| {
-    let version_string = util::get_version_string();
-    let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(version_string);
+    let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(utils::get_game_version().to_string());
 
     if let Err(e) = std::fs::create_dir_all(&path) { panic!("Unable to create cache directory! Reason: {:?}", e) }
 
@@ -193,7 +192,7 @@ fn init_time() {
 
 #[cfg(feature = "web")]
 fn check_input_on_boot() {
-    if !crate::util::env::is_ryujinx() {
+    if !crate::utils::env::is_ryujinx() {
         // Open the ARCropolis menu if Minus is held before mod discovery
         if ninput::any::is_down(ninput::Buttons::PLUS) {
             crate::menus::show_main_menu();
@@ -205,6 +204,9 @@ fn check_input_on_boot() {
 fn initial_loading(_ctx: &InlineCtx) {
     #[cfg(feature = "web")]
     menus::changelog::check_for_changelog();
+
+    #[cfg(feature = "web")]
+    config::prompt_for_region();
 
     #[cfg(feature = "web")]
     check_input_on_boot();
@@ -258,11 +260,8 @@ pub fn main() {
     // Initialize the time for the logger
     init_time();
 
-    // Force the configuration to be initialized right away, so we can be sure default files exist (hopefully)
-    Lazy::force(&GLOBAL_CONFIG);
-
     // Initialize hid
-    if !crate::util::env::is_ryujinx() {
+    if !crate::utils::env::is_ryujinx() {
         println!("Initializing ninput");
         ninput::init();
     }
@@ -271,6 +270,12 @@ pub fn main() {
     if let Err(err) = logging::init(LevelFilter::from_str(&config::logger_level()).unwrap_or(LevelFilter::Warn)) {
         println!("[arcropolis] Failed to initialize logger. Reason: {:?}", err);
     }
+
+    // Make sure the paths exist before doing anything
+    utils::paths::ensure_paths_exist().expect("Paths should exist on the SD");
+
+    // Force the configuration to be initialized right away, so we can be sure default files exist (hopefully)
+    Lazy::force(&GLOBAL_CONFIG);
 
     // lazy_static::initialize(&GLOBAL_FILESYSTEM);
     // Acquire the filesystem and promise it to the initial_loading hook

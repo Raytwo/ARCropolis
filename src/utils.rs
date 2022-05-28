@@ -1,4 +1,7 @@
+use std::str::FromStr;
+
 use skyline::nn;
+use semver::Version;
 
 pub mod env {
     use once_cell::sync::Lazy;
@@ -31,11 +34,36 @@ pub mod env {
     }
 }
 
+pub mod paths {
+    use std::io;
+
+    use super::*;
+    use camino::Utf8PathBuf;
+
+    pub fn ensure_paths_exist() -> io::Result<()> {
+        std::fs::create_dir_all(&mods())?;
+        std::fs::create_dir_all(&cache())?;
+        Ok(())
+    }
+
+    pub fn mods() -> Utf8PathBuf {
+        Utf8PathBuf::from("sd:/ultimate/mods")
+    }
+
+    pub fn cache() -> Utf8PathBuf {
+        Utf8PathBuf::from("sd:/ultimate/arcropolis/cache").join(get_game_version().to_string())
+    }
+}
+
 /// Wrapper function for getting the version string of the game from nnSdk
-pub fn get_version_string() -> String {
+pub fn get_game_version() -> Version {
     unsafe {
         let mut version_string = nn::oe::DisplayVersion { name: [0x00; 16] };
         nn::oe::GetDisplayVersion(&mut version_string);
-        skyline::from_c_str(version_string.name.as_ptr())
+        Version::from_str(&skyline::from_c_str(version_string.name.as_ptr())).expect("Smash's version should parse as a proper semver.")
     }
+}
+
+pub fn get_arcropolis_version() -> Version {
+    Version::from_str(env!("CARGO_PKG_VERSION")).expect("ARCropolis' version should follow proper semver.")
 }

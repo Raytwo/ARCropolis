@@ -4,29 +4,15 @@ use std::{
     str::FromStr,
 };
 
-use camino::Utf8PathBuf;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use semver::Version;
-use serde::{Deserialize, Serialize};
 use skyline::nn;
 use skyline_config::*;
 use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
 
-use crate::util::env;
-
-fn arcropolis_version() -> String {
-    env!("CARGO_PKG_VERSION").to_string()
-}
-
-fn default_logger_level() -> String {
-    "Warn".to_string()
-}
-
-fn default_region() -> String {
-    "us_en".to_string()
-}
+use crate::utils;
 
 pub static GLOBAL_CONFIG: Lazy<RwLock<StorageHolder<ArcStorage>>> = Lazy::new(|| {
     let mut storage = StorageHolder::new(ArcStorage::new());
@@ -34,8 +20,7 @@ pub static GLOBAL_CONFIG: Lazy<RwLock<StorageHolder<ArcStorage>>> = Lazy::new(||
     let version: Result<Version, _> = storage.get_field("version");
 
     if let Ok(config_version) = version {
-        let curr_version = Version::parse(&arcropolis_version())
-        .expect("Parsing of ARCropolis' version string failed. Please open an issue on www.arcropolis.com to let us know!");
+        let curr_version = utils::get_arcropolis_version();
 
         // Check if the configuration is from a previous version
         if curr_version > config_version {
@@ -47,7 +32,7 @@ pub static GLOBAL_CONFIG: Lazy<RwLock<StorageHolder<ArcStorage>>> = Lazy::new(||
                 storage.set_field("workspace", "Default").unwrap();
             }
             // Update the version in the config
-            storage.set_field("version", arcropolis_version()).unwrap();
+            storage.set_field("version", utils::get_arcropolis_version().to_string()).unwrap();
         }
     }
     else // Version file does not exist
@@ -67,7 +52,7 @@ fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) -
     // Just so we don't keep outdated fields
     storage.clear_storage();
 
-    storage.set_field("version", arcropolis_version())?;
+    storage.set_field("version", utils::get_arcropolis_version().to_string())?;
     storage.set_field("region", "us_en")?;
     storage.set_field("logging_level", "Warn")?;
     storage.set_field_json("extra_paths", &Vec::<String>::new())?;
@@ -87,14 +72,13 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
     todo!("Rewrite this to take workspaces into account");
     let mut presets: HashSet<Hash40> = HashSet::new();
 
-    if umm_path().exists() {
-        // TODO: Turn this into a map and use Collect
-        for entry in WalkDir::new(umm_path()).max_depth(1).into_iter().flatten() {
-                let path = entry.path();
+    // TODO: Turn this into a map and use Collect
+    for entry in WalkDir::new(utils::paths::mods()).max_depth(1).into_iter().flatten() {
+        let path = entry.path();
 
-                // If the mod isn't disabled, add it to the preset
-                if path
-                    .file_name()
+        // If the mod isn't disabled, add it to the preset
+        if path
+        .file_name()
                     .and_then(|name| name.to_str())
                     .map(|name| !name.starts_with('.'))
                     .unwrap_or(false)
@@ -109,9 +93,18 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
                     .unwrap();
                 }
         }
-    }
 
     presets
+}
+
+#[cfg(feature = "web")]
+pub fn prompt_for_region() {
+    if first_boot() {
+        if skyline_web::Dialog::yes_no("A default configuration for ARCropolis has been created.<br>It is important that your region matches your console's and the language matches the one in Smash.<br>By default, it is set to American English. Would you like to adjust it?") {
+            crate::menus::show_config_editor(&mut GLOBAL_CONFIG.write());
+        }
+        set_first_boot(false);
+    }
 }
 
 pub mod workspaces {
@@ -215,18 +208,8 @@ pub fn version() -> String {
     let version: String = GLOBAL_CONFIG
         .read()
         .get_field("version")
-        .unwrap_or_else(|_| String::from(env!("CARGO_PKG_VERSION")));
+        .unwrap_or_else(|_| utils::get_arcropolis_version().to_string());
     version
-}
-
-pub fn umm_path() -> Utf8PathBuf {
-    let path = Utf8PathBuf::from("sd:/ultimate/mods");
-
-    if !path.exists() {
-        std::fs::create_dir_all("sd:/ultimate/mods").unwrap();
-    }
-
-    path
 }
 
 pub fn logger_level() -> String {
@@ -240,6 +223,14 @@ pub fn file_logging_enabled() -> bool {
 
 pub fn legacy_discovery() -> bool {
     GLOBAL_CONFIG.read().get_flag("legacy_discovery")
+}
+
+pub fn first_boot() -> bool {
+    GLOBAL_CONFIG.read().get_flag("first_boot")
+}
+
+pub fn set_first_boot(enabled: bool) {
+    GLOBAL_CONFIG.write().set_flag("first_boot", enabled).unwrap();
 }
 
 pub struct ArcStorage(std::path::PathBuf);

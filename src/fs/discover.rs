@@ -17,49 +17,15 @@ use crate::{
     fs::{interner::Interner, Conflict, Modpack},
 };
 
-pub const MAX_COMPONENT_COUNT: usize = 10;
+// pub const MAX_COMPONENT_COUNT: usize = 10;
 
-pub static INTERNER: Lazy<RwLock<Interner>> = Lazy::new(|| RwLock::new(Interner::new()));
+// pub static INTERNER: Lazy<RwLock<Interner>> = Lazy::new(|| RwLock::new(Interner::new()));
 
 pub fn perform_discovery() -> Modpack {
     // Maybe have some sort of FileWalker trait and two implementations for both legacy and modern? Sounds a bit overengineered but it'd allow for more fine-tuning per system.
-    // let filter = |path: &Path| {
-    //     // If we're not running on emulator
-    //     if !is_emulator && !legacy_discovery {
-    //         // If it's not in the presets, don't load
-    //         PRESET_HASHES.contains(&Hash40::from(path.to_str().unwrap()))
-    //     } else {
-    //         // Legacy filter, load the mod except if it has a period at the start of the name
+    let umm_path = crate::utils::paths::mods();
 
-    //         path.file_name()
-    //             .map(|name| name.to_str())
-    //             .flatten()
-    //             .map(|name| !name.starts_with("."))
-    //             .unwrap_or(false)
-    //     }
-    // };
-
-    // let ignore = |path: &Path| {
-    //     let name = if let Some(name) = path.file_name().map(|x| x.to_str()).flatten() { name } else { return false };
-
-    //     let is_root = path.parent().map(|parent| parent.as_os_str().is_empty()).unwrap_or(true);
-
-    //     let is_dot = name.starts_with(".");
-
-    //     let is_out_of_region = if let Some(index) = name.find("+") {
-    //         let (_, end) = name.split_at(index + 1);
-    //         !end.starts_with(&config::region_str())
-    //     } else {
-    //         false
-    //     };
-
-    //     is_root || is_dot || is_out_of_region
-    // };
-
-    let umm_path = config::umm_path();
-
-    // Emulators can't use presets, so don't run this logic
-    // if !is_emulator && !legacy_discovery {
+    // if !crate::utils::env::is_ryujinx() {
     //     let mut storage = config::GLOBAL_CONFIG.write();
     //     // Get the mod cache from last run
     //     let mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();
@@ -105,19 +71,6 @@ pub fn perform_discovery() -> Modpack {
     //     // No matter what, the cache has to be updated
     //     storage.set_field_json("mod_cache", &new_cache).unwrap();
     // }
-
-    #[cfg(feature = "web")]
-    {
-        // I'm well aware this sucks, but the stack size in main is too small to do it there.
-        let mut storage = config::GLOBAL_CONFIG.write();
-
-        if storage.get_flag("first_boot") {
-            if skyline_web::Dialog::yes_no("A default configuration for ARCropolis has been created.<br>It is important that both your region & language in this config match your Smash copy.<br>By default, it is set to American English. Would you like to adjust it?") {
-                crate::menus::show_config_editor(&mut storage);
-            }
-            storage.set_flag("first_boot", false).unwrap();
-        }
-    }
 
     // TODO: Discovered, conflicting, ignored file operations go here
     let _fs = crate::GLOBAL_FILESYSTEM.write();

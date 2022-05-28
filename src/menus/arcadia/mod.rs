@@ -10,6 +10,7 @@ use skyline_web::Webpage;
 use smash_arc::Hash40;
 
 use crate::config;
+use crate::utils;
 
 #[derive(Debug, Serialize)]
 pub struct Information {
@@ -39,7 +40,7 @@ pub enum ArcadiaMessage {
 
 pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
     let mut id: u32 = 0;
-    std::fs::read_dir(&config::umm_path())
+    std::fs::read_dir(&utils::paths::mods())
         .unwrap()
         .enumerate()
         .filter_map(|(_i, path)| {
@@ -98,7 +99,7 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
 }
 
 pub fn show_arcadia(workspace: Option<String>) {
-    let umm_path = config::umm_path();
+    let umm_path = utils::paths::mods();
 
     if !umm_path.exists() {
         skyline_web::DialogOk::ok("It seems the directory specified in your configuration does not exist.");
