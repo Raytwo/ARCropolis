@@ -42,12 +42,17 @@ pub mod paths {
 
     pub fn ensure_paths_exist() -> io::Result<()> {
         std::fs::create_dir_all(&mods())?;
+        std::fs::create_dir_all(&logs())?;
         std::fs::create_dir_all(&cache())?;
         Ok(())
     }
 
     pub fn mods() -> Utf8PathBuf {
         Utf8PathBuf::from("sd:/ultimate/mods")
+    }
+
+    pub fn logs() -> Utf8PathBuf {
+        Utf8PathBuf::from("sd:/ultimate/arcropolis/logs")
     }
 
     pub fn cache() -> Utf8PathBuf {

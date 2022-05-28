@@ -47,7 +47,6 @@ fn format_time_string(seconds: u64) -> String {
     format!("{:04}-{:02}-{:02}_{:02}-{:02}-{:02}", year, month + 1, day_number + 1, hours, min, sec)
 }
 
-static LOG_PATH: &str = "sd:/ultimate/arcropolis/logs";
 static FILE_LOG_BUFFER: usize = 0x2000; // Room for 0x2000 characters, might have performance issues if the logger level is "Info" or "Trace"
 struct FileLogger(Option<Mutex<BufWriter<File>>>);
 
@@ -73,8 +72,7 @@ static FILE_WRITER: Lazy<FileLogger> = Lazy::new(|| {
     let seconds = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("Clock may have gone backwards!");
-    let path = Path::new(LOG_PATH).join(format!("{}.log", format_time_string(seconds.as_secs())));
-    let _ = std::fs::create_dir_all(LOG_PATH);
+    let path = crate::utils::paths::logs().join(format!("{}.log", format_time_string(seconds.as_secs())));
     std::fs::File::create(path).map_or_else(
         |_| {
             error!(target: "std", "Unable to initialize the file logger!");
