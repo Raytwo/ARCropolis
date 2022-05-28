@@ -8,43 +8,20 @@ use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 
 
-use smash_arc::Hash40;
+use smash_arc::{Hash40, hash40};
 use walkdir::WalkDir;
 
 use super::{Mod};
 use crate::{
     config,
-    fs::{interner::Interner, Conflict},
+    fs::{interner::Interner, Conflict, Modpack},
 };
 
 pub const MAX_COMPONENT_COUNT: usize = 10;
 
-static PRESET_HASHES: Lazy<HashSet<Hash40>> = Lazy::new(|| {
-    let presets = crate::config::presets::get_active_preset().unwrap();
-
-    trace!("Presets count: {}", presets.len());
-    presets
-});
-
 pub static INTERNER: Lazy<RwLock<Interner>> = Lazy::new(|| RwLock::new(Interner::new()));
 
-pub fn perform_discovery() {
-    let is_emulator = crate::util::env::is_emulator();
-
-    if is_emulator {
-        info!("Emulator usage detected in perform_discovery, reverting to old behavior.");
-    }
-
-    let legacy_discovery = config::legacy_discovery();
-
-    #[cfg(web)]
-    if !is_emulator {
-        // Open the ARCropolis menu if Minus is held before mod discovery
-        if ninput::any::is_down(ninput::Buttons::PLUS) {
-            crate::menus::show_main_menu();
-        }
-    }
-
+pub fn perform_discovery() -> Modpack {
     // Maybe have some sort of FileWalker trait and two implementations for both legacy and modern? Sounds a bit overengineered but it'd allow for more fine-tuning per system.
     // let filter = |path: &Path| {
     //     // If we're not running on emulator
@@ -145,11 +122,9 @@ pub fn perform_discovery() {
     // TODO: Discovered, conflicting, ignored file operations go here
     let _fs = crate::GLOBAL_FILESYSTEM.write();
     // let paths = discover("sd:/ultimate/mods");
-    let before = std::time::Instant::now();
 
-    discover_mods(umm_path);
+    let modpack = discover_mods(umm_path);
 
-    panic!("File discovery time {}", before.elapsed().as_secs_f32());
     // let interner = INTERNER.read();
 
     // for path in paths {
@@ -170,6 +145,7 @@ pub fn perform_discovery() {
     // }
 
     // load_and_run_plugins(launchpad.collected_paths());
+    modpack
 }
 
 /// Utility method to know if a path shouldn't be checked for conflicts
@@ -213,62 +189,58 @@ pub fn discover_in_mods<P: AsRef<Utf8Path>>(root: P) -> Mod {
     Mod { files, patches }
 }
 
-pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) {
+pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) -> Modpack {
     let root = root.as_ref();
 
-    let _interner = INTERNER.write();
+    let presets = crate::config::presets::get_active_preset().unwrap();
 
-    let mut files: HashMap<Hash40, Utf8PathBuf> = HashMap::new();
-    let mut conflict_list: HashMap<Conflict, Vec<Utf8PathBuf>> = HashMap::new();
-    let mut patches = Vec::new();
+    // let mut conflict_list: HashMap<Conflict, Vec<Utf8PathBuf>> = HashMap::new();
 
-    WalkDir::new(root)
+    let mods = WalkDir::new(root)
         .min_depth(1)
         .max_depth(1)
         .into_iter()
         .filter_entry(|entry| {
-            // Make sure we ignore files if they are in the same directory where mods are stored
-            entry.file_type().is_dir()
-        })
-        .for_each(|entry| {
-            let entry = entry.unwrap();
+            // Make sure we ignore files if they are in the same directory where mods are stored.
+            // Also make sure they are in the active presets of the user.
+            entry.file_type().is_dir() && presets.contains(&hash40(entry.path().to_str().unwrap()))
+        }).flatten()
+        .map(|entry| {
             let path = Utf8Path::from_path(entry.path()).unwrap();
 
-            let mut mod_files = discover_in_mods(path);
+            discover_in_mods(path)
 
-            // Remove the conflicting files from mod_files and store them
-            let conflicts: HashMap<Hash40, Utf8PathBuf> = mod_files.files.drain_filter(|hash, _| files.contains_key(hash)).collect();
+            // // Remove the conflicting files from mod_files and store them
+            // let conflicts: HashMap<Hash40, Utf8PathBuf> = mod_files.files.drain_filter(|hash, _| files.contains_key(hash)).collect();
 
-            // TODO: Move this in initial_loading so we can display the conflict handler before the game loads files?
-            // If any file is conflicting with what we already have found, discard this mod and warn the user.
-            if !conflicts.is_empty() {
-                conflicts.iter().for_each(|(hash, full_path)| {
-                    // The part of the path that is used to navigate data.arc
-                    let local_path = full_path.strip_prefix(path).unwrap();
-                    // Get the root of the mod we're conflicting with
-                    let first_mod_root = files.get(hash).unwrap().as_str().strip_suffix(local_path.as_str()).unwrap();
+            // // TODO: Move this in initial_loading so we can display the conflict handler before the game loads files?
+            // // If any file is conflicting with what we already have found, discard this mod and warn the user.
+            // if !conflicts.is_empty() {
+            //     conflicts.iter().for_each(|(hash, full_path)| {
+            //         // The part of the path that is used to navigate data.arc
+            //         let local_path = full_path.strip_prefix(path).unwrap();
+            //         // Get the root of the mod we're conflicting with
+            //         let first_mod_root = files.get(hash).unwrap().as_str().strip_suffix(local_path.as_str()).unwrap();
 
-                    let conflict = Conflict {
-                        conflicting_mod: path.strip_prefix("sd:/ultimate/mods/").unwrap().into(),
-                        conflict_with: first_mod_root.strip_prefix("sd:/ultimate/mods/").unwrap().trim_end_matches('/').into(),
-                    };
+            //         let conflict = Conflict {
+            //             conflicting_mod: path.strip_prefix("sd:/ultimate/mods/").unwrap().into(),
+            //             conflict_with: first_mod_root.strip_prefix("sd:/ultimate/mods/").unwrap().trim_end_matches('/').into(),
+            //         };
 
-                    match conflict_list.get_mut(&conflict) {
-                        // We already have an existing conflict for these two mods, so add the file to that list
-                        Some(entries) => entries.push(local_path.into()),
-                        // There wasn't an existing conflict yet, add it to the list
-                        None => {
-                            conflict_list.insert(conflict, vec![local_path.into()]);
-                        },
-                    }
-                });
-            } else {
-                // The following is only for debugging purposes, remove this when we're done
-                println!("Mod directory: {}", path);
+            //         match conflict_list.get_mut(&conflict) {
+            //             // We already have an existing conflict for these two mods, so add the file to that list
+            //             Some(entries) => entries.push(local_path.into()),
+            //             // There wasn't an existing conflict yet, add it to the list
+            //             None => {
+            //                 conflict_list.insert(conflict, vec![local_path.into()]);
+            //             },
+            //         }
+            //     });
+            // } else {
 
-                files.extend(mod_files.files);
-                patches.extend(mod_files.patches);
-            }
+                // files.extend(mod_files.files);
+                // patches.extend(mod_files.patches);
+            // }
 
             // for path in paths {
             //     println!("{}", path.to_string(&interner));
@@ -277,19 +249,17 @@ pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) {
             // if path.components().count() <= MAX_COMPONENT_COUNT {
             //     interner.add_path::<MAX_COMPONENT_COUNT>(path);
             // }
-        });
+        }).collect();
 
     // dbg!(conflict_list);
     // let yaml = serde_yaml::to_string(&Vec::from_iter(conflict_list.iter())).unwrap();
     // std::fs::write("sd:/ultimate/arcropolis/conflicts.txt", yaml.as_bytes()).unwrap();
-
-    //dbg!(files);
-    dbg!(patches);
+    // dbg!(patches);
     //dbg!(conflict_list);
 
-    // Modpack {
-    //     files
-    // }
+    Modpack {
+        mods
+    }
 }
 
 // fn mount_prebuilt_nrr<A: FileLoader>(tree: &Tree<A>) -> Result<Option<RegistrationInfo>, NrrRegistrationFailedError>

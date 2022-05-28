@@ -159,7 +159,7 @@ pub fn show_arcadia(workspace: Option<String>) {
     while let Ok(message) = session.recv_json::<ArcadiaMessage>() {
         match message {
             ArcadiaMessage::ToggleMod { id, state } => {
-                let path = format!("{}/{}", umm_path.display(), mods.entries[id].folder_name.as_ref().unwrap());
+                let path = format!("{}/{}", umm_path, mods.entries[id].folder_name.as_ref().unwrap());
                 let hash = Hash40::from(path.as_str());
                 debug!("Setting {} to {}", path, state);
 
@@ -178,7 +178,7 @@ pub fn show_arcadia(workspace: Option<String>) {
                     new_presets.clear();
                 } else {
                     for item in mods.entries.iter() {
-                        let path = format!("{}/{}", umm_path.display(), item.folder_name.as_ref().unwrap());
+                        let path = format!("{}/{}", umm_path, item.folder_name.as_ref().unwrap());
                         let hash = Hash40::from(path.as_str());
 
                         new_presets.insert(hash);
@@ -187,7 +187,7 @@ pub fn show_arcadia(workspace: Option<String>) {
             },
             ArcadiaMessage::ChangeIndexes { state, indexes } => {
                 for idx in indexes {
-                    let path = format!("{}/{}", umm_path.display(), mods.entries[idx].folder_name.as_ref().unwrap());
+                    let path = format!("{}/{}", umm_path, mods.entries[idx].folder_name.as_ref().unwrap());
                     let hash = Hash40::from(path.as_str());
                     debug!("Setting {} to {}", path, state);
 

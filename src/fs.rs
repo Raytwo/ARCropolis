@@ -698,7 +698,8 @@ impl PlaceholderFs {
     }
 
     pub fn load<H: Into<Hash40>>(&self, hash: H) -> Result<Vec<u8>, ModpackError> {
-        self.fs.get_file_by_hash(hash.into())
+        Err(ModpackError::FileMissing(hash.into()))
+        // self.fs.get_file_by_hash(hash.into())
     }
 }
 
@@ -706,7 +707,8 @@ impl PlaceholderFs {
 /// Ultimately this should only be used for files physically present, so no API stuff.
 #[derive(Default)]
 pub struct Modpack {
-    files: HashMap<Hash40, InternedPath<{ discover::MAX_COMPONENT_COUNT }>>,
+    pub mods: Vec<Mod>,
+    // files: HashMap<Hash40, InternedPath<{ discover::MAX_COMPONENT_COUNT }>>,
 }
 
 #[derive(Error, Debug)]
@@ -718,22 +720,22 @@ pub enum ModpackError {
 }
 
 impl Modpack {
-    pub fn get_file_by_hash<H: Into<Hash40>>(&self, hash: H) -> Result<Vec<u8>, ModpackError> {
-        let hash = hash.into();
-        let interner = discover::INTERNER.read();
+    // pub fn get_file_by_hash<H: Into<Hash40>>(&self, hash: H) -> Result<Vec<u8>, ModpackError> {
+    //     let hash = hash.into();
+    //     let interner = discover::INTERNER.read();
 
-        match self.files.get(&hash).map(|interned| interned.to_string(&interner)) {
-            Some(path) => {
-                // Does not belong here? This should apply to every source
-                if let Some(_handler) = acquire_extension_handler(&Hash40::from("placeholder")) {
-                    // handler.patch_file(&Vec::new())
-                }
+    //     match self.files.get(&hash).map(|interned| interned.to_string(&interner)) {
+    //         Some(path) => {
+    //             // Does not belong here? This should apply to every source
+    //             if let Some(_handler) = acquire_extension_handler(&Hash40::from("placeholder")) {
+    //                 // handler.patch_file(&Vec::new())
+    //             }
 
-                Ok(std::fs::read(path)?)
-            },
-            None => Err(ModpackError::FileMissing(hash)),
-        }
-    }
+    //             Ok(std::fs::read(path)?)
+    //         },
+    //         None => Err(ModpackError::FileMissing(hash)),
+    //     }
+    // }
 }
 
 pub struct Mod {

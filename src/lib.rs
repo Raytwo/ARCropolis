@@ -191,15 +191,32 @@ fn init_time() {
     }
 }
 
+#[cfg(feature = "web")]
+fn check_input_on_boot() {
+    if !crate::util::env::is_ryujinx() {
+        // Open the ARCropolis menu if Minus is held before mod discovery
+        if ninput::any::is_down(ninput::Buttons::PLUS) {
+            crate::menus::show_main_menu();
+        }
+    }
+}
+
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     #[cfg(feature = "web")]
     menus::changelog::check_for_changelog();
 
-    // menus::show_arcadia();
+    #[cfg(feature = "web")]
+    check_input_on_boot();
+
     // let arc = resource::arc();
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
+
+    // Judging by observation, waiting 5 seconds for file discovery to start in a thread followed by joining here is actually a waste of time, as this function is called within 2 seconds and then has to wait anyways.
+    let discovery_time = std::time::Instant::now();
+    let modpack = fs::perform_discovery();
+    println!("File discovery took  {}s for {} mods", discovery_time.elapsed().as_secs_f32(), modpack.mods.len());
 
     // TODO: Perform the conflict check here and display a web page
 
@@ -245,7 +262,8 @@ pub fn main() {
     Lazy::force(&GLOBAL_CONFIG);
 
     // Initialize hid
-    if !crate::util::env::is_emulator() {
+    if !crate::util::env::is_ryujinx() {
+        println!("Initializing ninput");
         ninput::init();
     }
 
@@ -268,13 +286,13 @@ pub fn main() {
     //         .unwrap(),
     // );
 
-    std::thread::Builder::new()
-        .stack_size(0x40000)
-        .spawn(|| {
-            std::thread::sleep(std::time::Duration::from_millis(5000));
-            fs::perform_discovery()
-        })
-        .unwrap();
+    // std::thread::Builder::new()
+    //     .stack_size(0x40000)
+    //     .spawn(|| {
+    //         std::thread::sleep(std::time::Duration::from_millis(5000));
+    //         fs::perform_discovery()
+    //     })
+    //     .unwrap();
 
     // let resources = std::thread::Builder::new()
     //     .stack_size(0x40000)

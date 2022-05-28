@@ -29,11 +29,11 @@ pub fn display_update_page(info: &MainEntry) {
         .unwrap();
 }
 
-fn check_for_changelog() {
+pub fn check_for_changelog() {
     if let Ok(changelog) = std::fs::read_to_string("sd:/ultimate/arcropolis/changelog.toml") {
         match toml::from_str(&changelog) {
             Ok(changelog) => {
-                menus::display_update_page(&changelog);
+                display_update_page(&changelog);
                 std::fs::remove_file("sd:/ultimate/arcropolis/changelog.toml").unwrap();
             },
             Err(_) => {
