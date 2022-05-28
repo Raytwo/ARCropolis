@@ -121,13 +121,14 @@ pub mod workspaces {
         AlreadyExists,
         #[error("failed to find the preset file for this workspace")]
         MissingPreset,
+        #[error("failed to find workspace with name: {0}")]
+        MissingWorkspace(String)
         // #[error("failed to call from_str for the desired type")]
         // FromStrErr,
     }
 
     pub fn get_list() -> Result<HashMap<String, String>, WorkspaceError> {
-        let storage = super::GLOBAL_CONFIG.read();
-        storage.get_field_json("workspace_list").map_err(WorkspaceError::ConfigError)
+        super::GLOBAL_CONFIG.read().get_field_json("workspace_list").map_err(WorkspaceError::ConfigError)
     }
 
     pub fn create_new_workspace(name: String) -> Result<(), WorkspaceError> {
@@ -149,11 +150,9 @@ pub mod workspaces {
     }
 
     pub fn get_active_workspace() -> Result<String, WorkspaceError> {
-        let storage = super::GLOBAL_CONFIG.read();
-        let _workspace_list = get_list();
-        let _workspace_name = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
-        // TODO: Make sure that the preset file exists and return a custom error if it doesn't
-        Ok("lol, lmao".to_string())
+        let workspace_list = get_list()?;
+        let workspace_name: String = super::GLOBAL_CONFIG.read().get_field("workspace")?;
+        workspace_list.get(&workspace_name).map(|x| x.to_owned()).ok_or(WorkspaceError::MissingWorkspace(workspace_name))
     }
 }
 
