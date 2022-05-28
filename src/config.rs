@@ -120,8 +120,6 @@ pub mod workspaces {
         ConfigError(#[from] ConfigError),
         #[error("a workspace with this name already exists")]
         AlreadyExists,
-        #[error("failed to find the preset file for this workspace")]
-        MissingPreset,
         #[error("failed to find workspace with name: {0}")]
         MissingWorkspace(String)
         // #[error("failed to call from_str for the desired type")]
@@ -160,6 +158,21 @@ pub mod workspaces {
         let workspace_list = get_list()?;
         let workspace_name: String = GLOBAL_CONFIG.read().get_field("workspace")?;
         workspace_list.get(&workspace_name).map(|x| x.to_owned()).ok_or(WorkspaceError::MissingWorkspace(workspace_name))
+    }
+
+    fn get_workspace_by_name(name: String) -> Result<String, WorkspaceError> {
+        let workspace_list = get_list()?;
+        workspace_list.get(&name).map(|x| x.to_owned()).ok_or(WorkspaceError::MissingWorkspace(name))
+    }
+
+    pub fn rename_workspace(from: &str, to: &str) -> Result<(), WorkspaceError> {
+        let mut workspace_list = get_list()?;
+        // Remove the workspace if we find it and get back the associate preset name, but if we don't, return an error.
+        let preset_name = workspace_list.remove(from).ok_or_else(|| WorkspaceError::MissingWorkspace(from.to_string()))?;
+        // Reinsert the preset name with the new workspace name
+        workspace_list.insert(to.to_string(), preset_name);
+        // Overwrite the list with the changes
+        GLOBAL_CONFIG.write().set_field_json("workspace_list", &workspace_list).map_err(WorkspaceError::ConfigError)
     }
 }
 
