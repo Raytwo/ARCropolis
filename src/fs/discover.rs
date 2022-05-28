@@ -1,21 +1,13 @@
 use std::{
-    collections::{HashMap, HashSet},
-    iter::FromIterator,
+    collections::HashMap,
 };
 
+use walkdir::WalkDir;
 use camino::{Utf8Path, Utf8PathBuf};
-use once_cell::sync::Lazy;
-use parking_lot::RwLock;
-
 
 use smash_arc::{Hash40, hash40};
-use walkdir::WalkDir;
 
-use super::{Mod};
-use crate::{
-    config,
-    fs::{interner::Interner, Conflict, Modpack},
-};
+use crate::fs::{Mod, Modpack};
 
 // pub const MAX_COMPONENT_COUNT: usize = 10;
 
@@ -71,12 +63,9 @@ pub fn perform_discovery() -> Modpack {
     //     // No matter what, the cache has to be updated
     //     storage.set_field_json("mod_cache", &new_cache).unwrap();
     // }
-
-    // TODO: Discovered, conflicting, ignored file operations go here
     let _fs = crate::GLOBAL_FILESYSTEM.write();
-    // let paths = discover("sd:/ultimate/mods");
 
-    let modpack = discover_mods(umm_path);
+    discover_mods(umm_path)
 
     // let interner = INTERNER.read();
 
@@ -84,7 +73,7 @@ pub fn perform_discovery() -> Modpack {
     //     println!("{}", path.to_string(&interner));
     // }
 
-    // TODO: Reimplement NRR stuff
+    // TODO: Reimplement NRR stuff, but move it further in the process
 
     // match mount_prebuilt_nrr(launchpad.tree()) {
     //     Ok(Some(_)) => info!("Successfully registered fighter modules."),
@@ -98,7 +87,7 @@ pub fn perform_discovery() -> Modpack {
     // }
 
     // load_and_run_plugins(launchpad.collected_paths());
-    modpack
+    
 }
 
 /// Utility method to know if a path shouldn't be checked for conflicts
