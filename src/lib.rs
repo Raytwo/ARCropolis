@@ -33,11 +33,13 @@ mod fs;
 mod fuse;
 mod hashes;
 mod logging;
-#[cfg(feature = "web")] mod menus;
+#[cfg(feature = "web")]
+mod menus;
 mod offsets;
 mod replacement;
 mod resource;
-#[cfg(feature = "updater")] mod update;
+#[cfg(feature = "updater")]
+mod update;
 mod utils;
 
 use fs::PlaceholderFs;
