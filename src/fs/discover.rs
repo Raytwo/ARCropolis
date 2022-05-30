@@ -110,11 +110,9 @@ pub fn discover_in_mods<P: AsRef<Utf8Path>>(root: P) -> Mod {
     let mut files: HashMap<Hash40, Utf8PathBuf> = HashMap::new();
     let mut patches: Vec<Utf8PathBuf> = Vec::new();
 
-    WalkDir::new(root).min_depth(1).into_iter().for_each(|entry| {
-        let entry = entry.unwrap();
-
+    WalkDir::new(root).min_depth(1).into_iter().flatten().for_each(|entry| {
         // Ignore the directories, only care about the files
-        if entry.file_type().is_file() {
+        if entry.file_type().is_file() && entry.path().extension().is_some() {
             let path = Utf8Path::from_path(entry.path()).unwrap();
 
             // Is it one of the paths that we need to keep track of? (plugin, config, patches, ...)
