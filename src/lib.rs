@@ -11,7 +11,7 @@
 
 use std::{
     fmt,
-    path::{Path, PathBuf},
+    path::Path,
     str::FromStr,
 };
 
@@ -50,8 +50,8 @@ use crate::config::GLOBAL_CONFIG;
 
 pub static GLOBAL_FILESYSTEM: Lazy<RwLock<PlaceholderFs>> = Lazy::new(|| const_rwlock(PlaceholderFs::default()));
 
-pub static CACHE_PATH: Lazy<PathBuf> = Lazy::new(|| {
-    let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(utils::get_game_version().to_string());
+pub static CACHE_PATH: Lazy<Utf8PathBuf> = Lazy::new(|| {
+    let path = utils::paths::cache().join(utils::get_game_version().to_string());
 
     if let Err(e) = std::fs::create_dir_all(&path) { panic!("Unable to create cache directory! Reason: {:?}", e) }
 
