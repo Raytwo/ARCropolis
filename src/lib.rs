@@ -285,28 +285,6 @@ pub fn main() {
     // Force the configuration to be initialized right away, so we can be sure default files exist (hopefully)
     Lazy::force(&GLOBAL_CONFIG);
 
-    // lazy_static::initialize(&GLOBAL_FILESYSTEM);
-    // Acquire the filesystem and promise it to the initial_loading hook
-    // let mut filesystem = GLOBAL_FILESYSTEM.write();
-
-    // *filesystem = GlobalFilesystem::Promised(
-    //     std::thread::Builder::new()
-    //         .stack_size(0x40000)
-    //         .spawn(|| {
-    //             std::thread::sleep(std::time::Duration::from_millis(5000));
-    //             fs::perform_discovery()
-    //         })
-    //         .unwrap(),
-    // );
-
-    // std::thread::Builder::new()
-    //     .stack_size(0x40000)
-    //     .spawn(|| {
-    //         std::thread::sleep(std::time::Duration::from_millis(5000));
-    //         fs::perform_discovery()
-    //     })
-    //     .unwrap();
-
     // let resources = std::thread::Builder::new()
     //     .stack_size(0x40000)
     //     .spawn(|| {
@@ -318,7 +296,7 @@ pub fn main() {
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
     #[cfg(feature = "updater")]
     {
-        let _updater = std::thread::Builder::new()
+        std::thread::Builder::new()
             .stack_size(0x40000)
             .spawn(|| {
                 // Changed to pre because prerelease doesn't compile
