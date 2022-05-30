@@ -194,6 +194,7 @@ fn init_time() {
 
 #[cfg(feature = "web")]
 fn check_input_on_boot() {
+    // Ryujinx crashes on user input initialization
     if !crate::utils::env::is_ryujinx() {
         // Open the ARCropolis menu if Minus is held before mod discovery
         if ninput::any::is_down(ninput::Buttons::PLUS) {
@@ -315,27 +316,6 @@ pub fn main() {
 
     skyline::install_hooks!(initial_loading, change_version_string, show_eshop,);
     replacement::install();
-
-    std::panic::set_hook(Box::new(|info| {
-        let location = info.location().unwrap();
-
-        let msg = match info.payload().downcast_ref::<&'static str>() {
-            Some(s) => *s,
-            None => {
-                match info.payload().downcast_ref::<String>() {
-                    Some(s) => &s[..],
-                    None => "Box<Any>",
-                }
-            },
-        };
-
-        let err_msg = format!("thread has panicked at '{}', {}", msg, location);
-        skyline::error::show_error(
-            69,
-            "Skyline plugin as panicked! Please open the details and send a screenshot to the developer, then close the game.\n",
-            err_msg.as_str(),
-        );
-    }));
 
     // Wait on hashes/lut to finish
     // let _ = resources.join();
