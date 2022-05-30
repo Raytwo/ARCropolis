@@ -99,12 +99,11 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
 
 #[cfg(feature = "web")]
 pub fn prompt_for_region() {
-    if first_boot() {
-        if skyline_web::Dialog::yes_no("A default configuration for ARCropolis has been created.<br>It is important that your region matches your console's and the language matches the one in Smash.<br>By default, it is set to American English. Would you like to adjust it?") {
-            crate::menus::show_config_editor(&mut GLOBAL_CONFIG.write());
-        }
-        set_first_boot(false);
+    if skyline_web::Dialog::yes_no("A default configuration for ARCropolis has been created.<br>It is important that your region matches your console's and the language matches the one in Smash.<br>By default, it is set to American English. Would you like to adjust it?") {
+        crate::menus::show_config_editor(&mut GLOBAL_CONFIG.write());
     }
+    
+    set_first_boot(false);
 }
 
 pub mod workspaces {

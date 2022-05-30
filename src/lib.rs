@@ -208,7 +208,13 @@ fn initial_loading(_ctx: &InlineCtx) {
     menus::changelog::check_for_changelog();
 
     #[cfg(feature = "web")]
-    config::prompt_for_region();
+    if config::first_boot() {
+        if utils::env::is_ryujinx() {
+            config::prompt_for_region()
+        } else {
+            skyline::error::show_error(69, "The web browser could not be opened", "The web browser is not available in this environment");
+        }
+    }
 
     #[cfg(feature = "web")]
     check_input_on_boot();
