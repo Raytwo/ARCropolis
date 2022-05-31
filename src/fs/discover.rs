@@ -7,7 +7,9 @@ use camino::{Utf8Path, Utf8PathBuf};
 
 use smash_arc::{Hash40, hash40};
 
-use crate::fs::{Mod, Modpack};
+use crate::fs::{ModDir, Modpack};
+
+use super::ModFile;
 
 // pub const MAX_COMPONENT_COUNT: usize = 10;
 
@@ -104,10 +106,10 @@ pub fn is_collectable(x: &Utf8Path) -> bool {
     }
 }
 
-pub fn discover_in_mods<P: AsRef<Utf8Path>>(root: P) -> Mod {
+pub fn discover_in_mods<P: AsRef<Utf8Path>>(root: P) -> ModDir {
     let root = root.as_ref();
 
-    let mut files: HashMap<Hash40, Utf8PathBuf> = HashMap::new();
+    let mut files: Vec<ModFile> = Vec::new();
     let mut patches: Vec<Utf8PathBuf> = Vec::new();
 
     WalkDir::new(root).min_depth(1).into_iter().flatten().for_each(|entry| {
@@ -115,18 +117,18 @@ pub fn discover_in_mods<P: AsRef<Utf8Path>>(root: P) -> Mod {
         if entry.file_type().is_file() && entry.path().extension().is_some() {
             let path = Utf8Path::from_path(entry.path()).unwrap();
 
+            // Maybe move this later?
             // Is it one of the paths that we need to keep track of? (plugin, config, patches, ...)
             if is_collectable(path) {
                 patches.push(path.into());
             } else {
                 let (path, _) = crate::strip_region_from_path(path);
-                // TODO: Try to handle a case where we have both a regional and non-regional copy for the same file and have the regional one prevail. Maybe sort the paths by length in ascending order so we always get the regional one last?
-                files.insert(Hash40::from(path.strip_prefix(root).unwrap().to_string().as_str()), path);
+                files.push(ModFile { path, size: entry.metadata().unwrap().len() });
             }
         }
     });
 
-    Mod { files, patches }
+    ModDir { files, patches }
 }
 
 pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) -> Modpack {

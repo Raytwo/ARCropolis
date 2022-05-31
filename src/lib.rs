@@ -8,6 +8,7 @@
 #![feature(allocator_api)]
 #![feature(hash_drain_filter)]
 #![feature(string_remove_matches)]
+#![feature(drain_filter)] // Removing additional paths from Modfile vec
 
 use std::{
     fmt,
@@ -42,13 +43,13 @@ mod resource;
 mod update;
 mod utils;
 
-use fs::PlaceholderFs;
+use fs::ModFileSystem;
 use smash_arc::{Hash40, Region};
 
 
 use crate::config::GLOBAL_CONFIG;
 
-pub static GLOBAL_FILESYSTEM: Lazy<RwLock<PlaceholderFs>> = Lazy::new(|| const_rwlock(PlaceholderFs::default()));
+pub static GLOBAL_FILESYSTEM: Lazy<RwLock<ModFileSystem>> = Lazy::new(|| const_rwlock(ModFileSystem::default()));
 
 pub static CACHE_PATH: Lazy<Utf8PathBuf> = Lazy::new(|| {
     let path = utils::paths::cache().join(utils::get_game_version().to_string());
@@ -229,16 +230,24 @@ fn initial_loading(_ctx: &InlineCtx) {
     let modpack = fs::perform_discovery();
     println!("File discovery took  {}s for {} mods", discovery_time.elapsed().as_secs_f32(), modpack.mods.len());
 
-    // TODO: Perform the conflict check here and display a web page
+    // TODO: 1. Perform the conflict check here and display a web page
 
-    // replacement::lookup::initialize(Some(arc));
-    // let filesystem = GLOBAL_FILESYSTEM.write();
-    // *filesystem = filesystem.take().finish().unwrap();
-    // filesystem.process_mods();
-    // filesystem.share_hashes();
-    // filesystem.patch_files();
+    // TODO: This name is trash, find a new one, thanks
+    // This function should return all of the files such as plugins, configuration, patches...
+    // Maybe have separate methods to get NROs and patches?
+    // Maybe take advantage of the Modpack/ModDir hierarchy during discovery?
+    // let collectable_files: Vec<Modfile> = modpack.mods.iter.map(|mods| fs::get_collectable_files(mods)).collect().flatten();
 
-    // drop(filesystem);
+    // TODO: 2. Get what we need to build the ModFileSystem from the Modpack
+
+    // What we need for this step: The modpack with conflicting files removed and collectable files taken away
+    // let new_files = fs::get_additional_files();
+    // replacement::perform_file_addition_idk(new_files).unwrap();
+
+    // What we need for this step: a pair of (unique) hash with its filesize
+    // Idea: Perhaps a ModpackBuilder or something similar that'd only give you the finished Filesystem when every Arc patching operation has been performed? Or a enum that'd shift from one state to the next until the last method.
+    // GLOBAL_FILESYSTEM.write() = replacement::patch_sizes(modpack);
+
     // fuse::mods::install_mod_fs();
     // api::event::send_event(Event::ModFilesystemMounted);
 }
@@ -259,7 +268,7 @@ fn change_version_string(arg: u64, string: *const c_char) {
 
 #[skyline::hook(offset = offsets::eshop_show())]
 fn show_eshop(_lua_state: *const u8) {
-    // Set the is_busy variable and all
+    // TODO: Set the is_busy variable and all
     #[cfg(feature = "web")]
     menus::show_main_menu();
 }

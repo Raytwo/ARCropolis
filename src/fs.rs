@@ -2,7 +2,7 @@ use std::{collections::HashMap, io::Write, path::PathBuf, sync::atomic::AtomicBo
 
 use camino::Utf8PathBuf;
 use serde::Serialize;
-use smash_arc::Hash40;
+use smash_arc::{Hash40, ArcLookup, hash40};
 use thiserror::Error;
 
 use self::interner::InternedPath;
@@ -660,13 +660,12 @@ static IS_INIT: AtomicBool = AtomicBool::new(false);
 // }
 
 #[derive(Default)]
-pub struct PlaceholderFs {
-    fs: Modpack,
+pub struct ModFileSystem {
     incoming_file: Option<Hash40>,
     remaining_bytes: usize,
 }
 
-impl PlaceholderFs {
+impl ModFileSystem {
     // NOTE: Some sources such as API callbacks cannot provide a physical path. This needs proper handling
     pub fn get_physical_path<H: Into<Hash40>>(&self, _hash: H) -> Option<PathBuf> {
         None
@@ -707,8 +706,17 @@ impl PlaceholderFs {
 /// Ultimately this should only be used for files physically present, so no API stuff.
 #[derive(Default)]
 pub struct Modpack {
-    pub mods: Vec<Mod>,
+    pub mods: Vec<ModDir>,
     // files: HashMap<Hash40, InternedPath<{ discover::MAX_COMPONENT_COUNT }>>,
+}
+
+pub fn look_for_conflicts(_modpack: Modpack) {
+
+}
+
+pub fn get_additional_files(files: &mut Vec<ModFile>) -> Vec<ModFile> {
+    let arc = crate::resource::arc();
+    files.drain_filter(|file| arc.get_file_path_index_from_hash(hash40(file.path.as_str())).is_ok() ).collect()
 }
 
 #[derive(Error, Debug)]
@@ -738,9 +746,14 @@ impl Modpack {
     // }
 }
 
-pub struct Mod {
-    files: HashMap<Hash40, Utf8PathBuf>,
+pub struct ModDir {
+    files: Vec<ModFile>,
     patches: Vec<Utf8PathBuf>,
+}
+
+pub struct ModFile {
+    path: Utf8PathBuf,
+    size: u64,
 }
 
 #[derive(Debug, Default, PartialEq, Hash, Eq, Serialize)]
