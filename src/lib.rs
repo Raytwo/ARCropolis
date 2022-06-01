@@ -13,7 +13,7 @@
 use std::{
     fmt,
     path::Path,
-    str::FromStr,
+    str::FromStr, collections::{HashSet, HashMap},
 };
 
 use arcropolis_api::Event;
@@ -44,7 +44,7 @@ mod update;
 mod utils;
 
 use fs::ModFileSystem;
-use smash_arc::{Hash40, Region};
+use smash_arc::{Hash40, Region, hash40};
 
 
 use crate::config::GLOBAL_CONFIG;
@@ -247,6 +247,12 @@ fn initial_loading(_ctx: &InlineCtx) {
     // What we need for this step: a pair of (unique) hash with its filesize
     // Idea: Perhaps a ModpackBuilder or something similar that'd only give you the finished Filesystem when every Arc patching operation has been performed? Or a enum that'd shift from one state to the next until the last method.
     // GLOBAL_FILESYSTEM.write() = replacement::patch_sizes(modpack);
+    let modfiles: Vec<(Hash40, u64)> = modpack.mods.iter().flat_map(|mods| mods.get_patch()).collect();
+    replacement::patch_sizes(&modfiles);
+
+    let files: HashMap<Hash40, Utf8PathBuf> = modpack.mods.iter().flat_map(|mods| mods.get_filesystem()).collect();
+    let mut fs = GLOBAL_FILESYSTEM.write();
+    *fs = ModFileSystem::new(files);
 
     // fuse::mods::install_mod_fs();
     // api::event::send_event(Event::ModFilesystemMounted);

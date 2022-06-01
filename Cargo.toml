@@ -20,7 +20,7 @@ once_cell = "1.12.0"
 thiserror = "1.0.30"
 camino = { version = "1.0.7", features = ["serde1"] } 
 # Switch utilities
-skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
+skyline = { git = "https://github.com/ultimate-research/skyline-rs.git"}
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web", optional = true }
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 # For the updater
@@ -37,10 +37,10 @@ strip-ansi-escapes = "0.1.1"
 bincode = "1.3.3"
 # To manage mods
 smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd", "serialize"] }
-arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api" }
+arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api", rev="7a94ccbb21dcddee3ba467802ef6629c19a219f1" }
 serde_yaml = "0.8.24"
 # For arc:/ and mods:/
-nn-fuse = { git = "https://github.com/blu-dev/nn-fuse" }
+nn-fuse = { git = "https://github.com/Raytwo/nn-fuse" }
 # For prcx/prcxml
 prcx = { git = "https://github.com/blu-dev/prcx", branch = "xml-style" }
 # For xmsbt

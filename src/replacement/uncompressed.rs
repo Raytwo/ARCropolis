@@ -18,9 +18,8 @@ fn memcpy_uncompressed_fix(ctx: &InlineCtx) {
     // For now, we will leave this as an unconditionally true if statement
     let buffer_size = reg_x!(ctx, 2) as usize;
 
-    let hash = crate::GLOBAL_FILESYSTEM.write().sub_remaining_bytes(buffer_size);
-
-    if let Some(hash) = hash {
+    if let Some(hash) = crate::GLOBAL_FILESYSTEM.write().sub_remaining_bytes(buffer_size) {
+        println!("About to replace file with hash {:#x}", hash.as_u64());
         super::threads::handle_file_replace(hash);
     } else {
         let dest = reg_x!(ctx, 0) as *mut c_void;

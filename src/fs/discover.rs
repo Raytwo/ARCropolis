@@ -128,7 +128,7 @@ pub fn discover_in_mods<P: AsRef<Utf8Path>>(root: P) -> ModDir {
         }
     });
 
-    ModDir { files, patches }
+    ModDir { root: root.to_owned(), files, patches }
 }
 
 pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) -> Modpack {

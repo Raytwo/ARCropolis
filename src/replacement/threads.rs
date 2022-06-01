@@ -21,7 +21,6 @@ fn inflate_incoming(ctx: &InlineCtx) {
     let path_hash = file_path.path.hash40();
 
     info!(
-        target: "no-mod-path",
         "[ResInflateThread::inflate_incoming | #{:#08X} | Type: {} | {:>3} / {:>3}] Incoming '{}'",
         usize::from(file_info.file_path_index).green(),
         reg_w!(ctx, 21).green(),
@@ -30,19 +29,19 @@ fn inflate_incoming(ctx: &InlineCtx) {
         hashes::find(path_hash).bright_yellow()
     );
 
-    let mut fs = GLOBAL_FILESYSTEM.write();
+    if let Some(path) = GLOBAL_FILESYSTEM.read().get_physical_path(path_hash) {
+        println!("Lock: {}", GLOBAL_FILESYSTEM.is_locked());
+        println!("Added file '{}' to the queue.", path.yellow());
+        GLOBAL_FILESYSTEM.write().set_incoming_file(path_hash);
+        panic!("Lock: {}", GLOBAL_FILESYSTEM.is_locked_exclusive());
+    }
 
     // Is setting incoming to None needed? Considering take() is called to acquire the incoming hash, it'd already be None.
-    if let Some(path) = fs.get_physical_path(path_hash) {
-        info!("Added file '{}' to the queue.", path.display().yellow());
-        fs.set_incoming_file(path_hash);
-    }
 }
 
 #[hook(offset = offsets::inflate_dir_file())]
 fn inflate_dir_file(arg: u64, out_decomp_data: &mut InflateFile, comp_data: &InflateFile) -> u64 {
-    trace!(
-        target: "no-mod-path",
+    println!(
         "[ResInflateThread::inflate_dir_file] Incoming decompressed filesize: {:#x}",
         out_decomp_data.len()
     );
@@ -52,6 +51,7 @@ fn inflate_dir_file(arg: u64, out_decomp_data: &mut InflateFile, comp_data: &Inf
     if result == 0x0 {
         // Returns 0x0 on the very last read, since they can be read in chunks
         if let Some(hash) = crate::GLOBAL_FILESYSTEM.write().get_incoming_file() {
+            println!("inflate_dir_file: incoming file");
             handle_file_replace(hash);
         }
     }
@@ -93,7 +93,12 @@ pub fn handle_file_replace(hash: Hash40) {
         return
     }
 
+    println!("Before acquiring the FS");
+
+    //println!("Locked state: {}", crate::GLOBAL_FILESYSTEM.is_locked_exclusive());
     let fs = crate::GLOBAL_FILESYSTEM.read();
+
+    panic!("Past acquiring the FS");
 
     let mut buffer = unsafe {
         std::slice::from_raw_parts_mut(
@@ -121,7 +126,7 @@ pub fn handle_file_replace(hash: Hash40) {
         //     }
         // }
 
-        info!(
+        println!(
             "Replaced file '{}' ({:#x}) with buffer size {:#x} and file size {:#x}. Game buffer size: {:#x}",
             hashes::find(hash),
             hash.0,

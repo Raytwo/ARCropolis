@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Write, path::PathBuf, sync::atomic::AtomicBool};
+use std::{collections::{HashMap, HashSet}, io::Write, path::PathBuf, sync::atomic::AtomicBool};
 
 use camino::Utf8PathBuf;
 use serde::Serialize;
@@ -661,23 +661,37 @@ static IS_INIT: AtomicBool = AtomicBool::new(false);
 
 #[derive(Default)]
 pub struct ModFileSystem {
+    files: HashMap<Hash40, Utf8PathBuf>,
     incoming_file: Option<Hash40>,
     remaining_bytes: usize,
 }
 
 impl ModFileSystem {
+    pub fn new(files: HashMap<Hash40, Utf8PathBuf>) -> Self {
+        Self { files, incoming_file: None, remaining_bytes: 0 }
+    }
+
     // NOTE: Some sources such as API callbacks cannot provide a physical path. This needs proper handling
-    pub fn get_physical_path<H: Into<Hash40>>(&self, _hash: H) -> Option<PathBuf> {
-        None
+    pub fn get_physical_path<H: Into<Hash40>>(&self, hash: H) -> Option<Utf8PathBuf> {
+        self.files.get(&hash.into()).map(|path| path.to_owned())
     }
 
     pub fn set_incoming_file<H: Into<Hash40>>(&mut self, hash: H) {
-        self.incoming_file = Some(hash.into());
-        self.remaining_bytes = 0;
+        if let Some(hash) = self.incoming_file.take() {
+            println!(
+            "Removing file '{}' ({:#x}) from incoming load before using it.",
+                hashes::find(hash),
+                hash.0
+            );
+        }
+
+        let hash = hash.into();
+        
+        self.incoming_file = Some(hash);
+        self.remaining_bytes = std::fs::metadata(self.files.get(&hash).unwrap()).unwrap().len() as _;
     }
 
     pub fn get_incoming_file(&mut self) -> Option<Hash40> {
-        self.remaining_bytes = 0;
         self.incoming_file.take()
     }
 
@@ -690,15 +704,53 @@ impl ModFileSystem {
         }
     }
 
+    // Sets the incoming file to be loaded
+// pub fn set_incoming(&mut self, hash: Option<Hash40>) {
+//     if let Some(hash) = self.incoming_load.take() {
+//         warn!(
+//             "Removing file '{}' ({:#x}) from incoming load before using it.",
+//             hashes::find(hash),
+//             hash.0
+//         );
+//     }
+//     self.incoming_load = hash;
+//     if let Some(hash) = hash {
+//         self.bytes_remaining = *self.hash_size_cache.get(&hash).unwrap_or(&0);
+//     } else {
+//         self.bytes_remaining = 0;
+//     }
+// }
+
+//     /// Gets the incoming file to be loaded
+//     pub fn get_incoming(&mut self) -> Option<Hash40> {
+//         self.incoming_load.take()
+//     }
+
+//     /// Subtracts the amount of bytes remanining from the current load.
+//     /// This prevents multiloads on the same file
+//     pub fn sub_remaining_bytes(&mut self, count: usize) -> Option<Hash40> {
+//         if count >= self.bytes_remaining {
+//             self.bytes_remaining = 0;
+//             self.get_incoming()
+//         } else {
+//             self.bytes_remaining -= count;
+//             None
+//         }
+//     }
+
     pub fn load_file_into<H: Into<Hash40>, B: AsMut<[u8]>>(&self, hash: H, mut buffer: B) -> Result<usize, ModpackError> {
+        let hash = hash.into();
+        println!("load_file_into: {}", self.get_physical_path(hash).unwrap());
         let data = self.load(hash)?;
         buffer.as_mut().write_all(&data)?;
         Ok(data.len())
     }
 
     pub fn load<H: Into<Hash40>>(&self, hash: H) -> Result<Vec<u8>, ModpackError> {
-        Err(ModpackError::FileMissing(hash.into()))
-        // self.fs.get_file_by_hash(hash.into())
+        let hash = hash.into();
+        let path = self.get_physical_path(hash).unwrap();
+        println!("Path: {}", path);
+        Ok(std::fs::read(path).unwrap())
     }
 }
 
@@ -747,13 +799,24 @@ impl Modpack {
 }
 
 pub struct ModDir {
-    files: Vec<ModFile>,
+    pub root: Utf8PathBuf,
+    pub files: Vec<ModFile>,
     patches: Vec<Utf8PathBuf>,
 }
 
+impl ModDir {
+    pub fn get_patch(&self) -> Vec<(Hash40, u64)> {
+        self.files.iter().map(|file| (hash40(file.path.strip_prefix(&self.root).unwrap().as_str()), file.size)).collect()
+    }
+
+    pub fn get_filesystem(&self) -> HashMap<Hash40, Utf8PathBuf> {
+        self.files.iter().map(|file| (hash40(file.path.strip_prefix(&self.root).unwrap().as_str()), file.path.to_owned())).collect()
+    }
+}
+
 pub struct ModFile {
-    path: Utf8PathBuf,
-    size: u64,
+    pub path: Utf8PathBuf,
+    pub size: u64,
 }
 
 #[derive(Debug, Default, PartialEq, Hash, Eq, Serialize)]
