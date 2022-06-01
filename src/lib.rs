@@ -164,10 +164,6 @@ pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
         None
     }
 }
-extern "C" {
-    #[link_name = "_ZN2nn2fs17MountCacheStorageEPKc"]
-    fn mount_cache_storage(string: *const u8);
-}
 
 pub fn strip_region_from_path<P: AsRef<Utf8Path>>(path: P) -> (Utf8PathBuf, Option<Region>) {
     let path = path.as_ref();
@@ -184,7 +180,7 @@ pub fn strip_region_from_path<P: AsRef<Utf8Path>>(path: P) -> (Utf8PathBuf, Opti
     }
 }
 
-#[skyline::hook(replace = mount_cache_storage)]
+#[skyline::hook(replace = nn::fs::MountCacheStorage)]
 fn mount_mod_cache_storage(_mountpoint: *const u8) -> u64 {
     0
 }
@@ -231,9 +227,8 @@ fn initial_loading(_ctx: &InlineCtx) {
     check_input_on_boot();
 
     // let arc = resource::arc();
-    unsafe {
-        mount_cache_storage(skyline::c_str("cache\0"))
-    }
+
+    nn::fs::mount_cache_storage("cache");
 
     skyline::install_hook!(mount_mod_cache_storage);
     fuse::arc::install_arc_fs();
