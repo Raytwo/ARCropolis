@@ -23,7 +23,7 @@ use thiserror::Error;
 
 #[macro_use] extern crate log;
 
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use parking_lot::{const_rwlock, RwLock};
 use skyline::{hooks::InlineCtx, libc::c_char, nn};
 
@@ -48,6 +48,9 @@ use smash_arc::{Hash40, Region, hash40};
 
 
 use crate::config::GLOBAL_CONFIG;
+
+// TODO: Use the interner instead of a Utf8PathBuf
+pub static FILESYSTEM: OnceCell<HashMap<Hash40, Utf8PathBuf>> = OnceCell::new();
 
 pub static GLOBAL_FILESYSTEM: Lazy<RwLock<ModFileSystem>> = Lazy::new(|| const_rwlock(ModFileSystem::default()));
 
@@ -247,12 +250,22 @@ fn initial_loading(_ctx: &InlineCtx) {
     // What we need for this step: a pair of (unique) hash with its filesize
     // Idea: Perhaps a ModpackBuilder or something similar that'd only give you the finished Filesystem when every Arc patching operation has been performed? Or a enum that'd shift from one state to the next until the last method.
     // GLOBAL_FILESYSTEM.write() = replacement::patch_sizes(modpack);
+    let patching_time = std::time::Instant::now();
     let modfiles: Vec<(Hash40, u64)> = modpack.mods.iter().flat_map(|mods| mods.get_patch()).collect();
     replacement::patch_sizes(&modfiles);
+    println!("File patching took {}s", patching_time.elapsed().as_secs_f32());
 
+    let fs_time = std::time::Instant::now();
     let files: HashMap<Hash40, Utf8PathBuf> = modpack.mods.iter().flat_map(|mods| mods.get_filesystem()).collect();
+    println!("Filesystem took {}s", fs_time.elapsed().as_secs_f32());
+    println!("Total time is {}s", discovery_time.elapsed().as_secs_f32());
+
+
     let mut fs = GLOBAL_FILESYSTEM.write();
-    *fs = ModFileSystem::new(files);
+    *fs = ModFileSystem::new(files.clone());
+
+    // TODO: Use a OnceCell and keep everything that doesn't require being mutated in here
+    FILESYSTEM.set(files).unwrap();
 
     // fuse::mods::install_mod_fs();
     // api::event::send_event(Event::ModFilesystemMounted);

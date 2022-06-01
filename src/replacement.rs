@@ -21,7 +21,7 @@ pub fn patch_sizes(data: &[(Hash40, u64)]) {
 
         let decomp_size = match arc.get_file_data_from_hash(*hash, region) {
             Ok(data) => {
-                println!("Patched {:#x} with size {:#x}", hash.as_u64(), size);
+                //println!("Patched {:#x} with size {:#x}", hash.as_u64(), size);
                 data.decomp_size as usize
             },
             Err(_) => {

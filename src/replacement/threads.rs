@@ -32,7 +32,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
     let mut fs = GLOBAL_FILESYSTEM.write();
 
     if let Some(path) = fs.get_physical_path(path_hash) {
-        println!("Added file '{}' to the queue.", path.yellow());
+        // info!("Added file '{}' to the queue.", path.yellow());
         fs.set_incoming_file(path_hash);
     }
     else {
@@ -44,7 +44,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
 #[hook(offset = offsets::inflate_dir_file())]
 fn inflate_dir_file(arg: u64, out_decomp_data: &mut InflateFile, comp_data: &InflateFile) -> u64 {
-    println!(
+    info!(
         "[ResInflateThread::inflate_dir_file] Incoming decompressed filesize: {:#x}",
         out_decomp_data.len()
     );
@@ -56,7 +56,6 @@ fn inflate_dir_file(arg: u64, out_decomp_data: &mut InflateFile, comp_data: &Inf
         let hash = crate::GLOBAL_FILESYSTEM.write().get_incoming_file();
 
         if let Some(hash) = hash {
-            println!("inflate_dir_file: incoming file");
             handle_file_replace(hash);
         }
     }
