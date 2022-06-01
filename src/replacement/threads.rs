@@ -29,11 +29,14 @@ fn inflate_incoming(ctx: &InlineCtx) {
         hashes::find(path_hash).bright_yellow()
     );
 
-    if let Some(path) = GLOBAL_FILESYSTEM.read().get_physical_path(path_hash) {
-        println!("Lock: {}", GLOBAL_FILESYSTEM.is_locked());
+    let mut fs = GLOBAL_FILESYSTEM.write();
+
+    if let Some(path) = fs.get_physical_path(path_hash) {
         println!("Added file '{}' to the queue.", path.yellow());
-        GLOBAL_FILESYSTEM.write().set_incoming_file(path_hash);
-        panic!("Lock: {}", GLOBAL_FILESYSTEM.is_locked_exclusive());
+        fs.set_incoming_file(path_hash);
+    }
+    else {
+        fs.get_incoming_file();
     }
 
     // Is setting incoming to None needed? Considering take() is called to acquire the incoming hash, it'd already be None.
@@ -50,7 +53,9 @@ fn inflate_dir_file(arg: u64, out_decomp_data: &mut InflateFile, comp_data: &Inf
 
     if result == 0x0 {
         // Returns 0x0 on the very last read, since they can be read in chunks
-        if let Some(hash) = crate::GLOBAL_FILESYSTEM.write().get_incoming_file() {
+        let hash = crate::GLOBAL_FILESYSTEM.write().get_incoming_file();
+
+        if let Some(hash) = hash {
             println!("inflate_dir_file: incoming file");
             handle_file_replace(hash);
         }
@@ -98,7 +103,7 @@ pub fn handle_file_replace(hash: Hash40) {
     //println!("Locked state: {}", crate::GLOBAL_FILESYSTEM.is_locked_exclusive());
     let fs = crate::GLOBAL_FILESYSTEM.read();
 
-    panic!("Past acquiring the FS");
+    println!("Past acquiring the FS");
 
     let mut buffer = unsafe {
         std::slice::from_raw_parts_mut(
