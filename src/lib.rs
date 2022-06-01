@@ -163,6 +163,7 @@ pub fn get_region_from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Region> {
     } else {
         None
     }
+}
 extern "C" {
     #[link_name = "_ZN2nn2fs17MountCacheStorageEPKc"]
     fn mount_cache_storage(string: *const u8);
@@ -181,6 +182,8 @@ pub fn strip_region_from_path<P: AsRef<Utf8Path>>(path: P) -> (Utf8PathBuf, Opti
     } else {
         (path.into(), None)
     }
+}
+
 #[skyline::hook(replace = mount_cache_storage)]
 fn mount_mod_cache_storage(_mountpoint: *const u8) -> u64 {
     0
