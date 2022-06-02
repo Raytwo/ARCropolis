@@ -183,6 +183,11 @@ pub fn strip_region_from_path<P: AsRef<Utf8Path>>(path: P) -> (Utf8PathBuf, Opti
     }
 }
 
+#[skyline::hook(replace = nn::fs::MountCacheStorage)]
+fn mount_mod_cache_storage(_mountpoint: *const u8) -> u64 {
+    0
+}
+
 pub const REGIONS: &[&str] = &[
     "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it", "eu_ru", "kr_ko", "zh_cn", "zh_tw",
 ];
@@ -225,6 +230,10 @@ fn initial_loading(_ctx: &InlineCtx) {
     check_input_on_boot();
 
     // let arc = resource::arc();
+
+    nn::fs::mount_cache_storage("cache");
+
+    skyline::install_hook!(mount_mod_cache_storage);
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
 
