@@ -231,26 +231,35 @@ fn initial_loading(_ctx: &InlineCtx) {
 
     // let arc = resource::arc();
 
-    nn::fs::mount_cache_storage("cache");
-
-    skyline::install_hook!(mount_mod_cache_storage);
+    // Will be needed to store patched files
+    // nn::fs::mount_cache_storage("cache");
+    // skyline::install_hook!(mount_mod_cache_storage);
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
 
     // Judging by observation, waiting 5 seconds for file discovery to start in a thread followed by joining here is actually a waste of time, as this function is called within 2 seconds and then has to wait anyways.
     let discovery_time = std::time::Instant::now();
-    let modpack = fs::perform_discovery();
+    let mut modpack = fs::perform_discovery();
     println!("File discovery took  {}s for {} mods", discovery_time.elapsed().as_secs_f32(), modpack.mods.len());
 
     // TODO: 1. Perform the conflict check here and display a web page
+    // Remove all of the conflicting mods from the modpack
+    let mut conflicts = modpack.get_conflict();
 
-    // TODO: This name is trash, find a new one, thanks
-    // This function should return all of the files such as plugins, configuration, patches...
+    // Walk through every conflict, removing them from the manager until there are none left
+    while let Some(conflict) = conflicts.next() {
+        // TODO: Force the user to pick one
+        // Add back the selected mod in the modpack
+        modpack.mods.push(conflict.first);
+        // Remove every future conflict involving the disabled mod
+        conflicts.rebase(&conflict.second);
+    }
+
+    // TODO 2: Get all of the "collectable" filepaths (plugins, configuration, patches...)
     // Maybe have separate methods to get NROs and patches?
-    // Maybe take advantage of the Modpack/ModDir hierarchy during discovery?
     // let collectable_files: Vec<Modfile> = modpack.mods.iter.map(|mods| fs::get_collectable_files(mods)).collect().flatten();
 
-    // TODO: 2. Get what we need to build the ModFileSystem from the Modpack
+    // TODO 3: Get what we need to build the ModFileSystem from the Modpack
 
     // What we need for this step: The modpack with conflicting files removed and collectable files taken away
     // let new_files = fs::get_additional_files();

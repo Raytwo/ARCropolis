@@ -104,24 +104,32 @@ pub enum ModpackError {
 }
 
 impl Modpack {
-    // pub fn get_file_by_hash<H: Into<Hash40>>(&self, hash: H) -> Result<Vec<u8>, ModpackError> {
-    //     let hash = hash.into();
-    //     let interner = discover::INTERNER.read();
+    pub fn get_conflict(&mut self) -> ConflictManager {
+        let conflicts: Vec<ConflictV2> = self.mods
+        .iter()
+        .map(|curr_dir| {
+            let curr_files: Vec<&ModFile> = curr_dir.files.iter().collect();
 
-    //     match self.files.get(&hash).map(|interned| interned.to_string(&interner)) {
-    //         Some(path) => {
-    //             // Does not belong here? This should apply to every source
-    //             if let Some(_handler) = acquire_extension_handler(&Hash40::from("placeholder")) {
-    //                 // handler.patch_file(&Vec::new())
-    //             }
+            // Check for conflict
+            self.mods
+            .iter()
+            .filter(move |dir| *dir != curr_dir) // Make sure we don't process the current directory
+            .filter(move |dir| dir.files.iter().any(|file| curr_files.contains(&file))) // Only keep the directories that are conflicting 
+            .map(move |conflict| {
+                ConflictV2::new(curr_dir.clone(), conflict.clone())
+            })
+        }).flatten().collect();
 
-    //             Ok(std::fs::read(path)?)
-    //         },
-    //         None => Err(ModpackError::FileMissing(hash)),
-    //     }
-    // }
+        // Remove all of the mods that are conflicting from the Modpack
+        self.mods.drain_filter(|mods| {
+            conflicts.iter().any(|conflict| conflict.first == *mods || conflict.second == *mods)
+        });
+
+        conflicts.into()
+    }
 }
 
+#[derive(Default, Clone, PartialEq, Eq)]
 pub struct ModDir {
     pub root: Utf8PathBuf,
     pub files: Vec<ModFile>,
@@ -138,6 +146,7 @@ impl ModDir {
     }
 }
 
+#[derive(Debug, Default, Clone, PartialEq, Hash, Eq, Serialize)]
 pub struct ModFile {
     pub path: Utf8PathBuf,
     pub size: u64,
@@ -149,6 +158,35 @@ pub struct Conflict {
     conflicting_mod: Utf8PathBuf,
     #[serde(rename = "Conflicting with")]
     conflict_with: Utf8PathBuf,
+}
+
+pub struct ConflictV2 {
+    pub first: ModDir,
+    pub second: ModDir,
+}
+
+impl ConflictV2 {
+    pub fn new(first: ModDir, second: ModDir) -> Self {
+        Self { first, second }
+    }
+}
+
+impl Into<ConflictManager> for Vec<ConflictV2> {
+    fn into(self) -> ConflictManager {
+        ConflictManager(self)
+    }
+}
+
+pub struct ConflictManager(Vec<ConflictV2>);
+
+impl ConflictManager {
+    pub fn rebase(&mut self, dir: &ModDir) {
+        self.0.drain_filter(|conflict| conflict.first == *dir || conflict.second == *dir);
+    }
+
+    pub fn next(&mut self) -> Option<ConflictV2> {
+        self.0.pop()
+    }
 }
 
 pub struct MsbtHandler;
