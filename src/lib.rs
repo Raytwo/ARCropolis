@@ -244,17 +244,17 @@ fn initial_loading(_ctx: &InlineCtx) {
 
     // TODO: 1. Perform the conflict check here and display a web page
     // Remove all of the conflicting mods from the modpack
-    let mut conflicts = fs::check_for_conflicts(&mut modpack);
+    let (mut modpack, conflicts) = fs::check_for_conflicts(modpack);
 
     // TODO: Probably move this in the appropriate menu when the time comes
     // Walk through every conflict, removing them from the manager until there are none left
-    while let Some(conflict) = conflicts.next() {
-        // TODO: Force the user to pick one
-        // Add back the selected mod in the modpack
-        modpack.mods.push(conflict.first);
-        // Remove every future conflict involving the disabled mod
-        conflicts.rebase(&conflict.second);
-    }
+    // while let Some(conflict) = conflicts.next() {
+    //     // TODO: Force the user to pick one
+    //     // Add back the selected mod in the modpack
+    //     modpack.mods.push(conflict.first);
+    //     // Remove every future conflict involving the disabled mod
+    //     conflicts.rebase(&conflict.second);
+    // }
 
     // TODO 2: Get all of the "collectable" filepaths (plugins, configuration, patches...)
     // Maybe have separate methods to get NROs and patches?

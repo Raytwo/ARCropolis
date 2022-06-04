@@ -95,6 +95,9 @@ pub fn get_additional_files(files: &mut Vec<ModFile>) -> Vec<ModFile> {
     files.drain_filter(|file| arc.get_file_path_index_from_hash(hash40(file.path.as_str())).is_ok() ).collect()
 }
 
+#[repr(transparent)]
+pub struct UnconflictingModpack(Modpack);
+
 #[derive(Error, Debug)]
 pub enum ModpackError {
     #[error("could not write file to the buffer")]
@@ -124,7 +127,7 @@ impl ModDir {
     }
 }
 
-pub fn check_for_conflicts(modpack: &mut Modpack) -> ConflictManager {
+pub fn check_for_conflicts(mut modpack:  Modpack) -> (UnconflictingModpack, ConflictManager) {
     let conflicts: Vec<ConflictV2> = modpack.mods
         .iter()
         .flat_map(|curr_dir| {
@@ -145,7 +148,7 @@ pub fn check_for_conflicts(modpack: &mut Modpack) -> ConflictManager {
             conflicts.iter().any(|conflict| conflict.first == *mods || conflict.second == *mods)
         });
 
-        conflicts.into()
+        (UnconflictingModpack(modpack), conflicts.into())
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Hash, Eq, Serialize)]
