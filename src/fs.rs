@@ -104,29 +104,7 @@ pub enum ModpackError {
 }
 
 impl Modpack {
-    pub fn get_conflict(&mut self) -> ConflictManager {
-        let conflicts: Vec<ConflictV2> = self.mods
-        .iter()
-        .map(|curr_dir| {
-            let curr_files: Vec<&ModFile> = curr_dir.files.iter().collect();
-
-            // Check for conflict
-            self.mods
-            .iter()
-            .filter(move |dir| *dir != curr_dir) // Make sure we don't process the current directory
-            .filter(move |dir| dir.files.iter().any(|file| curr_files.contains(&file))) // Only keep the directories that are conflicting 
-            .map(move |conflict| {
-                ConflictV2::new(curr_dir.clone(), conflict.clone())
-            })
-        }).flatten().collect();
-
-        // Remove all of the mods that are conflicting from the Modpack
-        self.mods.drain_filter(|mods| {
-            conflicts.iter().any(|conflict| conflict.first == *mods || conflict.second == *mods)
-        });
-
-        conflicts.into()
-    }
+    
 }
 
 #[derive(Default, Clone, PartialEq, Eq)]
@@ -144,6 +122,30 @@ impl ModDir {
     pub fn get_filesystem(&self) -> HashMap<Hash40, Utf8PathBuf> {
         self.files.iter().map(|file| (hash40(file.path.strip_prefix(&self.root).unwrap().as_str()), file.path.to_owned())).collect()
     }
+}
+
+pub fn check_for_conflicts(modpack: &mut Modpack) -> ConflictManager {
+    let conflicts: Vec<ConflictV2> = modpack.mods
+        .iter()
+        .flat_map(|curr_dir| {
+            let curr_files: Vec<&ModFile> = curr_dir.files.iter().collect();
+
+            // Check for conflict
+            modpack.mods
+            .iter()
+            .filter(move |dir| *dir != curr_dir) // Make sure we don't process the current directory
+            .filter(move |dir| dir.files.iter().any(|file| curr_files.contains(&file))) // Only keep the directories that are conflicting 
+            .map(move |conflict| {
+                ConflictV2::new(curr_dir.clone(), conflict.clone())
+            })
+        }).collect();
+
+        // Remove all of the mods that are conflicting from the Modpack
+        modpack.mods.drain_filter(|mods| {
+            conflicts.iter().any(|conflict| conflict.first == *mods || conflict.second == *mods)
+        });
+
+        conflicts.into()
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Hash, Eq, Serialize)]

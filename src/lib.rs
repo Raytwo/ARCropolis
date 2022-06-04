@@ -244,7 +244,7 @@ fn initial_loading(_ctx: &InlineCtx) {
 
     // TODO: 1. Perform the conflict check here and display a web page
     // Remove all of the conflicting mods from the modpack
-    let mut conflicts = modpack.get_conflict();
+    let mut conflicts = fs::check_for_conflicts(&mut modpack);
 
     // Walk through every conflict, removing them from the manager until there are none left
     while let Some(conflict) = conflicts.next() {
