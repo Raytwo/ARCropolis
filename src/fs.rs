@@ -173,9 +173,9 @@ impl ConflictV2 {
     }
 }
 
-impl Into<ConflictManager> for Vec<ConflictV2> {
-    fn into(self) -> ConflictManager {
-        ConflictManager(self)
+impl From<Vec<ConflictV2> > for ConflictManager {
+    fn from(vec: Vec<ConflictV2>) -> Self {
+        Self(vec)
     }
 }
 

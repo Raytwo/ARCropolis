@@ -246,6 +246,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Remove all of the conflicting mods from the modpack
     let mut conflicts = fs::check_for_conflicts(&mut modpack);
 
+    // TODO: Probably move this in the appropriate menu when the time comes
     // Walk through every conflict, removing them from the manager until there are none left
     while let Some(conflict) = conflicts.next() {
         // TODO: Force the user to pick one
