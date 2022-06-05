@@ -13,7 +13,7 @@
 use std::{
     fmt,
     path::Path,
-    str::FromStr, collections::HashMap,
+    str::FromStr, collections::HashMap, cell::Cell,
 };
 
 use arcropolis_api::Event;
@@ -43,7 +43,7 @@ mod resource;
 mod update;
 mod utils;
 
-use fs::ModFileSystem;
+use fs::LoadingState;
 use smash_arc::{Hash40, Region};
 
 
@@ -52,7 +52,7 @@ use crate::config::GLOBAL_CONFIG;
 // TODO: Use the interner instead of a Utf8PathBuf
 pub static FILESYSTEM: OnceCell<HashMap<Hash40, Utf8PathBuf>> = OnceCell::new();
 
-pub static GLOBAL_FILESYSTEM: Lazy<RwLock<ModFileSystem>> = Lazy::new(|| const_rwlock(ModFileSystem::default()));
+pub static LOADING_STATIC: Lazy<RwLock<LoadingState>> = Lazy::new(|| const_rwlock(LoadingState::default()));
 
 pub static CACHE_PATH: Lazy<Utf8PathBuf> = Lazy::new(|| {
     let path = utils::paths::cache().join(utils::get_game_version().to_string());
@@ -274,9 +274,6 @@ fn initial_loading(_ctx: &InlineCtx) {
     // let new_files = fs::get_additional_files();
     // replacement::perform_file_addition_idk(new_files).unwrap();
 
-    // What we need for this step: a pair of (unique) hash with its filesize
-    // Idea: Perhaps a ModpackBuilder or something similar that'd only give you the finished Filesystem when every Arc patching operation has been performed? Or a enum that'd shift from one state to the next until the last method.
-    // GLOBAL_FILESYSTEM.write() = replacement::patch_sizes(modpack);
     let patching_time = std::time::Instant::now();
     let modpack = fs::patch_sizes(modpack);
     println!("File patching took {}s", patching_time.elapsed().as_secs_f32());
@@ -285,10 +282,6 @@ fn initial_loading(_ctx: &InlineCtx) {
     let files = fs::acquire_filesystem(modpack);
     println!("Filesystem took {}s", fs_time.elapsed().as_secs_f32());
     println!("Total time is {}s", discovery_time.elapsed().as_secs_f32());
-
-
-    let mut fs = GLOBAL_FILESYSTEM.write();
-    *fs = ModFileSystem::new(files.clone());
 
     // TODO: Use a OnceCell and keep everything that doesn't require being mutated in here
     FILESYSTEM.set(files).unwrap();

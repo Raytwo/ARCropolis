@@ -18,20 +18,19 @@ pub use discover::*;
 static DEFAULT_CONFIG: &str = include_str!("../resources/override.json");
 
 #[derive(Default)]
-pub struct ModFileSystem {
-    files: HashMap<Hash40, Utf8PathBuf>,
+pub struct LoadingState {
     incoming_file: Option<Hash40>,
     remaining_bytes: usize,
 }
 
-impl ModFileSystem {
-    pub fn new(files: HashMap<Hash40, Utf8PathBuf>) -> Self {
-        Self { files, incoming_file: None, remaining_bytes: 0 }
+impl LoadingState {
+    pub fn new() -> Self {
+        Self { incoming_file: None, remaining_bytes: 0 }
     }
 
     // NOTE: Some sources such as API callbacks cannot provide a physical path. This needs proper handling
-    pub fn get_physical_path<H: Into<Hash40>>(&self, hash: H) -> Option<Utf8PathBuf> {
-        self.files.get(&hash.into()).map(|path| path.to_owned())
+    pub fn get_physical_path<H: Into<Hash40>>(&self, hash: H) -> Option<&Utf8PathBuf> {
+        FILESYSTEM.get().unwrap().get(&hash.into())
     }
 
     pub fn set_incoming_file<H: Into<Hash40>>(&mut self, hash: H) {
@@ -46,7 +45,7 @@ impl ModFileSystem {
         let hash = hash.into();
         
         self.incoming_file = Some(hash);
-        self.remaining_bytes = std::fs::metadata(self.files.get(&hash).unwrap()).unwrap().len() as _;
+        self.remaining_bytes = std::fs::metadata(FILESYSTEM.get().unwrap().get(&hash).unwrap()).unwrap().len() as _;
     }
 
     pub fn get_incoming_file(&mut self) -> Option<Hash40> {

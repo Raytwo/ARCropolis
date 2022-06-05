@@ -6,7 +6,7 @@ use super::FileInfoFlagsExt;
 use crate::{
     config, hashes, offsets, reg_w, reg_x,
     resource::{self, InflateFile, LoadInfo, LoadType},
-    GLOBAL_FILESYSTEM,
+    LOADING_STATIC,
 };
 
 #[hook(offset = offsets::inflate(), inline)]
@@ -29,7 +29,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
         hashes::find(path_hash).bright_yellow()
     );
 
-    let mut fs = GLOBAL_FILESYSTEM.write();
+    let mut fs = LOADING_STATIC.write();
 
     if let Some(path) = fs.get_physical_path(path_hash) {
         // info!("Added file '{}' to the queue.", path.yellow());
@@ -53,7 +53,7 @@ fn inflate_dir_file(arg: u64, out_decomp_data: &mut InflateFile, comp_data: &Inf
 
     if result == 0x0 {
         // Returns 0x0 on the very last read, since they can be read in chunks
-        let hash = crate::GLOBAL_FILESYSTEM.write().get_incoming_file();
+        let hash = crate::LOADING_STATIC.write().get_incoming_file();
 
         if let Some(hash) = hash {
             handle_file_replace(hash);
@@ -97,7 +97,7 @@ pub fn handle_file_replace(hash: Hash40) {
         return
     }
 
-    let fs = crate::GLOBAL_FILESYSTEM.read();
+    let fs = crate::LOADING_STATIC.read();
 
     let mut buffer = unsafe {
         std::slice::from_raw_parts_mut(
