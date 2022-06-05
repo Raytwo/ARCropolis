@@ -13,7 +13,7 @@
 use std::{
     fmt,
     path::Path,
-    str::FromStr, collections::HashMap, cell::Cell,
+    str::FromStr, collections::HashMap,
 };
 
 use arcropolis_api::Event;
@@ -47,7 +47,7 @@ use fs::LoadingState;
 use smash_arc::{Hash40, Region};
 
 
-use crate::config::GLOBAL_CONFIG;
+use crate::{config::GLOBAL_CONFIG, replacement::config::ModConfig, fs::ModFile};
 
 // TODO: Use the interner instead of a Utf8PathBuf
 pub static FILESYSTEM: OnceCell<HashMap<Hash40, Utf8PathBuf>> = OnceCell::new();
@@ -267,6 +267,21 @@ fn initial_loading(_ctx: &InlineCtx) {
     let (modpack, collected) = fs::collect_files(modpack);
     println!("File collecting took {}s", collect_time.elapsed().as_secs_f32());
 
+    let mut mod_config: ModConfig = ModConfig::default();
+    let configs: Vec<&ModFile> = collected.iter().filter(|path| path.path.file_name().unwrap() == "config.json").collect();
+
+    configs.iter().for_each(|&path| {
+        let cfg = std::fs::read_to_string(&path.path)
+                .ok()
+                .and_then(|x| serde_json::from_str::<ModConfig>(x.as_str()).ok());
+
+        if let Some(cfg) = cfg {
+            mod_config.merge(cfg);
+        } else {
+            warn!("Could not read/parse JSON data from file {}", path.path);
+        }
+    });
+
 
     // TODO 3: Get what we need to build the ModFileSystem from the Modpack
 
@@ -283,7 +298,6 @@ fn initial_loading(_ctx: &InlineCtx) {
     println!("Filesystem took {}s", fs_time.elapsed().as_secs_f32());
     println!("Total time is {}s", discovery_time.elapsed().as_secs_f32());
 
-    // TODO: Use a OnceCell and keep everything that doesn't require being mutated in here
     FILESYSTEM.set(files).unwrap();
 
     // fuse::mods::install_mod_fs();

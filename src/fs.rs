@@ -182,7 +182,7 @@ pub fn patch_sizes(modpack: CollectedModpack) -> PatchedModpack {
                 data.decomp_size as usize
             },
             Err(_) => {
-                warn!("Failed to patch {:#x} filesize! It should be {:#x}.", hash.as_u64(), size.green());
+                //warn!("Failed to patch {:#x} filesize! It should be {:#x}.", hash.as_u64(), size.green());
                 continue;
             },
         };
