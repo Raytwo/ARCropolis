@@ -65,7 +65,6 @@ pub fn perform_discovery() -> Modpack {
     //     // No matter what, the cache has to be updated
     //     storage.set_field_json("mod_cache", &new_cache).unwrap();
     // }
-    let _fs = crate::GLOBAL_FILESYSTEM.write();
 
     discover_mods(umm_path)
 
@@ -92,51 +91,26 @@ pub fn perform_discovery() -> Modpack {
     
 }
 
-/// Utility method to know if a path shouldn't be checked for conflicts
-pub fn is_collectable(x: &Utf8Path) -> bool {
-    match x.file_name() {
-        Some(name) => {
-            static RESERVED_NAMES: &[&str] = &["config.json", "plugin.nro"];
-
-            static PATCH_EXTENSIONS: &[&str] = &["prcx", "prcxml", "stdatx", "stdatxml", "stprmx", "stprmxml", "xmsbt"];
-
-            RESERVED_NAMES.contains(&name) || PATCH_EXTENSIONS.iter().any(|x| name.ends_with(x))
-        },
-        _ => false,
-    }
-}
-
 pub fn discover_in_mods<P: AsRef<Utf8Path>>(root: P) -> ModDir {
     let root = root.as_ref();
 
-    let mut files: Vec<ModFile> = Vec::new();
-    let mut patches: Vec<Utf8PathBuf> = Vec::new();
-
-    WalkDir::new(root).min_depth(1).into_iter().flatten().for_each(|entry| {
+    let files = WalkDir::new(root).min_depth(1).into_iter().flatten().filter_map(|entry| {
         // Ignore the directories, only care about the files
         if entry.file_type().is_file() && entry.path().extension().is_some() {
-            let path = Utf8Path::from_path(entry.path()).unwrap();
-
-            // Maybe move this later?
-            // Is it one of the paths that we need to keep track of? (plugin, config, patches, ...)
-            if is_collectable(path) {
-                patches.push(path.into());
-            } else {
-                let (path, _) = crate::strip_region_from_path(path);
-                files.push(ModFile { path, size: entry.metadata().unwrap().len() });
-            }
+            //let (path, _) = crate::strip_region_from_path(Utf8Path::from_path(entry.path()).unwrap());
+            Some(ModFile { path: Utf8PathBuf::from_path_buf(entry.path().into()).unwrap(), size: entry.metadata().unwrap().len() })
+        } else {
+            None
         }
-    });
+    }).collect();
 
-    ModDir { root: root.to_owned(), files, patches }
+    ModDir { root: root.to_owned(), files }
 }
 
 pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) -> Modpack {
     let root = root.as_ref();
 
     let presets = crate::config::presets::get_active_preset().unwrap();
-
-    // let mut conflict_list: HashMap<Conflict, Vec<Utf8PathBuf>> = HashMap::new();
 
     let mods = WalkDir::new(root)
         .min_depth(1)
@@ -148,41 +122,7 @@ pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) -> Modpack {
             entry.file_type().is_dir() && presets.contains(&hash40(entry.path().to_str().unwrap()))
         }).flatten()
         .map(|entry| {
-            let path = Utf8Path::from_path(entry.path()).unwrap();
-
-            discover_in_mods(path)
-
-            // // Remove the conflicting files from mod_files and store them
-            // let conflicts: HashMap<Hash40, Utf8PathBuf> = mod_files.files.drain_filter(|hash, _| files.contains_key(hash)).collect();
-
-            // // TODO: Move this in initial_loading so we can display the conflict handler before the game loads files?
-            // // If any file is conflicting with what we already have found, discard this mod and warn the user.
-            // if !conflicts.is_empty() {
-            //     conflicts.iter().for_each(|(hash, full_path)| {
-            //         // The part of the path that is used to navigate data.arc
-            //         let local_path = full_path.strip_prefix(path).unwrap();
-            //         // Get the root of the mod we're conflicting with
-            //         let first_mod_root = files.get(hash).unwrap().as_str().strip_suffix(local_path.as_str()).unwrap();
-
-            //         let conflict = Conflict {
-            //             conflicting_mod: path.strip_prefix("sd:/ultimate/mods/").unwrap().into(),
-            //             conflict_with: first_mod_root.strip_prefix("sd:/ultimate/mods/").unwrap().trim_end_matches('/').into(),
-            //         };
-
-            //         match conflict_list.get_mut(&conflict) {
-            //             // We already have an existing conflict for these two mods, so add the file to that list
-            //             Some(entries) => entries.push(local_path.into()),
-            //             // There wasn't an existing conflict yet, add it to the list
-            //             None => {
-            //                 conflict_list.insert(conflict, vec![local_path.into()]);
-            //             },
-            //         }
-            //     });
-            // } else {
-
-                // files.extend(mod_files.files);
-                // patches.extend(mod_files.patches);
-            // }
+            discover_in_mods(Utf8Path::from_path(entry.path()).unwrap())
 
             // for path in paths {
             //     println!("{}", path.to_string(&interner));

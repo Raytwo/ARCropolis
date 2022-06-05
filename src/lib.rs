@@ -13,7 +13,7 @@
 use std::{
     fmt,
     path::Path,
-    str::FromStr, collections::{HashSet, HashMap},
+    str::FromStr, collections::HashMap,
 };
 
 use arcropolis_api::Event;
@@ -44,7 +44,7 @@ mod update;
 mod utils;
 
 use fs::ModFileSystem;
-use smash_arc::{Hash40, Region, hash40};
+use smash_arc::{Hash40, Region};
 
 
 use crate::config::GLOBAL_CONFIG;
@@ -239,12 +239,16 @@ fn initial_loading(_ctx: &InlineCtx) {
 
     // Judging by observation, waiting 5 seconds for file discovery to start in a thread followed by joining here is actually a waste of time, as this function is called within 2 seconds and then has to wait anyways.
     let discovery_time = std::time::Instant::now();
-    let mut modpack = fs::perform_discovery();
+    println!("Starting file discovery");
+    let modpack = fs::perform_discovery();
     println!("File discovery took  {}s for {} mods", discovery_time.elapsed().as_secs_f32(), modpack.mods.len());
 
     // TODO: 1. Perform the conflict check here and display a web page
     // Remove all of the conflicting mods from the modpack
-    let (mut modpack, conflicts) = fs::check_for_conflicts(modpack);
+    let conflict_time = std::time::Instant::now();
+
+    let (modpack, conflicts) = fs::check_for_conflicts(modpack);
+    println!("Conflict checks took {}s", conflict_time.elapsed().as_secs_f32());
 
     // TODO: Probably move this in the appropriate menu when the time comes
     // Walk through every conflict, removing them from the manager until there are none left
@@ -259,6 +263,10 @@ fn initial_loading(_ctx: &InlineCtx) {
     // TODO 2: Get all of the "collectable" filepaths (plugins, configuration, patches...)
     // Maybe have separate methods to get NROs and patches?
     // let collectable_files: Vec<Modfile> = modpack.mods.iter.map(|mods| fs::get_collectable_files(mods)).collect().flatten();
+    let collect_time = std::time::Instant::now();
+    let (modpack, collected) = fs::collect_files(modpack);
+    println!("File collecting took {}s", collect_time.elapsed().as_secs_f32());
+
 
     // TODO 3: Get what we need to build the ModFileSystem from the Modpack
 
@@ -270,12 +278,11 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Idea: Perhaps a ModpackBuilder or something similar that'd only give you the finished Filesystem when every Arc patching operation has been performed? Or a enum that'd shift from one state to the next until the last method.
     // GLOBAL_FILESYSTEM.write() = replacement::patch_sizes(modpack);
     let patching_time = std::time::Instant::now();
-    let modfiles: Vec<(Hash40, u64)> = modpack.mods.iter().flat_map(|mods| mods.get_patch()).collect();
-    replacement::patch_sizes(&modfiles);
+    let modpack = fs::patch_sizes(modpack);
     println!("File patching took {}s", patching_time.elapsed().as_secs_f32());
 
     let fs_time = std::time::Instant::now();
-    let files: HashMap<Hash40, Utf8PathBuf> = modpack.mods.iter().flat_map(|mods| mods.get_filesystem()).collect();
+    let files = fs::acquire_filesystem(modpack);
     println!("Filesystem took {}s", fs_time.elapsed().as_secs_f32());
     println!("Total time is {}s", discovery_time.elapsed().as_secs_f32());
 
@@ -380,7 +387,7 @@ pub fn main() {
         let err_msg = format!("thread has panicked at '{}', {}", msg, location);
         skyline::error::show_error(
             69,
-            "Skyline plugin as panicked! Please open the details and send a screenshot to the developer, then close the game.\n",
+            "Skyline plugin as panicked! Please open the details and send a screenshot to the developer, then close the game.\0",
             err_msg.as_str(),
         );
     }));

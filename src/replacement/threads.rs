@@ -97,12 +97,7 @@ pub fn handle_file_replace(hash: Hash40) {
         return
     }
 
-    println!("Before acquiring the FS");
-
-    //println!("Locked state: {}", crate::GLOBAL_FILESYSTEM.is_locked_exclusive());
     let fs = crate::GLOBAL_FILESYSTEM.read();
-
-    println!("Past acquiring the FS");
 
     let mut buffer = unsafe {
         std::slice::from_raw_parts_mut(

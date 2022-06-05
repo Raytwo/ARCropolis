@@ -1,12 +1,12 @@
-use std::{collections::{HashMap, HashSet}, io::Write, path::PathBuf, sync::atomic::AtomicBool};
+use std::{collections::HashMap, io::Write};
 
-use camino::Utf8PathBuf;
+use camino::{Utf8PathBuf, Utf8Path};
+use owo_colors::OwoColorize;
 use serde::Serialize;
 use smash_arc::{Hash40, ArcLookup, hash40};
 use thiserror::Error;
 
-use self::interner::InternedPath;
-use crate::{hashes, FILESYSTEM};
+use crate::{hashes, FILESYSTEM, replacement::LoadedArcEx};
 
 // pub mod api;
 // mod event;
@@ -86,17 +86,17 @@ pub struct Modpack {
     // files: HashMap<Hash40, InternedPath<{ discover::MAX_COMPONENT_COUNT }>>,
 }
 
-pub fn look_for_conflicts(_modpack: Modpack) {
-
-}
-
 pub fn get_additional_files(files: &mut Vec<ModFile>) -> Vec<ModFile> {
     let arc = crate::resource::arc();
     files.drain_filter(|file| arc.get_file_path_index_from_hash(hash40(file.path.as_str())).is_ok() ).collect()
 }
 
-#[repr(transparent)]
 pub struct UnconflictingModpack(Modpack);
+pub struct CollectedModpack(Modpack);
+
+pub struct PatchedModpack(Modpack);
+
+
 
 #[derive(Error, Debug)]
 pub enum ModpackError {
@@ -114,7 +114,6 @@ impl Modpack {
 pub struct ModDir {
     pub root: Utf8PathBuf,
     pub files: Vec<ModFile>,
-    patches: Vec<Utf8PathBuf>,
 }
 
 impl ModDir {
@@ -128,33 +127,92 @@ impl ModDir {
 }
 
 pub fn check_for_conflicts(mut modpack:  Modpack) -> (UnconflictingModpack, ConflictManager) {
-    let conflicts: Vec<ConflictV2> = modpack.mods
-        .iter()
-        .flat_map(|curr_dir| {
-            let curr_files: Vec<&ModFile> = curr_dir.files.iter().collect();
+    // let conflicts: Vec<ConflictV2> = modpack.mods
+    //     .iter()
+    //     .flat_map(|curr_dir| {
+    //         let curr_files: Vec<&ModFile> = curr_dir.files.iter().collect();
 
-            // Check for conflict
-            modpack.mods
-            .iter()
-            .filter(move |dir| *dir != curr_dir) // Make sure we don't process the current directory
-            .filter(move |dir| dir.files.iter().any(|file| curr_files.contains(&file))) // Only keep the directories that are conflicting 
-            .map(move |conflict| {
-                ConflictV2::new(curr_dir.clone(), conflict.clone())
-            })
-        }).collect();
+    //         // Check for conflict
+    //         modpack.mods
+    //         .iter()
+    //         .filter(move |dir| *dir != curr_dir) // Make sure we don't process the current directory
+    //         .filter(move |dir| dir.files.iter().any(|file| curr_files.contains(&file))) // Only keep the directories that are conflicting 
+    //         .map(move |conflict| {
+    //             ConflictV2::new(curr_dir.clone(), conflict.clone())
+    //         })
+    //     }).collect();
 
-        // Remove all of the mods that are conflicting from the Modpack
-        modpack.mods.drain_filter(|mods| {
-            conflicts.iter().any(|conflict| conflict.first == *mods || conflict.second == *mods)
-        });
+    //     // Remove all of the mods that are conflicting from the Modpack
+    //     modpack.mods.drain_filter(|mods| {
+    //         conflicts.iter().any(|conflict| conflict.first == *mods || conflict.second == *mods)
+    //     });
 
-        (UnconflictingModpack(modpack), conflicts.into())
+        (UnconflictingModpack(modpack), ConflictManager(Vec::new()))
+}
+
+/// Utility method to know if a path shouldn't be checked for conflicts
+pub fn is_collectable(x: &Utf8Path) -> bool {
+    match x.file_name() {
+        Some(name) => {
+            static RESERVED_NAMES: &[&str] = &["config.json", "plugin.nro"];
+
+            static PATCH_EXTENSIONS: &[&str] = &["prcx", "prcxml", "stdatx", "stdatxml", "stprmx", "stprmxml", "xmsbt"];
+
+            RESERVED_NAMES.contains(&name) || PATCH_EXTENSIONS.iter().any(|x| name.ends_with(x))
+        },
+        _ => false,
+    }
+}
+
+pub fn collect_files(mut modpack: UnconflictingModpack) -> (CollectedModpack, Vec<ModFile>) {
+    let collected: Vec<ModFile> = modpack.0.mods.iter_mut().flat_map(|dirs| dirs.files.drain_filter(|file|is_collectable(&file.path)) ).collect();
+    (CollectedModpack(modpack.0), collected)
+}
+
+pub fn patch_sizes(modpack: CollectedModpack) -> PatchedModpack {
+    let arc = crate::resource::arc_mut();
+    let region = crate::config::region();
+
+    let data: Vec<(Hash40, u64)> = modpack.0.mods.iter().flat_map(|mods| mods.get_patch()).collect();
+
+    for (hash, size) in data {
+
+        let decomp_size = match arc.get_file_data_from_hash(hash, region) {
+            Ok(data) => {
+                //println!("Patched {:#x} with size {:#x}", hash.as_u64(), size);
+                data.decomp_size as usize
+            },
+            Err(_) => {
+                warn!("Failed to patch {:#x} filesize! It should be {:#x}.", hash.as_u64(), size.green());
+                continue;
+            },
+        };
+
+        if size as usize > decomp_size {
+            if let Ok(old_size) = arc.patch_filedata(hash, size as u32, region) {
+                info!("File {:#x} has a new decompressed filesize! {:#x} -> {:#x}", hash.as_u64(), old_size.red(), size.green());
+            }
+        }
+    }
+
+    PatchedModpack(modpack.0)
+}
+
+pub fn acquire_filesystem(modpack: PatchedModpack) -> HashMap<Hash40, Utf8PathBuf> {
+    modpack.0.mods.iter().flat_map(|mods| mods.get_filesystem()).collect()
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Hash, Eq, Serialize)]
 pub struct ModFile {
     pub path: Utf8PathBuf,
     pub size: u64,
+}
+
+impl ModFile {
+    pub fn hash40(&self) -> Hash40 {
+        // Need a method that checks for stream and all
+        hash40(self.path.as_str())
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Hash, Eq, Serialize)]
