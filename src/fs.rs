@@ -675,7 +675,7 @@ impl GlobalFilesystem {
     pub fn get_sum_size(&self) -> Option<usize> {
         match self {
             Self::Initialized(fs) => Some(fs.get_sum_size()),
-            _ => None
+            _ => None,
         }
     }
 }

@@ -2,7 +2,8 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    path::Path, sync::Arc,
+    path::Path,
+    sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
@@ -203,7 +204,7 @@ pub fn show_arcadia(workspace: Option<String>, mod_size: usize) {
             },
             ArcadiaMessage::GetModSize => {
                 session.send(format!("{{ \"mod_size\": {} }}", mod_size).as_str());
-            }
+            },
             ArcadiaMessage::Closure => {
                 session.exit();
                 session.wait_for_exit();
