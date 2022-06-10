@@ -1,6 +1,6 @@
 use std::{
     ops::{Index, IndexMut},
-    sync::atomic::AtomicU32,
+    sync::atomic::{AtomicU32, Ordering},
 };
 
 use skyline::nn;
@@ -35,6 +35,36 @@ pub struct LoadedData {
     pub flags: u8,
     pub version: u32,
     pub unk: u8,
+}
+
+impl LoadedData {
+    pub fn new() -> Self {
+        Self {
+            data: std::ptr::null(),
+            ref_count: AtomicU32::new(0),
+            is_used: false,
+            state: LoadState::Unloaded,
+            file_flags2: false,
+            flags: 0,
+            version: 0,
+            unk: 0,
+        }
+    }
+}
+
+impl Clone for LoadedData {
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data,
+            ref_count: AtomicU32::new(self.ref_count.load(Ordering::SeqCst)),
+            is_used: self.is_used,
+            state: self.state,
+            file_flags2: self.file_flags2,
+            flags: self.flags,
+            version: self.version,
+            unk: self.unk,
+        }
+    }
 }
 
 #[derive(Debug)]

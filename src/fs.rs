@@ -59,12 +59,12 @@ impl CachedFilesystem {
             let full_path = root.join(local);
             if !full_path.exists() {
                 warn!("Collected path at {} does not exist.", full_path.display());
-                continue
+                continue;
             }
 
             if !full_path.ends_with("config.json") {
                 trace!("Skipping path {} while loading all configs", full_path.display());
-                continue
+                continue;
             }
 
             // Read the file data and map it to a json. If that fails, just skip this current JSON.
@@ -243,7 +243,7 @@ impl CachedFilesystem {
                     hash.0,
                     size.green()
                 );
-                return None
+                return None;
             },
         };
 
@@ -286,7 +286,7 @@ impl CachedFilesystem {
                 hashes::find(hash),
                 hash.0
             );
-            return None
+            return None;
         };
 
         match self.loader.load(path) {
@@ -406,16 +406,16 @@ impl CachedFilesystem {
         // Go through and add any files that were not found in the data.arc
         self.loader.walk_patch(|node, ty| {
             if node.get_local().is_stream() || !ty.is_file() {
-                return
+                return;
             }
 
             let _hash = if let Ok(hash) = node.get_local().smash_hash() {
                 if context.contains_file(hash) {
-                    return
+                    return;
                 }
                 hash
             } else {
-                return
+                return;
             };
 
             replacement::addition::add_file(&mut context, node.get_local());
@@ -499,11 +499,9 @@ impl GlobalFilesystem {
     pub fn finish(self, _arc: &'static LoadedArc) -> Result<Self, FilesystemUninitializedError> {
         match self {
             Self::Uninitialized => Err(FilesystemUninitializedError),
-            Self::Promised(promise) => {
-                match promise.join() {
-                    Ok(launchpad) => Ok(Self::Initialized(Box::new(CachedFilesystem::make_from_promise(launchpad)))),
-                    Err(_) => Err(FilesystemUninitializedError),
-                }
+            Self::Promised(promise) => match promise.join() {
+                Ok(launchpad) => Ok(Self::Initialized(Box::new(CachedFilesystem::make_from_promise(launchpad)))),
+                Err(_) => Err(FilesystemUninitializedError),
             },
             Self::Initialized(filesystem) => Ok(Self::Initialized(filesystem)),
         }
@@ -653,7 +651,9 @@ impl GlobalFilesystem {
 
     pub fn handle_api_request(&mut self, call: api::PendingApiCall) {
         debug!("Incoming API request");
-        if let Self::Initialized(fs) = self { fs.handle_late_api_call(call) }
+        if let Self::Initialized(fs) = self {
+            fs.handle_late_api_call(call)
+        }
     }
 
     pub fn get_cached_size(&self, hash: Hash40) -> Option<usize> {

@@ -6,7 +6,7 @@ use smash_arc::*;
 use super::{extensions::*, lookup};
 use crate::{
     config, hashes,
-    resource::{self, LoadedFilepath},
+    resource::{self, LoadedData, LoadedFilepath},
 };
 
 pub static SHARED_FILE_INDEX: Lazy<u32> = Lazy::new(|| resource::arc().get_shared_data_index());
@@ -25,7 +25,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
                 hashes::find(hash),
                 hash.0
             );
-            return
+            return;
         },
     };
 
@@ -40,7 +40,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
             hashes::find(hash),
             hash.0
         );
-        return
+        return;
     }
 
     // Here we set the length to 255, because no path in the game even comes close to that long we should be fine.
@@ -114,7 +114,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
         // Don't worry about files in our ignore list
         // If this seems confusing, note that the `hash_ignore` comes from files that we do our preprocessing on (i.e. Dark Samus models for victory screen)
         if hash_ignore.contains(&dependent_hash) {
-            continue
+            continue;
         }
         // Get the DirInfo and the child index of the dependent hash, if it doesn't exist... then just move on to the next one ig
         let (dir_hash, child_idx) = match lookup::get_dir_entry_for_file(dependent_hash) {
@@ -127,7 +127,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
                     hashes::find(hash),
                     hash.0
                 );
-                continue
+                continue;
             },
         };
 
@@ -142,7 +142,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
                     hashes::find(hash),
                     hash.0
                 );
-                continue
+                continue;
             },
         };
 
@@ -170,19 +170,19 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
     // Funnily enough, we have to actually push on LoadedFilepaths, because just allocating space for it is bad as it won't clear the data if there
     // are zero references
     ctx.loaded_filepaths.push(LoadedFilepath::default());
-    ctx.loaded_datas.reserve(1);
+    ctx.loaded_datas.push(LoadedData::new());
 }
 
 fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: Hash40) {
     // Ignore the provided hash if it is contained in our list of ignored files
     if hash_ignore.contains(&hash) {
-        return
+        return;
     }
 
     // Check if the file is stored in our lookup table (the `is_shared_search` field)
     if !lookup::is_shared_file(hash) {
         trace!("File '{}' ({:#x}) did not need to be unshared.", hashes::find(hash), hash.0);
-        return
+        return;
     }
 
     // Get the shared file path index from the LoadedArc
@@ -198,7 +198,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
                 hashes::find(hash),
                 hash.0
             );
-            return
+            return;
         },
     };
 
@@ -211,7 +211,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
                 hashes::find(hash),
                 hash.0
             );
-            return
+            return;
         },
     };
 
@@ -224,7 +224,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
                 hashes::find(hash),
                 hash.0
             );
-            return
+            return;
         },
     };
 
@@ -238,7 +238,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
                 [usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(current_path_index)].path.index() as usize].file_info_index)];
             file_info.flags.set_standalone_file(true);
             if ctx.arc.get_file_in_folder(file_info, config::region()).file_data_index.0 < *SHARED_FILE_INDEX {
-                return
+                return;
             }
         },
         Ok(_) => {},
@@ -248,7 +248,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
                 hashes::find(hash),
                 hash.0
             );
-            return
+            return;
         },
     }
 
@@ -347,7 +347,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
         .set_index(new_info_indice_idx.0);
 
     // we only need to reserve memory here, since none of these are active
-    ctx.loaded_datas.reserve(1);
+    ctx.loaded_datas.push(LoadedData::new());
 
     // The reasoning for this is that there is something called "source" files, which is basically the only file in the
     // shared file chain that contains the actual data. For example, let's say that Marth's source file for his model's `model.numdlb`
@@ -394,7 +394,7 @@ fn reshare_file_group(ctx: &mut AdditionContext, dir_info: Range<usize>, file_gr
                 && !file_group.contains(&usize::from(shared_idx))
                 && !referenced_file_infos.contains(&shared_idx))
         {
-            continue
+            continue;
         }
 
         ctx.file_infos[usize::from(dir_index)].flags.set_standalone_file(true);

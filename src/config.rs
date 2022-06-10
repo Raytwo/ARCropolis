@@ -159,20 +159,20 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
     if umm_path().exists() {
         // TODO: Turn this into a map and use Collect
         for entry in WalkDir::new(umm_path()).max_depth(1).into_iter().flatten() {
-                let path = entry.path();
+            let path = entry.path();
 
-                // If the mod isn't disabled, add it to the preset
-                if path
-                    .file_name()
-                    .and_then(|name| name.to_str())
-                    .map(|name| !name.starts_with('.'))
-                    .unwrap_or(false)
-                {
-                    presets.insert(Hash40::from(path.to_str().unwrap()));
-                } else {
-                    // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
-                    std::fs::rename(path, format!("sd:/ultimate/mods/{}", &path.file_name().unwrap().to_str().unwrap()[1..])).unwrap();
-                }
+            // If the mod isn't disabled, add it to the preset
+            if path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| !name.starts_with('.'))
+                .unwrap_or(false)
+            {
+                presets.insert(Hash40::from(path.to_str().unwrap()));
+            } else {
+                // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
+                std::fs::rename(path, format!("sd:/ultimate/mods/{}", &path.file_name().unwrap().to_str().unwrap()[1..])).unwrap();
+            }
         }
     }
 
@@ -261,7 +261,11 @@ pub fn region() -> Region {
 }
 
 pub fn region_str() -> String {
-    let region: String = GLOBAL_CONFIG.lock().unwrap().get_field("region").unwrap_or_else(|_| String::from("us_en"));
+    let region: String = GLOBAL_CONFIG
+        .lock()
+        .unwrap()
+        .get_field("region")
+        .unwrap_or_else(|_| String::from("us_en"));
     region
 }
 
@@ -284,7 +288,11 @@ pub fn extra_paths() -> Vec<String> {
 }
 
 pub fn logger_level() -> String {
-    let level: String = GLOBAL_CONFIG.lock().unwrap().get_field("logging_level").unwrap_or_else(|_| String::from("Warn"));
+    let level: String = GLOBAL_CONFIG
+        .lock()
+        .unwrap()
+        .get_field("logging_level")
+        .unwrap_or_else(|_| String::from("Warn"));
     level
 }
 

@@ -86,11 +86,9 @@ impl SearchContext {
     pub fn get_folder_path_mut(&mut self, hash: Hash40) -> Option<&mut FolderPathListEntry> {
         match self.search.get_folder_path_index_from_hash(hash) {
             Ok(entry) => Some(&mut self.folder_paths[entry.index() as usize]),
-            Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(&mut self.folder_paths[*index]),
-                    None => None,
-                }
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(&mut self.folder_paths[*index]),
+                None => None,
             },
         }
     }
@@ -180,12 +178,7 @@ impl LoadedArcEx for LoadedArc {
         let file_datas = CppVector::from_slice(arc.get_file_datas());
 
         let loaded_filepaths = CppVector::from_slice(filesystem_info.get_loaded_filepaths());
-        let loaded_datas = unsafe {
-            let loaded_datas = filesystem_info.get_loaded_datas();
-            let mut vec = CppVector::with_capacity(loaded_datas.len());
-            std::ptr::copy_nonoverlapping(loaded_datas.as_ptr(), vec.as_mut_ptr(), loaded_datas.len());
-            vec
-        };
+        let loaded_datas = CppVector::clone_from_slice(filesystem_info.get_loaded_datas());
 
         AdditionContext {
             arc,
@@ -221,8 +214,8 @@ impl LoadedArcEx for LoadedArc {
         let (file_infos, file_info_len) = (file_infos.as_mut_ptr(), file_infos.len());
         let (info_to_datas, info_to_data_len) = (info_to_datas.as_mut_ptr(), info_to_datas.len());
         let (file_datas, file_data_len) = (file_datas.as_mut_ptr(), file_datas.len());
-        let (loaded_filepaths, _) = (loaded_filepaths.as_mut_ptr(), loaded_filepaths.len());
-        let (loaded_datas, _) = (loaded_datas.as_mut_ptr(), loaded_datas.len());
+        let (loaded_filepaths, loaded_filepath_len) = (loaded_filepaths.as_mut_ptr(), loaded_filepaths.len());
+        let (loaded_datas, loaded_data_len) = (loaded_datas.as_mut_ptr(), loaded_datas.len());
 
         let header = unsafe { &mut *(self.fs_header as *mut FileSystemHeader) };
 
@@ -244,10 +237,10 @@ impl LoadedArcEx for LoadedArc {
         let fs_info = resource::filesystem_info_mut();
 
         fs_info.loaded_filepaths = loaded_filepaths;
-        fs_info.loaded_filepath_len = filepath_len as u32;
+        fs_info.loaded_filepath_len = loaded_filepath_len as u32;
 
         fs_info.loaded_datas = loaded_datas;
-        fs_info.loaded_data_len = info_index_len as u32;
+        fs_info.loaded_data_len = loaded_data_len as u32;
 
         self.resort_file_hashes();
     }
@@ -365,7 +358,7 @@ pub trait SearchEx: SearchLookup {
         let index_idx = folder_path.get_first_child_index();
 
         if index_idx == 0xFF_FFFF {
-            return Err(LookupError::Missing)
+            return Err(LookupError::Missing);
         }
 
         let path_entry_index = self.get_path_list_indices()[index_idx];
@@ -379,7 +372,7 @@ pub trait SearchEx: SearchLookup {
     fn get_next_child_in_folder_mut(&mut self, current_child: &PathListEntry) -> Result<&mut PathListEntry, LookupError> {
         let index_idx = current_child.path.index() as usize;
         if index_idx == 0xFF_FFFF {
-            return Err(LookupError::Missing)
+            return Err(LookupError::Missing);
         }
 
         let path_entry_index = self.get_path_list_indices()[index_idx];
@@ -584,11 +577,9 @@ impl FromPathExt for FilePath {
         };
 
         let ext_hash = match path.extension().and_then(|x| x.to_str()) {
-            Some(str) => {
-                match get_smash_hash(str) {
-                    Ok(hash) => hash,
-                    Err(_) => return None,
-                }
+            Some(str) => match get_smash_hash(str) {
+                Ok(hash) => hash,
+                Err(_) => return None,
             },
             None => return None,
         };
@@ -677,11 +668,9 @@ impl FromPathExt for PathListEntry {
         };
 
         let ext_hash = match path.extension().and_then(|x| x.to_str()) {
-            Some(str) => {
-                match get_smash_hash(str) {
-                    Ok(hash) => hash,
-                    Err(_) => return None,
-                }
+            Some(str) => match get_smash_hash(str) {
+                Ok(hash) => hash,
+                Err(_) => return None,
             },
             None => return None,
         };

@@ -3,7 +3,12 @@ use std::{collections::HashSet, path::Path};
 use smash_arc::*;
 
 use super::{lookup, AdditionContext, FromPathExt, SearchContext};
-use crate::{hashes, replacement::FileInfoFlagsExt, resource::LoadedFilepath, PathExtension};
+use crate::{
+    hashes,
+    replacement::FileInfoFlagsExt,
+    resource::{LoadedData, LoadedFilepath},
+    PathExtension,
+};
 
 pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
     // Create a FilePath from the path that's passed in
@@ -11,7 +16,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
         file_path
     } else {
         error!("Failed to generate a FilePath from {}!", path.display());
-        return
+        return;
     };
 
     // Create a new FilePathIdx by getting the length of all filepaths in the vector
@@ -32,7 +37,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
         Region::None,
     );
 
-    // Create a new FileInfoIndex with the created file_info_idx above and a dir offset index of 
+    // Create a new FileInfoIndex with the created file_info_idx above and a dir offset index of
     let new_info_indice_idx = FileInfoIndex {
         dir_offset_index: 0xFF_FFFF,
         file_info_index: file_info_idx,
@@ -81,7 +86,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
 
     // Push default values to the loaded_(filepaths/datas) to make it match up with the other vectors length
     ctx.loaded_filepaths.push(LoadedFilepath::default());
-    ctx.loaded_datas.reserve(1);
+    ctx.loaded_datas.push(LoadedData::new());
 
     // Insert the added FilePath's path and it's index to the context's added_files vector
     ctx.added_files.insert(file_path.path.hash40(), filepath_idx);
@@ -99,7 +104,7 @@ pub fn add_shared_file(ctx: &mut AdditionContext, path: &Path, shared_to: Hash40
                 hashes::find(shared_to),
                 shared_to.0
             );
-            return
+            return;
         },
     };
 
@@ -108,7 +113,7 @@ pub fn add_shared_file(ctx: &mut AdditionContext, path: &Path, shared_to: Hash40
         Some(filepath) => filepath,
         None => {
             error!("Failed to convert path '{}' to FilePath struct!", path.display());
-            return
+            return;
         },
     };
 
@@ -136,40 +141,38 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
                 ctx.path_list_indices.push(ctx.paths.len() as u32);
                 ctx.paths.push(new_path);
                 ctx.folder_paths.push(new_folder_path);
-                return
+                return;
             } else {
                 error!("Unable to generate new folder path list entry for {}", path.display());
-                return
+                return;
             }
         },
-        Some(parent) => {
-            match parent.smash_hash() {
-                Ok(hash) => {
-                    let len = ctx.path_list_indices.len();
-                    match ctx.get_folder_path_mut(hash) {
-                        Some(parent) => (parent, len),
-                        None => {
-                            add_searchable_folder_recursive(ctx, parent);
-                            let len = ctx.path_list_indices.len();
-                            match ctx.get_folder_path_mut(hash) {
-                                Some(parent) => (parent, len),
-                                None => {
-                                    error!("Unable to add folder '{}'", parent.display());
-                                    return
-                                },
-                            }
-                        },
-                    }
-                },
-                Err(e) => {
-                    error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
-                    return
-                },
-            }
+        Some(parent) => match parent.smash_hash() {
+            Ok(hash) => {
+                let len = ctx.path_list_indices.len();
+                match ctx.get_folder_path_mut(hash) {
+                    Some(parent) => (parent, len),
+                    None => {
+                        add_searchable_folder_recursive(ctx, parent);
+                        let len = ctx.path_list_indices.len();
+                        match ctx.get_folder_path_mut(hash) {
+                            Some(parent) => (parent, len),
+                            None => {
+                                error!("Unable to add folder '{}'", parent.display());
+                                return;
+                            },
+                        }
+                    },
+                }
+            },
+            Err(e) => {
+                error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
+                return;
+            },
         },
         None => {
             error!("Failed to get the parent for path '{}'", path.display());
-            return
+            return;
         },
     };
 
@@ -198,7 +201,7 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
         // If the parent is empty, then just return
         Some(parent) if parent == Path::new("") => {
             error!("Cannot add file {} as root file!", path.display());
-            return
+            return;
         },
         // Else if the parent is alright (actually something), keep going
         Some(parent) => {
@@ -225,7 +228,7 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
                                 // Else, just return
                                 None => {
                                     error!("Unable to add folder '{}'", parent.display());
-                                    return
+                                    return;
                                 },
                             }
                         },
@@ -233,13 +236,13 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
                 },
                 Err(e) => {
                     error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
-                    return
+                    return;
                 },
             }
         },
         None => {
             error!("Failed to get the parent for path '{}'", path.display());
-            return
+            return;
         },
     };
 
@@ -278,7 +281,7 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
         Ok(dir) => dir.file_info_range(),
         Err(_) => {
             error!("Cannot get file info range for '{}' ({:#x})", hashes::find(directory), directory.0);
-            return
+            return;
         },
     };
 
@@ -292,13 +295,11 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
     for file_info in ctx.file_infos[file_info_range.clone()].iter() {
         // Insert directory file hash40 to the contained files set
         contained_files.insert(ctx.filepaths[usize::from(file_info.file_path_index)].path.hash40());
-        
+
         // If the file_info_range has an entry for the FileInfoIndex for the current file, then update the FileInfoIdx
         // with a new FileInfoIdx that takes the context file_infos length + the length of the current file_infos (don't know why this is done)
         if file_info_range.contains(&usize::from(
-            ctx.file_info_indices[
-                ctx.filepaths[usize::from(file_info.file_path_index)].path.index() as usize
-            ].file_info_index,
+            ctx.file_info_indices[ctx.filepaths[usize::from(file_info.file_path_index)].path.index() as usize].file_info_index,
         )) {
             ctx.file_info_indices[ctx.filepaths[usize::from(file_info.file_path_index)].path.index() as usize].file_info_index =
                 FileInfoIdx((ctx.file_infos.len() + file_infos.len()) as u32);
@@ -311,28 +312,26 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
     for file in files {
         // If the file passed in is already exists, then just skip it
         if contained_files.contains(&file) {
-            continue
+            continue;
         }
 
         // Get the FilePathIdx from the context
         if let Some(file_index) = get_path_idx(ctx, file) {
-            
             // Get the FileInfoToData from the InfoToData array context
             let info_to_data = &mut ctx.info_to_datas[usize::from(
-                ctx.file_infos[
-                    usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize
-                    ].file_info_index)].info_to_data_index,
+                ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index)]
+                    .info_to_data_index,
             )];
-            
+
             // Set the folder offset index to 0
             info_to_data.folder_offset_index = 0x0;
-            
+
             // Get the data index from the info -> data
             let data_idx = info_to_data.file_data_index;
-            
+
             // Get the FileData from the FileDatas with the FileDataIdx gotten earlier
             let file_data = &mut ctx.file_datas[usize::from(data_idx)];
-            
+
             // Set the compressed and decompressed size to 0x100 (256) (The decompressed size will change later
             // when patched by ARCropolis)
             file_data.comp_size = 0x100;
@@ -343,24 +342,17 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
 
             // Set the flags to not be compressed and not use zstd
             file_data.flags = FileDataFlags::new().with_compressed(false).with_use_zstd(false);
-            
+
             // Get the FileInfo from the context FileInfos with the FileInfoIndex with the file_index gotten
-            // earlier 
+            // earlier
             let file_info =
-                ctx.file_infos[
-                    usize::from(
-                        ctx.file_info_indices[
-                            ctx.filepaths[
-                                usize::from(file_index)
-                            ].path.index() as usize
-                        ].file_info_index)
-                    ];
+                ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index)];
 
             // Set the file info index to the current context file infos size + the current length of the
             // file_infos vector created earlier
             ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index =
                 FileInfoIdx((ctx.file_infos.len() + file_infos.len()) as u32);
-            
+
             // Push the modified file_info to the file_infos vector
             file_infos.push(file_info);
         } else {
@@ -379,7 +371,7 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
     let dir_info = ctx
         .get_dir_info_from_hash_mut(directory)
         .expect("Failed to get directory after confirming it exists");
-    
+
     // Modify the directory start index and the file count
     dir_info.file_info_start_index = start_index;
     dir_info.file_count = file_infos.len() as u32;
