@@ -17,7 +17,7 @@ static HASHES: Lazy<RwLock<HashMap<Hash40, &'static str>>> = Lazy::new(|| {
                 "Failed to read '{}' for hashes. Reason: {:?}. There won't be any hash lookups in this run's logs.",
                 HASH_FILEPATH, e
             );
-            return RwLock::new(hashes)
+            return RwLock::new(hashes);
         },
         Ok(s) => s,
     };

@@ -18,7 +18,8 @@ use arcropolis_api::Event;
 use log::LevelFilter;
 use thiserror::Error;
 
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
 use once_cell::sync::Lazy;
 use parking_lot::{const_rwlock, RwLock};
@@ -35,7 +36,8 @@ mod menus;
 mod offsets;
 mod replacement;
 mod resource;
-#[cfg(feature = "updater")] mod update;
+#[cfg(feature = "updater")]
+mod update;
 
 use fs::GlobalFilesystem;
 use smash_arc::Hash40;
@@ -133,7 +135,7 @@ impl PathExtension for Path {
                 )
                 .map(Hash40);
             if let Some(hash) = hash {
-                return Ok(hash)
+                return Ok(hash);
             }
         }
         let mut path = self
@@ -294,20 +296,18 @@ pub fn main() {
     let mut filesystem = GLOBAL_FILESYSTEM.write();
 
     let discovery = std::thread::Builder::new()
-    .stack_size(0x40000)
-    .spawn(|| {
-        unsafe {
-            let curr_thread = nn::os::GetCurrentThread();
-            nn::os::ChangeThreadPriority(curr_thread, 0);
-        }
-        std::thread::sleep(std::time::Duration::from_millis(5000));
-        fs::perform_discovery()
-    })
-    .unwrap();
+        .stack_size(0x40000)
+        .spawn(|| {
+            unsafe {
+                let curr_thread = nn::os::GetCurrentThread();
+                nn::os::ChangeThreadPriority(curr_thread, 0);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5000));
+            fs::perform_discovery()
+        })
+        .unwrap();
 
-    *filesystem = GlobalFilesystem::Promised(
-        discovery
-    );
+    *filesystem = GlobalFilesystem::Promised(discovery);
 
     let resources = std::thread::Builder::new()
         .stack_size(0x40000)
@@ -329,21 +329,21 @@ pub fn main() {
                 }
 
                 if config::auto_update_enabled() {
-                        update::check_for_updates(config::beta_updates(), |update_kind| {
-                            // skyline_web::Dialog::yes_no(format!(
-                            //     "{} has been detected. Do you want to install it?",
-                            //     update_kind
-                            // ))
+                    update::check_for_updates(config::beta_updates(), |update_kind| {
+                        // skyline_web::Dialog::yes_no(format!(
+                        //     "{} has been detected. Do you want to install it?",
+                        //     update_kind
+                        // ))
 
-                            // This didn't compile
-                            skyline_web::Dialog::no_yes(format!("{} has been detected. Do you want to install it?", update_kind))
+                        // This didn't compile
+                        skyline_web::Dialog::no_yes(format!("{} has been detected. Do you want to install it?", update_kind))
 
-                            // match skyline_web::Dialog::yes_no(format!("{} has been detected. Do you want to install it?", update_kind)) {
-                            //     true => true,
-                            //     false => false,
-                            // }
-                        });
-                    }
+                        // match skyline_web::Dialog::yes_no(format!("{} has been detected. Do you want to install it?", update_kind)) {
+                        //     true => true,
+                        //     false => false,
+                        // }
+                    });
+                }
             })
             .unwrap();
     }
@@ -356,11 +356,9 @@ pub fn main() {
 
         let msg = match info.payload().downcast_ref::<&'static str>() {
             Some(s) => *s,
-            None => {
-                match info.payload().downcast_ref::<String>() {
-                    Some(s) => &s[..],
-                    None => "Box<Any>",
-                }
+            None => match info.payload().downcast_ref::<String>() {
+                Some(s) => &s[..],
+                None => "Box<Any>",
             },
         };
 

@@ -47,7 +47,7 @@ impl LoadedData {
             file_flags2: false,
             flags: 0,
             version: 0,
-            unk: 0
+            unk: 0,
         }
     }
 }
@@ -62,8 +62,8 @@ impl Clone for LoadedData {
             file_flags2: self.file_flags2,
             flags: self.flags,
             version: self.version,
-            unk: self.unk
-        }    
+            unk: self.unk,
+        }
     }
 }
 

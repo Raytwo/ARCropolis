@@ -86,11 +86,9 @@ impl SearchContext {
     pub fn get_folder_path_mut(&mut self, hash: Hash40) -> Option<&mut FolderPathListEntry> {
         match self.search.get_folder_path_index_from_hash(hash) {
             Ok(entry) => Some(&mut self.folder_paths[entry.index() as usize]),
-            Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(&mut self.folder_paths[*index]),
-                    None => None,
-                }
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(&mut self.folder_paths[*index]),
+                None => None,
             },
         }
     }
@@ -360,7 +358,7 @@ pub trait SearchEx: SearchLookup {
         let index_idx = folder_path.get_first_child_index();
 
         if index_idx == 0xFF_FFFF {
-            return Err(LookupError::Missing)
+            return Err(LookupError::Missing);
         }
 
         let path_entry_index = self.get_path_list_indices()[index_idx];
@@ -374,7 +372,7 @@ pub trait SearchEx: SearchLookup {
     fn get_next_child_in_folder_mut(&mut self, current_child: &PathListEntry) -> Result<&mut PathListEntry, LookupError> {
         let index_idx = current_child.path.index() as usize;
         if index_idx == 0xFF_FFFF {
-            return Err(LookupError::Missing)
+            return Err(LookupError::Missing);
         }
 
         let path_entry_index = self.get_path_list_indices()[index_idx];
@@ -579,11 +577,9 @@ impl FromPathExt for FilePath {
         };
 
         let ext_hash = match path.extension().and_then(|x| x.to_str()) {
-            Some(str) => {
-                match get_smash_hash(str) {
-                    Ok(hash) => hash,
-                    Err(_) => return None,
-                }
+            Some(str) => match get_smash_hash(str) {
+                Ok(hash) => hash,
+                Err(_) => return None,
             },
             None => return None,
         };
@@ -672,11 +668,9 @@ impl FromPathExt for PathListEntry {
         };
 
         let ext_hash = match path.extension().and_then(|x| x.to_str()) {
-            Some(str) => {
-                match get_smash_hash(str) {
-                    Ok(hash) => hash,
-                    Err(_) => return None,
-                }
+            Some(str) => match get_smash_hash(str) {
+                Ok(hash) => hash,
+                Err(_) => return None,
             },
             None => return None,
         };
