@@ -3,7 +3,7 @@ use std::{collections::HashSet, path::Path};
 use smash_arc::*;
 
 use super::{lookup, AdditionContext, FromPathExt, SearchContext};
-use crate::{hashes, replacement::FileInfoFlagsExt, resource::LoadedFilepath, PathExtension};
+use crate::{hashes, replacement::FileInfoFlagsExt, resource::{LoadedFilepath, LoadedData}, PathExtension};
 
 pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
     // Create a FilePath from the path that's passed in
@@ -81,7 +81,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
 
     // Push default values to the loaded_(filepaths/datas) to make it match up with the other vectors length
     ctx.loaded_filepaths.push(LoadedFilepath::default());
-    ctx.loaded_datas.reserve(1);
+    ctx.loaded_datas.push(LoadedData::new());
 
     // Insert the added FilePath's path and it's index to the context's added_files vector
     ctx.added_files.insert(file_path.path.hash40(), filepath_idx);

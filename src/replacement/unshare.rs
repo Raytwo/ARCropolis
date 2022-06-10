@@ -6,7 +6,7 @@ use smash_arc::*;
 use super::{extensions::*, lookup};
 use crate::{
     config, hashes,
-    resource::{self, LoadedFilepath},
+    resource::{self, LoadedFilepath, LoadedData},
 };
 
 pub static SHARED_FILE_INDEX: Lazy<u32> = Lazy::new(|| resource::arc().get_shared_data_index());
@@ -170,7 +170,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
     // Funnily enough, we have to actually push on LoadedFilepaths, because just allocating space for it is bad as it won't clear the data if there
     // are zero references
     ctx.loaded_filepaths.push(LoadedFilepath::default());
-    ctx.loaded_datas.reserve(1);
+    ctx.loaded_datas.push(LoadedData::new());
 }
 
 fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: Hash40) {
@@ -347,7 +347,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
         .set_index(new_info_indice_idx.0);
 
     // we only need to reserve memory here, since none of these are active
-    ctx.loaded_datas.reserve(1);
+    ctx.loaded_datas.push(LoadedData::new());
 
     // The reasoning for this is that there is something called "source" files, which is basically the only file in the
     // shared file chain that contains the actual data. For example, let's say that Marth's source file for his model's `model.numdlb`

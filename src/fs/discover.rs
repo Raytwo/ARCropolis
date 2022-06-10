@@ -372,7 +372,11 @@ pub fn load_and_run_plugins(plugins: &[(PathBuf, PathBuf)]) {
         },
     };
 
-    let modules = modules
+    // we have to do it this way
+    // i'm sorry ray, but it literally does not work without collecting here
+    // i don't know
+    // i didn't write hos
+    let modules: Vec<Module> = modules
         .into_iter()
         .filter_map(|x| {
             match x.mount() {
@@ -382,7 +386,8 @@ pub fn load_and_run_plugins(plugins: &[(PathBuf, PathBuf)]) {
                     None
                 },
             }
-        });
+        })
+        .collect();
 
     unsafe {
         // Unfortunately, without unregistering this it will cause the game to crash, cause is unknown, but likely due to page alignment I'd guess
