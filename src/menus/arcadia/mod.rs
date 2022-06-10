@@ -98,7 +98,7 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
         .collect()
 }
 
-pub fn show_arcadia(workspace: Option<String>, mod_size: usize) {
+pub fn show_arcadia(workspace: Option<String>) {
     let umm_path = config::umm_path();
 
     if !umm_path.exists() {
