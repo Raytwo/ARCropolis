@@ -206,7 +206,7 @@ impl<'a, T> Iterator for CppVectorIterator<'a, T> {
         unsafe {
             if self.vector.start.offset(self.index) != self.vector.end {
                 self.index += 1;
-                Some(&* self.vector.start.offset(self.index - 1))
+                Some(&*self.vector.start.offset(self.index - 1))
             } else {
                 None
             }
