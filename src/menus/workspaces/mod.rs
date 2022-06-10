@@ -105,7 +105,7 @@ pub fn show_workspaces() {
     match workspace_to_edit {
         Some(s) => {
             println!("Opening ARCadia from workspaces.rs...");
-            crate::menus::arcadia::show_arcadia(Some(s))
+            crate::menus::arcadia::show_arcadia(Some(s), crate::GLOBAL_FILESYSTEM.read().get_sum_size().unwrap_or(0))
         },
         None => {},
     }
