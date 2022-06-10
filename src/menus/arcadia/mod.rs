@@ -3,6 +3,7 @@
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
+    sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
@@ -34,6 +35,8 @@ pub enum ArcadiaMessage {
     ToggleMod { id: usize, state: bool },
     ChangeAll { state: bool },
     ChangeIndexes { state: bool, indexes: Vec<usize> },
+    DebugPrint { message: String },
+    GetModSize,
     Closure,
 }
 
@@ -195,6 +198,13 @@ pub fn show_arcadia(workspace: Option<String>) {
                         new_presets.remove(&hash);
                     }
                 }
+            },
+            ArcadiaMessage::DebugPrint { message } => {
+                println!("session says: {}", message);
+            },
+            ArcadiaMessage::GetModSize => {
+                let size = crate::GLOBAL_FILESYSTEM.read().get_sum_size().unwrap_or(0);
+                session.send(format!("{{ \"mod_size\": {} }}", size).as_str());
             },
             ArcadiaMessage::Closure => {
                 session.exit();

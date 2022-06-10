@@ -26,6 +26,7 @@ var activeDescHeight = 0; // The height for the current active description so it
 
 var mods = [];
 var currentMods = [];
+var modSize = 0;
 var pageCount = 0;
 
 function createMod(mod_id) {
@@ -285,11 +286,31 @@ function checkOverflow(el) {
     return isOverflowing;
 }
 
+function sizeToFormattedBytes(size) {
+    if ((size / 1024) < 1)
+        return `${size} bytes`; 
+    size = size / 1024;
+
+    if ((size / 1024) < 1)
+        return `${size} kb`;
+    size = size / 1024;
+
+    if ((size / 1024) < 1)
+        return `${size} mb`;
+    size = size / 1024;
+
+    return `${size.toFixed(2)} gb`;
+}
+
 function showSubMenu() {
     $("#modsCount").html(`${mods.length} mod${mods.length > 1 ? 's' : ''}`);
     var activeMods = 0;
     mods.forEach(mod => activeMods = mod["is_disabled"] ? activeMods : activeMods + 1);
     $("#activeModsCount").html(`${activeMods} active mod${activeMods > 1 ? 's' : ''}`);
+    if (modSize == 0)
+        $("#modSize").html("")
+    else
+        $("#modSize").html(`${sizeToFormattedBytes(modSize)} of mods enabled`)
 
     $("#submenu").css("display", "flex");
     $("#Fighter").focus();
@@ -405,6 +426,14 @@ function updateSort() {
     }
 }
 
+window.nx.addEventListener("message", (e) => {
+    var info = JSON.parse(e.data);
+    if (!("mod_size" in info))
+        return;
+    
+    modSize = info["mod_size"];
+});
+
 window.addEventListener("DOMContentLoaded", (e) => {
     if (!isNx) {
         mods = [];
@@ -444,5 +473,8 @@ window.addEventListener("DOMContentLoaded", (e) => {
 
         window.nx.footer.setAssign("B", "", () => {});
         window.nx.footer.setAssign("X", "", () => {});
+        window.nx.sendMessage(JSON.stringify("GetModSize"));
     }
 });
+
+// window.nx.sendMessage(JSON.stringify("GetModSize"));

@@ -50,6 +50,7 @@ pub struct CachedFilesystem {
     bytes_remaining: usize,
     current_nus3bank_id: u32,
     nus3banks: HashMap<Hash40, u32>,
+    total_size: usize,
 }
 
 impl CachedFilesystem {
@@ -227,6 +228,7 @@ impl CachedFilesystem {
             bytes_remaining: 0,
             current_nus3bank_id: 7420,
             nus3banks: HashMap::new(),
+            total_size: 0,
         }
     }
 
@@ -364,13 +366,16 @@ impl CachedFilesystem {
     // Patch all files in the hash size cache
     pub fn patch_files(&mut self) {
         let mut hash_cache = HashMap::new();
+        let mut sum_size = 0;
         std::mem::swap(&mut hash_cache, &mut self.hash_size_cache);
         for (hash, size) in hash_cache.iter_mut() {
+            sum_size += *size;
             if let Some(old_size) = self.patch_file(*hash, *size) {
                 *size = old_size;
             }
         }
         self.hash_size_cache = hash_cache;
+        self.total_size = sum_size;
     }
 
     // Reshares all hashes that still need to be shared, so that we don't get fake one-slot behavior
@@ -480,6 +485,10 @@ impl CachedFilesystem {
     /// Gets the cached size
     pub fn get_cached_size(&self, hash: Hash40) -> Option<usize> {
         self.hash_size_cache.get(&hash).copied()
+    }
+
+    pub fn get_sum_size(&self) -> usize {
+        self.total_size
     }
 }
 
@@ -659,6 +668,13 @@ impl GlobalFilesystem {
     pub fn get_cached_size(&self, hash: Hash40) -> Option<usize> {
         match self {
             Self::Initialized(fs) => fs.get_cached_size(hash),
+            _ => None,
+        }
+    }
+
+    pub fn get_sum_size(&self) -> Option<usize> {
+        match self {
+            Self::Initialized(fs) => Some(fs.get_sum_size()),
             _ => None,
         }
     }
