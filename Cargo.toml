@@ -19,6 +19,7 @@ parking_lot = "0.11"
 once_cell = "1.12.0"
 thiserror = "1.0.30"
 camino = { version = "1.0.7", features = ["serde1"] } 
+ahash = { version = "0.7.6", features = ["std"] }
 # Switch utilities
 skyline = { git = "https://github.com/ultimate-research/skyline-rs.git"}
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web", optional = true }

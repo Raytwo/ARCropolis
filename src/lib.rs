@@ -44,10 +44,10 @@ mod update;
 mod utils;
 
 use fs::LoadingState;
-use smash_arc::{Hash40, Region};
+use smash_arc::{Hash40, Region, ArcLookup, hash40, LoadedArc, LoadedSearchSection};
 
 
-use crate::{config::GLOBAL_CONFIG, replacement::config::ModConfig, fs::ModFile};
+use crate::{config::GLOBAL_CONFIG, replacement::{config::ModConfig, LoadedArcEx, SearchEx}, fs::ModFile};
 
 // TODO: Use the interner instead of a Utf8PathBuf
 pub static FILESYSTEM: OnceCell<HashMap<Hash40, Utf8PathBuf>> = OnceCell::new();
@@ -248,7 +248,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     let conflict_time = std::time::Instant::now();
 
     let (modpack, conflicts) = fs::check_for_conflicts(modpack);
-    println!("Conflict checks took {}s", conflict_time.elapsed().as_secs_f32());
+    panic!("Conflict checks took {}s", conflict_time.elapsed().as_secs_f32());
 
     // TODO: Probably move this in the appropriate menu when the time comes
     // Walk through every conflict, removing them from the manager until there are none left
@@ -270,6 +270,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     let mut mod_config: ModConfig = ModConfig::default();
     let configs: Vec<&ModFile> = collected.iter().filter(|path| path.path.file_name().unwrap() == "config.json").collect();
 
+    // From 3.4.0
     configs.iter().for_each(|&path| {
         let cfg = std::fs::read_to_string(&path.path)
                 .ok()
@@ -282,6 +283,24 @@ fn initial_loading(_ctx: &InlineCtx) {
         }
     });
 
+    // Directory addition should be performed first
+
+    // File addition right after, so we can add files to the added directories too
+    let arc = resource::arc();
+    let mut context = LoadedArc::make_addition_context();
+    let mut search_context = LoadedSearchSection::make_context();
+
+    let new_files: Vec<&Utf8Path> = modpack.0.mods.iter().flat_map(|mods| mods.files.iter().map(move |file| file.path.strip_prefix(&mods.root).unwrap())).filter(|file| {
+        arc.get_file_path_index_from_hash(hash40(file.as_str())).is_err()
+    }).collect();
+
+    for path in new_files {
+        replacement::addition::add_file(&mut context, path);
+        replacement::addition::add_searchable_file_recursive(&mut search_context, path);
+    }
+
+    resource::arc_mut().take_context(context);
+    resource::search_mut().take_context(search_context);
 
     // TODO 3: Get what we need to build the ModFileSystem from the Modpack
 

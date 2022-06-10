@@ -1,5 +1,6 @@
-use std::{collections::HashMap, io::Write};
+use std::{collections::{HashMap, HashSet}, io::Write};
 
+use ahash::AHashSet;
 use camino::{Utf8PathBuf, Utf8Path};
 use owo_colors::OwoColorize;
 use serde::Serialize;
@@ -91,7 +92,7 @@ pub fn get_additional_files(files: &mut Vec<ModFile>) -> Vec<ModFile> {
 }
 
 pub struct UnconflictingModpack(Modpack);
-pub struct CollectedModpack(Modpack);
+pub struct CollectedModpack(pub Modpack);
 
 pub struct PatchedModpack(Modpack);
 
@@ -109,13 +110,19 @@ impl Modpack {
     
 }
 
-#[derive(Default, Clone, PartialEq, Eq)]
+#[derive(Default, Clone, Hash, PartialEq, Eq)]
 pub struct ModDir {
     pub root: Utf8PathBuf,
     pub files: Vec<ModFile>,
 }
 
 impl ModDir {
+    pub fn new<P: Into<Utf8PathBuf>>(root: P) -> Self {
+        Self {
+            root: root.into(),
+            files: Vec::new(),
+        }
+    }
     pub fn get_patch(&self) -> Vec<(Hash40, u64)> {
         self.files.iter().map(|file| (hash40(file.path.strip_prefix(&self.root).unwrap().as_str()), file.size)).collect()
     }
@@ -126,25 +133,43 @@ impl ModDir {
 }
 
 pub fn check_for_conflicts(mut modpack:  Modpack) -> (UnconflictingModpack, ConflictManager) {
+    // let mut conflict_set: HashSet<ModDir> = HashSet::new();
+
+    // let conflict_discovery = std::time::Instant::now();
+
     // let conflicts: Vec<ConflictV2> = modpack.mods
     //     .iter()
-    //     .flat_map(|curr_dir| {
-    //         let curr_files: Vec<&ModFile> = curr_dir.files.iter().collect();
+    //     .enumerate()
+    //     .flat_map(|(i, curr_dir)| {
+    //         let curr_files: AHashSet<&ModFile> = curr_dir.files.iter().collect();
 
     //         // Check for conflict
     //         modpack.mods
     //         .iter()
-    //         .filter(move |dir| *dir != curr_dir) // Make sure we don't process the current directory
-    //         .filter(move |dir| dir.files.iter().any(|file| curr_files.contains(&file))) // Only keep the directories that are conflicting 
-    //         .map(move |conflict| {
+    //         .enumerate()
+    //         .filter_map(|(j, dir)| (i != j).then(|| dir)) // Make sure we don't process the current directory
+    //         .filter(|dir| dir.files.iter().any(|file| curr_files.contains(&file))) // Only keep the directories that are conflicting 
+    //         .map(|conflict| {
+    //             conflict_set.insert(curr_dir.clone());
+    //             conflict_set.insert(conflict.clone());
     //             ConflictV2::new(curr_dir.clone(), conflict.clone())
     //         })
     //     }).collect();
 
+    //     println!("Conflict discovery took {}s", conflict_discovery.elapsed().as_secs_f32());
+
+    //     let conflict_removal = std::time::Instant::now();
+
     //     // Remove all of the mods that are conflicting from the Modpack
-    //     modpack.mods.drain_filter(|mods| {
-    //         conflicts.iter().any(|conflict| conflict.first == *mods || conflict.second == *mods)
-    //     });
+    //     if !conflict_set.is_empty() {
+    //         modpack.mods.drain_filter(|mods| {
+    //             conflict_set.contains(&mods)
+    //             // conflicts.iter().any(|conflict| conflict.first == *mods || conflict.second == *mods)
+    //         });
+    //     }
+
+    //     println!("Conflict removal took {}s", conflict_removal.elapsed().as_secs_f32());
+
 
         (UnconflictingModpack(modpack), ConflictManager(Vec::new()))
 }

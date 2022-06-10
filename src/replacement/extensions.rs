@@ -5,10 +5,11 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+use camino::Utf8Path;
 use smash_arc::{
     ArcLookup, FileData, FileInfo, FileInfoBucket, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx,
     FileSystemHeader, FolderPathListEntry, Hash40, HashToIndex, LoadedArc, LoadedSearchSection, LookupError, PathListEntry, Region, SearchListEntry,
-    SearchLookup, SearchSectionBody,
+    SearchLookup, SearchSectionBody, hash40,
 };
 
 use crate::{
@@ -570,38 +571,21 @@ impl FileInfoFlagsExt for FileInfoFlags {
 }
 
 pub trait FromPathExt {
-    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self>
+    fn from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Self>
     where
         Self: Sized;
 }
 
 impl FromPathExt for FilePath {
-    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> {
+    fn from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Self> {
         let path = path.as_ref();
-        let path_hash = match path.smash_hash() {
-            Ok(hash) => hash,
-            Err(_) => return None,
-        };
+        let path_hash = hash40(path.as_str());
 
-        let ext_hash = match path.extension().and_then(|x| x.to_str()) {
-            Some(str) => {
-                match get_smash_hash(str) {
-                    Ok(hash) => hash,
-                    Err(_) => return None,
-                }
-            },
-            None => return None,
-        };
+        let ext_hash = path.extension().and_then(|x| Some(hash40(x))).unwrap();
 
-        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(get_smash_hash) {
-            Some(Ok(hash)) => hash,
-            _ => return None,
-        };
+        let name_hash = path.file_name().and_then(|x| Some(hash40(x))).unwrap();
 
-        let parent_hash = match path.parent().map_or(Ok(Hash40::from("")), |x| x.smash_hash()) {
-            Ok(hash) => hash,
-            Err(_) => return None,
-        };
+        let parent_hash = path.parent().map_or(Some(Hash40::from("")), |x| Some(hash40(x.as_str()))).unwrap();
 
         let mut result = FilePath {
             path: HashToIndex::default(),
@@ -624,25 +608,16 @@ impl FromPathExt for FilePath {
 }
 
 impl FromPathExt for FolderPathListEntry {
-    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self>
+    fn from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Self>
     where
         Self: Sized,
     {
         let path = path.as_ref();
-        let path_hash = match path.smash_hash() {
-            Ok(hash) => hash,
-            Err(_) => return None,
-        };
+        let path_hash = hash40(path.as_str());
 
-        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(get_smash_hash) {
-            Some(Ok(hash)) => hash,
-            _ => return None,
-        };
+        let name_hash = path.file_name().and_then(|x| Some(hash40(x))).unwrap();
 
-        let parent_hash = match path.parent().map_or(Ok(Hash40::from("")), |x| x.smash_hash()) {
-            Ok(hash) => hash,
-            Err(_) => return None,
-        };
+        let parent_hash = path.parent().map_or(Some(Hash40::from("")), |x| Some(hash40(x.as_str()))).unwrap();
 
         let mut result = Self(SearchListEntry {
             path: HashToIndex::default(),
@@ -666,35 +641,18 @@ impl FromPathExt for FolderPathListEntry {
 }
 
 impl FromPathExt for PathListEntry {
-    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self>
+    fn from_path<P: AsRef<Utf8Path>>(path: P) -> Option<Self>
     where
         Self: Sized,
     {
         let path = path.as_ref();
-        let path_hash = match path.smash_hash() {
-            Ok(hash) => hash,
-            Err(_) => return None,
-        };
+        let path_hash = hash40(path.as_str());
 
-        let ext_hash = match path.extension().and_then(|x| x.to_str()) {
-            Some(str) => {
-                match get_smash_hash(str) {
-                    Ok(hash) => hash,
-                    Err(_) => return None,
-                }
-            },
-            None => return None,
-        };
+        let ext_hash = path.extension().map(hash40).unwrap();
 
-        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(get_smash_hash) {
-            Some(Ok(hash)) => hash,
-            _ => return None,
-        };
+        let name_hash = path.file_name().map(hash40).unwrap();
 
-        let parent_hash = match path.parent().map_or(Ok(Hash40::from("")), |x| x.smash_hash()) {
-            Ok(hash) => hash,
-            Err(_) => return None,
-        };
+        let parent_hash = path.parent().map_or(Some(Hash40::from("")), |x| Some(hash40(x.as_str()))).unwrap();
 
         let mut result = Self(SearchListEntry {
             path: HashToIndex::default(),

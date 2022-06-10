@@ -1,16 +1,17 @@
 use std::{collections::HashSet, path::Path};
 
+use camino::Utf8Path;
 use smash_arc::*;
 
 use super::{lookup, AdditionContext, FromPathExt, SearchContext};
 use crate::{hashes, replacement::FileInfoFlagsExt, resource::LoadedFilepath, PathExtension};
 
-pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
+pub fn add_file(ctx: &mut AdditionContext, path: &Utf8Path) {
     // Create a FilePath from the path that's passed in
     let mut file_path = if let Some(file_path) = FilePath::from_path(path) {
         file_path
     } else {
-        error!("Failed to generate a FilePath from {}!", path.display());
+        error!("Failed to generate a FilePath from {}!", path);
         return
     };
 
@@ -86,10 +87,10 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
     // Insert the added FilePath's path and it's index to the context's added_files vector
     ctx.added_files.insert(file_path.path.hash40(), filepath_idx);
 
-    info!("Added file '{}' ({:#x})", path.display(), file_path.path.hash40().0);
+    info!("Added file '{}' ({:#x})", path, file_path.path.hash40().0);
 }
 
-pub fn add_shared_file(ctx: &mut AdditionContext, path: &Path, shared_to: Hash40) {
+pub fn add_shared_file(ctx: &mut AdditionContext, path: &Utf8Path, shared_to: Hash40) {
     // Get the target shared FileInfoIndice index
     let info_indice_idx = match ctx.get_file_info_from_hash(shared_to) {
         Ok(info) => info.file_info_indice_index.0 as u32,
@@ -107,7 +108,7 @@ pub fn add_shared_file(ctx: &mut AdditionContext, path: &Path, shared_to: Hash40
     let mut filepath = match FilePath::from_path(path) {
         Some(filepath) => filepath,
         None => {
-            error!("Failed to convert path '{}' to FilePath struct!", path.display());
+            error!("Failed to convert path '{}' to FilePath struct!", path);
             return
         },
     };
@@ -120,12 +121,12 @@ pub fn add_shared_file(ctx: &mut AdditionContext, path: &Path, shared_to: Hash40
 
     // Add the shared file to the lookup
     lookup::add_shared_file(
-        path.smash_hash().unwrap(), // we can unwrap because of FilePath::from_path being successful
+        hash40(path.as_str()), // we can unwrap because of FilePath::from_path being successful
         shared_to,
     );
 }
 
-pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
+pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Utf8Path) {
     let (parent, current_path_list_indices_len) = match path.parent() {
         Some(parent) if parent == Path::new("") => {
             if let Some(mut new_folder_path) = FolderPathListEntry::from_path(path) {
@@ -138,13 +139,12 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
                 ctx.folder_paths.push(new_folder_path);
                 return
             } else {
-                error!("Unable to generate new folder path list entry for {}", path.display());
+                error!("Unable to generate new folder path list entry for {}", path);
                 return
             }
         },
         Some(parent) => {
-            match parent.smash_hash() {
-                Ok(hash) => {
+            let hash =  hash40(parent.as_str());
                     let len = ctx.path_list_indices.len();
                     match ctx.get_folder_path_mut(hash) {
                         Some(parent) => (parent, len),
@@ -154,21 +154,15 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
                             match ctx.get_folder_path_mut(hash) {
                                 Some(parent) => (parent, len),
                                 None => {
-                                    error!("Unable to add folder '{}'", parent.display());
+                                    error!("Unable to add folder '{}'", parent);
                                     return
                                 },
                             }
                         },
                     }
-                },
-                Err(e) => {
-                    error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
-                    return
-                },
-            }
         },
         None => {
-            error!("Failed to get the parent for path '{}'", path.display());
+            error!("Failed to get the parent for path '{}'", path);
             return
         },
     };
@@ -188,24 +182,22 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
         ctx.folder_paths.push(new_folder);
         ctx.paths.push(new_path);
     } else {
-        error!("Failed to add folder {}!", path.display());
+        error!("Failed to add folder {}!", path);
     }
 }
 
-pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
+pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Utf8Path) {
     // Create a parent and current_path_list_indices_len variable tuple
     let (parent, current_path_list_indices_len) = match path.parent() {
         // If the parent is empty, then just return
         Some(parent) if parent == Path::new("") => {
-            error!("Cannot add file {} as root file!", path.display());
+            error!("Cannot add file {} as root file!", path);
             return
         },
         // Else if the parent is alright (actually something), keep going
         Some(parent) => {
             // Convert the parent to a smash_hash
-            match parent.smash_hash() {
-                // If it gets the hash, do the following
-                Ok(hash) => {
+            let hash = hash40(parent.as_str());
                     // Get the length of the current path list indices
                     let len = ctx.path_list_indices.len();
                     // Try getting the folder path from the context
@@ -224,21 +216,16 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
                                 Some(parent) => (parent, len),
                                 // Else, just return
                                 None => {
-                                    error!("Unable to add folder '{}'", parent.display());
+                                    error!("Unable to add folder '{}'", parent);
                                     return
                                 },
                             }
                         },
                     }
-                },
-                Err(e) => {
-                    error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
-                    return
-                },
-            }
+
         },
         None => {
-            error!("Failed to get the parent for path '{}'", path.display());
+            error!("Failed to get the parent for path '{}'", path);
             return
         },
     };
@@ -260,7 +247,7 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
         ctx.path_list_indices.push(ctx.paths.len() as u32);
         ctx.paths.push(new_file);
     } else {
-        error!("Failed to add folder {}!", path.display());
+        error!("Failed to add folder {}!", path);
     }
 }
 
