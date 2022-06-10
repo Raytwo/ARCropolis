@@ -21,7 +21,8 @@ use camino::{Utf8Path, Utf8PathBuf};
 use log::LevelFilter;
 use thiserror::Error;
 
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
 use once_cell::sync::{Lazy, OnceCell};
 use parking_lot::{const_rwlock, RwLock};
@@ -118,7 +119,7 @@ impl PathExtension for Path {
                 )
                 .map(Hash40);
             if let Some(hash) = hash {
-                return Ok(hash)
+                return Ok(hash);
             }
         }
         let path = self
@@ -402,11 +403,9 @@ pub fn main() {
 
         let msg = match info.payload().downcast_ref::<&'static str>() {
             Some(s) => *s,
-            None => {
-                match info.payload().downcast_ref::<String>() {
-                    Some(s) => &s[..],
-                    None => "Box<Any>",
-                }
+            None => match info.payload().downcast_ref::<String>() {
+                Some(s) => &s[..],
+                None => "Box<Any>",
             },
         };
 

@@ -16,9 +16,10 @@ use crate::config;
 fn format_time_string(seconds: u64) -> String {
     let leapyear = |year| -> bool { year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) };
 
-    static YEAR_TABLE: [[u64; 12]; 2] = [[31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31], [
-        31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
-    ]];
+    static YEAR_TABLE: [[u64; 12]; 2] = [
+        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
+        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
+    ];
 
     let mut year = 1970;
 
@@ -35,7 +36,7 @@ fn format_time_string(seconds: u64) -> String {
             day_number -= year_length;
             year += 1;
         } else {
-            break
+            break;
         }
     }
     let mut month = 0;
@@ -106,7 +107,7 @@ impl log::Log for ArcLogger {
 
     fn log(&self, record: &Record<'_>) {
         if !self.enabled(record.metadata()) {
-            return
+            return;
         }
 
         let module_path = match record.module_path() {

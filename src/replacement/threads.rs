@@ -94,7 +94,7 @@ pub fn handle_file_replace(hash: Hash40) {
             filepath_index,
             file_info_indice_index
         );
-        return
+        return;
     }
 
     let fs = crate::LOADING_STATIC.read();

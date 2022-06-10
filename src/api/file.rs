@@ -89,7 +89,7 @@ pub extern "C" fn arcrop_is_mod_enabled(hash: Hash40) -> bool {
                 if let Ok(entry) = entry {
                     // Make this less gross
                     if !entry.file_type().is_dir() {
-                        return None
+                        return None;
                     }
 
                     let path = entry.path();

@@ -135,6 +135,19 @@ impl<T: Copy + Clone> CppVector<T> {
     }
 }
 
+impl<T: Clone> CppVector<T> {
+    pub fn clone_from_slice(slice: &[T]) -> Self {
+        let layout = Layout::from_size_align(slice.len() * std::mem::size_of::<T>(), 1).unwrap();
+        let (start, eos) = unsafe {
+            let start = std::alloc::alloc(layout) as *mut T;
+            (start, start.add(slice.len()))
+        };
+        let new_slice = unsafe { std::slice::from_raw_parts_mut(start, slice.len()) };
+        new_slice.clone_from_slice(slice);
+        Self { start, end: eos, eos }
+    }
+}
+
 impl<T> Index<usize> for CppVector<T> {
     type Output = T;
 
