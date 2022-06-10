@@ -2,7 +2,7 @@
 
 use std::{
     collections::{HashMap, HashSet},
-    path::Path,
+    path::Path, sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
@@ -34,6 +34,8 @@ pub enum ArcadiaMessage {
     ToggleMod { id: usize, state: bool },
     ChangeAll { state: bool },
     ChangeIndexes { state: bool, indexes: Vec<usize> },
+    DebugPrint { message: String },
+    GetModSize,
     Closure,
 }
 
@@ -95,7 +97,7 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
         .collect()
 }
 
-pub fn show_arcadia(workspace: Option<String>) {
+pub fn show_arcadia(workspace: Option<String>, mod_size: usize) {
     let umm_path = config::umm_path();
 
     if !umm_path.exists() {
@@ -196,6 +198,12 @@ pub fn show_arcadia(workspace: Option<String>) {
                     }
                 }
             },
+            ArcadiaMessage::DebugPrint { message } => {
+                println!("session says: {}", message);
+            },
+            ArcadiaMessage::GetModSize => {
+                session.send(format!("{{ \"mod_size\": {} }}", mod_size).as_str());
+            }
             ArcadiaMessage::Closure => {
                 session.exit();
                 session.wait_for_exit();

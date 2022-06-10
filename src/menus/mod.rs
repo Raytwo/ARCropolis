@@ -28,7 +28,7 @@ pub fn show_main_menu() {
         "http://localhost/" => {},
         url => match url {
             "http://localhost/arcadia" => {
-                show_arcadia(None);
+                show_arcadia(None, crate::GLOBAL_FILESYSTEM.read().get_sum_size().unwrap_or(0));
             },
             "http://localhost/workspaces" => {
                 show_workspaces();
