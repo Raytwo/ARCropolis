@@ -1,7 +1,7 @@
 #[no_mangle]
 pub extern "C" fn arcrop_show_mod_manager() {
     debug!("arcrop_show_mod_manager -> Function called");
-    crate::menus::show_arcadia(None, crate::GLOBAL_FILESYSTEM.read().get_sum_size().unwrap_or(0));
+    crate::menus::show_arcadia(None);
 }
 
 #[no_mangle]

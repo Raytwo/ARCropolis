@@ -98,7 +98,7 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
         .collect()
 }
 
-pub fn show_arcadia(workspace: Option<String>, mod_size: usize) {
+pub fn show_arcadia(workspace: Option<String>) {
     let umm_path = config::umm_path();
 
     if !umm_path.exists() {
@@ -203,7 +203,8 @@ pub fn show_arcadia(workspace: Option<String>, mod_size: usize) {
                 println!("session says: {}", message);
             },
             ArcadiaMessage::GetModSize => {
-                session.send(format!("{{ \"mod_size\": {} }}", mod_size).as_str());
+                let size = crate::GLOBAL_FILESYSTEM.read().get_sum_size().unwrap_or(0);
+                session.send(format!("{{ \"mod_size\": {} }}", size).as_str());
             },
             ArcadiaMessage::Closure => {
                 session.exit();
