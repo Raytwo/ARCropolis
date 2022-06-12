@@ -81,7 +81,9 @@ pub extern "C" fn arcrop_is_mod_enabled(hash: Hash40) -> bool {
 
     let storage = crate::config::GLOBAL_CONFIG.lock().unwrap();
 
-    let preset: HashSet<Hash40> = if storage.get_flag("legacy_discovery") {
+    let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
+
+    let preset: HashSet<Hash40> = if storage.get_flag("legacy_discovery") || is_emulator {
         WalkDir::new(crate::config::umm_path())
             .max_depth(1)
             .into_iter()
