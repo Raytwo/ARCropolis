@@ -53,8 +53,7 @@ static UNSHARE_LOOKUP: Lazy<RwLock<UnshareLookupState>> = Lazy::new(|| {
             Err(e) => {
                 error!(
                     "Unable to parse '{}' for unsharing. Reason: {:?}. Boot time might be a bit slow.",
-                    path.display(),
-                    *e
+                    path, *e
                 );
                 UnshareLookupState::Missing
             },
@@ -76,8 +75,7 @@ static SHARE_LOOKUP: Lazy<RwLock<ShareLookupState>> = Lazy::new(|| {
             Err(e) => {
                 error!(
                     "Unable to parse '{}' for share lookup. Reason: {:?}. Boot time might be a bit slow.",
-                    path.display(),
-                    *e
+                    path, *e
                 );
                 ShareLookupState::Missing
             },
