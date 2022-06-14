@@ -215,17 +215,22 @@ fn check_input_on_boot() {
     }
 }
 
+#[cfg(feature = "online")]
+fn get_news_data() {
+    skyline::install_hook!(msbt_text);
+    match minreq::get("https://coolsonickirby.com/arc/news").send() {
+        Ok(resp) => match resp.json::<HashMap<String, String>>() {
+            Ok(info) => unsafe { NEWS_DATA.extend(info) },
+            Err(err) => println!("{:?}", err),
+        },
+        Err(err) => println!("{:?}", err),
+    }
+}
+
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
-    unsafe {
-        match minreq::get("https://coolsonickirby.com/arc/news").send() {
-            Ok(resp) => match resp.json::<HashMap<String, String>>() {
-                Ok(info) => NEWS_DATA.extend(info),
-                Err(err) => println!("{:?}", err),
-            },
-            Err(err) => println!("{:?}", err),
-        }
-    }
+    #[cfg(feature = "online")]
+    get_news_data();
 
     #[cfg(feature = "web")]
     menus::changelog::check_for_changelog();
@@ -358,12 +363,14 @@ fn show_eshop(_lua_state: *const u8) {
 }
 
 #[skyline::hook(offset = 0x3778bf4, inline)]
-unsafe fn text_inline(ctx: &mut InlineCtx) {
+unsafe fn msbt_text(ctx: &mut InlineCtx) {
     let msbt_label = skyline::from_c_str((ctx as *const InlineCtx as *const u8).add(0x100).add(224));
-    let mut text: Vec<u16> = "jozz?\0".to_string().encode_utf16().collect();
+
     if NEWS_DATA.contains_key(&msbt_label) {
         let mut text = NEWS_DATA.get(&msbt_label).unwrap().as_str().to_string();
+
         text.push_str("\0");
+
         let text_vec: Vec<u16> = text.encode_utf16().collect();
         *ctx.registers[0].x.as_mut() = text_vec.as_ptr() as u64;
     }
@@ -400,7 +407,7 @@ pub fn main() {
     //     .unwrap();
 
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
-    #[cfg(feature = "updater")]
+    #[cfg(feature = "online")]
     {
         std::thread::Builder::new()
             .stack_size(0x40000)
@@ -419,7 +426,7 @@ pub fn main() {
             .unwrap();
     }
 
-    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, text_inline);
+    skyline::install_hooks!(initial_loading, change_version_string, show_eshop);
     replacement::install();
 
     std::panic::set_hook(Box::new(|info| {
