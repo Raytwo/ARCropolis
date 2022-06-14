@@ -55,6 +55,8 @@ pub static FILESYSTEM: OnceCell<HashMap<Hash40, Utf8PathBuf>> = OnceCell::new();
 
 pub static LOADING_STATIC: Lazy<RwLock<LoadingState>> = Lazy::new(|| const_rwlock(LoadingState::default()));
 
+static mut NEWS_DATA: Lazy<HashMap<String, String>> = Lazy::new(|| HashMap::new());
+
 pub static CACHE_PATH: Lazy<Utf8PathBuf> = Lazy::new(|| {
     let path = utils::paths::cache().join(utils::get_game_version().to_string());
 
@@ -215,6 +217,16 @@ fn check_input_on_boot() {
 
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
+    unsafe {
+        match minreq::get("https://coolsonickirby.com/arc/news").send() {
+            Ok(resp) => match resp.json::<HashMap<String, String>>() {
+                Ok(info) => NEWS_DATA.extend(info),
+                Err(err) => println!("{:?}", err),
+            },
+            Err(err) => println!("{:?}", err),
+        }
+    }
+
     #[cfg(feature = "web")]
     menus::changelog::check_for_changelog();
 
@@ -249,7 +261,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     let conflict_time = std::time::Instant::now();
 
     let (modpack, conflicts) = fs::check_for_conflicts(modpack);
-    panic!("Conflict checks took {}s", conflict_time.elapsed().as_secs_f32());
+    println!("Conflict checks took {}s", conflict_time.elapsed().as_secs_f32());
 
     // TODO: Probably move this in the appropriate menu when the time comes
     // Walk through every conflict, removing them from the manager until there are none left
@@ -345,6 +357,18 @@ fn show_eshop(_lua_state: *const u8) {
     menus::show_main_menu();
 }
 
+#[skyline::hook(offset = 0x3778bf4, inline)]
+unsafe fn text_inline(ctx: &mut InlineCtx) {
+    let msbt_label = skyline::from_c_str((ctx as *const InlineCtx as *const u8).add(0x100).add(224));
+    let mut text: Vec<u16> = "jozz?\0".to_string().encode_utf16().collect();
+    if NEWS_DATA.contains_key(&msbt_label) {
+        let mut text = NEWS_DATA.get(&msbt_label).unwrap().as_str().to_string();
+        text.push_str("\0");
+        let text_vec: Vec<u16> = text.encode_utf16().collect();
+        *ctx.registers[0].x.as_mut() = text_vec.as_ptr() as u64;
+    }
+}
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Initialize the time for the logger
@@ -395,7 +419,7 @@ pub fn main() {
             .unwrap();
     }
 
-    skyline::install_hooks!(initial_loading, change_version_string, show_eshop,);
+    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, text_inline);
     replacement::install();
 
     std::panic::set_hook(Box::new(|info| {
