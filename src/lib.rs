@@ -304,21 +304,21 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Directory addition should be performed first
 
     // File addition right after, so we can add files to the added directories too
-    let arc = resource::arc();
-    let mut context = LoadedArc::make_addition_context();
-    let mut search_context = LoadedSearchSection::make_context();
+    // let arc = resource::arc();
+    // let mut context = LoadedArc::make_addition_context();
+    // let mut search_context = LoadedSearchSection::make_context();
 
-    let new_files: Vec<&Utf8Path> = modpack.0.mods.iter().flat_map(|mods| mods.files.iter().map(move |file| file.path.strip_prefix(&mods.root).unwrap())).filter(|file| {
-        arc.get_file_path_index_from_hash(hash40(file.as_str())).is_err()
-    }).collect();
+    // let new_files: Vec<&Utf8Path> = modpack.0.mods.iter().flat_map(|mods| mods.files.iter().map(move |file| file.path.strip_prefix(&mods.root).unwrap())).filter(|file| {
+    //     arc.get_file_path_index_from_hash(hash40(file.as_str())).is_err()
+    // }).collect();
 
-    for path in new_files {
-        replacement::addition::add_file(&mut context, path);
-        replacement::addition::add_searchable_file_recursive(&mut search_context, path);
-    }
+    // for path in new_files {
+    //     replacement::addition::add_file(&mut context, path);
+    //     replacement::addition::add_searchable_file_recursive(&mut search_context, path);
+    // }
 
-    resource::arc_mut().take_context(context);
-    resource::search_mut().take_context(search_context);
+    // resource::arc_mut().take_context(context);
+    // resource::search_mut().take_context(search_context);
 
     // TODO 3: Get what we need to build the ModFileSystem from the Modpack
 
@@ -376,6 +376,28 @@ unsafe fn msbt_text(ctx: &mut InlineCtx) {
     }
 }
 
+#[repr(C)]
+#[derive(Debug)]
+pub struct PlayReport {
+    pub event_id: [u8;32],
+    pub buffer: *const u8,
+    pub size: usize,
+    pub position: usize
+}
+
+#[skyline::hook(offset = 0x39C4980)]
+fn prepo_save(prepo: &PlayReport, uid: &nn::account::Uid) {
+    skyline::logging::hex_dump_ptr(prepo as *const PlayReport);
+    println!("Event id: {}", unsafe { skyline::from_c_str(prepo.event_id.as_ptr()) });
+    skyline::logging::hex_dump_ptr(prepo.buffer);
+    unsafe { 
+        let mut buffer = std::io::Cursor::new(std::slice::from_raw_parts(prepo.buffer, prepo.position));
+        let test = rmpv::decode::read_value(&mut buffer).unwrap();
+        println!("{}", serde_json::to_string_pretty(&test).unwrap());
+    }
+    call_original!(dbg!(prepo), uid);
+}
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Initialize the time for the logger
@@ -426,7 +448,7 @@ pub fn main() {
             .unwrap();
     }
 
-    skyline::install_hooks!(initial_loading, change_version_string, show_eshop);
+    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, prepo_save);
     replacement::install();
 
     std::panic::set_hook(Box::new(|info| {
