@@ -297,28 +297,36 @@ fn initial_loading(_ctx: &InlineCtx) {
         if let Some(cfg) = cfg {
             mod_config.merge(cfg);
         } else {
-            warn!("Could not read/parse JSON data from file {}", path.path);
+            warn!("Could not read/parse JSO data from file {}", path.path);
         }
     });
 
     // Directory addition should be performed first
 
     // File addition right after, so we can add files to the added directories too
-    // let arc = resource::arc();
-    // let mut context = LoadedArc::make_addition_context();
-    // let mut search_context = LoadedSearchSection::make_context();
+    let arc = resource::arc();
+    let mut context = LoadedArc::make_addition_context();
+    let mut search_context = LoadedSearchSection::make_context();
 
-    // let new_files: Vec<&Utf8Path> = modpack.0.mods.iter().flat_map(|mods| mods.files.iter().map(move |file| file.path.strip_prefix(&mods.root).unwrap())).filter(|file| {
-    //     arc.get_file_path_index_from_hash(hash40(file.as_str())).is_err()
-    // }).collect();
+    for path in mod_config.new_dir_infos.iter() {
+        replacement::addition::prepare_file(&mut context, &Utf8Path::new(path))
+    }
 
-    // for path in new_files {
-    //     replacement::addition::add_file(&mut context, path);
-    //     replacement::addition::add_searchable_file_recursive(&mut search_context, path);
-    // }
+    for (new, base) in mod_config.new_dir_infos_base.iter() {
+        replacement::addition::prepare_file_with_base(&mut context, &Utf8Path::new(new), &Utf8Path::new(base))
+    }
 
-    // resource::arc_mut().take_context(context);
-    // resource::search_mut().take_context(search_context);
+    let new_files: Vec<&Utf8Path> = modpack.0.mods.iter().flat_map(|mods| mods.files.iter().map(move |file| file.path.strip_prefix(&mods.root).unwrap())).filter(|file| {
+        arc.get_file_path_index_from_hash(hash40(file.as_str())).is_err()
+    }).collect();
+
+    for path in new_files {
+        replacement::addition::add_file(&mut context, path);
+        replacement::addition::add_searchable_file_recursive(&mut search_context, path);
+    }
+
+    resource::arc_mut().take_context(context);
+    resource::search_mut().take_context(search_context);
 
     // TODO 3: Get what we need to build the ModFileSystem from the Modpack
 

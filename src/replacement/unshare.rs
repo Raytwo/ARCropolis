@@ -406,12 +406,13 @@ pub fn reshare_file_groups(ctx: &mut AdditionContext) {
     let arc = resource::arc();
     // Iterate through each DirInfo in the LoadedArc and check if it points to a shared FileGroup. If it does, we want to kill that link
     // to prevent i-loads or crashes
-    for dir_info in arc.get_dir_infos() {
-        if let Some(RedirectionType::Shared(file_group)) = arc.get_directory_dependency(dir_info) {
+    let dir_infos = ctx.dir_infos_vec.iter().map(|idx| idx.clone()).collect::<Vec<_>>();
+    for dir_info in dir_infos {
+        if let Some(RedirectionType::Shared(file_group)) = ctx.get_directory_dependency_ctx(&dir_info) {
             if file_group.directory_index != 0xFF_FFFF {
                 reshare_file_group(ctx, dir_info.file_info_range(), file_group.range());
                 // Tell the game that there is no shared FileGroup here because we remove it's purpose
-                resource::arc_mut().get_folder_offsets_mut()[dir_info.path.index() as usize].directory_index = 0xFF_FFFF;
+                ctx.folder_offsets_vec[dir_info.path.index() as usize].directory_index = 0xFF_FFFF;
             }
         }
     }

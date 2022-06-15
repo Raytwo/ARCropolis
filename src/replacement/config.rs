@@ -31,6 +31,14 @@ pub struct ModConfig {
     #[serde(alias = "new-dir-files")]
     #[serde(default = "HashMap::new")]
     pub new_dir_files: HashMap<Hash40String, HashSet<Hash40String>>,
+
+    #[serde(alias = "new-dir-infos")]
+    #[serde(default = "Vec::new")]
+    pub new_dir_infos: Vec<String>,
+
+    #[serde(alias = "new-dir-infos-base")]
+    #[serde(default = "HashMap::new")]
+    pub new_dir_infos_base: HashMap<String, String>,
 }
 
 impl ModConfig {
@@ -42,11 +50,15 @@ impl ModConfig {
             preprocess_reshare_ext,
             new_shared_files,
             new_dir_files,
+            new_dir_infos,
+            new_dir_infos_base
         } = other;
 
         self.unshare_blacklist.extend(unshare_blacklist.into_iter());
         self.preprocess_reshare.extend(preprocess_reshare.into_iter());
         self.preprocess_reshare_ext.extend(preprocess_reshare_ext.into_iter());
+        self.new_dir_infos.extend(new_dir_infos.into_iter());
+        self.new_dir_infos_base.extend(new_dir_infos_base.into_iter());
 
         for (hash, list) in new_files.into_iter() {
             if let Some(list) = list {

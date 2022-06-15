@@ -9,7 +9,7 @@ use camino::Utf8Path;
 use smash_arc::{
     ArcLookup, FileData, FileInfo, FileInfoBucket, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx,
     FileSystemHeader, FolderPathListEntry, Hash40, HashToIndex, LoadedArc, LoadedSearchSection, LookupError, PathListEntry, Region, SearchListEntry,
-    SearchLookup, SearchSectionBody, hash40,
+    SearchLookup, SearchSectionBody, hash40, DirInfo, DirectoryOffset, RedirectionType
 };
 
 use crate::{
@@ -32,6 +32,11 @@ pub struct AdditionContext {
 
     pub loaded_filepaths: CppVector<LoadedFilepath>,
     pub loaded_datas: CppVector<LoadedData>,
+
+    pub dir_infos_vec: CppVector<DirInfo>,
+    pub dir_hash_to_info_idx: CppVector<HashToIndex>,
+    pub folder_offsets_vec: CppVector<DirectoryOffset>,
+    pub folder_children_hashes: CppVector<HashToIndex>,
 }
 
 pub struct SearchContext {
@@ -79,6 +84,44 @@ impl AdditionContext {
             shared_idx
         } else {
             self.get_shared_info_index(shared_idx)
+        }
+    }
+
+    pub fn get_dir_info_from_hash_ctx(&self, hash: Hash40) -> Result<&DirInfo, LookupError> {
+        let dir_hash_to_info_index = self.dir_hash_to_info_idx.iter().collect::<Vec<_>>();
+
+        let index = dir_hash_to_info_index.binary_search_by_key(&hash, |dir| dir.hash40())
+            .map(|index| dir_hash_to_info_index[index].index() as usize)
+            .map_err(|_| LookupError::Missing)?;
+
+        Ok(&self.dir_infos_vec[index])
+    }
+
+    pub fn get_dir_info_from_hash_ctx_mut(&mut self, hash: Hash40) -> Result<&mut DirInfo, LookupError> {
+        let dir_hash_to_info_index = self.dir_hash_to_info_idx.iter().collect::<Vec<_>>();
+
+        let index = dir_hash_to_info_index.binary_search_by_key(&hash, |dir| dir.hash40())
+            .map(|index| dir_hash_to_info_index[index].index() as usize)
+            .map_err(|_| LookupError::Missing)?;
+
+        Ok(&mut self.dir_infos_vec[index])
+    }
+
+    pub fn get_directory_dependency_ctx(&self, dir_info: &DirInfo) -> Option<RedirectionType> {
+        if dir_info.flags.redirected() {
+            let directory_index = self.folder_offsets_vec[dir_info.path.index() as usize].directory_index;
+
+            if directory_index != 0xFFFFFF {
+                if dir_info.flags.is_symlink() {
+                    Some(RedirectionType::Symlink(self.dir_infos_vec[directory_index as usize]))
+                } else {
+                    Some(RedirectionType::Shared(self.folder_offsets_vec[directory_index as usize]))
+                }
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 }
@@ -181,6 +224,18 @@ impl LoadedArcEx for LoadedArc {
         let loaded_filepaths = CppVector::from_slice(filesystem_info.get_loaded_filepaths());
         let loaded_datas = CppVector::clone_from_slice(filesystem_info.get_loaded_datas());
 
+        let dir_infos_vec = CppVector::from_slice(arc.get_dir_infos());
+        let dir_hash_to_info_idx = CppVector::from_slice(arc.get_dir_hash_to_info_index());
+        let folder_offsets_vec = CppVector::from_slice(arc.get_folder_offsets());
+
+        let header = unsafe { &*(arc.fs_header as *mut FileSystemHeader) };
+        let folder_children_hashes = unsafe {
+            CppVector::from_slice(std::slice::from_raw_parts(
+                arc.folder_child_hashes,
+                header.hash_folder_count as usize
+            ))
+        };
+
         AdditionContext {
             arc,
             filesystem_info,
@@ -195,6 +250,11 @@ impl LoadedArcEx for LoadedArc {
 
             loaded_filepaths,
             loaded_datas,
+
+            dir_infos_vec,
+            dir_hash_to_info_idx,
+            folder_offsets_vec,
+            folder_children_hashes
         }
     }
 
@@ -208,6 +268,11 @@ impl LoadedArcEx for LoadedArc {
 
             mut loaded_filepaths,
             mut loaded_datas,
+
+            mut dir_infos_vec,
+            mut dir_hash_to_info_idx,
+            mut folder_offsets_vec,
+            mut folder_children_hashes,
             ..
         } = ctx;
         let (filepaths, filepath_len) = (filepaths.as_mut_ptr(), filepaths.len());
@@ -217,6 +282,14 @@ impl LoadedArcEx for LoadedArc {
         let (file_datas, file_data_len) = (file_datas.as_mut_ptr(), file_datas.len());
         let (loaded_filepaths, loaded_filepath_len) = (loaded_filepaths.as_mut_ptr(), loaded_filepaths.len());
         let (loaded_datas, loaded_data_len) = (loaded_datas.as_mut_ptr(), loaded_datas.len());
+
+        // --------------------- SETUP DIRECTORY ADDITION VARIABLES ---------------------
+        let (dir_infos_vec, dir_infos_vec_len) = (dir_infos_vec.as_mut_ptr(), dir_infos_vec.len());
+        let (dir_hash_to_info_idx, dir_hash_to_info_idx_len) = (dir_hash_to_info_idx.as_mut_ptr(), dir_hash_to_info_idx.len());
+        let (folder_offsets_vec, folder_offsets_vec_len) = (folder_offsets_vec.as_mut_ptr(), folder_offsets_vec.len());
+        let (folder_children_hashes, folder_children_hashes_len) = (folder_children_hashes.as_mut_ptr(), folder_children_hashes.len());
+        // --------------------- END DIRECTORY ADDITION VARIABLES ---------------------
+
 
         let header = unsafe { &mut *(self.fs_header as *mut FileSystemHeader) };
 
@@ -242,6 +315,24 @@ impl LoadedArcEx for LoadedArc {
 
         fs_info.loaded_datas = loaded_datas;
         fs_info.loaded_data_len = loaded_data_len as u32;
+
+        // --------------------- BEGIN MODIFY DIRECTORY RELEATED FIELDS ---------------------
+        // Set folder count for DirInfos and DirHashToInfoIndex
+        header.folder_count = dir_infos_vec_len as u32;
+
+        self.dir_infos = dir_infos_vec;
+        self.dir_hash_to_info_index = dir_hash_to_info_idx;
+
+        // Set folder count for FolderChildHashes
+        header.hash_folder_count = folder_children_hashes_len as u32;
+        self.folder_child_hashes = folder_children_hashes;
+
+        // Calculate extra folders and set extra folder header for FolderOffsets
+        let extra_folder_count = (folder_offsets_vec_len as u32) - (header.folder_offset_count_1 + header.folder_offset_count_2 + header.extra_folder);
+        header.extra_folder += extra_folder_count as u32;
+        self.folder_offsets = folder_offsets_vec;
+        // --------------------- END MODIFY DIRECTORY RELEATED FIELDS ---------------------
+
 
         self.resort_file_hashes();
     }
