@@ -515,7 +515,7 @@ impl FileLoader for ArcLoader {
 
     fn load_path(&self, root_path: &Path, local_path: &Path) -> Result<Vec<u8>, Self::ErrorType> {
         let hash = if local_path.to_str().unwrap().is_empty() {
-            Ok(Hash40(u64::from_str_radix(&root_path.to_str().unwrap()[2..], 16).unwrap()))
+            Ok(Hash40(u64::from_str_radix(&local_path.to_str().unwrap()[2..], 16).unwrap()))
         } else {
             crate::get_smash_hash(local_path)
         };
