@@ -11,15 +11,12 @@
 #![feature(drain_filter)] // Removing additional paths from Modfile vec
 
 use std::{
-    fmt,
-    path::Path,
     str::FromStr, collections::HashMap,
 };
 
 use arcropolis_api::Event;
 use camino::{Utf8Path, Utf8PathBuf};
 use log::LevelFilter;
-use thiserror::Error;
 
 #[macro_use]
 extern crate log;
@@ -54,7 +51,7 @@ pub static FILESYSTEM: OnceCell<HashMap<Hash40, Utf8PathBuf>> = OnceCell::new();
 
 pub static LOADING_STATIC: Lazy<RwLock<LoadingState>> = Lazy::new(|| const_rwlock(LoadingState::default()));
 
-static mut NEWS_DATA: Lazy<HashMap<String, String>> = Lazy::new(|| HashMap::new());
+static mut NEWS_DATA: Lazy<HashMap<String, String>> = Lazy::new(HashMap::new);
 
 pub static CACHE_PATH: Lazy<Utf8PathBuf> = Lazy::new(|| {
     let path = utils::paths::cache().join(utils::get_game_version().to_string());
@@ -225,7 +222,7 @@ fn initial_loading(_ctx: &InlineCtx) {
         if let Some(cfg) = cfg {
             mod_config.merge(cfg);
         } else {
-            warn!("Could not read/parse JSO data from file {}", path.path);
+            warn!("Could not read/parse JSON data from file {}", path.path);
         }
     });
 
@@ -237,11 +234,11 @@ fn initial_loading(_ctx: &InlineCtx) {
     let mut search_context = LoadedSearchSection::make_context();
 
     for path in mod_config.new_dir_infos.iter() {
-        replacement::addition::prepare_file(&mut context, &Utf8Path::new(path))
+        replacement::addition::prepare_file(&mut context, Utf8Path::new(path))
     }
 
     for (new, base) in mod_config.new_dir_infos_base.iter() {
-        replacement::addition::prepare_file_with_base(&mut context, &Utf8Path::new(new), &Utf8Path::new(base))
+        replacement::addition::prepare_file_with_base(&mut context, Utf8Path::new(new), Utf8Path::new(base))
     }
 
     let new_files: Vec<&Utf8Path> = modpack.0.mods.iter().flat_map(|mods| mods.files.iter().map(move |file| file.path.strip_prefix(&mods.root).unwrap())).filter(|file| {

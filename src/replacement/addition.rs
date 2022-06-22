@@ -368,17 +368,14 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
 
 // Right now this will take up a bit of memory if adding multiple dirs to the same dirinfo, so gonna have to change it to take a vec instead ig
 pub fn add_info_to_parent(ctx: &mut AdditionContext, parent_dir_info: &mut DirInfo, child_hash_to_index: &HashToIndex){
-    let mut parent_folder_children_hashes = ctx.folder_children_hashes[parent_dir_info.children_range()]
-                                                .iter()
-                                                .map(|child| child.clone())
-                                                .collect::<Vec<_>>();
+    let mut parent_folder_children_hashes = ctx.folder_children_hashes[parent_dir_info.children_range()].to_vec();
 
     // Change so that it equals len of vector if this ever gets changed
     parent_dir_info.child_dir_count += 1;
     parent_dir_info.child_dir_start_index = ctx.folder_children_hashes.len() as u32;
 
     // Add new child hash to the index
-    parent_folder_children_hashes.push(child_hash_to_index.clone());
+    parent_folder_children_hashes.push(*child_hash_to_index);
     ctx.folder_children_hashes.extend_from_slice(&parent_folder_children_hashes[..]);
 }
 
@@ -474,19 +471,19 @@ pub fn prepare_file(ctx: &mut AdditionContext, path: &Utf8Path) {
     ctx.dir_hash_to_info_idx.push(dir_hash_to_info_idx);
     ctx.folder_offsets_vec.push(new_dir_offset);
 
-    let mut dir_hash_to_info_index_sorted = ctx.dir_hash_to_info_idx.iter().map(|idx| idx.clone()).collect::<Vec<_>>();
+    let mut dir_hash_to_info_index_sorted = ctx.dir_hash_to_info_idx.to_vec();
     
     dir_hash_to_info_index_sorted.sort_by(|a, b| {
         a.hash40().cmp(&b.hash40())
     });
     
-    ctx.dir_hash_to_info_idx = CppVector::from_slice(&dir_hash_to_info_index_sorted[..]);
+    ctx.dir_hash_to_info_idx = dir_hash_to_info_index_sorted;
     // --------------------- END PUSH TO CONTEXT --------------------- //
 }
 
 pub fn prepare_file_with_base(ctx: &mut AdditionContext, path: &Utf8Path, base: &Utf8Path) {
     // Create a FolderPathListEntry from the path that's passed in
-    let mut dir_info_path = if let Some(dir_info_path) = FolderPathListEntry::from_path(path) {
+    let dir_info_path = if let Some(dir_info_path) = FolderPathListEntry::from_path(path) {
         dir_info_path
     } else {
         error!("Failed to generate a FolderPathListEntry from {} for dir_info_path!", path);
@@ -494,7 +491,7 @@ pub fn prepare_file_with_base(ctx: &mut AdditionContext, path: &Utf8Path, base: 
     };
     
     // Create a FolderPathListEntry from the path that's passed in
-    let mut base_dir_info_path = if let Some(base_dir_info_path) = FolderPathListEntry::from_path(base) {
+    let base_dir_info_path = if let Some(base_dir_info_path) = FolderPathListEntry::from_path(base) {
         base_dir_info_path
     } else {
         error!("Failed to generate a FolderPathListEntry from {} for base_dir_info_path!", base);
@@ -504,7 +501,7 @@ pub fn prepare_file_with_base(ctx: &mut AdditionContext, path: &Utf8Path, base: 
     prepare_file(ctx, path);
 
     // Get the base
-    let base_dir_info = ctx.get_dir_info_from_hash_ctx(base_dir_info_path.path.hash40()).unwrap().clone();
+    let base_dir_info = *ctx.get_dir_info_from_hash_ctx(base_dir_info_path.path.hash40()).unwrap();
 
     // Get the newly added dirinfo
     let mut dir_info = ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.path.hash40()).unwrap();

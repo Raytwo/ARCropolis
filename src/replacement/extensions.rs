@@ -22,27 +22,27 @@ pub struct AdditionContext {
 
     pub added_files: HashMap<Hash40, FilePathIdx>,
 
-    pub filepaths: CppVector<FilePath>,
-    pub file_info_indices: CppVector<FileInfoIndex>,
-    pub file_infos: CppVector<FileInfo>,
-    pub info_to_datas: CppVector<FileInfoToFileData>,
-    pub file_datas: CppVector<FileData>,
+    pub filepaths: Vec<FilePath>,
+    pub file_info_indices: Vec<FileInfoIndex>,
+    pub file_infos: Vec<FileInfo>,
+    pub info_to_datas: Vec<FileInfoToFileData>,
+    pub file_datas: Vec<FileData>,
 
-    pub loaded_filepaths: CppVector<LoadedFilepath>,
-    pub loaded_datas: CppVector<LoadedData>,
+    pub loaded_filepaths: Vec<LoadedFilepath>,
+    pub loaded_datas: Vec<LoadedData>,
 
-    pub dir_infos_vec: CppVector<DirInfo>,
-    pub dir_hash_to_info_idx: CppVector<HashToIndex>,
-    pub folder_offsets_vec: CppVector<DirectoryOffset>,
-    pub folder_children_hashes: CppVector<HashToIndex>,
+    pub dir_infos_vec: Vec<DirInfo>,
+    pub dir_hash_to_info_idx: Vec<HashToIndex>,
+    pub folder_offsets_vec: Vec<DirectoryOffset>,
+    pub folder_children_hashes: Vec<HashToIndex>,
 }
 
 pub struct SearchContext {
     pub search: &'static mut LoadedSearchSection,
 
-    pub folder_paths: CppVector<FolderPathListEntry>,
-    pub path_list_indices: CppVector<u32>,
-    pub paths: CppVector<PathListEntry>,
+    pub folder_paths: Vec<FolderPathListEntry>,
+    pub path_list_indices: Vec<u32>,
+    pub paths: Vec<PathListEntry>,
     pub new_folder_paths: HashMap<Hash40, usize>,
     pub new_paths: HashMap<Hash40, usize>,
 }
@@ -213,25 +213,26 @@ impl LoadedArcEx for LoadedArc {
         let arc = resource::arc_mut();
         let filesystem_info = resource::filesystem_info();
 
-        let filepaths = CppVector::from_slice(arc.get_file_paths());
-        let file_info_indices = CppVector::from_slice(arc.get_file_info_indices());
-        let file_infos = CppVector::from_slice(arc.get_file_infos());
-        let info_to_datas = CppVector::from_slice(arc.get_file_info_to_datas());
-        let file_datas = CppVector::from_slice(arc.get_file_datas());
+        let filepaths = arc.get_file_paths().to_vec();
+        let file_info_indices = arc.get_file_info_indices().to_vec();
+        let file_infos = arc.get_file_infos().to_vec();
+        let info_to_datas = arc.get_file_info_to_datas().to_vec();
+        let file_datas = arc.get_file_datas().to_vec();
 
-        let loaded_filepaths = CppVector::from_slice(filesystem_info.get_loaded_filepaths());
-        let loaded_datas = CppVector::clone_from_slice(filesystem_info.get_loaded_datas());
+        let loaded_filepaths = filesystem_info.get_loaded_filepaths().to_vec();
+        let loaded_datas = filesystem_info.get_loaded_datas().to_vec();
 
-        let dir_infos_vec = CppVector::from_slice(arc.get_dir_infos());
-        let dir_hash_to_info_idx = CppVector::from_slice(arc.get_dir_hash_to_info_index());
-        let folder_offsets_vec = CppVector::from_slice(arc.get_folder_offsets());
+        let dir_infos_vec = arc.get_dir_infos().to_vec();
+        let dir_hash_to_info_idx = arc.get_dir_hash_to_info_index().to_vec();
+        let folder_offsets_vec = arc.get_folder_offsets().to_vec();
 
         let header = unsafe { &*(arc.fs_header as *mut FileSystemHeader) };
         let folder_children_hashes = unsafe {
-            CppVector::from_slice(std::slice::from_raw_parts(
-                arc.folder_child_hashes,
-                header.hash_folder_count as usize
-            ))
+            Vec::from_raw_parts(
+                arc.folder_child_hashes as *mut _,
+                header.hash_folder_count as usize,
+                header.hash_folder_count as _
+            )
         };
 
         AdditionContext {
@@ -576,9 +577,9 @@ impl SearchEx for LoadedSearchSection {
     fn make_context() -> SearchContext {
         let search = resource::search_mut();
 
-        let folder_paths = CppVector::from_slice(search.get_folder_path_list());
-        let paths = CppVector::from_slice(search.get_path_list());
-        let path_list_indices = CppVector::from_slice(search.get_path_list_indices());
+        let folder_paths = search.get_folder_path_list().to_vec();
+        let paths = search.get_path_list().to_vec();
+        let path_list_indices = search.get_path_list_indices().to_vec();
         SearchContext {
             search,
 

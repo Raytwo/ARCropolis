@@ -2,7 +2,6 @@ use std::{
     fs::File,
     io::{BufWriter, Write},
     ops::Deref,
-    path::Path,
     time::SystemTime,
 };
 
