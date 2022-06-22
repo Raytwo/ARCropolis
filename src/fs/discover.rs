@@ -98,7 +98,9 @@ pub fn discover_in_mods<P: AsRef<Utf8Path>>(root: P) -> ModDir {
         // Ignore the directories, only care about the files
         if entry.file_type().is_file() && entry.path().extension().is_some() {
             //let (path, _) = crate::strip_region_from_path(Utf8Path::from_path(entry.path()).unwrap());
-            Some(ModFile { path: Utf8PathBuf::from_path_buf(entry.path().into()).unwrap(), size: entry.metadata().unwrap().len() })
+            let path = Utf8PathBuf::from_path_buf(entry.path().into()).unwrap();
+            // TODO: Replace by a smash_path equivalent
+            Some(ModFile { hash: hash40(path.as_str()), path, size: entry.metadata().unwrap().len() })
         } else {
             None
         }
@@ -123,22 +125,7 @@ pub fn discover_mods<P: AsRef<Utf8Path>>(root: P) -> Modpack {
         }).flatten()
         .map(|entry| {
             discover_in_mods(Utf8Path::from_path(entry.path()).unwrap())
-
-            // for path in paths {
-            //     println!("{}", path.to_string(&interner));
-            // }
-
-            // if path.components().count() <= MAX_COMPONENT_COUNT {
-            //     interner.add_path::<MAX_COMPONENT_COUNT>(path);
-            // }
         }).collect();
-
-    // dbg!(conflict_list);
-    // let yaml = serde_yaml::to_string(&Vec::from_iter(conflict_list.iter())).unwrap();
-    // std::fs::write("sd:/ultimate/arcropolis/conflicts.txt", yaml.as_bytes()).unwrap();
-    // dbg!(patches);
-    //dbg!(conflict_list);
-
     Modpack {
         mods
     }

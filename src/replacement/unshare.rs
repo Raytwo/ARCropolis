@@ -406,7 +406,7 @@ pub fn reshare_file_groups(ctx: &mut AdditionContext) {
     let arc = resource::arc();
     // Iterate through each DirInfo in the LoadedArc and check if it points to a shared FileGroup. If it does, we want to kill that link
     // to prevent i-loads or crashes
-    let dir_infos = ctx.dir_infos_vec.iter().map(|idx| idx.clone()).collect::<Vec<_>>();
+    let dir_infos = ctx.dir_infos_vec.clone();
     for dir_info in dir_infos {
         if let Some(RedirectionType::Shared(file_group)) = ctx.get_directory_dependency_ctx(&dir_info) {
             if file_group.directory_index != 0xFF_FFFF {

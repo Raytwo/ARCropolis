@@ -124,11 +124,11 @@ impl ModDir {
         }
     }
     pub fn get_patch(&self) -> Vec<(Hash40, u64)> {
-        self.files.iter().map(|file| (hash40(file.path.strip_prefix(&self.root).unwrap().as_str()), file.size)).collect()
+        self.files.iter().map(|file| (file.hash, file.size)).collect()
     }
 
     pub fn get_filesystem(&self) -> HashMap<Hash40, Utf8PathBuf> {
-        self.files.iter().map(|file| (hash40(file.path.strip_prefix(&self.root).unwrap().as_str()), file.path.to_owned())).collect()
+        self.files.iter().map(|file| (file.hash, file.path.to_owned())).collect()
     }
 }
 
@@ -226,10 +226,21 @@ pub fn acquire_filesystem(modpack: PatchedModpack) -> HashMap<Hash40, Utf8PathBu
     modpack.0.mods.iter().flat_map(|mods| mods.get_filesystem()).collect()
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Hash, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, Serialize)]
 pub struct ModFile {
+    pub hash: Hash40,
     pub path: Utf8PathBuf,
     pub size: u64,
+}
+
+impl Default for ModFile {
+    fn default() -> Self {
+        Self { 
+            hash: Hash40(0),
+            path: Default::default(),
+            size: Default::default()
+        }
+    }
 }
 
 impl ModFile {
@@ -273,24 +284,6 @@ impl ConflictManager {
 
     pub fn next(&mut self) -> Option<ConflictV2> {
         self.0.pop()
-    }
-}
-
-pub struct MsbtHandler;
-
-impl ExtensionHandler for MsbtHandler {
-    fn patch_file<B: AsRef<[u8]>>(&self, _buffer: B) -> Vec<u8> {
-        todo!()
-    }
-}
-
-pub trait ExtensionHandler {
-    fn patch_file<B: AsRef<[u8]>>(&self, buffer: B) -> Vec<u8>;
-}
-
-pub fn acquire_extension_handler<H: Into<Hash40>>(extension: H) -> Option<()> {
-    match extension.into() {
-        _ => None,
     }
 }
 
