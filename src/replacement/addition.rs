@@ -8,7 +8,6 @@ use crate::{
     hashes,
     replacement::FileInfoFlagsExt,
     resource::{LoadedData, LoadedFilepath, CppVector},
-    PathExtension,
 };
 
 pub fn add_file(ctx: &mut AdditionContext, path: &Utf8Path) {

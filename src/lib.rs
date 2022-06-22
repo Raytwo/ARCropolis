@@ -32,7 +32,6 @@ mod api;
 mod chainloader;
 mod config;
 mod fs;
-mod fuse;
 mod hashes;
 mod logging;
 #[cfg(feature = "web")]
@@ -77,78 +76,6 @@ macro_rules! reg_w {
     ($ctx:ident, $no:expr) => {
         unsafe { *$ctx.registers[$no].w.as_ref() }
     };
-}
-
-#[derive(Error, Debug)]
-pub struct InvalidOsStrError;
-
-impl fmt::Display for InvalidOsStrError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Failed to convert from OsStr to &str")
-    }
-}
-
-pub trait PathExtension {
-    fn is_stream(&self) -> bool;
-    fn has_extension<S: AsRef<str>>(&self, ext: S) -> bool;
-    fn smash_hash(&self) -> Result<Hash40, InvalidOsStrError>;
-}
-
-impl PathExtension for Path {
-    fn is_stream(&self) -> bool {
-        static VALID_PREFIXES: &[&str] = &["/stream;", "/stream:", "stream;", "stream:"];
-
-        VALID_PREFIXES.iter().any(|x| self.starts_with(*x))
-    }
-
-    fn has_extension<S: AsRef<str>>(&self, ext: S) -> bool {
-        self.extension().and_then(|x| x.to_str()).map(|x| x == ext.as_ref()).unwrap_or(false)
-    }
-
-    fn smash_hash(&self) -> Result<Hash40, InvalidOsStrError> {
-        if self.extension().is_none() {
-            let hash = self
-                .file_name()
-                .and_then(|x| x.to_str())
-                .and_then(
-                    |x| {
-                        if x.starts_with("0x") {
-                            u64::from_str_radix(x.trim_start_matches("0x"), 16).ok()
-                        } else {
-                            None
-                        }
-                    },
-                )
-                .map(Hash40);
-            if let Some(hash) = hash {
-                return Ok(hash);
-            }
-        }
-        let path = self
-            .as_os_str()
-            .to_str()
-            .map_or(Err(InvalidOsStrError), Ok)?
-            .to_lowercase()
-            .replace(';', ":")
-            .replace(".mp4", ".webm");
-
-        let (path, _) = strip_region_from_path(path);
-
-        Ok(Hash40::from(path.to_string().trim_start_matches('/')))
-    }
-}
-
-/// Basic code for getting a hash40 from a path, ignoring things like if it exists
-fn get_smash_hash<P: AsRef<Utf8Path>>(path: P) -> Result<Hash40, InvalidOsStrError> {
-    Ok(Hash40::from(path.as_ref().as_str()))
-}
-
-fn get_path_from_hash(hash: Hash40) -> Utf8PathBuf {
-    if let Some(string) = hashes::try_find(hash) {
-        Utf8PathBuf::from(string)
-    } else {
-        Utf8PathBuf::from(format!("{:#x}", hash.0))
-    }
 }
 
 fn get_region_from_suffix(suffix: &str) -> Option<Region> {
@@ -252,7 +179,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Will be needed to store patched files
     // nn::fs::mount_cache_storage("cache");
     // skyline::install_hook!(mount_mod_cache_storage);
-    fuse::arc::install_arc_fs();
+    // fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
 
     // Judging by observation, waiting 5 seconds for file discovery to start in a thread followed by joining here is actually a waste of time, as this function is called within 2 seconds and then has to wait anyways.
@@ -265,6 +192,7 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Remove all of the conflicting mods from the modpack
     let conflict_time = std::time::Instant::now();
 
+    // Disabled for now
     let (modpack, conflicts) = fs::check_for_conflicts(modpack);
     println!("Conflict checks took {}s", conflict_time.elapsed().as_secs_f32());
 

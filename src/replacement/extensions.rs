@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
-    path::Path,
     sync::atomic::{AtomicBool, Ordering},
 };
 
@@ -13,9 +12,8 @@ use smash_arc::{
 };
 
 use crate::{
-    get_smash_hash, hashes,
+    hashes,
     resource::{self, CppVector, FilesystemInfo, LoadedData, LoadedFilepath},
-    PathExtension,
 };
 
 pub struct AdditionContext {
