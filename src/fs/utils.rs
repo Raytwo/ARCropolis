@@ -5,10 +5,12 @@ use std::{
 };
 
 use orbits::{FileLoader, Tree};
-use smash_arc::{serde::Hash40String, Hash40};
+use smash_arc::Hash40;
 
 use super::{ApiCallback, ApiLoader};
 use crate::{hashes, PathExtension};
+
+use arc_config::ToExternal;
 
 pub fn make_hash_maps<L: FileLoader>(tree: &Tree<L>) -> (HashMap<Hash40, usize>, HashMap<Hash40, PathBuf>)
 where
@@ -57,7 +59,7 @@ where
     (size_map, path_map)
 }
 
-pub fn get_required_nus3banks<L: FileLoader>(tree: &Tree<L>, unshare_blacklist: &HashSet<Hash40String>) -> HashSet<PathBuf>
+pub fn get_required_nus3banks<L: FileLoader>(tree: &Tree<L>, unshare_blacklist: &[hash40::Hash40]) -> HashSet<PathBuf>
 where
     <L as FileLoader>::ErrorType: Debug,
 {
@@ -75,7 +77,7 @@ where
 
         if local.has_extension("nus3audio") {
             match local.smash_hash() {
-                Ok(hash) if !unshare_blacklist.contains(&Hash40String(hash)) => {
+                Ok(hash) if !unshare_blacklist.contains(&hash.to_external()) => {
                     nus3audio_deps.insert(local.with_extension("nus3bank"));
                 },
                 Err(e) => error!("Failed to get hash for path {}. Reason: {:?}", local.display(), e),

@@ -9,7 +9,7 @@ use smash_arc::{LoadedArc, LoadedSearchSection};
 use super::containers::{CppVector, ResList};
 
 #[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum LoadState {
     Unused = 0,
     Unloaded = 1,
@@ -49,6 +49,12 @@ impl LoadedData {
             version: 0,
             unk: 0,
         }
+    }
+}
+
+impl Default for LoadedData {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

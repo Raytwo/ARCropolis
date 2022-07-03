@@ -120,6 +120,14 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
         let (dir_hash, child_idx) = match lookup::get_dir_entry_for_file(dependent_hash) {
             Some(entry) => entry,
             None => {
+                // instead of doing it via dir info (which should be accurate), we are going to just do it to the filepath
+                // this basically never happens for vanilla files, but this path *will* run for files that we add that are shared
+                if let Some(dependent_filepath_index) = ctx.added_files.get(&dependent_hash) {
+                    // using the dir is not an option for added shared files
+                    ctx.filepaths[usize::from(*dependent_filepath_index)]
+                        .path
+                        .set_index(new_info_indice_idx.0);
+                }
                 error!(
                     "Failed to find directory entry for file '{}' ({:#x}) while trying to reshare it to a new file, separate from '{}' ({:#x}). This file will cause infinite loads.",
                     hashes::find(dependent_hash),
@@ -420,4 +428,51 @@ pub fn unshare_files(ctx: &mut AdditionContext, hash_ignore: HashSet<Hash40>, ha
     for hash in hashes {
         unshare_file(ctx, &hash_ignore, hash);
     }
+}
+
+pub fn reshare_file(ctx: &mut AdditionContext, dst: Hash40, reshare_to: Hash40) {
+    let reshared_file_info = {
+        let file_path_index = if let Ok(index) = ctx.get_file_path_index_from_hash(reshare_to) {
+            index
+        } else if let Some(index) = ctx.added_files.get(&reshare_to) {
+            *index
+        } else {
+            error!(
+                "Could not get the file path index for '{}' ({:#x})",
+                hashes::find(reshare_to),
+                reshare_to.0
+            );
+            return;
+        };
+
+        let info_index_idx = ctx.filepaths[usize::from(file_path_index)].path.index() as usize;
+        let info_idx = ctx.file_info_indices[info_index_idx].file_info_index;
+        let info_idx = ctx.get_shared_info_index(info_idx);
+        ctx.file_infos[usize::from(info_idx)]
+    };
+
+    if let Some((dir_hash, file_index)) = lookup::get_dir_entry_for_file(dst) {
+        let Ok(dir_info) = ctx.get_dir_info_from_hash(dir_hash).copied() else {
+            error!("Could not get the DirInfo for '{}' ({:#x})", hashes::find(dir_hash), dir_hash.0);
+            return;
+        };
+
+        let file_info = &mut ctx.file_infos[file_index + dir_info.file_info_start_index as usize];
+
+        // file_info.info_to_data_index = reshared_file_info.info_to_data_index;
+        file_info.file_info_indice_index = reshared_file_info.file_info_indice_index;
+        file_info.flags = reshared_file_info.flags;
+        file_info.flags.set_standalone_file(true);
+    }
+
+    let Ok(file_path_index) = ctx.get_file_path_index_from_hash(dst) else {
+        error!("Could not get the file path index for '{}' ({:#x})", hashes::find(dst), dst.0);
+        return;
+    };
+
+    ctx.filepaths[usize::from(file_path_index)]
+        .path
+        .set_index(reshared_file_info.file_info_indice_index.0);
+
+    lookup::add_shared_file(dst, reshare_to);
 }

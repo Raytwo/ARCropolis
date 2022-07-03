@@ -48,7 +48,7 @@ Here is a list of multiple people who have contributed to ARCropolis over time
 
 Current maintainers: ``Raytwo``, ``blujay``
 
-Contributors: ``Raytwo``, ``CoolSonicKirby``, ``blujay``, ``jam1garner``
+Contributors: ``Raytwo``, ``CoolSonicKirby``, ``blujay``, ``jam1garner``, ``jozz``
 
 Special thanks: ``Shadow``, ``Genwald``
 
