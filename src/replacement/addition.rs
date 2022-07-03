@@ -1,9 +1,12 @@
 use std::{collections::HashSet, path::Path};
 
-use arc_config::{search::{File, Folder}, ToSmashArc};
+use arc_config::{
+    search::{File, Folder},
+    ToSmashArc,
+};
 use smash_arc::*;
 
-use super::{lookup, AdditionContext, FromPathExt, SearchContext, FromFile, FromFolder};
+use super::{lookup, AdditionContext, FromFile, FromFolder, FromPathExt, SearchContext};
 use crate::{
     hashes,
     replacement::FileInfoFlagsExt,
@@ -120,7 +123,8 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
 
     // Push the FilePath to the context FilePaths
     ctx.filepaths.push(filepath);
-    ctx.added_files.insert(filepath.path.hash40(), FilePathIdx((ctx.filepaths.len() - 1) as u32));
+    ctx.added_files
+        .insert(filepath.path.hash40(), FilePathIdx((ctx.filepaths.len() - 1) as u32));
     ctx.loaded_filepaths.push(LoadedFilepath::default());
 
     // Add the shared file to the lookup
@@ -219,7 +223,7 @@ fn add_searchable_folder_by_folder(ctx: &mut SearchContext, folder: &Folder) -> 
     }
 
     let path_list_indices_len = ctx.path_list_indices.len();
-    
+
     // get the parent, we can't *really* fail here, and if we do then something is broken in the ctx impl
     let Some(parent) = ctx.get_folder_path_mut(parent.full_path.to_smash_arc()) else {
         error!("Failed to get parent after ensuring that it exists");
@@ -245,25 +249,24 @@ fn add_searchable_folder_by_folder(ctx: &mut SearchContext, folder: &Folder) -> 
 }
 
 pub fn add_shared_searchable_file(ctx: &mut SearchContext, new_file: &File) {
-    
     // yes this is complex
     // yes I apologize
     // but for this feature to be complete it should be able to add new files which don't have parents
     // in a search folder
     // I either do it now while I'm thinking about it or never do it at all
-    
+
     // first, we try and just get the raw parent
     // we have to evaluate this into a boolean because of references
     // I am working on a better file addition implementation that doesn't have this dogshit
     // workaround but it will take some time
     let has_parent = ctx.get_folder_path_mut(new_file.parent.full_path.to_smash_arc()).is_some();
-    
+
     // if it isn't there, then we are going to recursively add it's parent, returning out if it's not possible
     if !has_parent && !add_searchable_folder_by_folder(ctx, &new_file.parent) {
         error!("Cannot add shared file to search section because we could not add it's parents");
         return;
     }
-    
+
     // we get the length here because we are about to acquire a mutable reference
     // to the parent folder, and we cannot get the length via immutable reference
     // if that one is active
