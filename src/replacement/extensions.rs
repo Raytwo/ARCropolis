@@ -630,11 +630,7 @@ impl FromFolder for FolderPathListEntry {
             file_name: HashToIndex::default(),
         });
 
-
-        let parent = folder.parent
-            .as_ref()
-            .map(|folder| folder.full_path)
-            .unwrap();
+        let parent = folder.parent.as_ref().map(|folder| folder.full_path).unwrap();
 
         let name = folder.name.unwrap();
 

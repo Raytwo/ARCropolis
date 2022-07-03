@@ -1,7 +1,7 @@
 use skyline::libc::c_char;
 use smash_arc::{Hash40, LoadedArc};
 
-use crate::{offsets};
+use crate::offsets;
 
 #[skyline::hook(offset = offsets::lookup_stream_hash())]
 fn lookup_stream_hash(out_path: *mut c_char, loaded_arc: &LoadedArc, size_out: &mut usize, offset_out: &mut u64, hash: Hash40) {
