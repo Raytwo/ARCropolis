@@ -119,7 +119,6 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
     filepath.path.set_index(info_indice_idx);
 
     // Push the FilePath to the context FilePaths
-    error!("Added file: {:#x}", filepath.path.hash40().0);
     ctx.filepaths.push(filepath);
     ctx.added_files.insert(filepath.path.hash40(), FilePathIdx((ctx.filepaths.len() - 1) as u32));
     ctx.loaded_filepaths.push(LoadedFilepath::default());
@@ -226,14 +225,6 @@ fn add_searchable_folder_by_folder(ctx: &mut SearchContext, folder: &Folder) -> 
         error!("Failed to get parent after ensuring that it exists");
         return false;
     };
-
-    error!(
-        "Added '{}' ({:#x}), child of '{}' ({:#x})",
-        hashes::find(folder.full_path.to_smash_arc()),
-        folder.full_path.0,
-        hashes::find(parent.path.hash40()),
-        parent.path.hash40().0
-    );
 
     let mut new_folder = FolderPathListEntry::from_folder(folder);
     // Create a new directory that does not have child directories
