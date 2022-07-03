@@ -8,12 +8,12 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+use arc_config::Config as ModConfig;
+use arc_config::{ToExternal, ToSmashArc};
 use orbits::{orbit::LaunchPad, Error, FileEntryType, FileLoader, Orbit, StandardLoader, Tree};
 use owo_colors::OwoColorize;
 use smash_arc::{ArcLookup, Hash40, LoadedArc, LoadedSearchSection, LookupError, SearchLookup};
 use thiserror::Error;
-use arc_config::Config as ModConfig;
-use arc_config::{ToExternal, ToSmashArc};
 // pub mod api;
 // mod event;
 use crate::{
@@ -163,7 +163,7 @@ impl CachedFilesystem {
             Err(_) => {
                 error!("Failed to deserialize the default config.");
                 ModConfig::default()
-            }
+            },
         };
 
         // Load all of the user configs into the main config
@@ -405,7 +405,9 @@ impl CachedFilesystem {
         // This is mostly used for Dark Samus because of her victory bunshin article
         for (dep, source) in self.config.preprocess_reshare.iter() {
             hash_ignore.extend(replacement::preprocess::reshare_contained_files(
-                &mut context, dep.to_smash_arc(), source.to_smash_arc()
+                &mut context,
+                dep.to_smash_arc(),
+                source.to_smash_arc(),
             ));
         }
 
@@ -466,12 +468,11 @@ impl CachedFilesystem {
                 }
             }
         }
-        
+
         // Add new files to the dir infos
         for (hash, files) in self.config.new_dir_files.iter() {
             replacement::addition::add_files_to_directory(&mut context, hash.to_smash_arc(), files.iter().map(|hash| hash.to_smash_arc()).collect());
         }
-
 
         resource::arc_mut().take_context(context);
         resource::search_mut().take_context(search_context);

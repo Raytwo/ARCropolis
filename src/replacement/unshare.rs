@@ -124,7 +124,9 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
                 // this basically never happens for vanilla files, but this path *will* run for files that we add that are shared
                 if let Some(dependent_filepath_index) = ctx.added_files.get(&dependent_hash) {
                     // using the dir is not an option for added shared files
-                    ctx.filepaths[usize::from(*dependent_filepath_index)].path.set_index(new_info_indice_idx.0);
+                    ctx.filepaths[usize::from(*dependent_filepath_index)]
+                        .path
+                        .set_index(new_info_indice_idx.0);
                 }
                 error!(
                     "Failed to find directory entry for file '{}' ({:#x}) while trying to reshare it to a new file, separate from '{}' ({:#x}). This file will cause infinite loads.",
@@ -435,7 +437,11 @@ pub fn reshare_file(ctx: &mut AdditionContext, dst: Hash40, reshare_to: Hash40) 
         } else if let Some(index) = ctx.added_files.get(&reshare_to) {
             *index
         } else {
-            error!("Could not get the file path index for '{}' ({:#x})", hashes::find(reshare_to), reshare_to.0);
+            error!(
+                "Could not get the file path index for '{}' ({:#x})",
+                hashes::find(reshare_to),
+                reshare_to.0
+            );
             return;
         };
 
@@ -464,7 +470,9 @@ pub fn reshare_file(ctx: &mut AdditionContext, dst: Hash40, reshare_to: Hash40) 
         return;
     };
 
-    ctx.filepaths[usize::from(file_path_index)].path.set_index(reshared_file_info.file_info_indice_index.0);
+    ctx.filepaths[usize::from(file_path_index)]
+        .path
+        .set_index(reshared_file_info.file_info_indice_index.0);
 
     lookup::add_shared_file(dst, reshare_to);
 }
