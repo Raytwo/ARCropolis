@@ -19,7 +19,8 @@ static PRESET_HASHES: Lazy<HashSet<Hash40>> = Lazy::new(|| {
     // Get the name of the preset file from the workspace list
     let presets: String = workspace_list.get(&workspace_name).unwrap_or(&"presets".to_string()).to_string();
 
-    let presets = match storage.get_field_json(&presets) {
+    let presets = storage.get_field_json(&presets);
+    let presets = match presets {
         Ok(presets) => {
             trace!("Preset properly deserialized");
             presets
