@@ -2,7 +2,7 @@ pub mod extensions;
 pub mod lookup;
 
 pub mod addition;
-pub mod config;
+// pub mod config;
 pub mod preprocess;
 mod stream;
 mod threads;

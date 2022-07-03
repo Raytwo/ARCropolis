@@ -6,6 +6,7 @@
 #![feature(vec_into_raw_parts)]
 #![allow(unaligned_references)]
 #![feature(string_remove_matches)]
+#![feature(let_else)]
 
 use std::{
     fmt,
@@ -352,6 +353,8 @@ pub fn main() {
     replacement::install();
 
     std::panic::set_hook(Box::new(|info| {
+        // println!("here");
+        // unsafe { *(0 as *mut u8) = 0x69 };
         let location = info.location().unwrap();
 
         let msg = match info.payload().downcast_ref::<&'static str>() {
