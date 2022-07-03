@@ -59,7 +59,7 @@ where
     (size_map, path_map)
 }
 
-pub fn get_required_nus3banks<L: FileLoader>(tree: &Tree<L>, unshare_blacklist: &Vec<hash40::Hash40>) -> HashSet<PathBuf>
+pub fn get_required_nus3banks<L: FileLoader>(tree: &Tree<L>, unshare_blacklist: &[hash40::Hash40]) -> HashSet<PathBuf>
 where
     <L as FileLoader>::ErrorType: Debug,
 {

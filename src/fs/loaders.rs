@@ -515,7 +515,6 @@ impl FileLoader for ArcLoader {
 
     #[track_caller]
     fn load_path(&self, _root_path: &Path, local_path: &Path) -> Result<Vec<u8>, Self::ErrorType> {
-        error!("{}", local_path.display());
         let hash = if local_path.to_str().unwrap().is_empty() {
             Ok(Hash40(u64::from_str_radix(&local_path.to_str().unwrap()[2..], 16).unwrap()))
         } else {
