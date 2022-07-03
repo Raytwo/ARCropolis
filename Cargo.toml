@@ -36,8 +36,7 @@ owo-colors = "3.0.1"
 strip-ansi-escapes = "0.1.1"
 bincode = "1.3.3"
 # To manage mods
-# orbits = { git = "https://github.com/blu-dev/orbits" }
-orbits = { path = "../orbits" }
+orbits = { git = "https://github.com/blu-dev/orbits" }
 smash-arc = { git = "https://github.com/blu-dev/smash-arc", features = ["smash-runtime", "rust-zstd", "serialize"] }
 hash40 = { git = "https://github.com/BenHall-7/hash40-rs" }
 arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api" }
