@@ -472,9 +472,8 @@ pub fn reshare_file(ctx: &mut AdditionContext, dst: Hash40, reshare_to: Hash40) 
 
         let file_info = &mut ctx.file_infos[file_index + dir_info.file_info_start_index as usize];
 
-        // file_info.info_to_data_index = reshared_file_info.info_to_data_index;
+        file_info.info_to_data_index = reshared_file_info.info_to_data_index;
         file_info.file_info_indice_index = reshared_file_info.file_info_indice_index;
-        file_info.flags = reshared_file_info.flags;
         file_info.flags.set_standalone_file(true);
     }
 

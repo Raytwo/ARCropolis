@@ -569,15 +569,15 @@ pub trait FromPathExt {
         Self: Sized;
 }
 
-pub trait FromFile {
+pub trait FromSearchableFile {
     fn from_file(file: &File) -> Self;
 }
 
-pub trait FromFolder {
+pub trait FromSearchableFolder {
     fn from_folder(folder: &Folder) -> Self;
 }
 
-impl FromFile for FilePath {
+impl FromSearchableFile for FilePath {
     fn from_file(file: &File) -> Self {
         let mut result = FilePath {
             path: HashToIndex::default(),
@@ -599,7 +599,7 @@ impl FromFile for FilePath {
     }
 }
 
-impl FromFile for PathListEntry {
+impl FromSearchableFile for PathListEntry {
     fn from_file(file: &File) -> Self {
         let mut result = PathListEntry(SearchListEntry {
             path: HashToIndex::default(),
@@ -621,7 +621,7 @@ impl FromFile for PathListEntry {
     }
 }
 
-impl FromFolder for FolderPathListEntry {
+impl FromSearchableFolder for FolderPathListEntry {
     fn from_folder(folder: &Folder) -> Self {
         let mut result = Self(SearchListEntry {
             path: HashToIndex::default(),
