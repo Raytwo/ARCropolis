@@ -6,7 +6,7 @@ use arc_config::{
 };
 use smash_arc::*;
 
-use super::{lookup, AdditionContext, FromSearchableFile, FromSearchableFolder, FromPathExt, SearchContext};
+use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, SearchContext};
 use crate::{
     hashes,
     replacement::FileInfoFlagsExt,
