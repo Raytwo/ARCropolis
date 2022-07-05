@@ -6,7 +6,7 @@ use arc_config::{
 };
 use smash_arc::*;
 
-use super::{lookup, AdditionContext, FromFile, FromFolder, FromPathExt, SearchContext};
+use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, SearchContext};
 use crate::{
     hashes,
     replacement::FileInfoFlagsExt,
@@ -359,7 +359,7 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
     }
 }
 
-pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, files: Vec<Hash40>) {
+pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, files: HashSet<Hash40>) {
     fn get_path_idx(ctx: &AdditionContext, hash: Hash40) -> Option<FilePathIdx> {
         // Try getting the FilePathIdx from the passed in hash, if failed, then get index from the added files
         match ctx.get_file_path_index_from_hash(hash) {
