@@ -232,8 +232,9 @@ pub fn add_shared_file<H: Into<Hash40>>(hash: H, shared_to: H) {
         let shared_to = shared_to.into();
         let hash = hash.into();
         lut.is_shared_search.insert(shared_to);
+        lut.is_shared_search.insert(hash);
 
-        if let Some(list) = lut.shared_file_lookup.get_mut(&hash) {
+        if let Some(list) = lut.shared_file_lookup.get_mut(&shared_to) {
             list.push(hash);
         } else {
             lut.shared_file_lookup.insert(shared_to, vec![hash]);

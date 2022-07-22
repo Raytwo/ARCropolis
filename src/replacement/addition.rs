@@ -1,8 +1,12 @@
 use std::{collections::HashSet, path::Path};
 
+use arc_config::{
+    search::{File, Folder},
+    ToSmashArc,
+};
 use smash_arc::*;
 
-use super::{lookup, AdditionContext, FromPathExt, SearchContext};
+use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, SearchContext};
 use crate::{
     hashes,
     replacement::FileInfoFlagsExt,
@@ -94,39 +98,39 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
     info!("Added file '{}' ({:#x})", path.display(), file_path.path.hash40().0);
 }
 
-pub fn add_shared_file(ctx: &mut AdditionContext, path: &Path, shared_to: Hash40) {
+pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Hash40) {
     // Get the target shared FileInfoIndice index
-    let info_indice_idx = match ctx.get_file_info_from_hash(shared_to) {
-        Ok(info) => info.file_info_indice_index.0 as u32,
-        Err(_e) => {
-            error!(
-                "Failed to find file '{}' ({:#x}) when attempting to share file to it.",
-                hashes::find(shared_to),
-                shared_to.0
-            );
-            return;
-        },
+    let info_indice_idx = if let Ok(info) = ctx.get_file_info_from_hash(shared_to) {
+        info.file_info_indice_index.0
+    } else if let Some(file_path_idx) = ctx.added_files.get(&shared_to) {
+        let info_index = ctx.filepaths[usize::from(*file_path_idx)].path.index() as usize;
+        let info_idx = ctx.file_info_indices[info_index].file_info_index;
+        ctx.file_infos[usize::from(info_idx)].file_info_indice_index.0
+    } else {
+        error!(
+            "Failed to find file '{}' ({:#x}) when attempting to share file to it.",
+            hashes::find(shared_to),
+            shared_to.0
+        );
+        return;
     };
 
     // Make FilePath from path passed in
-    let mut filepath = match FilePath::from_path(path) {
-        Some(filepath) => filepath,
-        None => {
-            error!("Failed to convert path '{}' to FilePath struct!", path.display());
-            return;
-        },
-    };
+    let mut filepath = FilePath::from_file(new_file);
 
     // Set the FilePath's path index to the shared target FileInfoIndice index
     filepath.path.set_index(info_indice_idx);
 
     // Push the FilePath to the context FilePaths
     ctx.filepaths.push(filepath);
+    ctx.added_files
+        .insert(filepath.path.hash40(), FilePathIdx((ctx.filepaths.len() - 1) as u32));
+    ctx.loaded_filepaths.push(LoadedFilepath::default());
 
     // Add the shared file to the lookup
     lookup::add_shared_file(
-        path.smash_hash().unwrap(), // we can unwrap because of FilePath::from_path being successful
-        shared_to,
+        new_file.full_path.to_smash_arc(), // we can unwrap because of FilePath::from_path being successful
+        shared_to.to_smash_arc(),
     );
 }
 
@@ -193,6 +197,94 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
     } else {
         error!("Failed to add folder {}!", path.display());
     }
+}
+
+fn add_searchable_folder_by_folder(ctx: &mut SearchContext, folder: &Folder) -> bool {
+    // begin by simply checking if this folder's parent exists
+    // eventually up the chain we should be able to find an existing folder to add our tree into
+    let Some(parent) = folder.parent.as_ref() else {
+        error!("Cannot add folder recursively because it has no parent");
+        return false;
+    };
+
+    // do a similar check to the file to see if the parent exists, and if not then we want to add it
+    let has_parent = ctx.get_folder_path_mut(parent.full_path.to_smash_arc()).is_some();
+
+    // if we can't find or add anything, just jump out and let the user die
+    if !has_parent && !add_searchable_folder_by_folder(ctx, parent) {
+        error!("Cannot add folder recursively because we failed to find/add its parent");
+        return false;
+    }
+
+    // quick check on the fields of folder to ensure that we can actually do this
+    if folder.name.is_none() {
+        error!("Cannot add folder with no name");
+        return false;
+    }
+
+    let path_list_indices_len = ctx.path_list_indices.len();
+
+    // get the parent, we can't *really* fail here, and if we do then something is broken in the ctx impl
+    let Some(parent) = ctx.get_folder_path_mut(parent.full_path.to_smash_arc()) else {
+        error!("Failed to get parent after ensuring that it exists");
+        return false;
+    };
+
+    let mut new_folder = FolderPathListEntry::from_folder(folder);
+    // Create a new directory that does not have child directories
+    new_folder.set_first_child_index(0xFF_FFFF);
+    // Create a new search path
+    let mut new_path = new_folder.as_path_entry();
+    // Set the previous head of the linked list as the child of the new path
+    new_path.path.set_index(parent.get_first_child_index() as u32);
+    // Set the next path as the first element of the linked list
+    parent.set_first_child_index(path_list_indices_len as u32);
+    ctx.new_folder_paths.insert(new_folder.path.hash40(), ctx.folder_paths.len());
+    ctx.new_paths.insert(new_path.path.hash40(), ctx.path_list_indices.len());
+    ctx.path_list_indices.push(ctx.paths.len() as u32);
+    ctx.folder_paths.push(new_folder);
+    ctx.paths.push(new_path);
+
+    true
+}
+
+pub fn add_shared_searchable_file(ctx: &mut SearchContext, new_file: &File) {
+    // yes this is complex
+    // yes I apologize
+    // but for this feature to be complete it should be able to add new files which don't have parents
+    // in a search folder
+    // I either do it now while I'm thinking about it or never do it at all
+
+    // first, we try and just get the raw parent
+    // we have to evaluate this into a boolean because of references
+    // I am working on a better file addition implementation that doesn't have this dogshit
+    // workaround but it will take some time
+    let has_parent = ctx.get_folder_path_mut(new_file.parent.full_path.to_smash_arc()).is_some();
+
+    // if it isn't there, then we are going to recursively add it's parent, returning out if it's not possible
+    if !has_parent && !add_searchable_folder_by_folder(ctx, &new_file.parent) {
+        error!("Cannot add shared file to search section because we could not add it's parents");
+        return;
+    }
+
+    // we get the length here because we are about to acquire a mutable reference
+    // to the parent folder, and we cannot get the length via immutable reference
+    // if that one is active
+    let path_list_indices_len = ctx.path_list_indices.len();
+
+    let Some(parent) = ctx.get_folder_path_mut(new_file.parent.full_path.to_smash_arc()) else {
+        error!("Cannot add shared file to search section because its parent does not exist");
+        return;
+    };
+
+    let mut new_file = PathListEntry::from_file(new_file);
+
+    new_file.path.set_index(parent.get_first_child_index() as u32);
+    // Set the file as the head of the linked list
+    parent.set_first_child_index(path_list_indices_len as u32);
+    ctx.new_paths.insert(new_file.path.hash40(), ctx.path_list_indices.len());
+    ctx.path_list_indices.push(ctx.paths.len() as u32);
+    ctx.paths.push(new_file);
 }
 
 pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
@@ -267,7 +359,7 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
     }
 }
 
-pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, files: Vec<Hash40>) {
+pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, files: HashSet<Hash40>) {
     fn get_path_idx(ctx: &AdditionContext, hash: Hash40) -> Option<FilePathIdx> {
         // Try getting the FilePathIdx from the passed in hash, if failed, then get index from the added files
         match ctx.get_file_path_index_from_hash(hash) {

@@ -8,16 +8,17 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+use arc_config::Config as ModConfig;
+use arc_config::{ToExternal, ToSmashArc};
 use orbits::{orbit::LaunchPad, Error, FileEntryType, FileLoader, Orbit, StandardLoader, Tree};
 use owo_colors::OwoColorize;
-use smash_arc::{serde::Hash40String, ArcLookup, Hash40, LoadedArc, LoadedSearchSection, LookupError, SearchLookup};
+use smash_arc::{ArcLookup, Hash40, LoadedArc, LoadedSearchSection, LookupError, SearchLookup};
 use thiserror::Error;
-
 // pub mod api;
 // mod event;
 use crate::{
     api, config, get_path_from_hash, hashes,
-    replacement::{self, config::ModConfig, LoadedArcEx, SearchEx},
+    replacement::{self, LoadedArcEx, SearchEx},
     resource, PathExtension,
 };
 
@@ -43,7 +44,7 @@ impl fmt::Debug for FilesystemUninitializedError {
 
 pub struct CachedFilesystem {
     loader: ArcropolisOrbit,
-    config: replacement::config::ModConfig,
+    config: ModConfig,
     hash_lookup: HashMap<Hash40, PathBuf>,
     hash_size_cache: HashMap<Hash40, usize>,
     incoming_load: Option<Hash40>,
@@ -69,9 +70,7 @@ impl CachedFilesystem {
             }
 
             // Read the file data and map it to a json. If that fails, just skip this current JSON.
-            let cfg = std::fs::read_to_string(&full_path)
-                .ok()
-                .and_then(|x| serde_json::from_str::<ModConfig>(x.as_str()).ok());
+            let cfg = ModConfig::from_file_json(&full_path).ok();
 
             if let Some(cfg) = cfg {
                 current.merge(cfg);
@@ -159,11 +158,11 @@ impl CachedFilesystem {
         }
 
         // Load the default config, which we will then join with the other configs
-        let mut config = match serde_json::from_str(DEFAULT_CONFIG) {
+        let mut config = match ModConfig::from_json(DEFAULT_CONFIG) {
             Ok(cfg) => cfg,
             Err(_) => {
                 error!("Failed to deserialize the default config.");
-                replacement::config::ModConfig::default()
+                ModConfig::default()
             },
         };
 
@@ -405,7 +404,11 @@ impl CachedFilesystem {
         // Reshare certain files to the right directories
         // This is mostly used for Dark Samus because of her victory bunshin article
         for (dep, source) in self.config.preprocess_reshare.iter() {
-            hash_ignore.extend(replacement::preprocess::reshare_contained_files(&mut context, dep.0, source.0).into_iter());
+            hash_ignore.extend(replacement::preprocess::reshare_contained_files(
+                &mut context,
+                dep.to_smash_arc(),
+                source.to_smash_arc(),
+            ));
         }
 
         // Go through and add any files that were not found in the data.arc
@@ -430,7 +433,7 @@ impl CachedFilesystem {
         // Don't unshare any files in the unshare blacklist (nus3audio handled during filesystem finish)
         let files = self.hash_lookup.iter().filter_map(
             |(hash, _path)| {
-                if self.config.unshare_blacklist.contains(&Hash40String(*hash)) {
+                if self.config.unshare_blacklist.contains(&hash.to_external()) {
                     None
                 } else {
                     Some(*hash)
@@ -438,10 +441,14 @@ impl CachedFilesystem {
             },
         );
 
-        for (hash, pathset) in self.config.new_shared_files.iter() {
-            for path in pathset.iter() {
-                replacement::addition::add_shared_file(&mut context, path, hash.0);
-                replacement::addition::add_searchable_file_recursive(&mut search_context, path);
+        for (hash, new_file_set) in self.config.share_to_vanilla.iter() {
+            for new_file in new_file_set.0.iter() {
+                if context.contains_file(new_file.full_path.to_smash_arc()) {
+                    replacement::unshare::reshare_file(&mut context, new_file.full_path.to_smash_arc(), hash.to_smash_arc());
+                } else {
+                    replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc());
+                    replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
+                }
             }
         }
 
@@ -450,9 +457,21 @@ impl CachedFilesystem {
 
         replacement::unshare::unshare_files(&mut context, hash_ignore, files);
 
+        // Add new shared files to added files
+        for (hash, new_file_set) in self.config.share_to_added.iter() {
+            for new_file in new_file_set.0.iter() {
+                if context.contains_file(new_file.full_path.to_smash_arc()) {
+                    replacement::unshare::reshare_file(&mut context, new_file.full_path.to_smash_arc(), hash.to_smash_arc());
+                } else {
+                    replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc());
+                    replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
+                }
+            }
+        }
+
         // Add new files to the dir infos
         for (hash, files) in self.config.new_dir_files.iter() {
-            replacement::addition::add_files_to_directory(&mut context, hash.0, files.iter().map(|x| x.0).collect());
+            replacement::addition::add_files_to_directory(&mut context, hash.to_smash_arc(), files.iter().map(|hash| hash.to_smash_arc()).collect());
         }
 
         resource::arc_mut().take_context(context);

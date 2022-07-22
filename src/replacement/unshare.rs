@@ -120,6 +120,14 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
         let (dir_hash, child_idx) = match lookup::get_dir_entry_for_file(dependent_hash) {
             Some(entry) => entry,
             None => {
+                // instead of doing it via dir info (which should be accurate), we are going to just do it to the filepath
+                // this basically never happens for vanilla files, but this path *will* run for files that we add that are shared
+                if let Some(dependent_filepath_index) = ctx.added_files.get(&dependent_hash) {
+                    // using the dir is not an option for added shared files
+                    ctx.filepaths[usize::from(*dependent_filepath_index)]
+                        .path
+                        .set_index(new_info_indice_idx.0);
+                }
                 error!(
                     "Failed to find directory entry for file '{}' ({:#x}) while trying to reshare it to a new file, separate from '{}' ({:#x}). This file will cause infinite loads.",
                     hashes::find(dependent_hash),
@@ -420,4 +428,68 @@ pub fn unshare_files(ctx: &mut AdditionContext, hash_ignore: HashSet<Hash40>, ha
     for hash in hashes {
         unshare_file(ctx, &hash_ignore, hash);
     }
+}
+
+pub fn reshare_file(ctx: &mut AdditionContext, dst: Hash40, reshare_to: Hash40) {
+    // When we are here, it is because the user has provided a file in `share-to-added` or `share-to-vanilla`
+    // that was already present in the filesystem, so we are breaking the old path -> info linkage
+
+    // we begin by attempting to get the file info for the base file (reshare_to)
+    // and we do this convoluted check because the file we are resharing to can either be vanilla
+    // or a new file, so we have to check against our added file hashmap
+    let reshared_file_info = {
+        // get the file path index of our destination file
+        let file_path_index = if let Ok(index) = ctx.get_file_path_index_from_hash(reshare_to) {
+            index
+        } else if let Some(index) = ctx.added_files.get(&reshare_to) {
+            *index
+        } else {
+            // it isn't in the vanilla filesyste and we didn't add it
+            error!(
+                "Could not get the file path index for '{}' ({:#x})",
+                hashes::find(reshare_to),
+                reshare_to.0
+            );
+            return;
+        };
+
+        // just get the file info through some simple redirection (want to make sure that in the off-chance
+        // the file the user specified is redirected one or two more times that we get the base data to
+        // match their intent
+        let info_index_idx = ctx.filepaths[usize::from(file_path_index)].path.index() as usize;
+        let info_idx = ctx.file_info_indices[info_index_idx].file_info_index;
+        let info_idx = ctx.get_shared_info_index(info_idx);
+        ctx.file_infos[usize::from(info_idx)]
+    };
+
+    // perform this modification to the directory file info if we find it, since the way
+    // that arcropolis knows when to load added files is by looking at the directory's FileInfo's flags
+    if let Some((dir_hash, file_index)) = lookup::get_dir_entry_for_file(dst) {
+        let Ok(dir_info) = ctx.get_dir_info_from_hash(dir_hash).copied() else {
+            error!("Could not get the DirInfo for '{}' ({:#x})", hashes::find(dir_hash), dir_hash.0);
+            return;
+        };
+
+        let file_info = &mut ctx.file_infos[file_index + dir_info.file_info_start_index as usize];
+
+        file_info.info_to_data_index = reshared_file_info.info_to_data_index;
+        file_info.file_info_indice_index = reshared_file_info.file_info_indice_index;
+        file_info.flags.set_standalone_file(true);
+    }
+
+    // TODO/POTENTIAL BUG:
+    // this logs when you share to a newly added file, but I can't seem to find any instance in which
+    // it causes a real problem? Might be worth looking at in the future but for now it appears to be
+    // ok
+    let Ok(file_path_index) = ctx.get_file_path_index_from_hash(dst) else {
+        error!("Could not get the file path index for '{}' ({:#x})", hashes::find(dst), dst.0);
+        return;
+    };
+
+    // set the filepath linkage correctly here (filepath must point to the correct file info index)
+    ctx.filepaths[usize::from(file_path_index)]
+        .path
+        .set_index(reshared_file_info.file_info_indice_index.0);
+
+    lookup::add_shared_file(dst, reshare_to);
 }

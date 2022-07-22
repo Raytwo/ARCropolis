@@ -5,6 +5,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+use arc_config::search::{File, Folder};
 use smash_arc::{
     ArcLookup, FileData, FileInfo, FileInfoBucket, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath, FilePathIdx,
     FileSystemHeader, FolderPathListEntry, Hash40, HashToIndex, LoadedArc, LoadedSearchSection, LookupError, PathListEntry, Region, SearchListEntry,
@@ -566,6 +567,85 @@ pub trait FromPathExt {
     fn from_path<P: AsRef<Path>>(path: P) -> Option<Self>
     where
         Self: Sized;
+}
+
+pub trait FromSearchableFile {
+    fn from_file(file: &File) -> Self;
+}
+
+pub trait FromSearchableFolder {
+    fn from_folder(folder: &Folder) -> Self;
+}
+
+impl FromSearchableFile for FilePath {
+    fn from_file(file: &File) -> Self {
+        let mut result = FilePath {
+            path: HashToIndex::default(),
+            ext: HashToIndex::default(),
+            parent: HashToIndex::default(),
+            file_name: HashToIndex::default(),
+        };
+
+        result.path.set_hash(file.full_path.crc());
+        result.path.set_length(file.full_path.str_len());
+        result.ext.set_hash(file.extension.crc());
+        result.ext.set_length(file.extension.str_len());
+        result.file_name.set_hash(file.file_name.crc());
+        result.file_name.set_length(file.file_name.str_len());
+        result.parent.set_hash(file.parent.full_path.crc());
+        result.parent.set_length(file.parent.full_path.str_len());
+
+        result
+    }
+}
+
+impl FromSearchableFile for PathListEntry {
+    fn from_file(file: &File) -> Self {
+        let mut result = PathListEntry(SearchListEntry {
+            path: HashToIndex::default(),
+            ext: HashToIndex::default(),
+            parent: HashToIndex::default(),
+            file_name: HashToIndex::default(),
+        });
+
+        result.path.set_hash(file.full_path.crc());
+        result.path.set_length(file.full_path.str_len());
+        result.ext.set_hash(file.extension.crc());
+        result.ext.set_length(file.extension.str_len());
+        result.file_name.set_hash(file.file_name.crc());
+        result.file_name.set_length(file.file_name.str_len());
+        result.parent.set_hash(file.parent.full_path.crc());
+        result.parent.set_length(file.parent.full_path.str_len());
+
+        result
+    }
+}
+
+impl FromSearchableFolder for FolderPathListEntry {
+    fn from_folder(folder: &Folder) -> Self {
+        let mut result = Self(SearchListEntry {
+            path: HashToIndex::default(),
+            ext: HashToIndex::default(),
+            parent: HashToIndex::default(),
+            file_name: HashToIndex::default(),
+        });
+
+        let parent = folder.parent.as_ref().map(|folder| folder.full_path).unwrap();
+
+        let name = folder.name.unwrap();
+
+        result.path.set_hash(folder.full_path.crc());
+        result.path.set_length(folder.full_path.str_len());
+        result.path.set_index(0xFF_FFFF);
+        result.ext.set_hash(0xFFFF_FFFF);
+        result.file_name.set_hash(name.crc());
+        result.file_name.set_length(name.str_len());
+        result.parent.set_hash(parent.crc());
+        result.parent.set_length(parent.str_len());
+        result.parent.set_index(0x0);
+
+        result
+    }
 }
 
 impl FromPathExt for FilePath {

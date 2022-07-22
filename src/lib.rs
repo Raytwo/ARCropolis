@@ -6,6 +6,7 @@
 #![feature(vec_into_raw_parts)]
 #![allow(unaligned_references)]
 #![feature(string_remove_matches)]
+#![feature(let_else)]
 
 use std::{
     fmt,
