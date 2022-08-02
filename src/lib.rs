@@ -19,8 +19,7 @@ use arcropolis_api::Event;
 use log::LevelFilter;
 use thiserror::Error;
 
-#[macro_use]
-extern crate log;
+#[macro_use] extern crate log;
 
 use once_cell::sync::Lazy;
 use parking_lot::{const_rwlock, RwLock};
@@ -37,8 +36,7 @@ mod menus;
 mod offsets;
 mod replacement;
 mod resource;
-#[cfg(feature = "updater")]
-mod update;
+#[cfg(feature = "updater")] mod update;
 
 use fs::GlobalFilesystem;
 use smash_arc::Hash40;
@@ -136,7 +134,7 @@ impl PathExtension for Path {
                 )
                 .map(Hash40);
             if let Some(hash) = hash {
-                return Ok(hash);
+                return Ok(hash)
             }
         }
         let mut path = self
@@ -273,6 +271,22 @@ fn show_eshop() {
     // play_menu_bgm();
 }
 
+#[skyline::hook(offset = offsets::packet_send(), inline)]
+unsafe fn packet_send(ctx: &InlineCtx) {
+    let data = *ctx.registers[3].x.as_ref() as *mut u8;
+
+    if data.is_null() {
+        return
+    }
+
+    if *(data as *const u64).add(0x28 / 8) & 0xFFFF0000_00000000 == 0xc1000000_00000000 {
+        let slot = *data.add(0x38) & 0xF;
+        if slot > 8 {
+            *data.add(0x38) &= 0xF0;
+        }
+    }
+}
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Initialize the time for the logger
@@ -349,7 +363,7 @@ pub fn main() {
             .unwrap();
     }
 
-    skyline::install_hooks!(initial_loading, change_version_string, show_eshop,);
+    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, packet_send);
     replacement::install();
 
     std::panic::set_hook(Box::new(|info| {
@@ -357,9 +371,11 @@ pub fn main() {
 
         let msg = match info.payload().downcast_ref::<&'static str>() {
             Some(s) => *s,
-            None => match info.payload().downcast_ref::<String>() {
-                Some(s) => &s[..],
-                None => "Box<Any>",
+            None => {
+                match info.payload().downcast_ref::<String>() {
+                    Some(s) => &s[..],
+                    None => "Box<Any>",
+                }
             },
         };
 

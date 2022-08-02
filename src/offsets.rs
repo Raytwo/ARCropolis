@@ -5,12 +5,14 @@ use skyline::hooks::{getRegionAddress, Region};
 static OFFSETS: Lazy<Offsets> = Lazy::new(|| {
     let path = crate::CACHE_PATH.join("offsets.toml");
     let offsets = match std::fs::read_to_string(&path) {
-        Ok(string) => match toml::de::from_str(string.as_str()) {
-            Ok(offsets) => offsets,
-            Err(err) => {
-                error!("Unable to parse 'offsets.toml'. Reason: {:?}", err);
-                Offsets::new()
-            },
+        Ok(string) => {
+            match toml::de::from_str(string.as_str()) {
+                Ok(offsets) => offsets,
+                Err(err) => {
+                    error!("Unable to parse 'offsets.toml'. Reason: {:?}", err);
+                    Offsets::new()
+                },
+            }
         },
         Err(err) => {
             error!("Unable to read 'offsets.toml'. Reason: {:?}", err);
@@ -89,6 +91,10 @@ static RES_LOAD_LOOP_REFRESH_SEARCH_CODE: &[u8] = &[
     0x68, 0x32, 0x40, 0xf9, 0xee, 0x1b, 0x40, 0xf9, 0xdf, 0x01, 0x08, 0xeb, 0xec, 0x3f, 0x40, 0xf9, 0xed, 0x37, 0x40, 0xf9,
 ];
 
+static PACKET_SEND_SEARCH_CODE: &[u8] = &[
+    0x28, 0x4c, 0x43, 0xb9, 0x08, 0x4c, 0x03, 0xb9, 0xc0, 0x03, 0x5f, 0xd6, 0x00, 0x00, 0x00, 0x00,
+];
+
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|window| window == needle)
 }
@@ -145,6 +151,8 @@ struct Offsets {
 
     pub filesystem_info: usize,
     pub res_service: usize,
+
+    pub packet_send: usize,
 }
 
 impl Offsets {
@@ -163,6 +171,7 @@ impl Offsets {
         let res_load_loop_refresh = find_subsequence(text, RES_LOAD_LOOP_REFRESH_SEARCH_CODE).expect("Unable to find subsequence");
         let title_screen_version = find_subsequence(text, TITLE_SCREEN_VERSION_SEARCH_CODE).expect("Unable to find subsequence!");
         let eshop_button = find_subsequence(text, ESHOPMANAGER_SHOW_SEARCH_CODE).expect("Unable to find subsequence!") - 16;
+        let packet_send = find_subsequence(text, PACKET_SEND_SEARCH_CODE).expect("Unable to find subsequence!") + 16;
 
         let filesystem_info = {
             let adrp = find_subsequence(text, FILESYSTEM_INFO_ADRP_SEARCH_CODE).expect("Unable to find subsequence") + 12;
@@ -191,6 +200,7 @@ impl Offsets {
             res_load_loop_refresh,
             title_screen_version,
             eshop_button,
+            packet_send,
 
             filesystem_info,
             res_service,
@@ -248,4 +258,8 @@ pub fn eshop_show() -> usize {
 
 pub fn lookup_stream_hash() -> usize {
     OFFSETS.lookup_stream_hash
+}
+
+pub fn packet_send() -> usize {
+    OFFSETS.packet_send
 }
