@@ -273,6 +273,22 @@ fn show_eshop() {
     // play_menu_bgm();
 }
 
+#[skyline::hook(offset = offsets::packet_send(), inline)]
+unsafe fn packet_send(ctx: &InlineCtx) {
+    let data = *ctx.registers[3].x.as_ref() as *mut u8;
+
+    if data.is_null() {
+        return;
+    }
+
+    if *(data as *const u64).add(0x28 / 8) & 0xFFFF0000_00000000 == 0xc1000000_00000000 {
+        let slot = *data.add(0x38) & 0xF;
+        if slot > 8 {
+            *data.add(0x38) &= 0xF0;
+        }
+    }
+}
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Initialize the time for the logger
@@ -349,7 +365,7 @@ pub fn main() {
             .unwrap();
     }
 
-    skyline::install_hooks!(initial_loading, change_version_string, show_eshop,);
+    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, packet_send);
     replacement::install();
 
     std::panic::set_hook(Box::new(|info| {
