@@ -411,6 +411,18 @@ impl CachedFilesystem {
             ));
         }
 
+        
+        // Add new dir infos before resharing the file group to avoid some characters inf loading (Pyra c00)
+        // Add new dir infos
+        for dir_info in self.config.new_dir_infos.iter() {
+            replacement::addition::add_dir_info(&mut context, &Path::new(dir_info));
+        }
+
+        // Add new dir infos that use a base before adding the files
+        for (new, base) in self.config.new_dir_infos_base.iter() {
+            replacement::addition::add_dir_info_with_base(&mut context, &Path::new(new), &Path::new(base));
+        }
+
         // Go through and add any files that were not found in the data.arc
         self.loader.walk_patch(|node, ty| {
             if node.get_local().is_stream() || !ty.is_file() {
@@ -468,7 +480,8 @@ impl CachedFilesystem {
                 }
             }
         }
-
+        
+        println!("Adding files to dir infos...");
         // Add new files to the dir infos
         for (hash, files) in self.config.new_dir_files.iter() {
             replacement::addition::add_files_to_directory(&mut context, hash.to_smash_arc(), files.iter().map(|hash| hash.to_smash_arc()).collect());
