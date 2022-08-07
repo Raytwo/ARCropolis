@@ -282,10 +282,8 @@ unsafe fn packet_send(ctx: &InlineCtx) {
     }
 
     if *(data as *const u64).add(0x28 / 8) & 0xFFFF0000_00000000 == 0xc1000000_00000000 {
-        let slot = *data.add(0x38) & 0xF;
-        if slot > 8 {
-            *data.add(0x38) &= 0xF0;
-        }
+        // Change the slot (lower 4 bits) to slot % 8
+        *data.add(0x38) &= 0xF7;
     }
 }
 
