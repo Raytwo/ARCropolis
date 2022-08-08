@@ -86,6 +86,36 @@ pub struct LoadedDirectory {
     pub redirection_directory: *mut LoadedDirectory,
 }
 
+impl Clone for LoadedDirectory {
+    fn clone(&self) -> Self {
+        Self {
+            file_group_index: self.file_group_index,
+            ref_count: AtomicU32::new(self.ref_count.load(Ordering::SeqCst)),
+            flags: self.flags,
+            state: self.state,
+            incoming_request_count: AtomicU32::new(self.incoming_request_count.load(Ordering::SeqCst)),
+            child_path_indices: CppVector::from_slice(self.child_path_indices.as_slice()),
+            child_folders: CppVector::from_slice(self.child_folders.as_slice()),
+            redirection_directory: self.redirection_directory,
+        }
+    }
+}
+
+impl Default for LoadedDirectory {
+    fn default() -> Self {
+        Self {
+            file_group_index: 0xFF_FFFF,
+            ref_count: AtomicU32::new(0),
+            flags: 0,
+            state: LoadState::Unused,
+            incoming_request_count: AtomicU32::new(0),
+            child_path_indices: CppVector::new(),
+            child_folders: CppVector::new(),
+            redirection_directory: std::ptr::null_mut(),
+        }
+    }
+}
+
 #[repr(C)]
 pub struct PathInformation {
     pub arc: &'static mut LoadedArc,
@@ -120,6 +150,10 @@ impl FilesystemInfo {
 
     pub fn get_loaded_datas(&self) -> &[LoadedData] {
         unsafe { std::slice::from_raw_parts(self.loaded_datas, self.loaded_data_len as usize) }
+    }
+
+    pub fn get_loaded_directories(&self) -> &[LoadedDirectory] {
+        unsafe { std::slice::from_raw_parts(self.loaded_directories, self.loaded_directory_len as usize) }
     }
 }
 

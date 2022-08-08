@@ -6,7 +6,7 @@ use super::{AdditionContext, LoadedArcEx};
 use crate::hashes;
 
 pub fn reshare_contained_files(ctx: &mut AdditionContext, dependent: Hash40, source: Hash40) -> HashSet<Hash40> {
-    let source_range = match ctx.get_dir_info_from_hash(source) {
+    let source_range = match ctx.get_dir_info_from_hash_ctx(source) {
         Ok(dir_info) => dir_info.file_info_range(),
         Err(_) => {
             error!(
@@ -14,11 +14,11 @@ pub fn reshare_contained_files(ctx: &mut AdditionContext, dependent: Hash40, sou
                 hashes::find(source),
                 source.0
             );
-            return HashSet::new();
+            return HashSet::new()
         },
     };
 
-    let dependent_range = match ctx.get_dir_info_from_hash(dependent) {
+    let dependent_range = match ctx.get_dir_info_from_hash_ctx(dependent) {
         Ok(dir_info) => dir_info.file_info_range(),
         Err(_) => {
             error!(
@@ -26,7 +26,7 @@ pub fn reshare_contained_files(ctx: &mut AdditionContext, dependent: Hash40, sou
                 hashes::find(dependent),
                 dependent.0
             );
-            return HashSet::new();
+            return HashSet::new()
         },
     };
 
