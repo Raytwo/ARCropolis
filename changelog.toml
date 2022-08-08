@@ -1,13 +1,13 @@
-title = "ARCropolis update: Ver. 3.6.0"
+title = "ARCropolis update: Ver. 3.6.1"
 date = "08/07/2022"
 description = "Thank you for updating to the latest version of ARCropolis.<br/>Please read the following changelog."
 
 [[entries]]
-section_title = "New feature(s)"
+section_title = "Bug fixe(s)"
 contents = """
 <ul>
-    <li>Directory addition</li>
-    <li>Slot spoofing</li>
+    <li>Fix online spoofing</li>
+    <li>Fix crashes related to config.json</li>
 </ul>"""
 
 [[entries]]
