@@ -411,7 +411,6 @@ impl CachedFilesystem {
             ));
         }
 
-        
         // Add new dir infos before resharing the file group to avoid some characters inf loading (Pyra c00)
         // Add new dir infos
         for dir_info in self.config.new_dir_infos.iter() {
@@ -480,7 +479,7 @@ impl CachedFilesystem {
                 }
             }
         }
-        
+
         println!("Adding files to dir infos...");
         // Add new files to the dir infos
         for (hash, files) in self.config.new_dir_files.iter() {

@@ -140,7 +140,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
         };
 
         // Attempt to get the child info range from the dir info so that we can modify the entry in question
-        let child_info_range = match ctx.get_dir_info_from_hash(dir_hash) {
+        let child_info_range = match ctx.get_dir_info_from_hash_ctx(dir_hash) {
             Ok(info) => info.file_info_range(),
             Err(_) => {
                 error!(
@@ -224,7 +224,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     };
 
     // Lookup the directory from the cache, if it's missing then early return
-    let dir_info = match ctx.get_dir_info_from_hash(dir_hash) {
+    let dir_info = match ctx.get_dir_info_from_hash_ctx(dir_hash) {
         Ok(dir) => *dir,
         Err(_) => {
             warn!(
@@ -410,17 +410,28 @@ fn reshare_file_group(ctx: &mut AdditionContext, dir_info: Range<usize>, file_gr
 }
 
 pub fn reshare_file_groups(ctx: &mut AdditionContext) {
-    let arc = resource::arc();
     // Iterate through each DirInfo in the LoadedArc and check if it points to a shared FileGroup. If it does, we want to kill that link
     // to prevent i-loads or crashes
-    for dir_info in arc.get_dir_infos() {
-        if let Some(RedirectionType::Shared(file_group)) = arc.get_directory_dependency(dir_info) {
-            if file_group.directory_index != 0xFF_FFFF {
-                reshare_file_group(ctx, dir_info.file_info_range(), file_group.range());
-                // Tell the game that there is no shared FileGroup here because we remove it's purpose
-                resource::arc_mut().get_folder_offsets_mut()[dir_info.path.index() as usize].directory_index = 0xFF_FFFF;
+
+    let ranges: Vec<(Range<usize>, Range<usize>, usize)> = ctx
+        .dir_infos_vec
+        .iter()
+        .filter_map(|dir_info| {
+            if let Some(RedirectionType::Shared(file_group)) = ctx.get_directory_dependency_ctx(dir_info) {
+                if file_group.directory_index != 0xFF_FFFF {
+                    Some((dir_info.file_info_range(), file_group.range(), dir_info.path.index() as usize))
+                } else {
+                    None
+                }
+            } else {
+                None
             }
-        }
+        })
+        .collect();
+
+    for (file_info_range, file_group_range, dir_offset_index) in ranges {
+        reshare_file_group(ctx, file_info_range, file_group_range);
+        ctx.folder_offsets_vec[dir_offset_index].directory_index = 0xFF_FFFF;
     }
 }
 
@@ -465,7 +476,7 @@ pub fn reshare_file(ctx: &mut AdditionContext, dst: Hash40, reshare_to: Hash40) 
     // perform this modification to the directory file info if we find it, since the way
     // that arcropolis knows when to load added files is by looking at the directory's FileInfo's flags
     if let Some((dir_hash, file_index)) = lookup::get_dir_entry_for_file(dst) {
-        let Ok(dir_info) = ctx.get_dir_info_from_hash(dir_hash).copied() else {
+        let Ok(dir_info) = ctx.get_dir_info_from_hash_ctx(dir_hash).copied() else {
             error!("Could not get the DirInfo for '{}' ({:#x})", hashes::find(dir_hash), dir_hash.0);
             return;
         };
