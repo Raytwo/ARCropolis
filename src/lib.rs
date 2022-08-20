@@ -368,9 +368,10 @@ pub fn main() {
             })
             .unwrap();
     }
-
-    skyline::patching::patch_data(0x35baed4, &(0xD503201F as u32)).expect("Failed to patch inkling 1 cmp");
-    skyline::patching::patch_data(0x35baed8, &(0xD503201F as u32)).expect("Failed to patch inkling 1 b.cs");
+    unsafe {
+        skyline::patching::patch_data(0x35baed4, &(0xD503201F as u32)).expect("Failed to patch inkling 1 cmp");
+        skyline::patching::patch_data(0x35baed8, &(0xD503201F as u32)).expect("Failed to patch inkling 1 b.cs");
+    }
 
     skyline::install_hooks!(initial_loading, change_version_string, show_eshop, packet_send, clear_ink_patch);
     replacement::install();
