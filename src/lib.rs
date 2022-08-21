@@ -287,6 +287,12 @@ unsafe fn packet_send(ctx: &InlineCtx) {
     }
 }
 
+#[skyline::hook(offset = 0x35bb960, inline)]
+unsafe fn clear_ink_patch(ctx: &mut InlineCtx) {
+    let res = (*ctx.registers[24].w.as_ref() as u32) % 8;
+    *ctx.registers[24].w.as_mut() = res;
+}
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Initialize the time for the logger
@@ -362,8 +368,12 @@ pub fn main() {
             })
             .unwrap();
     }
+    unsafe {
+        skyline::patching::patch_data(0x35baed4, &(0xD503201F as u32)).expect("Failed to patch inkling 1 cmp");
+        skyline::patching::patch_data(0x35baed8, &(0xD503201F as u32)).expect("Failed to patch inkling 1 b.cs");
+    }
 
-    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, packet_send);
+    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, packet_send, clear_ink_patch);
     replacement::install();
 
     std::panic::set_hook(Box::new(|info| {
