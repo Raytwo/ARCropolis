@@ -45,8 +45,6 @@ window.addEventListener("DOMContentLoaded", (e) => {
 function getCurrentActiveContainer() {
     if ($("#workspaces").is(":visible")) {
         return $("#workspaces");
-    } else if ($("#region").is(":visible")) {
-        return $("#region");
     } else if ($("#logging").is(":visible")) {
         return $("#logging");
     }
