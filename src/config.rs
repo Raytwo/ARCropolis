@@ -5,6 +5,7 @@ use std::{
 };
 
 use once_cell::sync::Lazy;
+use parking_lot::RwLock;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use skyline::nn;
@@ -26,6 +27,41 @@ fn default_logger_level() -> String {
 }
 fn default_region() -> String {
     "us_en".to_string()
+}
+
+#[repr(u8)]
+#[derive(Debug)]
+pub enum SaveLanguageId {
+    Japanese = 0,
+    English,
+    French,
+    Spanish,
+    German,
+    Italian,
+    Dutch,
+    Russian,
+    Chinese,
+    Taiwanese,
+    Korean,
+}
+
+impl From<u8> for SaveLanguageId {
+    fn from(byte: u8) -> Self {
+        match byte {
+            0 => Self::Japanese,
+            1 => Self::English,
+            2 => Self::French,
+            3 => Self::Spanish,
+            4 => Self::German,
+            5 => Self::Italian,
+            6 => Self::Dutch,
+            7 => Self::Russian,
+            8 => Self::Chinese,
+            9 => Self::Taiwanese,
+            10 => Self::Korean,
+            _ => Self::English,
+        }
+    }
 }
 
 pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| {
@@ -109,16 +145,6 @@ pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| 
     }
 
     Mutex::new(storage)
-});
-
-pub static REGION: Lazy<Region> = Lazy::new(|| {
-    Region::from(
-        crate::REGIONS
-            .iter()
-            .position(|&x| x == region_str())
-            .map(|x| (x + 1) as u32)
-            .unwrap_or(0),
-    )
 });
 
 fn migrate_config_to_storage<CS: ConfigStorage>(storage: &mut StorageHolder<CS>, config: &Config) {
@@ -256,8 +282,10 @@ pub fn beta_updates() -> bool {
     GLOBAL_CONFIG.lock().unwrap().get_flag("beta_updates")
 }
 
+pub static REGION: RwLock<Region> = RwLock::new(Region::UsEnglish);
+
 pub fn region() -> Region {
-    *REGION
+    *REGION.read()
 }
 
 pub fn region_str() -> String {

@@ -10,7 +10,7 @@
 
 use std::{
     fmt,
-    io::{BufWriter, Write},
+    io::{Read, Seek, SeekFrom, BufWriter, Write},
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -41,9 +41,9 @@ mod resource;
 mod update;
 
 use fs::GlobalFilesystem;
-use smash_arc::Hash40;
+use smash_arc::{Hash40, Region};
 
-use crate::config::GLOBAL_CONFIG;
+use crate::config::{GLOBAL_CONFIG, REGION, SaveLanguageId};
 
 pub static GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = const_rwlock(GlobalFilesystem::Uninitialized);
 
@@ -293,10 +293,104 @@ unsafe fn clear_ink_patch(ctx: &mut InlineCtx) {
     *ctx.registers[24].w.as_mut() = res;
 }
 
+fn get_language_id_in_savedata() -> SaveLanguageId {
+    let mut uid = nn::account::Uid { id: [0; 2] };
+    let mut handle = skyline_config::UserHandle::new();
+
+    unsafe {
+        // This provides a UserHandle and sets the User in a Open state to be used.
+        // TODO: Move this from skyline-config to nnsdk-rs ASAP
+        if !skyline_config::open_preselected_user(&mut handle) {
+            panic!("OpenPreselectedUser returned false");
+        }
+
+        // Obtain the UID for this user
+        // TODO: Move this from skyline-config to nnsdk-rs ASAP
+        skyline_config::get_user_id(&mut uid, &handle);
+
+        nn::fs::MountSaveData(skyline::c_str("save\0"), &uid as *const nn::account::Uid as u64);
+
+        let mut file = std::fs::File::open("save:/save_data/system_data.bin").unwrap();
+        file.seek(SeekFrom::Start(0x3c6098)).unwrap();
+        let mut language_code = [0u8];
+        file.read(&mut language_code).unwrap();
+        drop(file);
+
+        nn::fs::Unmount(skyline::c_str("save\0"));
+
+        // This closes the UserHandle, making it unusable, and sets the User in a Closed state.
+        // Smash will crash if you don't do it.
+        // TODO: Move this from skyline-config to nnsdk-rs ASAP
+        skyline_config::close_user(&handle);
+
+        SaveLanguageId::from(language_code[0])
+    }
+}
+
+fn get_system_region_from_language_id(language: SaveLanguageId) -> Region {
+    let system_locale_id = unsafe { *(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8).add(0x523b00c) }; 
+
+    println!("system locale id: {}", system_locale_id);
+
+    let system_region_map = unsafe {
+        std::slice::from_raw_parts(
+        (skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u32).add(0x4740f90 / 4),
+        14)
+    };
+
+    dbg!(system_region_map);
+
+    let system_region = system_region_map[system_locale_id as usize];
+
+    match language {
+            SaveLanguageId::Japanese => Region::Japanese,
+            SaveLanguageId::English => {
+                if system_region == 1 {
+                    // US
+                    Region::UsEnglish
+                } else {
+                    Region::EuEnglish
+                }
+            },
+            SaveLanguageId::French => {
+                if system_region == 1 {
+                    // US
+                    Region::UsFrench
+                } else {
+                    Region::EuFrench
+                }
+            },
+            SaveLanguageId::Spanish => {
+                if system_region == 1 {
+                    // US
+                    Region::UsSpanish
+                } else {
+                    Region::EuSpanish
+                }
+            },
+            SaveLanguageId::German => Region::EuGerman,
+            SaveLanguageId::Dutch => Region::EuDutch,
+            SaveLanguageId::Italian => Region::EuItalian,
+            SaveLanguageId::Russian => Region::EuRussian,
+            SaveLanguageId::Chinese => Region::ChinaChinese,
+            SaveLanguageId::Taiwanese => Region::TaiwanChinese,
+            SaveLanguageId::Korean => Region::Korean,
+        }
+}
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     // Initialize the time for the logger
     init_time();
+    // Required to mount the savedata ourselves. It is safe to initialize multiple times.
+    unsafe { nn::account::Initialize() };
+
+    // Scope to drop the lock
+    {
+        let mut region = REGION.write();
+        let language_id = get_language_id_in_savedata();
+        *region = get_system_region_from_language_id(language_id);
+    }
 
     // Force the configuration to be initialized right away, so we can be sure default files exist (hopefully)
     Lazy::force(&GLOBAL_CONFIG);
