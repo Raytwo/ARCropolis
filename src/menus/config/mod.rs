@@ -14,7 +14,7 @@ pub struct ConfigChanged {
 // Is this trash? Yes
 // Did I have a choice? No
 pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
-    let mut reboot_required = false;
+    let reboot_required = false;
 
     let session = std::boxed::Box::new(
         Webpage::new()
