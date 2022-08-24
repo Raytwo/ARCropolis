@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use smash_arc::{ArcLookup, FileInfoIdx, FilePathIdx, Hash40};
+use smash_arc::{FileInfoIdx, FilePathIdx, Hash40};
 
 use super::{AdditionContext, LoadedArcEx};
 use crate::hashes;

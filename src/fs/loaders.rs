@@ -4,6 +4,7 @@ use msbt::{builder::MsbtBuilder, Msbt};
 use serde::*;
 use serde_xml_rs;
 use xml::common::Position;
+use nus3audio::*;
 
 use super::*;
 
@@ -47,6 +48,7 @@ enum ApiLoadType {
     Nus3bankPatch,
     PrcPatch,
     MsbtPatch,
+    Nus3audioPatch,
     Generic,
     Stream,
     Extension,
@@ -60,6 +62,8 @@ impl ApiLoadType {
             Ok(ApiLoadType::PrcPatch)
         } else if root.ends_with("patch-msbt") {
             Ok(ApiLoadType::MsbtPatch)
+        } else if root.ends_with("patch-nus3audio") {
+            Ok(ApiLoadType::Nus3audioPatch)
         } else if root.ends_with("generic-cb") {
             Ok(ApiLoadType::Generic)
         } else if root.ends_with("stream-cb") {
@@ -222,6 +226,67 @@ impl ApiLoadType {
                 let vec = cursor.into_inner();
                 Ok((vec.len(), vec))
             },
+            ApiLoadType::Nus3audioPatch => {
+                let patches = if let Some(patches) = ApiLoader::get_nus3audio_patches_for_hash(local.smash_hash()?) {
+                    patches
+                } else {
+                    return Err(ApiLoaderError::Other("No patches found for file in nus3audio patch!".to_string()));
+                };
+
+                // Initialize the `original_file` variable, which parses the pre patch file into the nus3audio type
+                let mut original_file = Nus3audioFile::from_bytes(&ApiLoader::handle_load_base_file(local).unwrap()[..]);
+
+                // This is a little weird imo, but it's the only good solution I could come up with
+                // Basically what it's doing past this point is:
+                //     ~ looping through the original file's audiofiles to get their names and insert the name
+                //     and itself into the HashMap
+                //     ~ looping through the patches, and then applying them to the HashMap
+                //     ~ setting the base file's AudioFile vec to the values of the HashMap
+                let mut known_audiofiles: HashMap<String, AudioFile> = original_file.files.iter().map(|audio_file| (audio_file.name.clone(), audio_file.clone())).collect();
+
+                // Iterate through the patches
+                for patch in patches {
+                    // Reads the patch file data and parses it into the nus3audio type
+                    let patch_data = &std::fs::read(patch.as_path()).unwrap()[..];
+                    let modified_file = Nus3audioFile::from_bytes(&patch_data);
+
+                    // Iterate through the AudioFiles of the modified file
+                    for mut audio_file in modified_file.files {
+                        // Check if the known AudioFiles HashMap contains the name of the current AudioFile
+                        if known_audiofiles.contains_key(&audio_file.name) {
+                            // If it does, set the already made AudioFile's data to the modified one/
+                            println!("Found {}! Patching...", &audio_file.name);
+                            known_audiofiles.get_mut(&audio_file.name).unwrap().data = audio_file.data.clone();
+                        }
+                        else {
+                            // If it doesn't, insert it into the known_audiofiles HashMap
+                            println!("Not found {}! Adding...", &audio_file.name);
+                            audio_file.id = (known_audiofiles.len() + 1) as u32;
+                            known_audiofiles.try_insert(audio_file.name.clone(), audio_file.clone()).unwrap();
+                        }
+
+                    }
+
+                }
+
+                // Initialize the `new_audio_files` Vec, which takes in the values of the known_audiofiles HashMap
+                let mut new_audio_files: Vec<AudioFile> = known_audiofiles.iter().map(|(_, audio_file)| audio_file.clone()).collect();
+
+                // Sort the new_audio_files vec by ID, because if we don't, the game loads the wrong AudioFiles on request.
+                new_audio_files.sort_by(|a, b| a.id.cmp(&b.id));
+
+                // Set the original file's AudioFile vec to the new_audio_files vec
+                original_file.files = new_audio_files;
+
+                let mut contents: Vec<u8> = Vec::new();
+
+                // Write the contents of the original file to the contents vec
+                original_file.write(&mut contents);
+
+                // Return the length of the contents and the contents
+                Ok((contents.len(), contents))
+
+            }
             ApiLoadType::Generic if let ApiCallback::GenericCallback(cb) = usr_fn => {
                 let hash = local.smash_hash()?;
                 let mut size = 0;
@@ -281,6 +346,7 @@ pub struct ApiLoader {
     stream_size_map: UnsafeCell<HashMap<PathBuf, usize>>,
     param_patches: HashMap<Hash40, Vec<PathBuf>>,
     msbt_patches: HashMap<Hash40, Vec<PathBuf>>,
+    nus3audio_patches: HashMap<Hash40, Vec<PathBuf>>,
 }
 
 unsafe impl Send for ApiLoader {}
@@ -359,6 +425,14 @@ impl ApiLoader {
         cached.virt().loader.msbt_patches.get(&hash)
     }
 
+    pub fn get_nus3audio_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
+
+        let cached = filesystem.get();
+
+        cached.virt().loader.nus3audio_patches.get(&hash)
+    }
+
     pub fn insert_prc_patch(&mut self, hash: Hash40, path: &Path) {
         if let Some(list) = self.param_patches.get_mut(&hash) {
             list.push(path.to_path_buf())
@@ -372,6 +446,14 @@ impl ApiLoader {
             list.push(path.to_path_buf())
         } else {
             self.msbt_patches.insert(hash, vec![path.to_path_buf()]);
+        }
+    }
+
+    pub fn insert_nus3audio_patch(&mut self, hash: Hash40, path: &Path) {
+        if let Some(list) = self.nus3audio_patches.get_mut(&hash) {
+            list.push(path.to_path_buf())
+        } else {
+            self.nus3audio_patches.insert(hash, vec![path.to_path_buf()]);
         }
     }
 

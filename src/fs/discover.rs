@@ -100,7 +100,9 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
                     "stprmx",
                     "stprmxml",
 
-                    "xmsbt"
+                    "xmsbt",
+
+                    "patch3audio"
                 ];
                 RESERVED_NAMES.contains(&name) || PATCH_EXTENSIONS.iter().any(|x| name.ends_with(x))
             },

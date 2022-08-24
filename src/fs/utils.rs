@@ -198,3 +198,40 @@ pub fn add_msbt_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>
         },
     }
 }
+
+pub fn add_nus3audio_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>, phys_root: P, local: Q) -> Option<Hash40> {
+    let local = local.as_ref();
+    let base_local = local.with_extension("nus3audio");
+
+    let base_local = if let Some(name) = base_local.file_name().and_then(|os_str| os_str.to_str()) {
+        if let Some(idx) = name.find('+') {
+            let mut new_name = name.to_string();
+            new_name.replace_range(idx..idx + 6, "");
+            base_local.with_file_name(new_name)
+        } else {
+            base_local
+        }
+    } else {
+        base_local
+    };
+    let full_path = phys_root.as_ref().join(local); // need the full path so that our API loader can load it
+    match base_local.smash_hash() {
+        Ok(hash) => {
+            tree.insert_file("api:/patch-nus3audio", &base_local);
+            tree.loader.push_entry(hash, Path::new("api:/patch-nus3audio"), ApiCallback::None);
+            // We need to add our file to the vector of patch files
+            tree.loader.insert_nus3audio_patch(hash, &full_path);
+            if let Some(local) = local.to_str() {
+                hashes::add(local);
+            }
+            if let Some(base_local) = base_local.to_str() {
+                hashes::add(base_local);
+            }
+            Some(hash)
+        },
+        Err(e) => {
+            error!("Could not add file {} to API tree. Reason: {:?}", full_path.display(), e);
+            None
+        },
+    }
+}
