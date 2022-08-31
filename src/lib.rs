@@ -11,7 +11,7 @@
 
 use std::{
     fmt,
-    io::{Read, Seek, SeekFrom, BufWriter, Write},
+    io::{BufWriter, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     str::FromStr,
 };
@@ -44,7 +44,7 @@ mod update;
 use fs::GlobalFilesystem;
 use smash_arc::{Hash40, Region};
 
-use crate::config::{GLOBAL_CONFIG, REGION, SaveLanguageId};
+use crate::config::{SaveLanguageId, GLOBAL_CONFIG, REGION};
 
 pub static GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = const_rwlock(GlobalFilesystem::Uninitialized);
 
@@ -329,14 +329,15 @@ fn get_language_id_in_savedata() -> SaveLanguageId {
 }
 
 fn get_system_region_from_language_id(language: SaveLanguageId) -> Region {
-    let system_locale_id = unsafe { *(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8).add(0x523b00c) }; 
+    let system_locale_id = unsafe { *(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8).add(0x523b00c) };
 
     println!("system locale id: {}", system_locale_id);
 
     let system_region_map = unsafe {
         std::slice::from_raw_parts(
-        (skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u32).add(0x4740f90 / 4),
-        14)
+            (skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u32).add(0x4740f90 / 4),
+            14,
+        )
     };
 
     dbg!(system_region_map);
@@ -344,39 +345,39 @@ fn get_system_region_from_language_id(language: SaveLanguageId) -> Region {
     let system_region = system_region_map[system_locale_id as usize];
 
     match language {
-            SaveLanguageId::Japanese => Region::Japanese,
-            SaveLanguageId::English => {
-                if system_region == 1 {
-                    // US
-                    Region::UsEnglish
-                } else {
-                    Region::EuEnglish
-                }
-            },
-            SaveLanguageId::French => {
-                if system_region == 1 {
-                    // US
-                    Region::UsFrench
-                } else {
-                    Region::EuFrench
-                }
-            },
-            SaveLanguageId::Spanish => {
-                if system_region == 1 {
-                    // US
-                    Region::UsSpanish
-                } else {
-                    Region::EuSpanish
-                }
-            },
-            SaveLanguageId::German => Region::EuGerman,
-            SaveLanguageId::Dutch => Region::EuDutch,
-            SaveLanguageId::Italian => Region::EuItalian,
-            SaveLanguageId::Russian => Region::EuRussian,
-            SaveLanguageId::Chinese => Region::ChinaChinese,
-            SaveLanguageId::Taiwanese => Region::TaiwanChinese,
-            SaveLanguageId::Korean => Region::Korean,
-        }
+        SaveLanguageId::Japanese => Region::Japanese,
+        SaveLanguageId::English => {
+            if system_region == 1 {
+                // US
+                Region::UsEnglish
+            } else {
+                Region::EuEnglish
+            }
+        },
+        SaveLanguageId::French => {
+            if system_region == 1 {
+                // US
+                Region::UsFrench
+            } else {
+                Region::EuFrench
+            }
+        },
+        SaveLanguageId::Spanish => {
+            if system_region == 1 {
+                // US
+                Region::UsSpanish
+            } else {
+                Region::EuSpanish
+            }
+        },
+        SaveLanguageId::German => Region::EuGerman,
+        SaveLanguageId::Dutch => Region::EuDutch,
+        SaveLanguageId::Italian => Region::EuItalian,
+        SaveLanguageId::Russian => Region::EuRussian,
+        SaveLanguageId::Chinese => Region::ChinaChinese,
+        SaveLanguageId::Taiwanese => Region::TaiwanChinese,
+        SaveLanguageId::Korean => Region::Korean,
+    }
 }
 
 #[skyline::main(name = "arcropolis")]
