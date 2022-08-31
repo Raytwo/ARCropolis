@@ -127,6 +127,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
                     ctx.filepaths[usize::from(*dependent_filepath_index)]
                         .path
                         .set_index(new_info_indice_idx.0);
+                    continue;
                 }
                 error!(
                     "Failed to find directory entry for file '{}' ({:#x}) while trying to reshare it to a new file, separate from '{}' ({:#x}). This file will cause infinite loads.",
@@ -193,13 +194,8 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
         return;
     }
 
-    // Get the shared file path index from the LoadedArc
-    // If it's missing, just early return
-    let shared_file = match ctx.get_file_path_index_from_hash(hash) {
-        Ok(filepath_idx) => {
-            ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(filepath_idx)].path.index() as usize].file_info_index)]
-                .file_path_index
-        },
+    let filepath_idx = match ctx.get_file_path_index_from_hash(hash) {
+        Ok(filepath_idx) => filepath_idx,
         Err(_) => {
             warn!(
                 "Failed to find filepath index for '{}' ({:#x}). This file will not be unshared.",
@@ -209,6 +205,12 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
             return;
         },
     };
+
+    // Get the shared file path index from the LoadedArc
+    // If it's missing, just early return
+    let shared_file = ctx.file_infos
+        [usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(filepath_idx)].path.index() as usize].file_info_index)]
+    .file_path_index;
 
     // Grab the directory file info entry from our unsharing lookup, if it's missing then early return
     let (dir_hash, idx) = match lookup::get_dir_entry_for_file(hash) {
@@ -228,7 +230,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
         Ok(dir) => *dir,
         Err(_) => {
             warn!(
-                "Failed to find directory for '{}' ({:#x}). This file will not be unshared.",
+                "Failed to find directory for '{}' ({:#x}). This file will not be unshared in the directory.",
                 hashes::find(hash),
                 hash.0
             );
@@ -294,12 +296,6 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     new_info_to_data.file_data_index = new_data_idx;
     ctx.info_to_datas.push(new_info_to_data);
 
-    // We need to get the directory file info (file infos in directories are not always the same as standalone files)
-    // to modify its `standalone_file` flag (this is one that ARCropolis adds)
-    // This isn't technically necessary but since we are here anyways it does help. This information is also stored in one of the
-    // cache files
-    let mut dir_file_info = ctx.file_infos[dir_info.file_info_range()][idx];
-
     // Before pushing the new file info, we want to change following data as follows:
     //  * `standalone_file` will always be true here, since this file information won't load properly unless loaded as an individual file.
     //      This is important because all shared files are valid to be loaded as standalone files (pass the information to ResLoadingThread as File
@@ -330,16 +326,24 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     new_file_info.flags.set_standalone_file(true);
     new_file_info
         .flags
-        .set_unshared_nus3bank(ctx.filepaths[usize::from(dir_file_info.file_path_index)].ext.hash40() == Hash40::from("nus3bank"));
-    new_file_info.file_path_index = dir_file_info.file_path_index;
+        .set_unshared_nus3bank(ctx.filepaths[usize::from(filepath_idx)].ext.hash40() == Hash40::from("nus3bank"));
+    new_file_info.file_path_index = filepath_idx;
     new_file_info.file_info_indice_index = new_info_indice_idx;
     new_file_info.info_to_data_index = new_info_to_data_idx;
 
-    dir_file_info.file_info_indice_index = new_info_indice_idx;
-    dir_file_info.flags.set_standalone_file(true);
+    // We need to get the directory file info (file infos in directories are not always the same as standalone files)
+    // to modify its `standalone_file` flag (this is one that ARCropolis adds)
+    // This isn't technically necessary but since we are here anyways it does help. This information is also stored in one of the
+    // cache files
+    if idx != 0xFF_FFFF {
+        let mut dir_file_info = ctx.file_infos[dir_info.file_info_range()][idx];
 
-    // Recopy the new formmated FileInfo back into the DirInfo's children
-    ctx.file_infos[dir_info.file_info_range()][idx] = dir_file_info;
+        dir_file_info.file_info_indice_index = new_info_indice_idx;
+        dir_file_info.flags.set_standalone_file(true);
+
+        // Recopy the new formmated FileInfo back into the DirInfo's children
+        ctx.file_infos[dir_info.file_info_range()][idx] = dir_file_info;
+    }
 
     // Finally push the new file info, make the new FileInfoIndex and push that as well
     ctx.file_infos.push(new_file_info);
@@ -350,9 +354,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     });
 
     // Patch the now-unshared FilePath to point to our unshared file chain
-    ctx.filepaths[usize::from(dir_file_info.file_path_index)]
-        .path
-        .set_index(new_info_indice_idx.0);
+    ctx.filepaths[usize::from(filepath_idx)].path.set_index(new_info_indice_idx.0);
 
     // we only need to reserve memory here, since none of these are active
     ctx.loaded_datas.push(LoadedData::new());

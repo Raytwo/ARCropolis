@@ -131,6 +131,11 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
         .insert(filepath.path.hash40(), FilePathIdx((ctx.filepaths.len() - 1) as u32));
     ctx.loaded_filepaths.push(LoadedFilepath::default());
 
+    let shared_to = ctx.filepaths
+        [usize::from(ctx.file_infos[usize::from(ctx.file_info_indices[info_indice_idx as usize].file_info_index)].file_path_index)]
+    .path
+    .hash40();
+
     // Add the shared file to the lookup
     lookup::add_shared_file(
         new_file.full_path.to_smash_arc(), // we can unwrap because of FilePath::from_path being successful
