@@ -1,5 +1,5 @@
 title = "ARCropolis update: Ver. 3.7.0"
-date = "08/31/2022"
+date = "09/01/2022"
 description = "Thank you for updating to the latest version of ARCropolis.<br/>Please read the following changelog."
 
 [[entries]]
@@ -14,6 +14,7 @@ section_title = "Bug fixe(s)"
 contents = """
 <ul>
     <li>Fixes to share-to-vanilla in config.json</li>
+    <li>Inkling's Roller move no longer crashes the game on extra slots</li>
 </ul>"""
 
 [[entries]]
@@ -22,11 +23,3 @@ contents = """
 <ul>
     <li>ARCropolis is now considered feature complete. Expect mostly bugfixes and QoL improvements from now on.</li>
 </ul>"""
-
-[[entries]]
-section_title = "Donations"
-contents = """
-<p>As some of you may know, ARCropolis is a free modloader built on our spare time while trying to make a living on the side.</p>
-<p>We would be very grateful if you could spare to make a donation to some of our contributors for their hard work!</p>
-<p>If you'd like to make a donation, links are available at the following page: https://latest.arcropolis.com</p>
-"""
