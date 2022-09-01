@@ -19,7 +19,7 @@ parking_lot = "0.11"
 once_cell = "1.12.0"
 thiserror = "1.0.30"
 # Switch utilities
-skyline = { git = "https://github.com/ultimate-research/skyline-rs.git" }
+skyline = "0.2.1"
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }
@@ -42,7 +42,7 @@ hash40 = "1.2"
 arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api" }
 arc-config = { git = "https://github.com/blu-dev/arc-config", features = ["runtime"] }
 # For arc:/ and mods:/
-nn-fuse = { git = "https://github.com/blu-dev/nn-fuse" }
+nn-fuse = { git = "https://github.com/Raytwo/nn-fuse" }
 prcx = { git = "https://github.com/blu-dev/prcx", branch = "xml-style" }
 # For xmsbt
 xml-rs = "0.8"
