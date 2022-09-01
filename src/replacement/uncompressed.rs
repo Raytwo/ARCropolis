@@ -2,7 +2,7 @@ use skyline::{
     hook,
     hooks::InlineCtx,
     libc::{c_void, memcpy},
-    patching::patch_data,
+    patching::Patch,
 };
 
 use crate::{offsets, reg_x};
@@ -59,12 +59,9 @@ fn memcpy_3(ctx: &InlineCtx) {
 pub fn install() {
     // Must patch memcpy offsets before we install the hooks, otherwise the inline hook will not get called
     // and might crash
-    unsafe {
-        const NOP: u32 = 0xD503201F;
-        patch_data(offsets::memcpy_1(), &NOP).expect("Unable to patch Memcpy1");
-        patch_data(offsets::memcpy_2(), &NOP).expect("Unable to patch Memcpy2");
-        patch_data(offsets::memcpy_3(), &NOP).expect("Unable to patch Memcpy3");
-    }
+    Patch::in_text(offsets::memcpy_1()).nop().expect("Unable to patch Memcpy1");
+    Patch::in_text(offsets::memcpy_2()).nop().expect("Unable to patch Memcpy2");
+    Patch::in_text(offsets::memcpy_3()).nop().expect("Unable to patch Memcpy3");
 
     skyline::install_hooks!(memcpy_1, memcpy_2, memcpy_3);
 }

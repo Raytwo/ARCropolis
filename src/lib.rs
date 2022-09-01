@@ -1,7 +1,6 @@
 #![allow(incomplete_features)] // for if_let_guard
 #![feature(proc_macro_hygiene)]
 #![feature(if_let_guard)]
-#![feature(path_try_exists)]
 #![feature(map_try_insert)] // for not overwriting previously stored hashes
 #![feature(vec_into_raw_parts)]
 #![allow(unaligned_references)]
@@ -25,7 +24,7 @@ extern crate log;
 
 use once_cell::sync::Lazy;
 use parking_lot::{const_rwlock, RwLock};
-use skyline::{hooks::InlineCtx, libc::c_char, nn};
+use skyline::{hooks::InlineCtx, libc::c_char, nn, patching::Patch};
 
 mod api;
 mod chainloader;
@@ -464,10 +463,9 @@ pub fn main() {
             })
             .unwrap();
     }
-    unsafe {
-        skyline::patching::patch_data(0x35baed4, &(0xD503201F as u32)).expect("Failed to patch inkling 1 cmp");
-        skyline::patching::patch_data(0x35baed8, &(0xD503201F as u32)).expect("Failed to patch inkling 1 b.cs");
-    }
+
+    Patch::in_text(0x35baed4).data(&0xD503201Fu32).expect("Failed to patch inkling 1 cmp");
+    Patch::in_text(0x35baed8).data(&0xD503201Fu32).expect("Failed to patch inkling 1 b.cs");
 
     skyline::install_hooks!(initial_loading, change_version_string, show_eshop, packet_send, clear_ink_patch);
     replacement::install();
