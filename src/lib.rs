@@ -464,8 +464,8 @@ pub fn main() {
             .unwrap();
     }
 
-    Patch::in_text(0x35baed4).data(&0xD503201Fu32).expect("Failed to patch inkling 1 cmp");
-    Patch::in_text(0x35baed8).data(&0xD503201Fu32).expect("Failed to patch inkling 1 b.cs");
+    Patch::in_text(0x35baed4).data(0xD503201Fu32).expect("Failed to patch inkling 1 cmp");
+    Patch::in_text(0x35baed8).data(0xD503201Fu32).expect("Failed to patch inkling 1 b.cs");
 
     skyline::install_hooks!(initial_loading, change_version_string, show_eshop, packet_send, clear_ink_patch);
     replacement::install();
