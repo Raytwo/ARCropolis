@@ -13,6 +13,7 @@ use std::{
     io::{BufWriter, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     str::FromStr,
+    collections::HashMap,
 };
 
 use arcropolis_api::Event;
@@ -37,7 +38,7 @@ mod menus;
 mod offsets;
 mod replacement;
 mod resource;
-#[cfg(feature = "updater")]
+#[cfg(feature = "online")]
 mod update;
 
 use fs::GlobalFilesystem;
@@ -57,6 +58,8 @@ pub static CACHE_PATH: Lazy<PathBuf> = Lazy::new(|| {
 
     path
 });
+
+static mut NEWS_DATA: Lazy<HashMap<String, String>> = Lazy::new(HashMap::new);
 
 #[macro_export]
 macro_rules! reg_x {
@@ -203,9 +206,25 @@ fn check_for_changelog() {
     }
 }
 
+#[cfg(feature = "online")]
+fn get_news_data() {
+    skyline::install_hook!(msbt_text);
+    match minreq::get("https://coolsonickirby.com/arc/news").send() {
+        Ok(resp) => match resp.json::<HashMap<String, String>>() {
+            Ok(info) => unsafe { NEWS_DATA.extend(info) },
+            Err(err) => println!("{:?}", err),
+        },
+        Err(err) => println!("{:?}", err),
+    }
+}
+
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
     check_for_changelog();
+
+    // Commented out until we get an actual news server
+    // #[cfg(feature = "online")]
+    // get_news_data();
 
     // menus::show_arcadia();
     let arc = resource::arc();
@@ -271,6 +290,20 @@ fn show_eshop() {
     // play_bgm(instance as _, 0xd9ffff202a04c55b, false);
     menus::show_main_menu();
     // play_menu_bgm();
+}
+
+#[skyline::hook(offset = 0x3778bf4, inline)]
+unsafe fn msbt_text(ctx: &mut InlineCtx) {
+    let msbt_label = skyline::from_c_str((ctx as *const InlineCtx as *const u8).add(0x100).add(224));
+
+    if NEWS_DATA.contains_key(&msbt_label) {
+        let mut text = NEWS_DATA.get(&msbt_label).unwrap().as_str().to_string();
+
+        text.push_str("\0");
+
+        let text_vec: Vec<u16> = text.encode_utf16().collect();
+        *ctx.registers[0].x.as_mut() = text_vec.as_ptr() as u64;
+    }
 }
 
 #[skyline::hook(offset = offsets::packet_send(), inline)]
@@ -434,7 +467,7 @@ pub fn main() {
         .unwrap();
 
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
-    #[cfg(feature = "updater")]
+    #[cfg(feature = "online")]
     {
         let _updater = std::thread::Builder::new()
             .stack_size(0x40000)

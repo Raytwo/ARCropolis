@@ -21,6 +21,7 @@ walkdir = "2.3.2"
 parking_lot = "0.11"
 once_cell = "1.12.0"
 thiserror = "1.0.30"
+minreq = { version = "=2.2.1", features = ["https", "json-using-serde"], optional = true }
 # Switch utilities
 skyline = "0.2.1"
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
@@ -61,8 +62,8 @@ ring = { git = "https://github.com/skyline-rs/ring", branch = "0.16.20" }
 webpki = { git = "https://github.com/skyline-rs/webpki" }
 
 [features]
-default = ["updater"]
-updater = ["zip", "gh-updater"]
+default = ["online"]
+online = ["zip", "gh-updater", "minreq"]
 
 [profile.dev]
 panic = "abort"
