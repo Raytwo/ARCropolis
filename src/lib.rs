@@ -222,8 +222,9 @@ fn get_news_data() {
 fn initial_loading(_ctx: &InlineCtx) {
     check_for_changelog();
 
-    #[cfg(feature = "online")]
-    get_news_data();
+    // Commented out until we get an actual news server
+    // #[cfg(feature = "online")]
+    // get_news_data();
 
     // menus::show_arcadia();
     let arc = resource::arc();
