@@ -363,16 +363,12 @@ fn get_language_id_in_savedata() -> SaveLanguageId {
 fn get_system_region_from_language_id(language: SaveLanguageId) -> Region {
     let system_locale_id = unsafe { *(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8).add(0x523b00c) };
 
-    println!("system locale id: {}", system_locale_id);
-
     let system_region_map = unsafe {
         std::slice::from_raw_parts(
             (skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u32).add(0x4740f90 / 4),
             14,
         )
     };
-
-    dbg!(system_region_map);
 
     let system_region = system_region_map[system_locale_id as usize];
 
@@ -517,7 +513,7 @@ pub fn main() {
         let err_msg = format!("thread has panicked at '{}', {}", msg, location);
         skyline::error::show_error(
             69,
-            "Skyline plugin as panicked! Please open the details and send a screenshot to the developer, then close the game.\n",
+            "Skyline plugin has panicked! Please open the details and send a screenshot to the developer, then close the game.\n",
             err_msg.as_str(),
         );
     }));
