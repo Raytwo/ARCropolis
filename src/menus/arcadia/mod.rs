@@ -202,7 +202,7 @@ pub fn show_arcadia(workspace: Option<String>) {
                 println!("session says: {}", message);
             },
             ArcadiaMessage::GetModSize => {
-                let size = crate::GLOBAL_FILESYSTEM.read().get_sum_size().unwrap_or(0);
+                let size = crate::GLOBAL_FILESYSTEM.try_read().map_or(0, |lock| lock.get_sum_size().unwrap_or(0));
                 session.send(format!("{{ \"mod_size\": {} }}", size).as_str());
             },
             ArcadiaMessage::Closure => {
