@@ -1,6 +1,13 @@
-title = "ARCropolis update: Ver. 3.7.0"
-date = "09/01/2022"
+title = "ARCropolis update: Ver. 3.7.2"
+date = "09/11/2022"
 description = "Thank you for updating to the latest version of ARCropolis.<br/>Please read the following changelog."
+
+[[entries]]
+section_title = "New feature(s)"
+contents = """
+<ul>
+    <li>Support for patch3audio files.</li>
+</ul>"""
 
 [[entries]]
 section_title = "Improvement(s)"
@@ -13,6 +20,7 @@ contents = """
 section_title = "Bug fixe(s)"
 contents = """
 <ul>
+    <li>Fix the mod manager softlocking at boot time</li>
     <li>Fixes to share-to-vanilla in config.json</li>
     <li>Inkling's Roller move no longer crashes the game on extra slots</li>
 </ul>"""
