@@ -492,17 +492,14 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
 
 // Right now this will take up a bit of memory if adding multiple dirs to the same dirinfo, so gonna have to change it to take a vec instead ig
 pub fn add_dir_info_to_parent(ctx: &mut AdditionContext, parent_dir_info: &mut DirInfo, child_hash_to_index: &HashToIndex) {
-    let mut parent_folder_children_hashes = ctx.folder_children_hashes[parent_dir_info.children_range()]
-        .iter()
-        .map(|child| child.clone())
-        .collect::<Vec<_>>();
+    let mut parent_folder_children_hashes = ctx.folder_children_hashes[parent_dir_info.children_range()].to_vec();
 
     // Change so that it equals len of vector if this ever gets changed
     parent_dir_info.child_dir_count += 1;
     parent_dir_info.child_dir_start_index = ctx.folder_children_hashes.len() as u32;
 
     // Add new child hash to the index
-    parent_folder_children_hashes.push(child_hash_to_index.clone());
+    parent_folder_children_hashes.push(*child_hash_to_index);
     ctx.folder_children_hashes.extend_from_slice(&parent_folder_children_hashes[..]);
 }
 
@@ -516,7 +513,7 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
     };
 
     // Get a base
-    let mut dir_info = ctx.get_dir_info_from_hash_ctx(Hash40::from("fighter/luigi/c00")).unwrap().clone();
+    let mut dir_info = *ctx.get_dir_info_from_hash_ctx(Hash40::from("fighter/luigi/c00")).unwrap();
 
     let dir_hash_to_info_idx = HashToIndex::new()
         .with_hash(dir_info_path.path.hash())
@@ -541,7 +538,7 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
             // If successful, add the current dir info the parent
             Ok(parent_dir_info) => {
                 // Clone the parent dir info so we can make it mutable
-                let mut parent_dir_info_mut = parent_dir_info.clone();
+                let mut parent_dir_info_mut = *parent_dir_info;
                 add_dir_info_to_parent(ctx, &mut parent_dir_info_mut, &dir_hash_to_info_idx);
 
                 // We can unwrap directly because if we're here, the parent does exist
@@ -553,11 +550,11 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
                     // If a parent does exist in the path but parent doesn't exist in the DirInfos,
                     // add it
                     Some(parent) => {
-                        add_dir_info(ctx, &parent);
+                        add_dir_info(ctx, parent);
                         // After adding it, go ahead and try the logic from above again
                         match ctx.get_dir_info_from_hash_ctx(dir_info_path.parent.hash40()) {
                             Ok(parent_dir_info) => {
-                                let mut parent_dir_info_mut = parent_dir_info.clone();
+                                let mut parent_dir_info_mut = *parent_dir_info;
                                 add_dir_info_to_parent(ctx, &mut parent_dir_info_mut, &dir_hash_to_info_idx);
                                 *ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.parent.hash40()).unwrap() = parent_dir_info_mut;
                             },
@@ -599,9 +596,9 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
     ctx.folder_offsets_vec.push(new_dir_offset);
     ctx.loaded_directories.push(LoadedDirectory::default());
 
-    let mut dir_hash_to_info_index_sorted = ctx.dir_hash_to_info_idx.iter().map(|idx| idx.clone()).collect::<Vec<_>>();
+    let mut dir_hash_to_info_index_sorted = ctx.dir_hash_to_info_idx.iter().cloned().collect::<Vec<_>>();
 
-    dir_hash_to_info_index_sorted.sort_by(|a, b| a.hash40().cmp(&b.hash40()));
+    dir_hash_to_info_index_sorted.sort_by_key(|a| a.hash40());
 
     ctx.dir_hash_to_info_idx = CppVector::from_slice(&dir_hash_to_info_index_sorted[..]);
     // --------------------- END PUSH TO CONTEXT --------------------- //
@@ -627,7 +624,7 @@ pub fn add_dir_info_with_base(ctx: &mut AdditionContext, path: &Path, base: &Pat
     add_dir_info(ctx, path);
 
     // Get the base
-    let base_dir_info = ctx.get_dir_info_from_hash_ctx(base_dir_info_path.path.hash40()).unwrap().clone();
+    let base_dir_info = *ctx.get_dir_info_from_hash_ctx(base_dir_info_path.path.hash40()).unwrap();
 
     // Get the newly added dirinfo
     let mut dir_info = ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.path.hash40()).unwrap();

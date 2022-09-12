@@ -279,7 +279,7 @@ unsafe fn msbt_text(ctx: &mut InlineCtx) {
     if NEWS_DATA.contains_key(&msbt_label) {
         let mut text = NEWS_DATA.get(&msbt_label).unwrap().as_str().to_string();
 
-        text.push_str("\0");
+        text.push('\0');
 
         let text_vec: Vec<u16> = text.encode_utf16().collect();
         *ctx.registers[0].x.as_mut() = text_vec.as_ptr() as u64;
@@ -326,7 +326,7 @@ fn get_language_id_in_savedata() -> SaveLanguageId {
         let mut file = std::fs::File::open("save:/save_data/system_data.bin").unwrap();
         file.seek(SeekFrom::Start(0x3c6098)).unwrap();
         let mut language_code = [0u8];
-        file.read(&mut language_code).unwrap();
+        file.read_exact(&mut language_code).unwrap();
         drop(file);
 
         nn::fs::Unmount(skyline::c_str("save\0"));

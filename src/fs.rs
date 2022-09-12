@@ -429,12 +429,12 @@ impl CachedFilesystem {
         // Add new dir infos before resharing the file group to avoid some characters inf loading (Pyra c00)
         // Add new dir infos
         for dir_info in self.config.new_dir_infos.iter() {
-            replacement::addition::add_dir_info(&mut context, &Path::new(dir_info));
+            replacement::addition::add_dir_info(&mut context, Path::new(dir_info));
         }
 
         // Add new dir infos that use a base before adding the files
         for (new, base) in self.config.new_dir_infos_base.iter() {
-            replacement::addition::add_dir_info_with_base(&mut context, &Path::new(new), &Path::new(base));
+            replacement::addition::add_dir_info_with_base(&mut context, Path::new(new), Path::new(base));
         }
 
         // Go through and add any files that were not found in the data.arc

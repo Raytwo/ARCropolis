@@ -161,7 +161,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     launchpad.collecting(collect);
     launchpad.ignoring(ignore);
 
-    let mut conflicts = launchpad.discover_roots(&mods_path, 1, filter);
+    let conflicts = launchpad.discover_roots(&mods_path, 1, filter);
 
     let should_prompt = !conflicts.is_empty();
 
@@ -198,7 +198,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         launchpad.collecting(collect);
         launchpad.ignoring(ignore);
 
-        let mut conflicts = launchpad.discover_roots(utils::paths::mods(), 1, filter);
+        let conflicts = launchpad.discover_roots(utils::paths::mods(), 1, filter);
 
         let mut conflict_map: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
 

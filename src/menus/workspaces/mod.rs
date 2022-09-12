@@ -102,12 +102,9 @@ pub fn show_workspaces() {
 
     drop(storage);
 
-    match workspace_to_edit {
-        Some(s) => {
-            println!("Opening ARCadia from workspaces.rs...");
-            crate::menus::arcadia::show_arcadia(Some(s))
-        },
-        None => {},
+    if let Some(s) = workspace_to_edit {
+        println!("Opening ARCadia from workspaces.rs...");
+        crate::menus::arcadia::show_arcadia(Some(s))
     }
 
     if active_workspace.ne(&prev_set_workspace) {

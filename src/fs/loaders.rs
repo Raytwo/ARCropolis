@@ -248,7 +248,7 @@ impl ApiLoadType {
                 for patch in patches {
                     // Reads the patch file data and parses it into the nus3audio type
                     let patch_data = &std::fs::read(patch.as_path()).unwrap()[..];
-                    let modified_file = Nus3audioFile::from_bytes(&patch_data);
+                    let modified_file = Nus3audioFile::from_bytes(patch_data);
 
                     // Iterate through the AudioFiles of the modified file
                     for mut audio_file in modified_file.files {

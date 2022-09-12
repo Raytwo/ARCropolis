@@ -8,7 +8,7 @@ use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use skyline::nn::{self, util};
+use skyline::nn;
 use skyline_config::*;
 use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
