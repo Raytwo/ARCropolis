@@ -170,15 +170,6 @@ fn init_time() {
     }
 }
 
-/// Wrapper function for getting the version string of the game from nnSdk
-fn get_version_string() -> String {
-    unsafe {
-        let mut version_string = nn::oe::DisplayVersion { name: [0x00; 16] };
-        nn::oe::GetDisplayVersion(&mut version_string);
-        skyline::from_c_str(version_string.name.as_ptr())
-    }
-}
-
 fn check_for_changelog() {
     if let Ok(changelog) = std::fs::read_to_string("sd:/ultimate/arcropolis/changelog.toml") {
         match toml::from_str(&changelog) {
