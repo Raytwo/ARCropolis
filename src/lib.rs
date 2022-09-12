@@ -427,6 +427,9 @@ pub fn main() {
         *region = get_system_region_from_language_id(language_id);
     }
 
+    // Make sure the paths exist before doing anything
+    utils::paths::ensure_paths_exist().expect("Paths should exist on the SD");
+
     // Force the configuration to be initialized right away, so we can be sure default files exist (hopefully)
     Lazy::force(&GLOBAL_CONFIG);
 
@@ -434,9 +437,6 @@ pub fn main() {
     if let Err(err) = logging::init(LevelFilter::from_str(&config::logger_level()).unwrap_or(LevelFilter::Warn)) {
         println!("[arcropolis] Failed to initialize logger. Reason: {:?}", err);
     }
-
-    // Make sure the paths exist before doing anything
-    utils::paths::ensure_paths_exist().expect("Paths should exist on the SD");
 
     // Acquire the filesystem and promise it to the initial_loading hook
     let mut filesystem = GLOBAL_FILESYSTEM.write();
