@@ -4,7 +4,7 @@ use owo_colors::OwoColorize;
 use smash_arc::*;
 use walkdir::WalkDir;
 
-use crate::{config, hashes, resource};
+use crate::{config, hashes, resource, utils};
 
 #[no_mangle]
 pub extern "C" fn arcrop_load_file(hash: Hash40, out_buffer: *mut u8, buf_length: usize, out_size: &mut usize) -> bool {
@@ -81,9 +81,7 @@ pub extern "C" fn arcrop_is_mod_enabled(hash: Hash40) -> bool {
 
     let storage = crate::config::GLOBAL_CONFIG.lock().unwrap();
 
-    let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
-
-    let preset: HashSet<Hash40> = if storage.get_flag("legacy_discovery") || is_emulator {
+    let preset: HashSet<Hash40> = if storage.get_flag("legacy_discovery") || utils::env::is_ryujinx() {
         WalkDir::new(crate::config::umm_path())
             .max_depth(1)
             .into_iter()

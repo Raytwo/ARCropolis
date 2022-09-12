@@ -40,6 +40,7 @@ mod replacement;
 mod resource;
 #[cfg(feature = "online")]
 mod update;
+mod utils;
 
 use fs::GlobalFilesystem;
 use smash_arc::{Hash40, Region};
@@ -77,9 +78,7 @@ macro_rules! reg_w {
 
 /// Basic code for displaying an ARCropolis dialog error informing the user to check their logs, or enable them if they don't currently.
 fn dialog_error<S: AsRef<str>>(msg: S) {
-    let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
-
-    if is_emulator {
+    if utils::env::is_ryujinx() {
         if config::file_logging_enabled() {
             error!("{}<br>See the latest log for more information.", msg.as_ref());
         } else {
@@ -426,9 +425,7 @@ pub fn main() {
     Lazy::force(&GLOBAL_CONFIG);
 
     // Initialize hid
-    let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
-
-    if !is_emulator {
+    if !utils::env::is_ryujinx() {
         ninput::init();
     }
 

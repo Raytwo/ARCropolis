@@ -8,7 +8,7 @@ use orbits::{ConflictHandler, ConflictKind, FileLoader, LaunchPad, StandardLoade
 use skyline::nn::{self, ro::*};
 use smash_arc::Hash40;
 
-use crate::{chainloader::*, config};
+use crate::{chainloader::*, config, utils};
 
 static PRESET_HASHES: Lazy<HashSet<Hash40>> = Lazy::new(|| {
     let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
@@ -38,15 +38,15 @@ static PRESET_HASHES: Lazy<HashSet<Hash40>> = Lazy::new(|| {
 });
 
 pub fn perform_discovery() -> LaunchPad<StandardLoader> {
-    let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
+    let is_ryujinx = utils::env::is_ryujinx();
 
-    if is_emulator {
+    if is_ryujinx {
         info!("Emulator usage detected in perform_discovery, reverting to old behavior.");
     }
 
     let legacy_discovery = config::legacy_discovery();
 
-    if !is_emulator {
+    if !is_ryujinx {
         // Open the ARCropolis menu if Minus is held before mod discovery
         if ninput::any::is_down(ninput::Buttons::PLUS) {
             crate::menus::show_main_menu();
@@ -55,7 +55,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     let filter = |path: &Path| {
         // If we're not running on emulator
-        if !is_emulator && !legacy_discovery {
+        if !is_ryujinx && !legacy_discovery {
             // If it's not in the presets, don't load
             PRESET_HASHES.contains(&Hash40::from(path.to_str().unwrap()))
         } else {
@@ -114,7 +114,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let umm_path = config::umm_path();
 
     // Emulators can't use presets, so don't run this logic
-    if !is_emulator && !legacy_discovery {
+    if !is_ryujinx && !legacy_discovery {
         let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
         // Get the mod cache from last run
         let mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();

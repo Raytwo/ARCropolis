@@ -22,6 +22,7 @@ parking_lot = "0.11"
 once_cell = "1.12.0"
 thiserror = "1.0.30"
 minreq = { version = "=2.2.1", features = ["https", "json-using-serde"], optional = true }
+camino = "1"
 # Switch utilities
 skyline = "0.2.1"
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }

@@ -13,6 +13,8 @@ use skyline_config::*;
 use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
 
+use crate::utils;
+
 fn arcropolis_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
@@ -113,10 +115,8 @@ pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| 
 
                             let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
 
-                            let is_emulator = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000;
-
                             // Ryujinx cannot show the web browser, and a second check is performed during file discovery
-                            if !is_emulator {
+                            if !utils::env::is_ryujinx() {
                                 if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?<br>It offers advantages such as:<br>* Mod manager on the eShop button<br>* Separate enabled mods per user profile<br><br>If you accept, disabled mods will be renamed to strip the period.") {
                                     storage.set_field_json("presets", &convert_legacy_to_presets()).unwrap();
                                 } else {
