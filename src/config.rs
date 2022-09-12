@@ -311,23 +311,14 @@ pub struct ArcStorage(std::path::PathBuf);
 
 impl ArcStorage {
     pub fn new() -> Self {
-        let mut uid = nn::account::Uid { id: [0; 2] };
-        let mut handle = UserHandle::new();
+        unsafe { nn::account::Initialize(); }
 
-        unsafe {
-            // It is safe to initialize multiple times.
-            nn::account::Initialize();
+        // This provides a UserHandle and sets the User in a Open state to be used.
+        let handle = nn::account::try_open_preselected_user().expect("TryOpenPreselectedUser should open the current user");
+        // Obtain the UID for this user
+        let uid = nn::account::get_user_id(&handle).expect("GetUserId should return a valid Uid");
 
-            // This provides a UserHandle and sets the User in a Open state to be used.
-            if !open_preselected_user(&mut handle) {
-                panic!("OpenPreselectedUser returned false");
-            }
-
-            // Obtain the UID for this user
-            get_user_id(&mut uid, &handle);
-            // This closes the UserHandle, making it unusable, and sets the User in a Closed state.
-            close_user(&handle);
-        }
+        nn::account::close_user(handle);
 
         let path = PathBuf::from(uid.id[0].to_string()).join(uid.id[1].to_string());
 

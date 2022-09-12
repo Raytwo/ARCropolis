@@ -307,21 +307,14 @@ unsafe fn clear_ink_patch(ctx: &mut InlineCtx) {
 }
 
 fn get_language_id_in_savedata() -> SaveLanguageId {
-    let mut uid = nn::account::Uid { id: [0; 2] };
-    let mut handle = skyline_config::UserHandle::new();
-
     unsafe {
         // This provides a UserHandle and sets the User in a Open state to be used.
-        // TODO: Move this from skyline-config to nnsdk-rs ASAP
-        if !skyline_config::open_preselected_user(&mut handle) {
-            panic!("OpenPreselectedUser returned false");
-        }
+        let handle = nn::account::try_open_preselected_user().expect("OpenPreselectedUser should not return false");
 
         // Obtain the UID for this user
-        // TODO: Move this from skyline-config to nnsdk-rs ASAP
-        skyline_config::get_user_id(&mut uid, &handle);
+        let uid = nn::account::get_user_id(&handle).expect("GetUserId should return a valid Uid");
 
-        nn::fs::MountSaveData(skyline::c_str("save\0"), &uid as *const nn::account::Uid as u64);
+        nn::fs::MountSaveData(skyline::c_str("save\0"), &uid);
 
         let mut file = std::fs::File::open("save:/save_data/system_data.bin").unwrap();
         file.seek(SeekFrom::Start(0x3c6098)).unwrap();
@@ -333,8 +326,7 @@ fn get_language_id_in_savedata() -> SaveLanguageId {
 
         // This closes the UserHandle, making it unusable, and sets the User in a Closed state.
         // Smash will crash if you don't do it.
-        // TODO: Move this from skyline-config to nnsdk-rs ASAP
-        skyline_config::close_user(&handle);
+        nn::account::close_user(handle);
 
         SaveLanguageId::from(language_code[0])
     }
@@ -390,6 +382,27 @@ fn get_system_region_from_language_id(language: SaveLanguageId) -> Region {
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
+    std::panic::set_hook(Box::new(|info| {
+        let location = info.location().unwrap();
+
+        let msg = match info.payload().downcast_ref::<&'static str>() {
+            Some(s) => *s,
+            None => {
+                match info.payload().downcast_ref::<String>() {
+                    Some(s) => &s[..],
+                    None => "Box<Any>",
+                }
+            },
+        };
+
+        let err_msg = format!("thread has panicked at '{}', {}", msg, location);
+        skyline::error::show_error(
+            69,
+            "Skyline plugin has panicked! Please open the details and send a screenshot to the developer, then close the game.\n",
+            err_msg.as_str(),
+        );
+    }));
+
     // Initialize the time for the logger
     init_time();
     // Required to mount the savedata ourselves. It is safe to initialize multiple times.
@@ -469,27 +482,6 @@ pub fn main() {
 
     skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof, clear_ink_patch);
     replacement::install();
-
-    std::panic::set_hook(Box::new(|info| {
-        let location = info.location().unwrap();
-
-        let msg = match info.payload().downcast_ref::<&'static str>() {
-            Some(s) => *s,
-            None => {
-                match info.payload().downcast_ref::<String>() {
-                    Some(s) => &s[..],
-                    None => "Box<Any>",
-                }
-            },
-        };
-
-        let err_msg = format!("thread has panicked at '{}', {}", msg, location);
-        skyline::error::show_error(
-            69,
-            "Skyline plugin has panicked! Please open the details and send a screenshot to the developer, then close the game.\n",
-            err_msg.as_str(),
-        );
-    }));
 
     // Wait on hashes/lut to finish
     let _ = resources.join();

@@ -24,7 +24,7 @@ thiserror = "1.0.30"
 minreq = { version = "=2.2.1", features = ["https", "json-using-serde"], optional = true }
 camino = "1"
 # Switch utilities
-skyline = "0.2.1"
+skyline = { git = "https://github.com/Raytwo/skyline-rs", branch="preview" }
 skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }

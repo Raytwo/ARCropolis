@@ -136,7 +136,7 @@ impl NroBuilder {
         let nro_image = unsafe {
             let nro_memory = libc::memalign(0x1000, data.len()) as *mut u8;
             libc::memcpy(nro_memory as _, data.as_ptr() as _, data.len());
-            nro_memory as *const libc::c_void
+            nro_memory as *const u8
         };
 
         let bss_size = unsafe {
@@ -149,7 +149,7 @@ impl NroBuilder {
             }
         }?;
 
-        let bss_section = unsafe { libc::memalign(0x1000, bss_size) };
+        let bss_section = unsafe { libc::memalign(0x1000, bss_size) as *mut u8 };
 
         let mut nro_module = MaybeUninit::uninit();
         unsafe {
@@ -164,7 +164,7 @@ impl NroBuilder {
                 Ok(nro_module.assume_init())
             } else {
                 libc::free(nro_image as *mut libc::c_void);
-                libc::free(bss_section);
+                libc::free(bss_section as *mut libc::c_void);
                 Err(NroMountFailedError(rc))
             }
         }
