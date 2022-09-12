@@ -46,7 +46,7 @@ enum ShareLookupState {
 }
 
 static UNSHARE_LOOKUP: Lazy<RwLock<UnshareLookupState>> = Lazy::new(|| {
-    let path = crate::CACHE_PATH.join("unshare.lut");
+    let path = crate::utils::paths::cache().join("unshare.lut");
     let lut = match std::fs::read(&path) {
         Ok(data) => {
             match bincode::deserialize(&data) {
@@ -54,7 +54,7 @@ static UNSHARE_LOOKUP: Lazy<RwLock<UnshareLookupState>> = Lazy::new(|| {
                 Err(e) => {
                     error!(
                         "Unable to parse '{}' for unsharing. Reason: {:?}. Boot time might be a bit slow.",
-                        path.display(),
+                        path,
                         *e
                     );
                     UnshareLookupState::Missing
@@ -62,7 +62,7 @@ static UNSHARE_LOOKUP: Lazy<RwLock<UnshareLookupState>> = Lazy::new(|| {
             }
         },
         Err(err) => {
-            error!("Unable to read '{}'. Reason: {:?}", path.display(), err);
+            error!("Unable to read '{}'. Reason: {:?}", path, err);
             UnshareLookupState::Missing
         },
     };
@@ -71,7 +71,7 @@ static UNSHARE_LOOKUP: Lazy<RwLock<UnshareLookupState>> = Lazy::new(|| {
 });
 
 static SHARE_LOOKUP: Lazy<RwLock<ShareLookupState>> = Lazy::new(|| {
-    let path = crate::CACHE_PATH.join("share.lut");
+    let path = crate::utils::paths::cache().join("share.lut");
     let lut = match std::fs::read(&path) {
         Ok(data) => {
             match bincode::deserialize(&data) {
@@ -79,7 +79,7 @@ static SHARE_LOOKUP: Lazy<RwLock<ShareLookupState>> = Lazy::new(|| {
                 Err(e) => {
                     error!(
                         "Unable to parse '{}' for share lookup. Reason: {:?}. Boot time might be a bit slow.",
-                        path.display(),
+                        path,
                         *e
                     );
                     ShareLookupState::Missing
@@ -87,7 +87,7 @@ static SHARE_LOOKUP: Lazy<RwLock<ShareLookupState>> = Lazy::new(|| {
             }
         },
         Err(err) => {
-            error!("Unable to read '{}'. Reason: {:?}", path.display(), err);
+            error!("Unable to read '{}'. Reason: {:?}", path, err);
             ShareLookupState::Missing
         },
     };
@@ -116,9 +116,9 @@ pub fn initialize_unshare(arc: Option<&LoadedArc>) {
 
             match bincode::serialize(&lookup) {
                 Ok(data) => {
-                    let path = crate::CACHE_PATH.join("unshare.lut");
+                    let path = crate::utils::paths::cache().join("unshare.lut");
                     if let Err(e) = std::fs::write(&path, data) {
-                        error!("Failed to write unshare LUT to cache file at '{}'. Reason: {:?}", path.display(), e);
+                        error!("Failed to write unshare LUT to cache file at '{}'. Reason: {:?}", path, e);
                     }
                 },
                 Err(e) => {
@@ -192,9 +192,9 @@ pub fn initialize_share(arc: Option<&LoadedArc>) {
 
             match bincode::serialize(&lookup) {
                 Ok(data) => {
-                    let path = crate::CACHE_PATH.join("share.lut");
+                    let path = crate::utils::paths::cache().join("share.lut");
                     if let Err(e) = std::fs::write(&path, data) {
-                        error!("Failed to write share LUT to cache file at '{}'. Reason: {:?}", path.display(), e);
+                        error!("Failed to write share LUT to cache file at '{}'. Reason: {:?}", path, e);
                     }
                 },
                 Err(e) => {

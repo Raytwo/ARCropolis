@@ -37,7 +37,8 @@ mod menus;
 mod offsets;
 mod replacement;
 mod resource;
-#[cfg(feature = "online")] mod update;
+#[cfg(feature = "online")]
+mod update;
 mod utils;
 
 use fs::GlobalFilesystem;
@@ -46,17 +47,6 @@ use smash_arc::{Hash40, Region};
 use crate::config::{SaveLanguageId, GLOBAL_CONFIG, REGION};
 
 pub static GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = const_rwlock(GlobalFilesystem::Uninitialized);
-
-pub static CACHE_PATH: Lazy<PathBuf> = Lazy::new(|| {
-    let version_string = get_version_string();
-    let path = PathBuf::from("sd:/ultimate/arcropolis/cache").join(version_string);
-
-    if let Err(e) = std::fs::create_dir_all(&path) {
-        panic!("Unable to create cache directory! Reason: {:?}", e)
-    }
-
-    path
-});
 
 static mut NEWS_DATA: Lazy<HashMap<String, String>> = Lazy::new(HashMap::new);
 
@@ -306,14 +296,14 @@ unsafe fn msbt_text(ctx: &mut InlineCtx) {
 }
 
 #[skyline::hook(offset = offsets::packet_send(), inline)]
-unsafe fn packet_send(ctx: &InlineCtx) {
+unsafe fn online_slot_spoof(ctx: &InlineCtx) {
     let data = *ctx.registers[3].x.as_ref() as *mut u8;
 
     if data.is_null() {
         return
     }
 
-    if *(data as *const u64).add(0x28 / 8) & 0xFFFF0000_00000000 == 0xc1000000_00000000 {
+    if *(data as *const u64).add(0x28 / 8) & 0xFFFF_0000_0000_0000 == 0xc100_0000_0000_0000 {
         // Change the slot (lower 4 bits) to slot % 8
         *data.add(0x38) &= 0xF7;
     }
@@ -471,23 +461,12 @@ pub fn main() {
             .spawn(|| {
                 // Changed to pre because prerelease doesn't compile
                 if !semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
-                    update::check_for_updates(config::beta_updates(), |_update_kind| true);
+                    update::check_for_updates(config::beta_updates(), |_| true);
                 }
 
                 if config::auto_update_enabled() {
                     update::check_for_updates(config::beta_updates(), |update_kind| {
-                        // skyline_web::Dialog::yes_no(format!(
-                        //     "{} has been detected. Do you want to install it?",
-                        //     update_kind
-                        // ))
-
-                        // This didn't compile
                         skyline_web::Dialog::no_yes(format!("{} has been detected. Do you want to install it?", update_kind))
-
-                        // match skyline_web::Dialog::yes_no(format!("{} has been detected. Do you want to install it?", update_kind)) {
-                        //     true => true,
-                        //     false => false,
-                        // }
                     });
                 }
             })
@@ -497,7 +476,7 @@ pub fn main() {
     Patch::in_text(0x35baed4).data(0xD503201Fu32).expect("Failed to patch inkling 1 cmp");
     Patch::in_text(0x35baed8).data(0xD503201Fu32).expect("Failed to patch inkling 1 b.cs");
 
-    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, packet_send, clear_ink_patch);
+    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof, clear_ink_patch);
     replacement::install();
 
     std::panic::set_hook(Box::new(|info| {
