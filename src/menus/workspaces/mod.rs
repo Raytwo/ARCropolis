@@ -64,7 +64,7 @@ pub fn show_workspaces() {
                 session.exit();
                 storage.set_field_json("workspace_list", &workspace_list).unwrap_or_default();
                 workspace_to_edit = Some(name);
-                break;
+                break
             },
             WorkspacesMessage::Rename { source_name, target_name } => {
                 let preset_name = workspace_list[&source_name].clone();
@@ -90,7 +90,7 @@ pub fn show_workspaces() {
                 session.wait_for_exit();
                 session.exit();
                 storage.set_field_json("workspace_list", &workspace_list).unwrap_or_default();
-                break;
+                break
             },
         }
     }

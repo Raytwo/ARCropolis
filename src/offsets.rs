@@ -5,12 +5,14 @@ use skyline::hooks::{getRegionAddress, Region};
 static OFFSETS: Lazy<Offsets> = Lazy::new(|| {
     let path = crate::CACHE_PATH.join("offsets.toml");
     let offsets = match std::fs::read_to_string(&path) {
-        Ok(string) => match toml::de::from_str(string.as_str()) {
-            Ok(offsets) => offsets,
-            Err(err) => {
-                error!("Unable to parse 'offsets.toml'. Reason: {:?}", err);
-                Offsets::new()
-            },
+        Ok(string) => {
+            match toml::de::from_str(string.as_str()) {
+                Ok(offsets) => offsets,
+                Err(err) => {
+                    error!("Unable to parse 'offsets.toml'. Reason: {:?}", err);
+                    Offsets::new()
+                },
+            }
         },
         Err(err) => {
             error!("Unable to read 'offsets.toml'. Reason: {:?}", err);

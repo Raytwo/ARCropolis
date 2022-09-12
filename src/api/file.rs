@@ -82,14 +82,14 @@ pub extern "C" fn arcrop_is_mod_enabled(hash: Hash40) -> bool {
     let storage = crate::config::GLOBAL_CONFIG.lock().unwrap();
 
     let preset: HashSet<Hash40> = if storage.get_flag("legacy_discovery") || utils::env::is_ryujinx() {
-        WalkDir::new(crate::config::umm_path())
+        WalkDir::new(crate::utils::paths::mods())
             .max_depth(1)
             .into_iter()
             .filter_map(|entry| {
                 if let Ok(entry) = entry {
                     // Make this less gross
                     if !entry.file_type().is_dir() {
-                        return None;
+                        return None
                     }
 
                     let path = entry.path();

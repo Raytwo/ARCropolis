@@ -8,7 +8,7 @@ use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use skyline::nn;
+use skyline::nn::{self, util};
 use skyline_config::*;
 use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
@@ -103,12 +103,7 @@ pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| 
                             // Overwrite default files with the values from the old configuration file.
                             migrate_config_to_storage(&mut storage, &config);
 
-                            // Perform checks on deprecated custom mod directories (ARCropolis < 3.0.0)
-                            if config.paths.arc != arc_path() {
-                                skyline::error::show_error(69, "Usage of custom ARC paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom ARC paths have been deprecated in an effort to reduce user error.<br>Consider moving your modpack to rom:/arc to keep using it.");
-                            }
-
-                            if config.paths.umm != umm_path() {
+                            if config.paths.umm != utils::paths::mods() {
                                 skyline::error::show_error(69, "Usage of custom UMM paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom UMM paths have been deprecated in an effort to reduce user error.<br>Consider moving your modpack to sd:/ultimate/mods to keep using it.");
                                 // TODO: Offer to move it for the user if the default umm path doesn't already exist
                             }
@@ -182,23 +177,21 @@ fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
 fn convert_legacy_to_presets() -> HashSet<Hash40> {
     let mut presets: HashSet<Hash40> = HashSet::new();
 
-    if umm_path().exists() {
-        // TODO: Turn this into a map and use Collect
-        for entry in WalkDir::new(umm_path()).max_depth(1).into_iter().flatten() {
-            let path = entry.path();
+    // TODO: Turn this into a map and use Collect
+    for entry in WalkDir::new(utils::paths::mods()).max_depth(1).into_iter().flatten() {
+        let path = entry.path();
 
-            // If the mod isn't disabled, add it to the preset
-            if path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .map(|name| !name.starts_with('.'))
-                .unwrap_or(false)
-            {
-                presets.insert(Hash40::from(path.to_str().unwrap()));
-            } else {
-                // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
-                std::fs::rename(path, format!("sd:/ultimate/mods/{}", &path.file_name().unwrap().to_str().unwrap()[1..])).unwrap();
-            }
+        // If the mod isn't disabled, add it to the preset
+        if path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| !name.starts_with('.'))
+            .unwrap_or(false)
+        {
+            presets.insert(Hash40::from(path.to_str().unwrap()));
+        } else {
+            // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
+            std::fs::rename(path, format!("sd:/ultimate/mods/{}", &path.file_name().unwrap().to_str().unwrap()[1..])).unwrap();
         }
     }
 
@@ -295,24 +288,6 @@ pub fn region_str() -> String {
         .get_field("region")
         .unwrap_or_else(|_| String::from("us_en"));
     region
-}
-
-pub fn arc_path() -> PathBuf {
-    PathBuf::from("rom:/arc")
-}
-
-pub fn umm_path() -> PathBuf {
-    let path = PathBuf::from("sd:/ultimate/mods");
-
-    if !path.exists() {
-        std::fs::create_dir_all("sd:/ultimate/mods").unwrap();
-    }
-
-    path
-}
-
-pub fn extra_paths() -> Vec<String> {
-    GLOBAL_CONFIG.lock().unwrap().get_field_json("extra_paths").unwrap_or_default()
 }
 
 pub fn logger_level() -> String {

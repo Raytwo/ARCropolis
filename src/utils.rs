@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use skyline::nn;
 use semver::Version;
+use skyline::nn;
 
 pub mod env {
     use once_cell::sync::Lazy;
@@ -37,8 +37,9 @@ pub mod env {
 pub mod paths {
     use std::io;
 
-    use super::*;
     use camino::Utf8PathBuf;
+
+    use super::*;
 
     pub fn ensure_paths_exist() -> io::Result<()> {
         std::fs::create_dir_all(&mods())?;

@@ -9,19 +9,18 @@
 #![feature(fs_try_exists)]
 
 use std::{
+    collections::HashMap,
     fmt,
     io::{BufWriter, Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
     str::FromStr,
-    collections::HashMap,
 };
 
 use arcropolis_api::Event;
 use log::LevelFilter;
 use thiserror::Error;
 
-#[macro_use]
-extern crate log;
+#[macro_use] extern crate log;
 
 use once_cell::sync::Lazy;
 use parking_lot::{const_rwlock, RwLock};
@@ -38,8 +37,7 @@ mod menus;
 mod offsets;
 mod replacement;
 mod resource;
-#[cfg(feature = "online")]
-mod update;
+#[cfg(feature = "online")] mod update;
 mod utils;
 
 use fs::GlobalFilesystem;
@@ -138,7 +136,7 @@ impl PathExtension for Path {
                 )
                 .map(Hash40);
             if let Some(hash) = hash {
-                return Ok(hash);
+                return Ok(hash)
             }
         }
         let mut path = self
@@ -209,9 +207,11 @@ fn check_for_changelog() {
 fn get_news_data() {
     skyline::install_hook!(msbt_text);
     match minreq::get("https://coolsonickirby.com/arc/news").send() {
-        Ok(resp) => match resp.json::<HashMap<String, String>>() {
-            Ok(info) => unsafe { NEWS_DATA.extend(info) },
-            Err(err) => println!("{:?}", err),
+        Ok(resp) => {
+            match resp.json::<HashMap<String, String>>() {
+                Ok(info) => unsafe { NEWS_DATA.extend(info) },
+                Err(err) => println!("{:?}", err),
+            }
         },
         Err(err) => println!("{:?}", err),
     }
@@ -310,7 +310,7 @@ unsafe fn packet_send(ctx: &InlineCtx) {
     let data = *ctx.registers[3].x.as_ref() as *mut u8;
 
     if data.is_null() {
-        return;
+        return
     }
 
     if *(data as *const u64).add(0x28 / 8) & 0xFFFF0000_00000000 == 0xc1000000_00000000 {
@@ -414,6 +414,12 @@ pub fn main() {
     // Required to mount the savedata ourselves. It is safe to initialize multiple times.
     unsafe { nn::account::Initialize() };
 
+    // Initialize hid
+    if !utils::env::is_ryujinx() {
+        println!("Initializing ninput");
+        ninput::init();
+    }
+
     // Scope to drop the lock
     {
         let mut region = REGION.write();
@@ -424,15 +430,13 @@ pub fn main() {
     // Force the configuration to be initialized right away, so we can be sure default files exist (hopefully)
     Lazy::force(&GLOBAL_CONFIG);
 
-    // Initialize hid
-    if !utils::env::is_ryujinx() {
-        ninput::init();
-    }
-
     // Attempt to initialize the logger, and if we fail we will just do a regular println
     if let Err(err) = logging::init(LevelFilter::from_str(&config::logger_level()).unwrap_or(LevelFilter::Warn)) {
         println!("[arcropolis] Failed to initialize logger. Reason: {:?}", err);
     }
+
+    // Make sure the paths exist before doing anything
+    utils::paths::ensure_paths_exist().expect("Paths should exist on the SD");
 
     // Acquire the filesystem and promise it to the initial_loading hook
     let mut filesystem = GLOBAL_FILESYSTEM.write();
@@ -501,9 +505,11 @@ pub fn main() {
 
         let msg = match info.payload().downcast_ref::<&'static str>() {
             Some(s) => *s,
-            None => match info.payload().downcast_ref::<String>() {
-                Some(s) => &s[..],
-                None => "Box<Any>",
+            None => {
+                match info.payload().downcast_ref::<String>() {
+                    Some(s) => &s[..],
+                    None => "Box<Any>",
+                }
             },
         };
 

@@ -49,7 +49,7 @@ where
         Ok(r) => r,
         Err(e) => {
             error!("Failed to check for updates: {:?}", e);
-            return;
+            return
         },
     };
 
@@ -63,7 +63,7 @@ where
     let release = match (prerelease_tag, release_tag) {
         (None, None) => {
             error!("No github releases were found!");
-            return;
+            return
         },
         (prerelease_tag, release_tag) => {
             if prerelease_tag > release_tag {
@@ -79,20 +79,20 @@ where
         Ok(diff) => diff,
         Err(e) => {
             error!("Failed to parse version strings: {:?}", e);
-            return;
+            return
         },
     };
 
     if let Some(update_kind) = version_difference {
         if !f(update_kind) {
-            return;
+            return
         }
         if let Some(release) = release.get_asset_by_name("release.zip") {
             let mut zip = match ZipArchive::new(std::io::Cursor::new(release)) {
                 Ok(zip) => zip,
                 Err(e) => {
                     error!("Failed to parse zip data: {:?}", e);
-                    return;
+                    return
                 },
             };
 
