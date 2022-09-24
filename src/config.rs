@@ -7,7 +7,7 @@ use std::{
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use semver::Version;
-use skyline::nn;
+use skyline::nn::{self, util};
 use skyline_config::*;
 use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
@@ -113,7 +113,7 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
             presets.insert(Hash40::from(path.to_str().unwrap()));
         } else {
             // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
-            std::fs::rename(path, format!("sd:/ultimate/mods/{}", &path.file_name().unwrap().to_str().unwrap()[1..])).unwrap();
+            std::fs::rename(path, format!("{}/{}", crate::utils::paths::mods() ,&path.file_name().unwrap().to_str().unwrap()[1..])).unwrap();
         }
     }
 
@@ -136,15 +136,6 @@ pub static REGION: RwLock<Region> = RwLock::new(Region::UsEnglish);
 
 pub fn region() -> Region {
     *REGION.read()
-}
-
-pub fn region_str() -> String {
-    let region: String = GLOBAL_CONFIG
-        .lock()
-        .unwrap()
-        .get_field("region")
-        .unwrap_or_else(|_| String::from("us_en"));
-    region
 }
 
 pub fn logger_level() -> String {
@@ -190,9 +181,8 @@ pub mod workspaces {
     pub fn create_new_workspace(name: String) -> Result<(), WorkspaceError> {
         let mut list = get_list()?;
 
-        if let std::collections::hash_map::Entry::Vacant(e) = list.entry(name) {
-            todo!("Implement code to generate a preset name");
-            e.insert("temp".to_string());
+        if let std::collections::hash_map::Entry::Vacant(e) = list.entry(name.clone()) {
+            e.insert(name);
             GLOBAL_CONFIG.lock().unwrap().set_field_json("workspace_list", &list).map_err(WorkspaceError::ConfigError)
         } else {
             Err(WorkspaceError::AlreadyExists)
