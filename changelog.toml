@@ -17,7 +17,7 @@ contents = """
 </ul>"""
 
 [[entries]]
-section_title = "Bug fixe(s)"
+section_title = "Bug fix(es)"
 contents = """
 <ul>
     <li>Fix the mod manager softlocking at boot time</li>

@@ -13,23 +13,7 @@ use skyline_config::*;
 use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
 
-use crate::utils;
-
-fn arcropolis_version() -> String {
-    env!("CARGO_PKG_VERSION").to_string()
-}
-const fn always_true() -> bool {
-    true
-}
-const fn always_false() -> bool {
-    false
-}
-fn default_logger_level() -> String {
-    "Warn".to_string()
-}
-fn default_region() -> String {
-    "us_en".to_string()
-}
+use crate::utils::{self, get_arcropolis_version};
 
 #[repr(u8)]
 #[derive(Debug)]
@@ -71,10 +55,8 @@ pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| 
 
     let version: Result<Version, _> = storage.get_field("version");
 
-    match version {
-        Ok(config_version) => {
-            let curr_version = Version::parse(&arcropolis_version())
-                .expect("Parsing of ARCropolis' version string failed. Please open an issue on www.arcropolis.com to let us know!");
+    if let Ok(config_version) = version {
+            let curr_version = get_arcropolis_version();
 
             // Check if the configuration is from a previous version
             if curr_version > config_version {
@@ -86,92 +68,33 @@ pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| 
                     storage.set_field("workspace", "Default").unwrap();
                 }
                 // Update the version in the config
-                storage.set_field("version", arcropolis_version()).unwrap();
+                storage.set_field("version", get_arcropolis_version().to_string()).unwrap();
             }
-        },
-        // Version file does not exist
-        Err(_) => {
-            // Check if a legacy configuration exists
-            match std::fs::read_to_string("sd:/ultimate/arcropolis/config.toml") {
-                // Legacy configuration exists, try parsing it
-                Ok(toml) => {
-                    match toml::de::from_str::<Config>(toml.as_str()) {
-                        // Parsing successful, migrate everything to the new system
-                        Ok(config) => {
-                            // Prepare default files for the current version in the new storage
-                            generate_default_config(&mut storage);
-                            // Overwrite default files with the values from the old configuration file.
-                            migrate_config_to_storage(&mut storage, &config);
-
-                            if config.paths.umm != utils::paths::mods() {
-                                skyline::error::show_error(69, "Usage of custom UMM paths is deprecated. Please press details.", "Starting from ARCropolis 3.0.0, custom UMM paths have been deprecated in an effort to reduce user error.<br>Consider moving your modpack to sd:/ultimate/mods to keep using it.");
-                                // TODO: Offer to move it for the user if the default umm path doesn't already exist
-                            }
-
-                            let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
-
-                            // Ryujinx cannot show the web browser, and a second check is performed during file discovery
-                            if !utils::env::is_ryujinx() {
-                                if skyline_web::Dialog::yes_no("Would you like to migrate your modpack to the new system?<br>It offers advantages such as:<br>* Mod manager on the eShop button<br>* Separate enabled mods per user profile<br><br>If you accept, disabled mods will be renamed to strip the period.") {
-                                    storage.set_field_json("presets", &convert_legacy_to_presets()).unwrap();
-                                } else {
-                                    storage.set_flag("legacy_discovery", true).unwrap();
-                                }
-                            }
-                        },
-                        // Parsing unsuccessful, generate default files and delete the broken config
-                        Err(_) => {
-                            error!("Unable to parse legacy configuration file");
-                            generate_default_config(&mut storage);
-                            let _ = std::fs::remove_file("sd:/ultimate/arcropolis/config.toml").ok();
-                        },
-                    }
-                },
-                // Could not find a legacy configuration
-                Err(_) => {
-                    error!("Unable to find legacy config file, generating default values.");
-                    // [3.2.0] Removed migration from DebugSavedataStorage so we don't create a partition for the user just to check if they had one anymore.
-                    generate_default_config(&mut storage);
-
-                    storage.set_flag("first_boot", true).unwrap();
-                },
-            }
-        },
+    }
+    else // Version file does not exist
+    {
+        generate_default_config(&mut storage).unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
     }
 
     Mutex::new(storage)
 });
 
-fn migrate_config_to_storage<CS: ConfigStorage>(storage: &mut StorageHolder<CS>, config: &Config) {
-    info!("Converting legacy configuration file to ConfigStorage.");
-
-    storage.set_field("version", arcropolis_version()).unwrap();
-    storage.set_field("region", &config.region).unwrap();
-    storage.set_field("logging_level", &config.logger.logger_level).unwrap();
-    storage.set_field_json("extra_paths", &config.paths.extra_paths).unwrap();
-    storage.set_flag("auto_update", config.auto_update).unwrap();
-    storage.set_flag("beta_updates", config.beta_updates).unwrap();
-    storage.set_flag("debug", config.debug).unwrap();
-    storage.set_flag("log_to_file", config.logger.log_to_file).unwrap();
-}
-
-fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
+fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) -> Result<(), ConfigError> {
     info!("Populating ConfigStorage with default values.");
 
     // Just so we don't keep outdated fields
     storage.clear_storage();
 
-    storage.set_field("version", arcropolis_version()).unwrap();
-    storage.set_field("region", "us_en").unwrap();
-    storage.set_field("logging_level", "Warn").unwrap();
-    storage.set_field_json("extra_paths", &Vec::<String>::new()).unwrap();
-    storage.set_flag("auto_update", true).unwrap();
-    storage.set_field_json("presets", &HashSet::<Hash40>::new()).unwrap();
+    storage.set_field("version", get_arcropolis_version().to_string())?;
+    storage.set_field("logging_level", "Warn")?;
+    storage.set_flag("auto_update", true)?;
+    storage.set_field_json("presets", &HashSet::<Hash40>::new())?;
 
     let mut default_workspace = HashMap::<&str, &str>::new();
     default_workspace.insert("Default", "presets");
-    storage.set_field_json("workspace_list", &default_workspace).unwrap();
-    storage.set_field("workspace", "Default").unwrap();
+
+    storage.set_field_json("workspace_list", &default_workspace)?;
+    storage.set_field("workspace", "Default")
 }
 
 fn convert_legacy_to_presets() -> HashSet<Hash40> {
@@ -196,71 +119,6 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
     }
 
     presets
-}
-
-#[derive(Serialize, Deserialize)]
-struct Config {
-    #[serde(skip_deserializing)]
-    #[serde(default = "arcropolis_version")]
-    pub version: String,
-
-    #[serde(default = "always_false")]
-    pub debug: bool,
-
-    #[serde(default = "always_true")]
-    pub auto_update: bool,
-
-    #[serde(default = "always_true")]
-    pub beta_updates: bool,
-
-    #[serde(default = "always_false")]
-    pub no_web_menus: bool,
-
-    #[serde(default = "default_region")]
-    pub region: String,
-
-    #[serde(default = "ConfigPaths::new")]
-    pub paths: ConfigPaths,
-
-    #[serde(default = "ConfigLogger::new")]
-    pub logger: ConfigLogger,
-}
-
-#[derive(Serialize, Deserialize)]
-struct ConfigPaths {
-    pub arc: PathBuf,
-    pub umm: PathBuf,
-
-    #[serde(default)]
-    pub extra_paths: Vec<PathBuf>,
-}
-
-impl ConfigPaths {
-    fn new() -> Self {
-        Self {
-            arc: PathBuf::from("rom:/arc"),
-            umm: PathBuf::from("sd:/ultimate/mods"),
-            extra_paths: Vec::new(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-struct ConfigLogger {
-    #[serde(default = "default_logger_level")]
-    pub logger_level: String,
-
-    #[serde(default = "always_true")]
-    pub log_to_file: bool,
-}
-
-impl ConfigLogger {
-    pub fn new() -> Self {
-        Self {
-            logger_level: String::from("Warn"),
-            log_to_file: false,
-        }
-    }
 }
 
 pub fn auto_update_enabled() -> bool {
