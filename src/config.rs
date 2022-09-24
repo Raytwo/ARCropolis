@@ -7,7 +7,6 @@ use std::{
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use semver::Version;
-use serde::{Deserialize, Serialize};
 use skyline::nn;
 use skyline_config::*;
 use smash_arc::{Hash40, Region};
@@ -163,6 +162,110 @@ pub fn file_logging_enabled() -> bool {
 
 pub fn legacy_discovery() -> bool {
     GLOBAL_CONFIG.lock().unwrap().get_flag("legacy_discovery")
+}
+
+pub mod workspaces {
+    use super::*;
+    use std::collections::HashMap;
+
+    use skyline_config::ConfigError;
+    use thiserror::Error;
+
+    #[derive(Debug, Error)]
+    pub enum WorkspaceError {
+        #[error("a configuration error happened: {0}")]
+        ConfigError(#[from] ConfigError),
+        #[error("a workspace with this name already exists")]
+        AlreadyExists,
+        #[error("failed to find workspace with name: {0}")]
+        MissingWorkspace(String)
+        // #[error("failed to call from_str for the desired type")]
+        // FromStrErr,
+    }
+
+    pub fn get_list() -> Result<HashMap<String, String>, WorkspaceError> {
+        GLOBAL_CONFIG.lock().unwrap().get_field_json("workspace_list").map_err(WorkspaceError::ConfigError)
+    }
+
+    pub fn create_new_workspace(name: String) -> Result<(), WorkspaceError> {
+        let mut list = get_list()?;
+
+        if let std::collections::hash_map::Entry::Vacant(e) = list.entry(name) {
+            todo!("Implement code to generate a preset name");
+            e.insert("temp".to_string());
+            GLOBAL_CONFIG.lock().unwrap().set_field_json("workspace_list", &list).map_err(WorkspaceError::ConfigError)
+        } else {
+            Err(WorkspaceError::AlreadyExists)
+        }
+    }
+
+    pub fn set_active_workspace(name: String) -> Result<(), WorkspaceError> {
+        let workspace_list = get_list()?;
+        // Make sure the workspace actually exists before setting it
+        if workspace_list.contains_key(&name) {
+            // If we couldn't write the new active workspace, return an error
+            GLOBAL_CONFIG.lock().unwrap().set_field("workspace", name).map_err(WorkspaceError::ConfigError)
+        } else {
+            // Couldn't find the workspace in our list, something is wrong
+            Err(WorkspaceError::MissingWorkspace(name))
+        }
+    }
+
+    pub fn get_active_workspace() -> Result<String, WorkspaceError> {
+        let workspace_list = get_list()?;
+        let workspace_name: String = GLOBAL_CONFIG.lock().unwrap().get_field("workspace")?;
+        workspace_list.get(&workspace_name).map(|x| x.to_owned()).ok_or(WorkspaceError::MissingWorkspace(workspace_name))
+    }
+
+    fn get_workspace_by_name(name: String) -> Result<String, WorkspaceError> {
+        let workspace_list = get_list()?;
+        workspace_list.get(&name).map(|x| x.to_owned()).ok_or(WorkspaceError::MissingWorkspace(name))
+    }
+
+    pub fn rename_workspace(from: &str, to: &str) -> Result<(), WorkspaceError> {
+        let mut workspace_list = get_list()?;
+        // Remove the workspace if we find it and get back the associate preset name, but if we don't, return an error.
+        let preset_name = workspace_list.remove(from).ok_or_else(|| WorkspaceError::MissingWorkspace(from.to_string()))?;
+        // Reinsert the preset name with the new workspace name
+        workspace_list.insert(to.to_string(), preset_name);
+        // Overwrite the list with the changes
+        GLOBAL_CONFIG.lock().unwrap().set_field_json("workspace_list", &workspace_list).map_err(WorkspaceError::ConfigError)
+    }
+}
+
+
+pub mod presets {
+    use super::*;
+    use std::collections::HashSet;
+
+    use once_cell::sync::Lazy;
+    use skyline_config::ConfigError;
+    use smash_arc::Hash40;
+    use thiserror::Error;
+
+    use super::workspaces::WorkspaceError;
+
+    #[derive(Debug, Error)]
+    pub enum PresetError {
+        #[error("a configuration error happened: {0}")]
+        ConfigError(#[from] ConfigError),
+        #[error("a workspace error happened: {0}")]
+        WorkspaceError(#[from] WorkspaceError),
+        #[error("failed to find the preset file for this workspace")]
+        MissingPreset,
+        // #[error("failed to call from_str for the desired type")]
+        // FromStrErr,
+    }
+
+    pub fn get_active_preset() -> Result<HashSet<Hash40>, PresetError> {
+        let preset_name = workspaces::get_active_workspace()?;
+        GLOBAL_CONFIG.lock().unwrap().get_field_json(preset_name).map_err(PresetError::ConfigError)
+    }
+
+    pub fn replace_active_preset(preset: &HashSet<Hash40>) -> Result<(), PresetError> {
+        let preset_name = workspaces::get_active_workspace()?;
+        GLOBAL_CONFIG.lock().unwrap().set_field_json(preset_name, preset).map_err(PresetError::ConfigError)
+    }
 }
 
 pub struct ArcStorage(std::path::PathBuf);
