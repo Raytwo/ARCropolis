@@ -10,33 +10,6 @@ use smash_arc::Hash40;
 
 use crate::{chainloader::*, config, utils};
 
-static PRESET_HASHES: Lazy<HashSet<Hash40>> = Lazy::new(|| {
-    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-
-    let workspace_name: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
-    let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
-
-    // Get the name of the preset file from the workspace list
-    let presets: String = workspace_list.get(&workspace_name).unwrap_or(&"presets".to_string()).to_string();
-
-    let presets = storage.get_field_json(&presets);
-    let presets = match presets {
-        Ok(presets) => {
-            trace!("Preset properly deserialized");
-            presets
-        },
-        Err(err) => {
-            trace!("Preset deserialize error: {:?}", err);
-            let empty_presets: HashSet<Hash40> = HashSet::new();
-            storage.set_field_json("presets", &empty_presets).unwrap();
-            empty_presets
-        },
-    };
-
-    trace!("Presets count: {}", presets.len());
-    presets
-});
-
 pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let is_ryujinx = utils::env::is_ryujinx();
 
@@ -53,11 +26,13 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         }
     }
 
+    let presets = crate::config::presets::get_active_preset().unwrap();
+
     let filter = |path: &Path| {
         // If we're not running on emulator
         if !is_ryujinx && !legacy_discovery {
             // If it's not in the presets, don't load
-            PRESET_HASHES.contains(&Hash40::from(path.to_str().unwrap()))
+            presets.contains(&Hash40::from(path.to_str().unwrap()))
         } else {
             // Legacy filter, load the mod except if it has a period at the start of the name
 
@@ -77,7 +52,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
         let is_out_of_region = if let Some(index) = name.find('+') {
             let (_, end) = name.split_at(index + 1);
-            !end.starts_with(&config::region_str())
+            !end.starts_with(&config::region().to_string())
         } else {
             false
         };
