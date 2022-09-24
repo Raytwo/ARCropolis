@@ -18,10 +18,10 @@ semver = { version = "1", features = ["serde"] }
 num-derive = "0.3.3"
 num-traits = "0.2"
 walkdir = "2.3.2"
-parking_lot = "0.11"
+parking_lot = "0.12"
 once_cell = "1.12.0"
 thiserror = "1.0.30"
-minreq = { version = "=2.2.1", features = ["https", "json-using-serde"], optional = true }
+minreq = { version = "2", features = ["https", "json-using-serde"], optional = true }
 camino = "1"
 # Switch utilities
 skyline = { git = "https://github.com/Raytwo/skyline-rs", branch="preview" }
@@ -29,7 +29,7 @@ skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }
 # For the updater
-zip = { version = "0.5", default-features = false, features = ["deflate"], optional = true }
+zip = { version = "0.6", default-features = false, features = ["deflate"], optional = true }
 gh-updater = { git = "https://github.com/blu-dev/gh-updater", optional = true }
 # For offset caching and legacy configuration
 toml = "0.5.8"
@@ -51,7 +51,7 @@ nn-fuse = { git = "https://github.com/Raytwo/nn-fuse" }
 prcx = { git = "https://github.com/blu-dev/prcx", branch = "xml-style" }
 # For xmsbt
 xml-rs = "0.8"
-serde-xml-rs = "0.5.1"
+serde-xml-rs = "0.6"
 msbt = { git = "https://github.com/RoccoDev/msbt-rs", branch = "feature/builder-from-impl" }
 # For patch3audio
 nus3audio = "1.2.0"
