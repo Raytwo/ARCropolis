@@ -77,7 +77,9 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
                     "xmsbt",
 
-                    "patch3audio"
+                    "patch3audio",
+
+                    "xbgm"
                 ];
                 RESERVED_NAMES.contains(&name) || PATCH_EXTENSIONS.iter().any(|x| name.ends_with(x))
             },

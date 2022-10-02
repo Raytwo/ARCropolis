@@ -55,6 +55,9 @@ serde-xml-rs = "0.6"
 msbt = { git = "https://github.com/RoccoDev/msbt-rs", branch = "feature/builder-from-impl" }
 # For patch3audio
 nus3audio = "1.2.0"
+# For xbgm
+smash-bgm-property = "1.0.1"
+binread = "1.4.1"
 # For inputs
 ninput = { git = "https://github.com/blu-dev/ninput" }
 

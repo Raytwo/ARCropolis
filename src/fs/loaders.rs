@@ -1,7 +1,10 @@
 use std::collections::VecDeque;
+use std::io::Cursor;
 
 use msbt::{builder::MsbtBuilder, Msbt};
 use nus3audio::*;
+use bgm_property::BgmPropertyFile;
+use binread::BinRead;
 use serde::*;
 use serde_xml_rs;
 use xml::common::Position;
@@ -49,6 +52,7 @@ enum ApiLoadType {
     PrcPatch,
     MsbtPatch,
     Nus3audioPatch,
+    BgmPropertyPatch,
     Generic,
     Stream,
     Extension,
@@ -64,6 +68,8 @@ impl ApiLoadType {
             Ok(ApiLoadType::MsbtPatch)
         } else if root.ends_with("patch-nus3audio") {
             Ok(ApiLoadType::Nus3audioPatch)
+        } else if root.ends_with("patch-bgm_property") {
+            Ok(ApiLoadType::BgmPropertyPatch)
         } else if root.ends_with("generic-cb") {
             Ok(ApiLoadType::Generic)
         } else if root.ends_with("stream-cb") {
@@ -247,8 +253,7 @@ impl ApiLoadType {
                 // Iterate through the patches
                 for patch in patches {
                     // Reads the patch file data and parses it into the nus3audio type
-                    let patch_data = &std::fs::read(patch.as_path()).unwrap()[..];
-                    let modified_file = Nus3audioFile::from_bytes(patch_data);
+                    let modified_file = Nus3audioFile::open(patch.as_path()).unwrap();
 
                     // Iterate through the AudioFiles of the modified file
                     for mut audio_file in modified_file.files {
@@ -286,6 +291,47 @@ impl ApiLoadType {
                 // Return the length of the contents and the contents
                 Ok((contents.len(), contents))
 
+            }
+            ApiLoadType::BgmPropertyPatch => {
+                let patches = if let Some(patches) = ApiLoader::get_bgm_property_patches_for_hash(local.smash_hash()?) {
+                    patches
+                } else {
+                    return Err(ApiLoaderError::Other("No patches found for file in bgm_property patch!".to_string()));
+                };
+
+                // Initialize the `original_file` variable, which parses the pre patch file into the BgmPropertyFile type
+                let mut original_file = BgmPropertyFile::read(&mut Cursor::new(ApiLoader::handle_load_base_file(local).unwrap())).unwrap();
+
+                let mut known_entries:HashMap<u64, bgm_property::Entry> = original_file.0.iter().map(|entry| (entry.name_id.clone(), entry.clone())).collect();
+                // Iterate through the patches
+                for patch in patches {
+                    let mut modified_file = BgmPropertyFile::open(patch.as_path()).unwrap();
+                    for modified_entry in modified_file.entries().clone() {
+                        // Check if the known Entry HashMap contains the name of the current Entry
+                        if known_entries.contains_key(&modified_entry.name_id.clone()) {
+                            // If it does, remove the entry and remake it with the modified entry
+                            known_entries.remove(&modified_entry.name_id.clone());
+                            known_entries.try_insert(modified_entry.name_id.clone(), modified_entry.clone()).unwrap();
+                        }
+                        else {
+                            // If it doesn't, insert it into the known_entries HashMap
+                            known_entries.try_insert(modified_entry.name_id.clone(), modified_entry.clone()).unwrap();
+                        }
+
+                    }
+
+                }
+
+                let mut new_entries: Vec<bgm_property::Entry> = known_entries.iter().map(|(_, entry)| entry.clone()).collect();
+
+                let final_bgm_property = BgmPropertyFile::new(new_entries);
+
+                let mut contents: Vec<u8> = Vec::new();
+
+                final_bgm_property.write(&mut contents);
+
+                // Return the length of the contents and the contents
+                Ok((contents.len(), contents))
             }
             ApiLoadType::Generic if let ApiCallback::GenericCallback(cb) = usr_fn => {
                 let hash = local.smash_hash()?;
@@ -347,6 +393,7 @@ pub struct ApiLoader {
     param_patches: HashMap<Hash40, Vec<PathBuf>>,
     msbt_patches: HashMap<Hash40, Vec<PathBuf>>,
     nus3audio_patches: HashMap<Hash40, Vec<PathBuf>>,
+    bgm_property_patches: HashMap<Hash40, Vec<PathBuf>>
 }
 
 unsafe impl Send for ApiLoader {}
@@ -433,6 +480,14 @@ impl ApiLoader {
         cached.virt().loader.nus3audio_patches.get(&hash)
     }
 
+    pub fn get_bgm_property_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
+
+        let cached = filesystem.get();
+
+        cached.virt().loader.bgm_property_patches.get(&hash)
+    }
+
     pub fn insert_prc_patch(&mut self, hash: Hash40, path: &Path) {
         if let Some(list) = self.param_patches.get_mut(&hash) {
             list.push(path.to_path_buf())
@@ -454,6 +509,14 @@ impl ApiLoader {
             list.push(path.to_path_buf())
         } else {
             self.nus3audio_patches.insert(hash, vec![path.to_path_buf()]);
+        }
+    }
+
+    pub fn insert_bgm_property_patch(&mut self, hash: Hash40, path: &Path) {
+        if let Some(list) = self.bgm_property_patches.get_mut(&hash) {
+            list.push(path.to_path_buf())
+        } else {
+            self.bgm_property_patches.insert(hash, vec![path.to_path_buf()]);
         }
     }
 
