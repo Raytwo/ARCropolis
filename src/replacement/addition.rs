@@ -595,12 +595,6 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
     ctx.dir_hash_to_info_idx.push(dir_hash_to_info_idx);
     ctx.folder_offsets_vec.push(new_dir_offset);
     ctx.loaded_directories.push(LoadedDirectory::default());
-
-    let mut dir_hash_to_info_index_sorted = ctx.dir_hash_to_info_idx.iter().cloned().collect::<Vec<_>>();
-
-    dir_hash_to_info_index_sorted.sort_by_key(|a| a.hash40());
-
-    ctx.dir_hash_to_info_idx = CppVector::from_slice(&dir_hash_to_info_index_sorted[..]);
     // --------------------- END PUSH TO CONTEXT --------------------- //
 }
 
