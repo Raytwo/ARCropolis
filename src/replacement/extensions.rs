@@ -91,23 +91,54 @@ impl AdditionContext {
     pub fn get_dir_info_from_hash_ctx(&self, hash: Hash40) -> Result<&DirInfo, LookupError> {
         let dir_hash_to_info_index = self.dir_hash_to_info_idx.iter().collect::<Vec<_>>();
 
-        let index = dir_hash_to_info_index
-            .binary_search_by_key(&hash, |dir| dir.hash40())
-            .map(|index| dir_hash_to_info_index[index].index() as usize)
-            .map_err(|_| LookupError::Missing)?;
 
-        Ok(&self.dir_infos_vec[index])
+        let mut index: Option<usize> = None;
+
+        for i in 0..dir_hash_to_info_index.len() {
+            if dir_hash_to_info_index[i].hash40() == hash {
+                index = Some(i);
+                break;
+            }
+        }
+        
+
+        match index {
+            Some(dir_index) => Ok(&self.dir_infos_vec[dir_index]),
+            None => Err(LookupError::Missing)
+        }
+
+        // let index = dir_hash_to_info_index
+        //     .binary_search_by_key(&hash, |dir| dir.hash40())
+        //     .map(|index| dir_hash_to_info_index[index].index() as usize)
+        //     .map_err(|_| LookupError::Missing)?;
+
+        // Ok(&self.dir_infos_vec[index])
     }
 
     pub fn get_dir_info_from_hash_ctx_mut(&mut self, hash: Hash40) -> Result<&mut DirInfo, LookupError> {
         let dir_hash_to_info_index = self.dir_hash_to_info_idx.iter().collect::<Vec<_>>();
 
-        let index = dir_hash_to_info_index
-            .binary_search_by_key(&hash, |dir| dir.hash40())
-            .map(|index| dir_hash_to_info_index[index].index() as usize)
-            .map_err(|_| LookupError::Missing)?;
+        let mut index: Option<usize> = None;
 
-        Ok(&mut self.dir_infos_vec[index])
+        for i in 0..dir_hash_to_info_index.len() {
+            if dir_hash_to_info_index[i].hash40() == hash {
+                index = Some(i);
+                break;
+            }
+        }
+        
+
+        match index {
+            Some(dir_index) => Ok(&mut self.dir_infos_vec[dir_index]),
+            None => Err(LookupError::Missing)
+        }
+
+        // let index = dir_hash_to_info_index
+        //     .binary_search_by_key(&hash, |dir| dir.hash40())
+        //     .map(|index| dir_hash_to_info_index[index].index() as usize)
+        //     .map_err(|_| LookupError::Missing)?;
+
+        // Ok(&mut self.dir_infos_vec[index])
     }
 
     // for resharing super shared files
@@ -279,6 +310,13 @@ impl LoadedArcEx for LoadedArc {
             mut folder_children_hashes,
             ..
         } = ctx;
+
+
+        // sort hash_to_info_index here
+        let mut dir_hash_to_info_index_sorted = dir_hash_to_info_idx.iter().cloned().collect::<Vec<_>>();
+        dir_hash_to_info_index_sorted.sort_by_key(|a| a.hash40());
+        dir_hash_to_info_idx = CppVector::from_slice(&dir_hash_to_info_index_sorted[..]);
+
         let (filepaths, filepath_len) = (filepaths.as_mut_ptr(), filepaths.len());
         let (file_info_indices, info_index_len) = (file_info_indices.as_mut_ptr(), file_info_indices.len());
         let (file_infos, file_info_len) = (file_infos.as_mut_ptr(), file_infos.len());
@@ -342,6 +380,7 @@ impl LoadedArcEx for LoadedArc {
         // --------------------- END MODIFY DIRECTORY RELEATED FIELDS ---------------------
 
         self.resort_file_hashes();
+        
     }
 
     fn resort_file_hashes(&mut self) {
