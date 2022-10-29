@@ -1,28 +1,19 @@
-title = "ARCropolis update: Ver. 3.7.2"
-date = "09/11/2022"
+title = "ARCropolis update: Ver. 3.8.0"
+date = "10/29/2022"
 description = "Thank you for updating to the latest version of ARCropolis.<br/>Please read the following changelog."
-
-[[entries]]
-section_title = "New feature(s)"
-contents = """
-<ul>
-    <li>Support for patch3audio files.</li>
-</ul>"""
 
 [[entries]]
 section_title = "Improvement(s)"
 contents = """
 <ul>
-    <li>The region and language for loading regional mods are now derived from your savedata.</li>
+    <li>Character UI such as chara_1 files are now lazy loaded to reduce the RAM usage of the game. This essentially means the UI will load immediately when selecting a character instead of when the menu is entered. (by CoolSonicKirby)</li>
 </ul>"""
 
 [[entries]]
 section_title = "Bug fix(es)"
 contents = """
 <ul>
-    <li>Fix the mod manager softlocking at boot time</li>
-    <li>Fixes to share-to-vanilla in config.json</li>
-    <li>Inkling's Roller move no longer crashes the game on extra slots</li>
+    <li>Due to the lazy loading, crashes on the Character Select Screen should be gone</li>
 </ul>"""
 
 [[entries]]
