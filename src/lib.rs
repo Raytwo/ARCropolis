@@ -24,7 +24,7 @@ use thiserror::Error;
 
 use once_cell::sync::Lazy;
 use parking_lot::{const_rwlock, RwLock};
-use skyline::{hooks::InlineCtx, libc::c_char, nn, patching::Patch};
+use skyline::{hooks::InlineCtx, libc::c_char, nn};
 
 mod api;
 mod chainloader;
@@ -40,6 +40,7 @@ mod resource;
 #[cfg(feature = "online")]
 mod update;
 mod utils;
+mod fixes;
 
 use fs::GlobalFilesystem;
 use smash_arc::{Hash40, Region};
@@ -477,11 +478,9 @@ pub fn main() {
             .unwrap();
     }
 
-    Patch::in_text(0x35baed4).data(0xD503201Fu32).expect("Failed to patch inkling 1 cmp");
-    Patch::in_text(0x35baed8).data(0xD503201Fu32).expect("Failed to patch inkling 1 b.cs");
-
     skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof, clear_ink_patch);
     replacement::install();
+    fixes::install();
 
     // Wait on hashes/lut to finish
     let _ = resources.join();
