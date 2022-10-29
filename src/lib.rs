@@ -18,6 +18,7 @@ use std::{
 
 use arcropolis_api::Event;
 use log::LevelFilter;
+use resource::FilesystemInfo;
 use thiserror::Error;
 
 #[macro_use] extern crate log;
@@ -43,7 +44,7 @@ mod utils;
 mod fixes;
 
 use fs::GlobalFilesystem;
-use smash_arc::{Hash40, Region};
+use smash_arc::{Hash40, Region, LoadedArc, ArcLookup, FilePathIdx};
 
 use crate::config::{SaveLanguageId, GLOBAL_CONFIG, REGION};
 
@@ -381,6 +382,52 @@ fn get_system_region_from_language_id(language: SaveLanguageId) -> Region {
     }
 }
 
+#[skyline::hook(offset = 0x1846554, inline)]
+unsafe fn bntx(ctx: &mut InlineCtx) {
+    let count = ctx.registers[0].x.as_mut();
+    *count = 2;
+}
+
+
+#[skyline::hook(offset = 0x18465e4, inline)]
+unsafe fn bntx2(ctx: &mut InlineCtx) {
+    let count = ctx.registers[0].x.as_mut();
+    *count = 2;
+}
+
+
+#[skyline::hook(offset = 0x18462d4, inline)]
+unsafe fn bntx3(ctx: &mut InlineCtx) {
+    let count = ctx.registers[8].x.as_mut();
+    *count = 1;
+}
+
+
+#[skyline::hook(offset = 0x1a1400c, inline)]
+unsafe fn chara(ctx: &mut InlineCtx) {
+    let count = reg_x!(ctx, 1);
+    println!("{:#x}", count);
+}
+
+#[skyline::hook(offset = 0x323b290)]
+unsafe fn load_by_filepathidx(loaded_tables: u64, hash: *const Hash40, unk1: u64, unk2: u64) {
+    println!("Hash40: {:#X}, label: {}", (*hash).as_u64(), hashes::find(*hash));
+
+    call_original!(loaded_tables, hash, unk1, unk2)
+}
+
+#[skyline::from_offset(0x3777640)]
+fn load_idx(pane: *const FilesystemInfo, filepathidx: FilePathIdx);
+
+#[skyline::from_offset(0x3777640)]
+fn replace_tex(pane: *const u8, filepathidx: &FilePathIdx);
+
+#[skyline::hook(offset = 0x19fd408, inline)]
+unsafe fn lie(ctx: &mut InlineCtx) {
+    let path = ctx.registers[2].x.as_mut();
+    *path = Hash40::from("ui/replace/chara/chara_1/chara_1_bayonetta_06.bntx").as_u64();
+}
+
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
     std::panic::set_hook(Box::new(|info| {
@@ -437,7 +484,7 @@ pub fn main() {
     let mut filesystem = GLOBAL_FILESYSTEM.write();
 
     let discovery = std::thread::Builder::new()
-        .stack_size(0x40000)
+        .stack_size(0x5000)
         .spawn(|| {
             unsafe {
                 let curr_thread = nn::os::GetCurrentThread();
@@ -451,7 +498,7 @@ pub fn main() {
     *filesystem = GlobalFilesystem::Promised(discovery);
 
     let resources = std::thread::Builder::new()
-        .stack_size(0x40000)
+        .stack_size(0x5000)
         .spawn(|| {
             hashes::init();
             replacement::lookup::initialize(None);
@@ -462,7 +509,7 @@ pub fn main() {
     #[cfg(feature = "online")]
     {
         let _updater = std::thread::Builder::new()
-            .stack_size(0x40000)
+            .stack_size(0x5000)
             .spawn(|| {
                 // Changed to pre because prerelease doesn't compile
                 if !semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
