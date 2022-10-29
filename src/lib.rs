@@ -446,7 +446,7 @@ pub fn main() {
         let err_msg = format!("thread has panicked at '{}', {}", msg, location);
         skyline::error::show_error(
             69,
-            "Skyline plugin has panicked! Please open the details and send a screenshot to the developer, then close the game.\n",
+            "Skyline plugin has panicked! Please open the details and send a screenshot to the developer, then close the game.\n\0",
             err_msg.as_str(),
         );
     }));
