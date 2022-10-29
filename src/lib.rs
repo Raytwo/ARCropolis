@@ -484,7 +484,7 @@ pub fn main() {
     let mut filesystem = GLOBAL_FILESYSTEM.write();
 
     let discovery = std::thread::Builder::new()
-        .stack_size(0x5000)
+        .stack_size(0x10000)
         .spawn(|| {
             unsafe {
                 let curr_thread = nn::os::GetCurrentThread();
@@ -498,7 +498,7 @@ pub fn main() {
     *filesystem = GlobalFilesystem::Promised(discovery);
 
     let resources = std::thread::Builder::new()
-        .stack_size(0x5000)
+        .stack_size(0x10000)
         .spawn(|| {
             hashes::init();
             replacement::lookup::initialize(None);
@@ -509,7 +509,7 @@ pub fn main() {
     #[cfg(feature = "online")]
     {
         let _updater = std::thread::Builder::new()
-            .stack_size(0x5000)
+            .stack_size(0x10000)
             .spawn(|| {
                 // Changed to pre because prerelease doesn't compile
                 if !semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
