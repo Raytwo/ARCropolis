@@ -79,7 +79,15 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
                     "patch3audio"
                 ];
-                RESERVED_NAMES.contains(&name) || PATCH_EXTENSIONS.iter().any(|x| name.ends_with(x))
+                RESERVED_NAMES.contains(&name) || {
+                    let is_out_of_region = if let Some(index) = name.find('+') {
+                        let (_, end) = name.split_at(index + 1);
+                        !end.starts_with(&config::region().to_string())
+                    } else {
+                        false
+                    };
+                    PATCH_EXTENSIONS.iter().any(|x| name.ends_with(x)) && !is_out_of_region
+                }
             },
             _ => false
         }
