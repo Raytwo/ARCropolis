@@ -4,6 +4,7 @@ use crate::offsets::offset_to_addr;
 // All the offsets we use in this file
 static INKLING_1_PATCH: usize = 0x35baed4;
 static INKLING_2_PATCH: usize = 0x35baed8;
+static CLEAR_INK_PATCH_OFFSET: usize = 0x35bb960;
 static PARAMATERS_CACHE_OFFSET: usize = 0x532d730;
 static LOAD_CHARA_1_FOR_ALL_COSTUMES_OFFSET: usize = 0x18465cc;
 static LOAD_UI_FILE_OFFSET: usize = 0x323b290;
@@ -118,6 +119,12 @@ pub unsafe fn chara_select_scene_destructor(
     call_original!(param_1);
 }
 
+#[skyline::hook(offset = CLEAR_INK_PATCH_OFFSET, inline)]
+unsafe fn clear_ink_patch(ctx: &mut InlineCtx) {
+    let res = (*ctx.registers[24].w.as_ref() as u32) % 8;
+    *ctx.registers[24].w.as_mut() = res;
+}
+
 pub fn install() {
     // Some stuff here isn't nessecarily unsafe, but might as well make all of it in the unsafe block
     unsafe {
@@ -134,7 +141,7 @@ pub fn install() {
         Patch::in_text(LOAD_CHARA_1_FOR_ALL_COSTUMES_OFFSET).nop().expect("Failed to patch chara_1 load");
         
         // Install the hooks for everything nessecary to properly load the chara_1s
-        install_hooks!(original_load_chara_1_ui_for_all_colors, css_set_selected_chararacter_ui, load_stock_icon_for_portrait_menu, chara_select_scene_destructor);
+        install_hooks!(original_load_chara_1_ui_for_all_colors, css_set_selected_chararacter_ui, load_stock_icon_for_portrait_menu, chara_select_scene_destructor, clear_ink_patch);
     }
 
 }

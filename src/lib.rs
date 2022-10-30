@@ -302,12 +302,6 @@ unsafe fn online_slot_spoof(ctx: &InlineCtx) {
     }
 }
 
-#[skyline::hook(offset = 0x35bb960, inline)]
-unsafe fn clear_ink_patch(ctx: &mut InlineCtx) {
-    let res = (*ctx.registers[24].w.as_ref() as u32) % 8;
-    *ctx.registers[24].w.as_mut() = res;
-}
-
 fn get_language_id_in_savedata() -> SaveLanguageId {
     unsafe {
         // This provides a UserHandle and sets the User in a Open state to be used.
@@ -525,7 +519,7 @@ pub fn main() {
             .unwrap();
     }
 
-    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof, clear_ink_patch);
+    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof);
     replacement::install();
     fixes::install();
 
