@@ -37,6 +37,8 @@ fn install_aegis_patches(){
         (0x183538c, 0xF104011F), // cmp x8, #256
         (0x1835ae4, 0xF104027F), // cmp x19, #256
         (0x1835e00, 0xF104013F), // cmp x9, #256
+        (0x1a1c2f0, 0xF104011F), // cmp x8, #256
+        (0x1a1c334, 0xF104011F), // cmp x8, #256
     ];
 
     for entry in AEGIS_PATCHES {
