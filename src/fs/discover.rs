@@ -19,13 +19,6 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     let legacy_discovery = config::legacy_discovery();
 
-    if !is_ryujinx {
-        // Open the ARCropolis menu if Minus is held before mod discovery
-        if ninput::any::is_down(ninput::Buttons::PLUS) {
-            crate::menus::show_main_menu();
-        }
-    }
-
     let presets = crate::config::presets::get_active_preset().unwrap();
 
     let filter = |path: &Path| {

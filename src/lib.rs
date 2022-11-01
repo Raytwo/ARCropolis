@@ -43,8 +43,7 @@ mod utils;
 mod fixes;
 
 use fs::GlobalFilesystem;
-use smash_arc::{Hash40, Region, LoadedArc, ArcLookup, FilePathIdx};
-use utils::save::SaveLanguageId;
+use smash_arc::Hash40;
 
 use crate::{config::{GLOBAL_CONFIG, REGION}, utils::save::{get_language_id_in_savedata, get_system_region_from_language_id, mount_save, unmount_save}};
 
@@ -163,6 +162,7 @@ fn get_path_from_hash(hash: Hash40) -> PathBuf {
 pub const REGIONS: &[&str] = &[
     "jp_ja", "us_en", "us_fr", "us_es", "eu_en", "eu_fr", "eu_es", "eu_de", "eu_nl", "eu_it", "eu_ru", "kr_ko", "zh_cn", "zh_tw",
 ];
+
 /// Initializes the `nn::time` library, for creating a log file based off of the current time. For some reason Smash does not initialize this
 fn init_time() {
     unsafe {
@@ -172,16 +172,26 @@ fn init_time() {
     }
 }
 
+fn init_account() {
+    // It is safe to initialize multiple times
+    unsafe {
+        nn::account::Initialize()
+    }
+}
+
+#[cfg(feature = "online")]
 fn check_for_changelog() {
-    if let Ok(changelog) = std::fs::read_to_string("sd:/ultimate/arcropolis/changelog.toml") {
-        match toml::from_str(&changelog) {
-            Ok(changelog) => {
-                menus::display_update_page(&changelog);
-                std::fs::remove_file("sd:/ultimate/arcropolis/changelog.toml").unwrap();
-            },
-            Err(_) => {
-                warn!("Changelog could not be parsed. Is the file malformed?");
-            },
+    if !crate::utils::env::is_ryujinx() {
+        if let Ok(changelog) = std::fs::read_to_string("sd:/ultimate/arcropolis/changelog.toml") {
+            match toml::from_str(&changelog) {
+                Ok(changelog) => {
+                    menus::display_update_page(&changelog);
+                    std::fs::remove_file("sd:/ultimate/arcropolis/changelog.toml").unwrap();
+                },
+                Err(_) => {
+                    warn!("Changelog could not be parsed. Is the file malformed?");
+                },
+            }
         }
     }
 }
@@ -200,9 +210,23 @@ fn get_news_data() {
     }
 }
 
+#[cfg(feature = "online")]
+fn check_input_on_boot() {
+    if !crate::utils::env::is_ryujinx() {
+        // Open the ARCropolis menu if Minus is held before mod discovery
+        if ninput::any::is_down(ninput::Buttons::PLUS) {
+            crate::menus::show_main_menu();
+        }
+    }
+}
+
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
+    #[cfg(feature = "online")]
     check_for_changelog();
+
+    #[cfg(feature = "online")]
+    check_input_on_boot();
 
     // Commented out until we get an actual news server
     // #[cfg(feature = "online")]
@@ -243,7 +267,7 @@ fn change_version_string(arg: u64, string: *const c_char) {
     let original_str = unsafe { skyline::from_c_str(string) };
 
     if original_str.contains("Ver.") {
-        let new_str = format!("Smash {}\nARCropolis Ver. {}\0", original_str, env!("CARGO_PKG_VERSION"));
+        let new_str = format!("Smash {}\nARCropolis Ver. {}\0", original_str, crate::utils::env::get_arcropolis_version());
 
         original!()(arg, skyline::c_str(&new_str))
     } else {
@@ -328,8 +352,8 @@ pub fn main() {
 
     // Initialize the time for the logger
     init_time();
-    // Required to mount the savedata ourselves. It is safe to initialize multiple times.
-    unsafe { nn::account::Initialize() };
+    // Required to mount the savedata ourselves
+    init_account();
 
     // Initialize hid
     if !utils::env::is_ryujinx() {
@@ -337,17 +361,18 @@ pub fn main() {
         ninput::init();
     }
 
+    // Make sure the paths exist before doing anything
+    utils::paths::ensure_paths_exist().expect("Paths should exist on the SD");
+
     // Scope to drop the lock
     {
         let mut region = REGION.write();
         mount_save("save\0");
         let language_id = get_language_id_in_savedata();
         unmount_save("save\0");
+        // Read the user's region + language from the game ourselves because the game hasn't done it yet
         *region = get_system_region_from_language_id(language_id);
     }
-
-    // Make sure the paths exist before doing anything
-    utils::paths::ensure_paths_exist().expect("Paths should exist on the SD");
 
     // Force the configuration to be initialized right away, so we can be sure default files exist (hopefully)
     Lazy::force(&GLOBAL_CONFIG);
