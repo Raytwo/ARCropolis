@@ -117,7 +117,7 @@ impl ApiLoadType {
     }
 
     pub fn load_path(self, local: &Path, usr_fn: ApiCallback) -> Result<(usize, Vec<u8>), ApiLoaderError> {
-        println!("Patching: {:#?}", local.as_os_str());
+        println!("[ARCropolis::loader] Patching {:#?}", local.as_os_str());
         match self {
             ApiLoadType::Nus3bankPatch => {
                 let data = ApiLoader::handle_load_vanilla_file(local)?;
@@ -308,7 +308,6 @@ impl ApiLoadType {
                 let mut reader = std::io::Cursor::new(data);
 
                 let mut motion = motion_lib::read_stream(&mut reader)?;
-                println!("[ARCropolis::loader] Patching {:#?}", local.as_os_str());
 
                 for patch_path in patches.iter() {
                     let mut contents: String = String::default();
