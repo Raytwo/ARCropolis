@@ -7,47 +7,12 @@ use std::{
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use semver::Version;
-use skyline::nn::{self, util};
+use skyline::nn;
 use skyline_config::*;
 use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
 
-use crate::utils::{self, get_arcropolis_version};
-
-#[repr(u8)]
-#[derive(Debug)]
-pub enum SaveLanguageId {
-    Japanese = 0,
-    English,
-    French,
-    Spanish,
-    German,
-    Italian,
-    Dutch,
-    Russian,
-    Chinese,
-    Taiwanese,
-    Korean,
-}
-
-impl From<u8> for SaveLanguageId {
-    fn from(byte: u8) -> Self {
-        match byte {
-            0 => Self::Japanese,
-            1 => Self::English,
-            2 => Self::French,
-            3 => Self::Spanish,
-            4 => Self::German,
-            5 => Self::Italian,
-            6 => Self::Dutch,
-            7 => Self::Russian,
-            8 => Self::Chinese,
-            9 => Self::Taiwanese,
-            10 => Self::Korean,
-            _ => Self::English,
-        }
-    }
-}
+use crate::utils::env::get_arcropolis_version;
 
 pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| {
     let mut storage = StorageHolder::new(ArcStorage::new());
@@ -100,7 +65,7 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
     let mut presets: HashSet<Hash40> = HashSet::new();
 
     // TODO: Turn this into a map and use Collect
-    for entry in WalkDir::new(utils::paths::mods()).max_depth(1).into_iter().flatten() {
+    for entry in WalkDir::new(crate::utils::paths::mods()).max_depth(1).into_iter().flatten() {
         let path = entry.path();
 
         // If the mod isn't disabled, add it to the preset

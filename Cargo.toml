@@ -64,6 +64,8 @@ ninput = { git = "https://github.com/blu-dev/ninput" }
 [patch.crates-io]
 ring = { git = "https://github.com/skyline-rs/ring", branch = "0.16.20" }
 webpki = { git = "https://github.com/skyline-rs/webpki" }
+nnsdk = { git = "https://github.com/Raytwo/nnsdk-rs", branch="account_fs" }
+
 
 [features]
 default = ["online"]

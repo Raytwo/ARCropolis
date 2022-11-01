@@ -11,14 +11,13 @@
 use std::{
     collections::HashMap,
     fmt,
-    io::{BufWriter, Read, Seek, SeekFrom, Write},
+    io::{BufWriter, Write},
     path::{Path, PathBuf},
     str::FromStr,
 };
 
 use arcropolis_api::Event;
 use log::LevelFilter;
-use resource::FilesystemInfo;
 use thiserror::Error;
 
 #[macro_use] extern crate log;
@@ -45,8 +44,9 @@ mod fixes;
 
 use fs::GlobalFilesystem;
 use smash_arc::{Hash40, Region, LoadedArc, ArcLookup, FilePathIdx};
+use utils::save::SaveLanguageId;
 
-use crate::config::{SaveLanguageId, GLOBAL_CONFIG, REGION};
+use crate::{config::{GLOBAL_CONFIG, REGION}, utils::save::{get_language_id_in_savedata, get_system_region_from_language_id, mount_save, unmount_save}};
 
 pub static GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = const_rwlock(GlobalFilesystem::Uninitialized);
 
@@ -302,125 +302,6 @@ unsafe fn online_slot_spoof(ctx: &InlineCtx) {
     }
 }
 
-fn get_language_id_in_savedata() -> SaveLanguageId {
-    unsafe {
-        // This provides a UserHandle and sets the User in a Open state to be used.
-        let handle = nn::account::try_open_preselected_user().expect("OpenPreselectedUser should not return false");
-
-        // Obtain the UID for this user
-        let uid = nn::account::get_user_id(&handle).expect("GetUserId should return a valid Uid");
-
-        nn::fs::MountSaveData(skyline::c_str("save\0"), &uid);
-
-        let mut file = std::fs::File::open("save:/save_data/system_data.bin").unwrap();
-        file.seek(SeekFrom::Start(0x3c6098)).unwrap();
-        let mut language_code = [0u8];
-        file.read_exact(&mut language_code).unwrap();
-        drop(file);
-
-        nn::fs::Unmount(skyline::c_str("save\0"));
-
-        // This closes the UserHandle, making it unusable, and sets the User in a Closed state.
-        // Smash will crash if you don't do it.
-        nn::account::close_user(handle);
-
-        SaveLanguageId::from(language_code[0])
-    }
-}
-
-fn get_system_region_from_language_id(language: SaveLanguageId) -> Region {
-    let system_locale_id = unsafe { *(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8).add(0x523b00c) };
-
-    let system_region_map = unsafe {
-        std::slice::from_raw_parts(
-            (skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u32).add(0x4740f90 / 4),
-            14,
-        )
-    };
-
-    let system_region = system_region_map[system_locale_id as usize];
-
-    match language {
-        SaveLanguageId::Japanese => Region::Japanese,
-        SaveLanguageId::English => {
-            if system_region == 1 {
-                // US
-                Region::UsEnglish
-            } else {
-                Region::EuEnglish
-            }
-        },
-        SaveLanguageId::French => {
-            if system_region == 1 {
-                // US
-                Region::UsFrench
-            } else {
-                Region::EuFrench
-            }
-        },
-        SaveLanguageId::Spanish => {
-            if system_region == 1 {
-                // US
-                Region::UsSpanish
-            } else {
-                Region::EuSpanish
-            }
-        },
-        SaveLanguageId::German => Region::EuGerman,
-        SaveLanguageId::Dutch => Region::EuDutch,
-        SaveLanguageId::Italian => Region::EuItalian,
-        SaveLanguageId::Russian => Region::EuRussian,
-        SaveLanguageId::Chinese => Region::ChinaChinese,
-        SaveLanguageId::Taiwanese => Region::TaiwanChinese,
-        SaveLanguageId::Korean => Region::Korean,
-    }
-}
-
-#[skyline::hook(offset = 0x1846554, inline)]
-unsafe fn bntx(ctx: &mut InlineCtx) {
-    let count = ctx.registers[0].x.as_mut();
-    *count = 2;
-}
-
-
-#[skyline::hook(offset = 0x18465e4, inline)]
-unsafe fn bntx2(ctx: &mut InlineCtx) {
-    let count = ctx.registers[0].x.as_mut();
-    *count = 2;
-}
-
-
-#[skyline::hook(offset = 0x18462d4, inline)]
-unsafe fn bntx3(ctx: &mut InlineCtx) {
-    let count = ctx.registers[8].x.as_mut();
-    *count = 1;
-}
-
-
-#[skyline::hook(offset = 0x1a1400c, inline)]
-unsafe fn chara(ctx: &mut InlineCtx) {
-    let count = reg_x!(ctx, 1);
-    println!("{:#x}", count);
-}
-
-#[skyline::hook(offset = 0x323b290)]
-unsafe fn load_by_filepathidx(loaded_tables: u64, hash: *const Hash40, unk1: u64, unk2: u64) {
-    println!("Hash40: {:#X}, label: {}", (*hash).as_u64(), hashes::find(*hash));
-
-    call_original!(loaded_tables, hash, unk1, unk2)
-}
-
-#[skyline::from_offset(0x3777640)]
-fn load_idx(pane: *const FilesystemInfo, filepathidx: FilePathIdx);
-
-#[skyline::from_offset(0x3777640)]
-fn replace_tex(pane: *const u8, filepathidx: &FilePathIdx);
-
-#[skyline::hook(offset = 0x19fd408, inline)]
-unsafe fn lie(ctx: &mut InlineCtx) {
-    let path = ctx.registers[2].x.as_mut();
-    *path = Hash40::from("ui/replace/chara/chara_1/chara_1_bayonetta_06.bntx").as_u64();
-}
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
@@ -459,7 +340,9 @@ pub fn main() {
     // Scope to drop the lock
     {
         let mut region = REGION.write();
+        mount_save("save\0");
         let language_id = get_language_id_in_savedata();
+        unmount_save("save\0");
         *region = get_system_region_from_language_id(language_id);
     }
 
