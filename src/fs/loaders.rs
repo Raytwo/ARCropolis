@@ -117,6 +117,7 @@ impl ApiLoadType {
     }
 
     pub fn load_path(self, local: &Path, usr_fn: ApiCallback) -> Result<(usize, Vec<u8>), ApiLoaderError> {
+        println!("Patching: {:#?}", local.as_os_str());
         match self {
             ApiLoadType::Nus3bankPatch => {
                 let data = ApiLoader::handle_load_vanilla_file(local)?;
@@ -304,23 +305,26 @@ impl ApiLoadType {
                 };
 
                 let data = ApiLoader::handle_load_base_file(local)?;
+                let mut reader = std::io::Cursor::new(data);
 
-                let mut motion = motion_lib::disasm::disassemble(&mut std::io::Cursor::new(data))?;
+                // let mut motion = motion_lib::disasm::disassemble(&mut std::io::Cursor::new(data))?;
+                let mut motion = motion_lib::read_stream(&mut reader)?;
+                println!("[ARCropolis::loader] Patching {:#?}", local.as_os_str());
 
                 for patch_path in patches.iter() {
                     let mut contents: String = String::default();
                     std::fs::File::open(patch_path)?.read_to_string(&mut contents)?;
                     if let Some(diff) = from_str(&contents)? {
-                        println!("[ARCropolis::loader] Patching Motion List");
                         motion.apply(&diff);
                     }
                     else {
                         return Err(ApiLoaderError::Other("This isn't a motion list patch file!".to_string()));
                     }
                 }
+                println!("[ARCropolis::loader] Motion List Patching finished, writing to file...");
                 let new_data : Vec<u8> = Vec::new();
                 let mut cursor = std::io::Cursor::new(new_data);
-                motion_lib::asm::assemble(&mut cursor, &motion)?;
+                motion_lib::write_stream(&mut cursor, &motion)?;
                 let vec = cursor.into_inner();
                 Ok((vec.len(), vec))
             }
