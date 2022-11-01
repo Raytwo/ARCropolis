@@ -55,6 +55,9 @@ serde-xml-rs = "0.6"
 msbt = { git = "https://github.com/RoccoDev/msbt-rs", branch = "feature/builder-from-impl" }
 # For patch3audio
 nus3audio = "1.2.0"
+# For motion list patching
+motion_list_rs = { git = "https://github.com/WuBoytH/motion_lib", branch = "motion-lib-only" }
+serde_yaml = "0.8"
 # For inputs
 ninput = { git = "https://github.com/blu-dev/ninput" }
 

@@ -1,9 +1,13 @@
 use std::collections::VecDeque;
 
+use ::hash40::diff::Diff;
 use msbt::{builder::MsbtBuilder, Msbt};
 use nus3audio::*;
+use motion_lib::*;
 use serde::*;
 use serde_xml_rs;
+use serde_yaml::from_str;
+use std::io::prelude::*;
 use xml::common::Position;
 
 use super::*;
@@ -33,6 +37,8 @@ pub enum ApiLoaderError {
     Arc(#[from] LookupError),
     #[error("Unable to generate hash from path.")]
     Hash(#[from] crate::InvalidOsStrError),
+    #[error("Invalid serde_yaml found.")]
+    InvalidSerde(#[from] serde_yaml::Error),
     #[error("Invalid callback type found.")]
     InvalidCb,
     #[error("Failed to find next virtual file!")]
@@ -49,6 +55,7 @@ enum ApiLoadType {
     PrcPatch,
     MsbtPatch,
     Nus3audioPatch,
+    MotionlistPatch,
     Generic,
     Stream,
     Extension,
@@ -64,6 +71,8 @@ impl ApiLoadType {
             Ok(ApiLoadType::MsbtPatch)
         } else if root.ends_with("patch-nus3audio") {
             Ok(ApiLoadType::Nus3audioPatch)
+        } else if root.ends_with("patch-motionlist") {
+            Ok(ApiLoadType::MotionlistPatch)
         } else if root.ends_with("generic-cb") {
             Ok(ApiLoadType::Generic)
         } else if root.ends_with("stream-cb") {
@@ -286,6 +295,57 @@ impl ApiLoadType {
                 // Return the length of the contents and the contents
                 Ok((contents.len(), contents))
 
+            },
+            ApiLoadType::MotionlistPatch => {
+                let patches = if let Some(patches) = ApiLoader::get_motionlist_patches_for_hash(local.smash_hash()?) {
+                    patches
+                } else {
+                    return Err(ApiLoaderError::Other("No patches found for file in motion list patch!".to_string()));
+                };
+
+                let data = ApiLoader::handle_load_base_file(local)?;
+
+                // let mut param_data = prcx::read_stream(&mut std::io::Cursor::new(data))
+                //     .map_err(|_| ApiLoaderError::Other("Unable to parse param data!".to_string()))?;
+
+                // for patch_path in patches.iter() {
+                //     let patch = if let Ok(patch) = prcx::open(patch_path) {
+                //         patch
+                //     } else {
+                //         let file = std::fs::File::open(patch_path)?;
+                //         let mut reader = std::io::BufReader::new(file);
+                //         prcx::read_xml(&mut reader).map_err(|_| ApiLoaderError::Other("Unable to parse param patch data!".to_string()))?
+                //     };
+                //     prcx::apply_patch(&patch, &mut param_data).map_err(|_| ApiLoaderError::Other("Unable to patch param data!".to_string()))?;
+                // }
+
+                // let mut cursor = std::io::Cursor::new(vec![]);
+                // prcx::write_stream(&mut cursor, &param_data)?;
+                // let vec = cursor.into_inner();
+                // Ok((vec.len(), vec))
+                // let motion = motion_lib::open(local).unwrap();
+                let mut motion = motion_lib::disasm::disassemble(&mut std::io::Cursor::new(data))?;
+                for patch_path in patches.iter() {
+                    // if let Ok(patch) = std::fs::File::open(patch_path) {
+                        let mut contents: String = String::default();
+                        std::fs::File::open(patch_path)?.read_to_string(&mut contents)?;
+                        if let Some(diff) = from_str(&contents)? {
+                            println!("[ARCropolis::loader] Patching Motion List");
+                            motion.apply(&diff);
+                        }
+                        else {
+                            return Err(ApiLoaderError::Other("This isn't a motion list patch file!".to_string()));
+                        }
+                    // } else {
+                    //     return Err(ApiLoaderError::Other("This isn't a motion list patch file!".to_string()));
+                    // }
+                    // prcx::apply_patch(&patch, &mut param_data).map_err(|_| ApiLoaderError::Other("Unable to patch param data!".to_string()))?;
+                }
+                let new_data : Vec<u8> = Vec::new();
+                let mut cursor = std::io::Cursor::new(new_data);
+                motion_lib::asm::assemble(&mut cursor, &motion)?;
+                let vec = cursor.into_inner();
+                Ok((vec.len(), vec))
             }
             ApiLoadType::Generic if let ApiCallback::GenericCallback(cb) = usr_fn => {
                 let hash = local.smash_hash()?;
@@ -347,6 +407,7 @@ pub struct ApiLoader {
     param_patches: HashMap<Hash40, Vec<PathBuf>>,
     msbt_patches: HashMap<Hash40, Vec<PathBuf>>,
     nus3audio_patches: HashMap<Hash40, Vec<PathBuf>>,
+    motionlist_patches: HashMap<Hash40, Vec<PathBuf>>,
 }
 
 unsafe impl Send for ApiLoader {}
@@ -433,6 +494,14 @@ impl ApiLoader {
         cached.virt().loader.nus3audio_patches.get(&hash)
     }
 
+    pub fn get_motionlist_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
+
+        let cached = filesystem.get();
+
+        cached.virt().loader.motionlist_patches.get(&hash)
+    }
+
     pub fn insert_prc_patch(&mut self, hash: Hash40, path: &Path) {
         if let Some(list) = self.param_patches.get_mut(&hash) {
             list.push(path.to_path_buf())
@@ -454,6 +523,14 @@ impl ApiLoader {
             list.push(path.to_path_buf())
         } else {
             self.nus3audio_patches.insert(hash, vec![path.to_path_buf()]);
+        }
+    }
+
+    pub fn insert_motionlist_patch(&mut self, hash: Hash40, path: &Path) {
+        if let Some(list) = self.motionlist_patches.get_mut(&hash) {
+            list.push(path.to_path_buf())
+        } else {
+            self.motionlist_patches.insert(hash, vec![path.to_path_buf()]);
         }
     }
 

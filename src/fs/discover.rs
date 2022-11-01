@@ -77,7 +77,9 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
                     "xmsbt",
 
-                    "patch3audio"
+                    "patch3audio",
+
+                    "motdiff"
                 ];
                 RESERVED_NAMES.contains(&name) || {
                     let is_out_of_region = if let Some(index) = name.find('+') {
