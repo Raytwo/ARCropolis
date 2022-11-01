@@ -128,6 +128,20 @@ impl CachedFilesystem {
         set
     }
 
+    /// Get a list of all motion list patch files and add them to the virtual tree
+    fn initialize_motionlist_patches(launchpad: &LaunchPad<StandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
+        let mut set = HashSet::new();
+        for (root, path) in launchpad.collected_paths().iter() {
+            // The collected paths gives us everything so we only want these extensions
+            if path.has_extension("motdiff") {
+                if let Some(hash) = utils::add_motionlist_patch(api_tree, root, path) {
+                    set.insert(hash);
+                }
+            }
+        }
+        set
+    }
+
     /// Parse a pending API call and add it to the API tree. This function returns the hash, as well as the size (if needed)
     /// so that the caller can insert those into the global structs depending on the time that this call is handled
     fn handle_panding_api_call(api_tree: &mut Tree<ApiLoader>, pending: api::PendingApiCall) -> ApiCallResult {
@@ -195,6 +209,7 @@ impl CachedFilesystem {
         let mut hashes = Self::initialize_prc_patches(&launchpad, &mut api_tree);
         hashes.extend(Self::initialize_msbt_patches(&launchpad, &mut api_tree));
         hashes.extend(Self::initialize_nus3audio_patches(&launchpad, &mut api_tree));
+        hashes.extend(Self::initialize_motionlist_patches(&launchpad, &mut api_tree));
 
         // Add the hash files and set the new size to 10x the original files
         for hash in hashes {
