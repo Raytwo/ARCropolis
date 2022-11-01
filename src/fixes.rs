@@ -24,24 +24,31 @@ fn install_inkling_patches(){
     install_hooks!(clear_ink_patch);
 }
 
-// Patches to get Aegis c08+ working
-fn install_aegis_patches(){
+// Patches to get Aegis c08+ working + some issues reported with some other characters
+fn install_added_color_patches(){
+
+    // Install inkling patches here since they're related to added color issues
+    install_inkling_patches();
+
     // Offsets and Instructions that need to be patched in array so we don't repeat
     // same code over and over.
     // Format: (offset, instruction)
-    static AEGIS_PATCHES: &[(usize, u32)] = &[
-        (0x1834b0c, 0xF104027F), // cmp x19, #256
-        (0x18347bc, 0xF104027F), // cmp x19, #256
-        (0x1834b28, 0xF104011F), // cmp x8, #256
-        (0x1834ef8, 0xF10402FF), // cmp x23, #256
-        (0x183538c, 0xF104011F), // cmp x8, #256
-        (0x1835ae4, 0xF104027F), // cmp x19, #256
-        (0x1835e00, 0xF104013F), // cmp x9, #256
-        (0x1a1c2f0, 0xF104011F), // cmp x8, #256
-        (0x1a1c334, 0xF104011F), // cmp x8, #256
+    static ADDED_COLOR_PATCHES: &[(usize, u32)] = &[
+        (0x1834b0c, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
+        (0x18347bc, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
+        (0x1834b28, 0xF104011F), // cmp x8, #256 (Issue related to Aegis)
+        (0x1834ef8, 0xF10402FF), // cmp x23, #256 (Issue related to Aegis)
+        (0x183538c, 0xF104011F), // cmp x8, #256 (Issue related to Aegis)
+        (0x1835ae4, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
+        (0x1835e00, 0xF104013F), // cmp x9, #256 (Issue related to Aegis)
+        (0x1a1c2f0, 0xF104011F), // cmp x8, #256 (Issue related to Aegis)
+        (0x1a1c334, 0xF104011F), // cmp x8, #256 (Issue related to Aegis)
+        (0x14de340, 0x7104013F), // cmp w9, #256 (Issue related to Terry)
+        (0x14e1410, 0x710402FF), // cmp w23, #256 (Issue related to Terry)
+        (0x14e159c, 0x7104011F), // cmp w8, #256 (Issue related to Terry)
     ];
 
-    for entry in AEGIS_PATCHES {
+    for entry in ADDED_COLOR_PATCHES {
         let (offset, value) = entry;
         Patch::in_text(*offset).data(*value).expect(&format!("Failed to run Aegis Patch! Offset: {:#x} - Data: {:#x}", offset, value));
     }
@@ -177,7 +184,6 @@ fn install_lazy_loading_patches(){
 }
 
 pub fn install() {
-    install_inkling_patches();
-    install_aegis_patches();
+    install_added_color_patches();
     install_lazy_loading_patches();
 }
