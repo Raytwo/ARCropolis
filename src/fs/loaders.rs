@@ -305,41 +305,18 @@ impl ApiLoadType {
 
                 let data = ApiLoader::handle_load_base_file(local)?;
 
-                // let mut param_data = prcx::read_stream(&mut std::io::Cursor::new(data))
-                //     .map_err(|_| ApiLoaderError::Other("Unable to parse param data!".to_string()))?;
-
-                // for patch_path in patches.iter() {
-                //     let patch = if let Ok(patch) = prcx::open(patch_path) {
-                //         patch
-                //     } else {
-                //         let file = std::fs::File::open(patch_path)?;
-                //         let mut reader = std::io::BufReader::new(file);
-                //         prcx::read_xml(&mut reader).map_err(|_| ApiLoaderError::Other("Unable to parse param patch data!".to_string()))?
-                //     };
-                //     prcx::apply_patch(&patch, &mut param_data).map_err(|_| ApiLoaderError::Other("Unable to patch param data!".to_string()))?;
-                // }
-
-                // let mut cursor = std::io::Cursor::new(vec![]);
-                // prcx::write_stream(&mut cursor, &param_data)?;
-                // let vec = cursor.into_inner();
-                // Ok((vec.len(), vec))
-                // let motion = motion_lib::open(local).unwrap();
                 let mut motion = motion_lib::disasm::disassemble(&mut std::io::Cursor::new(data))?;
+
                 for patch_path in patches.iter() {
-                    // if let Ok(patch) = std::fs::File::open(patch_path) {
-                        let mut contents: String = String::default();
-                        std::fs::File::open(patch_path)?.read_to_string(&mut contents)?;
-                        if let Some(diff) = from_str(&contents)? {
-                            println!("[ARCropolis::loader] Patching Motion List");
-                            motion.apply(&diff);
-                        }
-                        else {
-                            return Err(ApiLoaderError::Other("This isn't a motion list patch file!".to_string()));
-                        }
-                    // } else {
-                    //     return Err(ApiLoaderError::Other("This isn't a motion list patch file!".to_string()));
-                    // }
-                    // prcx::apply_patch(&patch, &mut param_data).map_err(|_| ApiLoaderError::Other("Unable to patch param data!".to_string()))?;
+                    let mut contents: String = String::default();
+                    std::fs::File::open(patch_path)?.read_to_string(&mut contents)?;
+                    if let Some(diff) = from_str(&contents)? {
+                        println!("[ARCropolis::loader] Patching Motion List");
+                        motion.apply(&diff);
+                    }
+                    else {
+                        return Err(ApiLoaderError::Other("This isn't a motion list patch file!".to_string()));
+                    }
                 }
                 let new_data : Vec<u8> = Vec::new();
                 let mut cursor = std::io::Cursor::new(new_data);
