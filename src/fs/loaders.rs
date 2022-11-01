@@ -307,7 +307,6 @@ impl ApiLoadType {
                 let data = ApiLoader::handle_load_base_file(local)?;
                 let mut reader = std::io::Cursor::new(data);
 
-                // let mut motion = motion_lib::disasm::disassemble(&mut std::io::Cursor::new(data))?;
                 let mut motion = motion_lib::read_stream(&mut reader)?;
                 println!("[ARCropolis::loader] Patching {:#?}", local.as_os_str());
 

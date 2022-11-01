@@ -50,17 +50,6 @@ pub extern "C" fn arcrop_get_decompressed_size(hash: Hash40, out_size: &mut usiz
 }
 
 #[no_mangle]
-pub extern "C" fn arcrop_get_loaded_arc(out: &mut &'static LoadedArc) -> bool {
-    debug!("arcrop_get_loaded_arc -> Sending loaded arc");
-    if !resource::initialized() {
-        false
-    } else {
-        *out = resource::arc();
-        true
-    }
-}
-
-#[no_mangle]
 pub extern "C" fn arcrop_is_file_loaded(hash: Hash40) -> bool {
     debug!("arcrop_is_file_loaded -> Received hash {} ({:#x})", hashes::find(hash).green(), hash.0);
     if !resource::initialized() {
