@@ -1,19 +1,26 @@
-title = "ARCropolis update: Ver. 3.8.0"
-date = "10/29/2022"
+title = "ARCropolis update: Ver. 3.9.0"
+date = "11/01/2022"
 description = "Thank you for updating to the latest version of ARCropolis.<br/>Please read the following changelog."
+
+[[entries]]
+section_title = "New feature(s)"
+contents = """
+<ul>
+    <li>Support for motdiff files to patch motion_list.bin(by WuBoy)</li>
+</ul>"""
 
 [[entries]]
 section_title = "Improvement(s)"
 contents = """
 <ul>
-    <li>Character UI such as chara_1 files are now lazy loaded to reduce the RAM usage of the game. This essentially means the UI will load immediately when selecting a character instead of when the menu is entered. (by CoolSonicKirby)</li>
+    <li>Extra slots for Aegis are now usable (by CoolSonicKirby)</li>
 </ul>"""
 
 [[entries]]
-section_title = "Bug fix(es)"
+section_title = "Removal(s)"
 contents = """
 <ul>
-    <li>Due to the lazy loading, crashes on the Character Select Screen should be gone</li>
+    <li>Remove arcrop_get_loaded_arc from the API, as it had nothing to do there in the first place</li>
 </ul>"""
 
 [[entries]]
