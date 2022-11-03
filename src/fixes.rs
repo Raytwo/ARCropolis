@@ -55,12 +55,32 @@ fn install_added_color_patches(){
 }
 
 fn install_lazy_loading_patches(){
+
+    #[repr(C)]
+    struct ParametersCache {
+        pub vtable: *const u64,
+        pub databases: *const ParameterDatabaseTable
+    }
+    
+    #[repr(C)]
+    struct ParameterDatabaseTable {
+        pub unk1: [u8; 360],
+        pub Character: *const u64 // ParamaterDatabase
+    }
+
+    impl ParametersCache {
+        pub unsafe fn get_chara_db(&self) -> *const u64 {
+            (*(self.databases)).Character
+        }
+    }
+
     // All offsets related to lazy loading
     static PARAMATERS_CACHE_OFFSET: usize = 0x532d730;
     static LOAD_CHARA_1_FOR_ALL_COSTUMES_OFFSET: usize = 0x18465cc;
     static LOAD_UI_FILE_OFFSET: usize = 0x323b290;
     static GET_UI_CHARA_PATH_FROM_HASH_COLOR_AND_TYPE_OFFSET: usize = 0x3237820;
     static GET_COLOR_NUM_FROM_HASH: usize = 0x32621a0;
+    static GET_ECHO_FROM_HASH: usize = 0x3261de0;
     static LOAD_STOCK_ICON_FOR_PORTRAIT_MENU_OFFSET: usize = 0x19e784c;
     static CSS_SET_SELECTED_CHARARACTER_UI_OFFSET: usize = 0x19fc790;
     static CHARA_SELECT_SCENE_DESTRUCTOR_OFFSET: usize = 0x18467c0;
@@ -83,6 +103,10 @@ fn install_lazy_loading_patches(){
     // This takes the character_database and the ui_chara_hash to get the color_num
     #[from_offset(GET_COLOR_NUM_FROM_HASH)]
     pub fn get_color_num_from_hash(character_database: u64, ui_chara_hash: u64) -> u8;
+
+    // This takes the character_database and the ui_chara_hash to get the chara's respective echo (for loading it at the same time)
+    #[from_offset(GET_ECHO_FROM_HASH)]
+    pub fn get_ui_chara_echo(character_database: u64, ui_chara_hash: u64) -> u64;
     
     #[hook(offset = LOAD_CHARA_1_FOR_ALL_COSTUMES_OFFSET, inline)]
     pub unsafe fn original_load_chara_1_ui_for_all_colors(ctx: &mut InlineCtx){
@@ -104,29 +128,15 @@ fn install_lazy_loading_patches(){
         }
     }
     
-    #[hook(offset = CSS_SET_SELECTED_CHARARACTER_UI_OFFSET)]
-    pub unsafe fn css_set_selected_chararacter_ui(
-        param_1: *const u64,
-        chara_hash_1: u64,
-        chara_hash_2: u64,
-        color: u32,
-        unk1: u32,
-        unk2: u32,
-    ){
+    pub unsafe fn load_chara_1_for_ui_chara_hash_and_num(ui_chara_hash: u64, color: u32){
         // If we have the first and fourth param in our cache, then we're in the
         // character select screen and can load the files manually
         if PARAM_1 != 0 && PARAM_4 != 0 {
             // Get the color_num for smooth loading between different CSPs
-            let max_color: u32 = {
-                // Get the character database for the color num function
-                let character_database = {
-                    let databases = *((*PARAMATERS_CACHE + 0x8) as *const u64);
-                    *((databases + 360) as *const u64) as u64
-                };
-                get_color_num_from_hash(character_database, chara_hash_1) as u32
-            };
+            // Get the character database for the color num function
+            let max_color: u32 = get_color_num_from_hash((*(*PARAMATERS_CACHE as *const ParametersCache)).get_chara_db() as u64, ui_chara_hash) as u32;
     
-            let path = get_ui_chara_path_from_hash_color_and_type(chara_hash_1, color, 1);
+            let path = get_ui_chara_path_from_hash_color_and_type(ui_chara_hash, color, 1);
             load_ui_file(PARAM_1 as *const u64, &path, 0, PARAM_4);
     
             // Set next color to 0 if it's going to end up past the max, else just be
@@ -150,13 +160,25 @@ fn install_lazy_loading_patches(){
             };
     
             // Load both next and previous color paths
-            let next_color_path = get_ui_chara_path_from_hash_color_and_type(chara_hash_1, next_color, 1);
+            let next_color_path = get_ui_chara_path_from_hash_color_and_type(ui_chara_hash, next_color, 1);
             load_ui_file(PARAM_1 as *const u64, &next_color_path, 0, PARAM_4);        
-            let prev_color_path = get_ui_chara_path_from_hash_color_and_type(chara_hash_1, prev_color, 1);
+            let prev_color_path = get_ui_chara_path_from_hash_color_and_type(ui_chara_hash, prev_color, 1);
             load_ui_file(PARAM_1 as *const u64, &prev_color_path, 0, PARAM_4);
         }
-    
-    
+    }
+
+    #[hook(offset = CSS_SET_SELECTED_CHARARACTER_UI_OFFSET)]
+    pub unsafe fn css_set_selected_chararacter_ui(
+        param_1: *const u64,
+        chara_hash_1: u64,
+        chara_hash_2: u64,
+        color: u32,
+        unk1: u32,
+        unk2: u32,
+    ){
+        let echo = get_ui_chara_echo((*(*PARAMATERS_CACHE as *const ParametersCache)).get_chara_db() as u64, chara_hash_1);
+        load_chara_1_for_ui_chara_hash_and_num(chara_hash_1, color);
+        load_chara_1_for_ui_chara_hash_and_num(echo, color);
         call_original!(param_1, chara_hash_1, chara_hash_2, color, unk1, unk2);
     }
     
