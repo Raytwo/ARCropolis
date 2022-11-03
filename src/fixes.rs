@@ -55,6 +55,25 @@ fn install_added_color_patches(){
 }
 
 fn install_lazy_loading_patches(){
+
+    #[repr(C)]
+    struct ParamatersCache {
+        pub vtable: *const u64,
+        pub databases: *const ParamaterDatabaseTable
+    }
+    
+    #[repr(C)]
+    struct ParamaterDatabaseTable {
+        pub unk1: [u8; 360],
+        pub Character: *const u64 // ParamaterDatabase
+    }
+
+    impl ParamatersCache {
+        pub unsafe fn get_chara_db(&self) -> *const u64 {
+            (*(self.databases)).Character
+        }
+    }
+
     // All offsets related to lazy loading
     static PARAMATERS_CACHE_OFFSET: usize = 0x532d730;
     static LOAD_CHARA_1_FOR_ALL_COSTUMES_OFFSET: usize = 0x18465cc;
@@ -114,14 +133,8 @@ fn install_lazy_loading_patches(){
         // character select screen and can load the files manually
         if PARAM_1 != 0 && PARAM_4 != 0 {
             // Get the color_num for smooth loading between different CSPs
-            let max_color: u32 = {
-                // Get the character database for the color num function
-                let character_database ={
-                    let databases = *((*PARAMATERS_CACHE + 0x8) as *const u64);
-                    *((databases + 360) as *const u64) as u64
-                };
-                get_color_num_from_hash(character_database, ui_chara_hash) as u32
-            };
+            // Get the character database for the color num function
+            let max_color: u32 = get_color_num_from_hash((*(*PARAMATERS_CACHE as *const ParamatersCache)).get_chara_db() as u64, ui_chara_hash) as u32;
     
             let path = get_ui_chara_path_from_hash_color_and_type(ui_chara_hash, color, 1);
             load_ui_file(PARAM_1 as *const u64, &path, 0, PARAM_4);
@@ -163,11 +176,7 @@ fn install_lazy_loading_patches(){
         unk1: u32,
         unk2: u32,
     ){
-        let character_database = {
-            let databases = *((*PARAMATERS_CACHE + 0x8) as *const u64);
-            *((databases + 360) as *const u64) as u64
-        };
-        let echo = get_ui_chara_echo(character_database, chara_hash_1);
+        let echo = get_ui_chara_echo((*(*PARAMATERS_CACHE as *const ParamatersCache)).get_chara_db() as u64, chara_hash_1);
         load_chara_1_for_ui_chara_hash_and_num(chara_hash_1, color);
         load_chara_1_for_ui_chara_hash_and_num(echo, color);
         call_original!(param_1, chara_hash_1, chara_hash_2, color, unk1, unk2);
