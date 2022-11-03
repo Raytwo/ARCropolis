@@ -60,6 +60,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
                 static RESERVED_NAMES: &[&str] = &[
                     "config.json",
                     "plugin.nro",
+                    "bgm_property.bin"
                 ];
                 static PATCH_EXTENSIONS: &[&str] = &[
                     "prcx",
