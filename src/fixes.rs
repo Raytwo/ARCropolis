@@ -57,18 +57,18 @@ fn install_added_color_patches(){
 fn install_lazy_loading_patches(){
 
     #[repr(C)]
-    struct ParamatersCache {
+    struct ParametersCache {
         pub vtable: *const u64,
-        pub databases: *const ParamaterDatabaseTable
+        pub databases: *const ParameterDatabaseTable
     }
     
     #[repr(C)]
-    struct ParamaterDatabaseTable {
+    struct ParameterDatabaseTable {
         pub unk1: [u8; 360],
         pub Character: *const u64 // ParamaterDatabase
     }
 
-    impl ParamatersCache {
+    impl ParametersCache {
         pub unsafe fn get_chara_db(&self) -> *const u64 {
             (*(self.databases)).Character
         }
@@ -134,7 +134,7 @@ fn install_lazy_loading_patches(){
         if PARAM_1 != 0 && PARAM_4 != 0 {
             // Get the color_num for smooth loading between different CSPs
             // Get the character database for the color num function
-            let max_color: u32 = get_color_num_from_hash((*(*PARAMATERS_CACHE as *const ParamatersCache)).get_chara_db() as u64, ui_chara_hash) as u32;
+            let max_color: u32 = get_color_num_from_hash((*(*PARAMATERS_CACHE as *const ParametersCache)).get_chara_db() as u64, ui_chara_hash) as u32;
     
             let path = get_ui_chara_path_from_hash_color_and_type(ui_chara_hash, color, 1);
             load_ui_file(PARAM_1 as *const u64, &path, 0, PARAM_4);
@@ -176,7 +176,7 @@ fn install_lazy_loading_patches(){
         unk1: u32,
         unk2: u32,
     ){
-        let echo = get_ui_chara_echo((*(*PARAMATERS_CACHE as *const ParamatersCache)).get_chara_db() as u64, chara_hash_1);
+        let echo = get_ui_chara_echo((*(*PARAMATERS_CACHE as *const ParametersCache)).get_chara_db() as u64, chara_hash_1);
         load_chara_1_for_ui_chara_hash_and_num(chara_hash_1, color);
         load_chara_1_for_ui_chara_hash_and_num(echo, color);
         call_original!(param_1, chara_hash_1, chara_hash_2, color, unk1, unk2);
