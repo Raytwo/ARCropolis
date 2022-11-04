@@ -8,7 +8,6 @@ use serde::*;
 use serde_xml_rs;
 use serde_yaml::from_str;
 use bgm_property::BgmPropertyFile;
-use binread::BinRead;
 use std::io::prelude::*;
 use xml::common::Position;
 
@@ -339,9 +338,8 @@ impl ApiLoadType {
                 };
 
                 let data = ApiLoader::handle_load_base_file(local)?;
-                let mut reader = std::io::Cursor::new(data);
 
-                let mut bgm_property = BgmPropertyFile::read(&mut reader).unwrap();
+                let mut bgm_property = BgmPropertyFile::read_from_bytes(&data[..]).unwrap();
 
                 for file_path in patches.iter() {
                     let mut modified_file = BgmPropertyFile::open(file_path.as_path()).unwrap();

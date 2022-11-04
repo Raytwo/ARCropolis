@@ -59,8 +59,7 @@ nus3audio = "1.2.0"
 motion_list_rs = "1.4.3"
 serde_yaml = "0.8"
 # for bgm property patching
-smash-bgm-property = "1.0.1"
-binread = "1.4.1"
+smash-bgm-property = "1.1.0"
 # For inputs
 ninput = { git = "https://github.com/blu-dev/ninput" }
 
