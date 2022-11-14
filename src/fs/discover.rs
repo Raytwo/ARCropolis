@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use once_cell::sync::Lazy;
+use camino::Utf8Path;
 use orbits::{ConflictHandler, ConflictKind, FileLoader, LaunchPad, StandardLoader, Tree};
 use skyline::nn::{self, ro::*};
 use smash_arc::Hash40;
@@ -19,13 +19,6 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     let legacy_discovery = config::legacy_discovery();
 
-    if !is_ryujinx {
-        // Open the ARCropolis menu if Minus is held before mod discovery
-        if ninput::any::is_down(ninput::Buttons::PLUS) {
-            crate::menus::show_main_menu();
-        }
-    }
-
     let presets = crate::config::presets::get_active_preset().unwrap();
 
     let filter = |path: &Path| {
@@ -36,8 +29,9 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         } else {
             // Legacy filter, load the mod except if it has a period at the start of the name
 
-            path.file_name()
-                .and_then(|name| name.to_str())
+            Utf8Path::from_path(path)
+            .unwrap()
+            .file_name()
                 .map(|name| !name.starts_with('.'))
                 .unwrap_or(false)
         }
@@ -66,6 +60,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
                 static RESERVED_NAMES: &[&str] = &[
                     "config.json",
                     "plugin.nro",
+                    "bgm_property.bin"
                 ];
                 static PATCH_EXTENSIONS: &[&str] = &[
                     "prcx",

@@ -7,6 +7,7 @@ use motion_lib::*;
 use serde::*;
 use serde_xml_rs;
 use serde_yaml::from_str;
+use bgm_property::BgmPropertyFile;
 use std::io::prelude::*;
 use xml::common::Position;
 
@@ -56,6 +57,7 @@ enum ApiLoadType {
     MsbtPatch,
     Nus3audioPatch,
     MotionlistPatch,
+    BgmPropertyPatch,
     Generic,
     Stream,
     Extension,
@@ -73,6 +75,8 @@ impl ApiLoadType {
             Ok(ApiLoadType::Nus3audioPatch)
         } else if root.ends_with("patch-motionlist") {
             Ok(ApiLoadType::MotionlistPatch)
+        } else if root.ends_with("patch-bgm_property") {
+            Ok(ApiLoadType::BgmPropertyPatch)
         } else if root.ends_with("generic-cb") {
             Ok(ApiLoadType::Generic)
         } else if root.ends_with("stream-cb") {
@@ -325,7 +329,30 @@ impl ApiLoadType {
                 motion_lib::write_stream(&mut cursor, &motion)?;
                 let vec = cursor.into_inner();
                 Ok((vec.len(), vec))
-            }
+            },
+            ApiLoadType::BgmPropertyPatch => {
+                let patches = if let Some(patches) = ApiLoader::get_bgm_property_patches_for_hash(local.smash_hash()?) {
+                    patches
+                } else {
+                    return Err(ApiLoaderError::Other("No patches found for file in bgm_property patch!".to_string()));
+                };
+
+                let data = ApiLoader::handle_load_base_file(local)?;
+
+                let mut bgm_property = BgmPropertyFile::read_from_bytes(&data[..]).unwrap();
+
+                for file_path in patches.iter() {
+                    let mut modified_file = BgmPropertyFile::open(file_path.as_path()).unwrap();
+                    for entry in modified_file.entries() {
+                        bgm_property.0.append(&mut vec![entry.to_owned()]);
+                    }
+                }
+                let new_data : Vec<u8> = Vec::new();
+                let mut cursor = std::io::Cursor::new(new_data);
+                bgm_property.write(&mut cursor);
+                let vec = cursor.into_inner();
+                Ok((vec.len(), vec))
+            },
             ApiLoadType::Generic if let ApiCallback::GenericCallback(cb) = usr_fn => {
                 let hash = local.smash_hash()?;
                 let mut size = 0;
@@ -387,6 +414,7 @@ pub struct ApiLoader {
     msbt_patches: HashMap<Hash40, Vec<PathBuf>>,
     nus3audio_patches: HashMap<Hash40, Vec<PathBuf>>,
     motionlist_patches: HashMap<Hash40, Vec<PathBuf>>,
+    bgm_property_patches: HashMap<Hash40, Vec<PathBuf>>,
 }
 
 unsafe impl Send for ApiLoader {}
@@ -481,6 +509,14 @@ impl ApiLoader {
         cached.virt().loader.motionlist_patches.get(&hash)
     }
 
+    pub fn get_bgm_property_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
+
+        let cached = filesystem.get();
+
+        cached.virt().loader.bgm_property_patches.get(&hash)
+    }
+
     pub fn insert_prc_patch(&mut self, hash: Hash40, path: &Path) {
         if let Some(list) = self.param_patches.get_mut(&hash) {
             list.push(path.to_path_buf())
@@ -510,6 +546,14 @@ impl ApiLoader {
             list.push(path.to_path_buf())
         } else {
             self.motionlist_patches.insert(hash, vec![path.to_path_buf()]);
+        }
+    }
+
+    pub fn insert_bgm_property_patch(&mut self, hash: Hash40, path: &Path) {
+        if let Some(list) = self.bgm_property_patches.get_mut(&hash) {
+            list.push(path.to_path_buf())
+        } else {
+            self.bgm_property_patches.insert(hash, vec![path.to_path_buf()]);
         }
     }
 
