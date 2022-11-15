@@ -326,6 +326,12 @@ unsafe fn online_slot_spoof(ctx: &InlineCtx) {
     }
 }
 
+#[skyline::hook(offset = 0x1bfa1e8, inline)]
+unsafe fn skip_opening_cutscene(ctx: &mut InlineCtx) {
+    let data = ctx.registers[8].x.as_mut();
+    *data = 0;
+}
+
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
