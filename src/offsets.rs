@@ -95,6 +95,10 @@ static PACKET_SEND_SEARCH_CODE: &[u8] = &[
     0x28, 0x4c, 0x43, 0xb9, 0x08, 0x4c, 0x03, 0xb9, 0xc0, 0x03, 0x5f, 0xd6, 0x00, 0x00, 0x00, 0x00,
 ];
 
+static LUA_MAGIC_CHECK_SEARCH_CODE: &[u8] = &[
+    0xfd, 0x7b, 0x04, 0xa9, 0xfd, 0x03, 0x01, 0x91, 0x08, 0x04, 0x40, 0xf9, 0x93, 0x00, 0x80, 0x52, 0x13, 0x00, 0xa8, 0x72,
+];
+
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|window| window == needle)
 }
@@ -153,6 +157,8 @@ struct Offsets {
     pub res_service: usize,
 
     pub packet_send: usize,
+	
+    pub lua_magic_check: usize,
 }
 
 impl Offsets {
@@ -172,7 +178,8 @@ impl Offsets {
         let title_screen_version = find_subsequence(text, TITLE_SCREEN_VERSION_SEARCH_CODE).expect("Unable to find subsequence!");
         let eshop_button = find_subsequence(text, ESHOPMANAGER_SHOW_SEARCH_CODE).expect("Unable to find subsequence!") - 16;
         let packet_send = find_subsequence(text, PACKET_SEND_SEARCH_CODE).expect("Unable to find subsequence!") + 16;
-
+        let lua_magic_check = find_subsequence(text, LUA_MAGIC_CHECK_SEARCH_CODE).expect("Unable to find subsequence!") + 176;
+		
         let filesystem_info = {
             let adrp = find_subsequence(text, FILESYSTEM_INFO_ADRP_SEARCH_CODE).expect("Unable to find subsequence") + 12;
             let adrp_offset = offset_from_adrp(adrp);
@@ -201,7 +208,8 @@ impl Offsets {
             title_screen_version,
             eshop_button,
             packet_send,
-
+			lua_magic_check,
+			
             filesystem_info,
             res_service,
         }
@@ -262,4 +270,8 @@ pub fn lookup_stream_hash() -> usize {
 
 pub fn packet_send() -> usize {
     OFFSETS.packet_send
+}
+
+pub fn lua_magic_check() -> usize {
+    OFFSETS.lua_magic_check
 }
