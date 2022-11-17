@@ -21,7 +21,7 @@ walkdir = "2.3.2"
 parking_lot = "0.12"
 once_cell = "1.12.0"
 thiserror = "1.0.30"
-minreq = { version = "2", features = ["https", "json-using-serde"], optional = true }
+minreq = { version = "2", features = ["https-native", "json-using-serde"], optional = true }
 camino = "1"
 # Switch utilities
 skyline = { git = "https://github.com/Raytwo/skyline-rs", branch="preview" }
