@@ -30,7 +30,7 @@ skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }
 # For the updater
 zip = { version = "0.6", default-features = false, features = ["deflate"], optional = true }
-gh-updater = { git = "https://github.com/blu-dev/gh-updater", optional = true }
+gh-updater = { git = "https://github.com/blu-dev/gh-updater", default-features = false, features = ["native-tls"], optional = true }
 # For offset caching and legacy configuration
 toml = "0.5.8"
 serde = { version = "1", features = ["derive"] }
