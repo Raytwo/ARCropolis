@@ -435,6 +435,12 @@ pub fn main() {
     }
 
     skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof);
+
+    // Check config to see if the user wants to  skip the opening cutscene
+    if config::skip_cutscene() {
+        skyline::install_hook!(skip_opening_cutscene);
+    }
+
     replacement::install();
     fixes::install();
 

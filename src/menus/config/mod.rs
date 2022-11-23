@@ -53,6 +53,10 @@ pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
         session.send("auto_update");
     }
 
+    if storage.get_flag("skip_cutscene") {
+        session.send("skip_cutscene");
+    }
+
     let logging: String = storage.get_field("logging_level").unwrap_or(String::from("Info"));
     session.send(&logging);
 
@@ -91,6 +95,12 @@ pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
                 storage.set_flag("auto_update", curr_value).unwrap();
                 //info!("Set auto_update flag to {}", curr_value);
                 session.send("auto_update");
+            },
+            "skip_cutscene" => {
+                let curr_value = !storage.get_flag("skip_cutscene");
+                storage.set_flag("skip_cutscene", curr_value).unwrap();
+                // info!("Set skip_cutscene flag to {}", curr_value);
+                session.send("skip_cutscene");
             },
             _ => break,
         }
