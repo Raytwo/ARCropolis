@@ -97,6 +97,10 @@ pub fn beta_updates() -> bool {
     GLOBAL_CONFIG.lock().unwrap().get_flag("beta_updates")
 }
 
+pub fn skip_cutscene() -> bool {
+    GLOBAL_CONFIG.lock().unwrap().get_flag("skip_cutscene")
+}
+
 pub static REGION: RwLock<Region> = RwLock::new(Region::UsEnglish);
 
 pub fn region() -> Region {

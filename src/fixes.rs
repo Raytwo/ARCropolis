@@ -1,5 +1,5 @@
 use skyline::{hook, hooks::InlineCtx, install_hooks, from_offset, patching::Patch};
-use crate::offsets::offset_to_addr;
+use crate::offsets::*;
 
 // OFFSETS IN THIS FILE ARE CURRENTLY HARDCODED TO VERSION 13.0.1
 
@@ -205,7 +205,13 @@ fn install_lazy_loading_patches(){
     install_hooks!(original_load_chara_1_ui_for_all_colors, css_set_selected_chararacter_ui, load_stock_icon_for_portrait_menu, chara_select_scene_destructor);
 }
 
+// Patch to allow running uncompiled lua scripts
+fn install_lua_magic_patch() {
+	Patch::in_text(lua_magic_check()).nop().expect("Failed to patch lua magic check cbnz");
+}
+
 pub fn install() {
     install_added_color_patches();
     install_lazy_loading_patches();
+    install_lua_magic_patch();
 }

@@ -17,8 +17,60 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         info!("Emulator usage detected in perform_discovery, reverting to old behavior.");
     }
 
-    let legacy_discovery = config::legacy_discovery();
+    let mods_path = utils::paths::mods();
 
+    let legacy_discovery = config::legacy_discovery();
+    let presets = crate::config::presets::get_active_preset().unwrap();
+
+    // Emulators can't use presets, so don't run this logic
+    if !is_ryujinx && !legacy_discovery {
+        let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
+        // Get the mod cache from last run
+        let mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();
+
+        // Inspect the list of mods to see if some are new ones
+        let new_cache: HashSet<Hash40> = std::fs::read_dir(&mods_path)
+            .unwrap()
+            .filter_map(|path| {
+                let path = PathBuf::from(&mods_path).join(path.unwrap().path());
+
+                if path.is_file() {
+                    None
+                } else {
+                    Some(Hash40::from(path.to_str().unwrap()))
+                }
+            })
+            .collect();
+
+        // Get the workspace name and workspace list
+        let workspace_name: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
+        let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
+
+        // Get the preset name from the workspace list
+        let preset_name = &workspace_list[&workspace_name];
+        let mut presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
+        let new_mods: HashSet<&Hash40> = new_cache
+            .iter()
+            .filter(|cached_mod| !mod_cache.contains(cached_mod) && !presets.contains(cached_mod))
+            .collect();
+
+        // We found hashes that weren't in the cache
+        if !new_mods.is_empty() && skyline_web::Dialog::yes_no("New mods have been detected.\nWould you like to enable them?") {
+            // Add the new mods to the presets file
+            presets.extend(new_mods);
+            // Save it back
+            storage.set_field_json(preset_name, &presets).unwrap();
+        }
+
+        // No matter what, the cache has to be updated
+        storage.set_field_json("mod_cache", &new_cache).unwrap();
+    }
+
+    #[cfg(feature = "online")]
+    crate::check_input_on_boot();
+
+    // If the user edited their mods again, we'll have to reload them here. This is obviously bad and inefficient but it wouldn't be ARCropolis if it wasn't.
+    // Consider loading the active presets in a static RwLock so everything can manipulate them without reloading
     let presets = crate::config::presets::get_active_preset().unwrap();
 
     let filter = |path: &Path| {
@@ -89,52 +141,6 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             _ => false
         }
     };
-
-    let mods_path = utils::paths::mods();
-
-    // Emulators can't use presets, so don't run this logic
-    if !is_ryujinx && !legacy_discovery {
-        let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-        // Get the mod cache from last run
-        let mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();
-
-        // Inspect the list of mods to see if some are new ones
-        let new_cache: HashSet<Hash40> = std::fs::read_dir(&mods_path)
-            .unwrap()
-            .filter_map(|path| {
-                let path = PathBuf::from(&mods_path).join(path.unwrap().path());
-
-                if path.is_file() {
-                    None
-                } else {
-                    Some(Hash40::from(path.to_str().unwrap()))
-                }
-            })
-            .collect();
-
-        // Get the workspace name and workspace list
-        let workspace_name: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
-        let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
-
-        // Get the preset name from the workspace list
-        let preset_name = &workspace_list[&workspace_name];
-        let mut presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
-        let new_mods: HashSet<&Hash40> = new_cache
-            .iter()
-            .filter(|cached_mod| !mod_cache.contains(cached_mod) && !presets.contains(cached_mod))
-            .collect();
-
-        // We found hashes that weren't in the cache
-        if !new_mods.is_empty() && skyline_web::Dialog::yes_no("New mods have been detected.\nWould you like to enable them?") {
-            // Add the new mods to the presets file
-            presets.extend(new_mods);
-            // Save it back
-            storage.set_field_json(preset_name, &presets).unwrap();
-        }
-
-        // No matter what, the cache has to be updated
-        storage.set_field_json("mod_cache", &new_cache).unwrap();
-    }
 
     let mut launchpad = LaunchPad::new(StandardLoader, ConflictHandler::NoRoot);
 

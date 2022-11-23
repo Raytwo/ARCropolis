@@ -28,7 +28,8 @@ static OFFSETS: Lazy<Offsets> = Lazy::new(|| {
         },
         Err(_) => error!("Failed to serialize offsets."),
     }
-    offsets
+
+    offsets.expect("unable to find subsequence")
 });
 
 static FILESYSTEM_INFO_ADRP_SEARCH_CODE: &[u8] = &[0xf3, 0x03, 0x00, 0xaa, 0x1f, 0x01, 0x09, 0x6b, 0xe0, 0x04, 0x00, 0x54];
@@ -95,6 +96,10 @@ static PACKET_SEND_SEARCH_CODE: &[u8] = &[
     0x28, 0x4c, 0x43, 0xb9, 0x08, 0x4c, 0x03, 0xb9, 0xc0, 0x03, 0x5f, 0xd6, 0x00, 0x00, 0x00, 0x00,
 ];
 
+static LUA_MAGIC_CHECK_SEARCH_CODE: &[u8] = &[
+    0xfd, 0x7b, 0x04, 0xa9, 0xfd, 0x03, 0x01, 0x91, 0x08, 0x04, 0x40, 0xf9, 0x93, 0x00, 0x80, 0x52, 0x13, 0x00, 0xa8, 0x72,
+];
+
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|window| window == needle)
 }
@@ -153,40 +158,43 @@ struct Offsets {
     pub res_service: usize,
 
     pub packet_send: usize,
+	
+    pub lua_magic_check: usize,
 }
 
 impl Offsets {
-    pub fn new() -> Self {
+    pub fn new() -> Option<Self> {
         let text = get_text();
-        let lookup_stream_hash = find_subsequence(text, LOOKUP_STREAM_HASH_SEARCH_CODE).expect("Unable to find subsequence");
-        let inflate = find_subsequence(text, INFLATE_SEARCH_CODE).expect("Unable to find subsequence");
-        let memcpy_1 = find_subsequence(text, MEMCPY_1_SEARCH_CODE).expect("Unable to find subsequence") - 4;
-        let memcpy_2 = find_subsequence(text, MEMCPY_2_SEARCH_CODE).expect("Unable to find subsequence") - 4;
-        let memcpy_3 = find_subsequence(text, MEMCPY_3_SEARCH_CODE).expect("Unable to find subsequence") - 4;
-        let inflate_dir_file = find_subsequence(text, INFLATE_DIR_FILE_SEARCH_CODE).expect("Unable to find subsequence");
-        let manual_open = find_subsequence(text, MANUAL_OPEN_SEARCH_CODE).expect("Unable to find subsequence");
-        let initial_loading = find_subsequence(text, INITIAL_LOADING_SEARCH_CODE).expect("Unable to find subsequence");
-        let process_resource_node = find_subsequence(text, PROCESS_RESOURCE_NODE_SEARCH_CODE).expect("Unable to find subsequence") + 0xC;
-        let res_load_loop_start = find_subsequence(text, RES_LOAD_LOOP_START_SEARCH_CODE).expect("Unable to find subsequence");
-        let res_load_loop_refresh = find_subsequence(text, RES_LOAD_LOOP_REFRESH_SEARCH_CODE).expect("Unable to find subsequence");
-        let title_screen_version = find_subsequence(text, TITLE_SCREEN_VERSION_SEARCH_CODE).expect("Unable to find subsequence!");
-        let eshop_button = find_subsequence(text, ESHOPMANAGER_SHOW_SEARCH_CODE).expect("Unable to find subsequence!") - 16;
-        let packet_send = find_subsequence(text, PACKET_SEND_SEARCH_CODE).expect("Unable to find subsequence!") + 16;
-
+        let lookup_stream_hash = find_subsequence(text, LOOKUP_STREAM_HASH_SEARCH_CODE)?;
+        let inflate = find_subsequence(text, INFLATE_SEARCH_CODE)?;
+        let memcpy_1 = find_subsequence(text, MEMCPY_1_SEARCH_CODE)? - 4;
+        let memcpy_2 = find_subsequence(text, MEMCPY_2_SEARCH_CODE)? - 4;
+        let memcpy_3 = find_subsequence(text, MEMCPY_3_SEARCH_CODE)? - 4;
+        let inflate_dir_file = find_subsequence(text, INFLATE_DIR_FILE_SEARCH_CODE)?;
+        let manual_open = find_subsequence(text, MANUAL_OPEN_SEARCH_CODE)?;
+        let initial_loading = find_subsequence(text, INITIAL_LOADING_SEARCH_CODE)?;
+        let process_resource_node = find_subsequence(text, PROCESS_RESOURCE_NODE_SEARCH_CODE)? + 0xC;
+        let res_load_loop_start = find_subsequence(text, RES_LOAD_LOOP_START_SEARCH_CODE)?;
+        let res_load_loop_refresh = find_subsequence(text, RES_LOAD_LOOP_REFRESH_SEARCH_CODE)?;
+        let title_screen_version = find_subsequence(text, TITLE_SCREEN_VERSION_SEARCH_CODE)?;
+        let eshop_button = find_subsequence(text, ESHOPMANAGER_SHOW_SEARCH_CODE)? - 16;
+        let packet_send = find_subsequence(text, PACKET_SEND_SEARCH_CODE)? + 16;
+        let lua_magic_check = find_subsequence(text, LUA_MAGIC_CHECK_SEARCH_CODE)? + 176;
+		
         let filesystem_info = {
-            let adrp = find_subsequence(text, FILESYSTEM_INFO_ADRP_SEARCH_CODE).expect("Unable to find subsequence") + 12;
+            let adrp = find_subsequence(text, FILESYSTEM_INFO_ADRP_SEARCH_CODE)? + 12;
             let adrp_offset = offset_from_adrp(adrp);
             let ldr_offset = offset_from_ldr(adrp + 4);
             adrp_offset + ldr_offset
         };
         let res_service = {
-            let adrp = find_subsequence(text, RES_SERVICE_ADRP_SEARCH_CODE).expect("Unable to find subsequence") + 16;
+            let adrp = find_subsequence(text, RES_SERVICE_ADRP_SEARCH_CODE)? + 16;
             let adrp_offset = offset_from_adrp(adrp);
             let ldr_offset = offset_from_ldr(adrp + 4);
             adrp_offset + ldr_offset
         };
 
-        Self {
+        Some(Self {
             lookup_stream_hash,
             inflate,
             memcpy_1,
@@ -201,10 +209,11 @@ impl Offsets {
             title_screen_version,
             eshop_button,
             packet_send,
-
+			lua_magic_check,
+			
             filesystem_info,
             res_service,
-        }
+        })
     }
 }
 
@@ -262,4 +271,8 @@ pub fn lookup_stream_hash() -> usize {
 
 pub fn packet_send() -> usize {
     OFFSETS.packet_send
+}
+
+pub fn lua_magic_check() -> usize {
+    OFFSETS.lua_magic_check
 }

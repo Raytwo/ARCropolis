@@ -21,16 +21,16 @@ walkdir = "2.3.2"
 parking_lot = "0.12"
 once_cell = "1.12.0"
 thiserror = "1.0.30"
-minreq = { version = "2", features = ["https", "json-using-serde"], optional = true }
+minreq = { version = "2", features = ["https-native", "json-using-serde"], optional = true }
 camino = "1"
 # Switch utilities
 skyline = { git = "https://github.com/Raytwo/skyline-rs", branch="preview" }
-skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
+skyline-web = "0.1"
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }
 # For the updater
 zip = { version = "0.6", default-features = false, features = ["deflate"], optional = true }
-gh-updater = { git = "https://github.com/blu-dev/gh-updater", optional = true }
+gh-updater = { git = "https://github.com/blu-dev/gh-updater", default-features = false, features = ["native-tls"], optional = true }
 # For offset caching and legacy configuration
 toml = "0.5.8"
 serde = { version = "1", features = ["derive"] }
@@ -64,10 +64,8 @@ smash-bgm-property = "1.1.0"
 ninput = { git = "https://github.com/blu-dev/ninput" }
 
 [patch.crates-io]
-ring = { git = "https://github.com/skyline-rs/ring", branch = "0.16.20" }
-webpki = { git = "https://github.com/skyline-rs/webpki" }
 nnsdk = { git = "https://github.com/Raytwo/nnsdk-rs", branch="account_fs" }
-
+native-tls = { git = "https://github.com/skyline-rs/rust-native-tls", branch="switch" }
 
 [features]
 default = ["online"]

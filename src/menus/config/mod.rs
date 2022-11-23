@@ -53,17 +53,21 @@ pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
         session.send("auto_update");
     }
 
-    let logging: String = storage.get_field("logging_level").unwrap();
+    if storage.get_flag("skip_cutscene") {
+        session.send("skip_cutscene");
+    }
+
+    let logging: String = storage.get_field("logging_level").unwrap_or(String::from("Info"));
     session.send(&logging);
 
     while let Ok(msg) = session.recv_json::<ConfigChanged>() {
         match msg.category.as_str() {
             "log" => {
-                let curr_value: String = storage.get_field("logging_level").unwrap();
+                let curr_value: String = storage.get_field("logging_level").unwrap_or(String::from("Info"));
                 session.send(&curr_value);
                 storage.set_field("logging_level", &msg.value).unwrap();
                 session.send(&msg.value);
-                info!("Set logger to {}", &msg.value);
+                //info!("Set logger to {}", &msg.value);
             },
             // A "true" value is passed for flags, you might be wondering why.
             // If you pass ``null``, the browser closes, because Value is not a String or a Option. I think?
@@ -71,26 +75,32 @@ pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
             "beta" => {
                 let curr_value = !storage.get_flag("beta_updates");
                 storage.set_flag("beta_updates", curr_value).unwrap();
-                info!("Set beta update flag to {}", curr_value);
+                //info!("Set beta update flag to {}", curr_value);
                 session.send("beta");
             },
             "discovery" => {
                 let curr_value = !storage.get_flag("legacy_discovery");
                 storage.set_flag("legacy_discovery", curr_value).unwrap();
-                info!("Set legacy_discovery flag to {}", curr_value);
+                //info!("Set legacy_discovery flag to {}", curr_value);
                 session.send("legacy_discovery");
             },
             "log_to_file" => {
                 let curr_value = !storage.get_flag("log_to_file");
                 storage.set_flag("log_to_file", curr_value).unwrap();
-                info!("Set log_to_file flag to {}", curr_value);
+                //info!("Set log_to_file flag to {}", curr_value);
                 session.send("log_to_file");
             },
             "auto_update" => {
                 let curr_value = !storage.get_flag("auto_update");
                 storage.set_flag("auto_update", curr_value).unwrap();
-                info!("Set auto_update flag to {}", curr_value);
+                //info!("Set auto_update flag to {}", curr_value);
                 session.send("auto_update");
+            },
+            "skip_cutscene" => {
+                let curr_value = !storage.get_flag("skip_cutscene");
+                storage.set_flag("skip_cutscene", curr_value).unwrap();
+                // info!("Set skip_cutscene flag to {}", curr_value);
+                session.send("skip_cutscene");
             },
             _ => break,
         }
