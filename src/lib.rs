@@ -357,6 +357,12 @@ pub fn main() {
         );
     }));
 
+    if utils::env::get_game_version() != semver::Version::new(13, 0, 1) {
+        skyline_web::DialogOk::ok("ARCropolis cannot currently run on a Smash version lower than 13.0.1<br/>Consider updating your game or uninstalling ARCropolis.");
+        // Do not perform any of the hook installation and let the game proceed as normal.
+        return;
+    }
+
     // Initialize the time for the logger
     init_time();
     // Required to mount the savedata ourselves
