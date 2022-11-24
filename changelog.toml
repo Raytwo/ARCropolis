@@ -1,26 +1,38 @@
-title = "ARCropolis update: Ver. 3.9.0"
-date = "11/01/2022"
+title = "ARCropolis update: Ver. 3.10.0"
+date = "11/24/2022"
 description = "Thank you for updating to the latest version of ARCropolis.<br/>Please read the following changelog."
 
 [[entries]]
 section_title = "New feature(s)"
 contents = """
 <ul>
-    <li>Support for motdiff files to patch motion_list.bin(by WuBoy)</li>
+    <li>New option to skip the opening cutscene in the configuration editor menu (by Raytwo/jozz)</li>
+    <li>Merging support for bgm_property.bin files (by jozz)</li>
+    <li>Uncompiled lua files can now be loaded in place of compiled ones by renaming the extension to .lc (by itsmeft24)</li>
+</ul>"""
+
+[[entries]]
+section_title = "Bug fix(es)"
+contents = """
+<ul>
+    <li>The prompt asking if you'd like to enable new mods found at boot time now works properly</li>
+    <li>Users with stacked echo fighters should now have chara_1 display again for the echo (by CoolSonicKirby)</li>
 </ul>"""
 
 [[entries]]
 section_title = "Improvement(s)"
 contents = """
 <ul>
-    <li>Extra slots for Aegis are now usable (by CoolSonicKirby)</li>
+    <li>Opening the mod manager on boot should now happen after being prompted to enable new mods and should properly display them as enabled</li>
+    <li>ARCropolis is now noticeably smaller in size</li>
+    <li>ARCropolis will now warn you if you are not on the latest version of the game until an issue is solved</li>
 </ul>"""
 
 [[entries]]
 section_title = "Removal(s)"
 contents = """
 <ul>
-    <li>Remove arcrop_get_loaded_arc from the API, as it had nothing to do there in the first place</li>
+    <li>(Reminder) Support for rom:/arc merged modpack has been dropped</li>
 </ul>"""
 
 [[entries]]
