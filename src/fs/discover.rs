@@ -20,6 +20,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let mods_path = utils::paths::mods();
 
     let legacy_discovery = config::legacy_discovery();
+
     let mut presets = crate::config::presets::get_active_preset().unwrap();
 
     // Emulators can't use presets, so don't run this logic

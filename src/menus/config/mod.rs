@@ -1,6 +1,5 @@
 // #![feature(proc_macro_hygiene)]
 
-use log::info;
 use serde::Deserialize;
 use skyline_config::{ConfigStorage, StorageHolder};
 use skyline_web::{Visibility, Webpage};
@@ -60,6 +59,11 @@ pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
     if storage.get_flag("skip_title_scene") {
         session.send("skip_title_scene");
     }
+
+    if storage.get_flag("use_folder_name") {
+        session.send("use_folder_name");
+    }
+
     let logging: String = storage.get_field("logging_level").unwrap_or(String::from("Info"));
     session.send(&logging);
 
@@ -70,7 +74,7 @@ pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
                 session.send(&curr_value);
                 storage.set_field("logging_level", &msg.value).unwrap();
                 session.send(&msg.value);
-                //info!("Set logger to {}", &msg.value);
+                // info!("Set logger to {}", &msg.value);
             },
             // A "true" value is passed for flags, you might be wondering why.
             // If you pass ``null``, the browser closes, because Value is not a String or a Option. I think?
@@ -78,25 +82,25 @@ pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
             "beta" => {
                 let curr_value = !storage.get_flag("beta_updates");
                 storage.set_flag("beta_updates", curr_value).unwrap();
-                //info!("Set beta update flag to {}", curr_value);
+                // info!("Set beta update flag to {}", curr_value);
                 session.send("beta");
             },
             "discovery" => {
                 let curr_value = !storage.get_flag("legacy_discovery");
                 storage.set_flag("legacy_discovery", curr_value).unwrap();
-                //info!("Set legacy_discovery flag to {}", curr_value);
+                // info!("Set legacy_discovery flag to {}", curr_value);
                 session.send("legacy_discovery");
             },
             "log_to_file" => {
                 let curr_value = !storage.get_flag("log_to_file");
                 storage.set_flag("log_to_file", curr_value).unwrap();
-                //info!("Set log_to_file flag to {}", curr_value);
+                // info!("Set log_to_file flag to {}", curr_value);
                 session.send("log_to_file");
             },
             "auto_update" => {
                 let curr_value = !storage.get_flag("auto_update");
                 storage.set_flag("auto_update", curr_value).unwrap();
-                //info!("Set auto_update flag to {}", curr_value);
+                // info!("Set auto_update flag to {}", curr_value);
                 session.send("auto_update");
             },
             "skip_cutscene" => {
@@ -110,6 +114,12 @@ pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
                 storage.set_flag("skip_title_scene", curr_value).unwrap();
                 // info!("Set title_scene flag to {}", curr_value);
                 session.send("skip_title_scene");
+            },
+            "use_folder_name" => {
+                let curr_value = !storage.get_flag("use_folder_name");
+                storage.set_flag("use_folder_name", curr_value).unwrap();
+                // info!("Set use_folder_name flag to {}", curr_value);
+                session.send("use_folder_name");
             },
             _ => break,
         }
