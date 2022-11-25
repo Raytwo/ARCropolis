@@ -7,7 +7,7 @@ static OFFSETS: Lazy<Offsets> = Lazy::new(|| {
     let offsets = match std::fs::read_to_string(&path) {
         Ok(string) => {
             match toml::de::from_str(string.as_str()) {
-                Ok(offsets) => offsets,
+                Ok(offsets) => Some(offsets),
                 Err(err) => {
                     error!("Unable to parse 'offsets.toml'. Reason: {:?}", err);
                     Offsets::new()
@@ -18,7 +18,7 @@ static OFFSETS: Lazy<Offsets> = Lazy::new(|| {
             error!("Unable to read 'offsets.toml'. Reason: {:?}", err);
             Offsets::new()
         },
-    };
+    }.expect("unable to find subsequence");
 
     match toml::ser::to_string_pretty(&offsets) {
         Ok(string) => {
@@ -29,7 +29,7 @@ static OFFSETS: Lazy<Offsets> = Lazy::new(|| {
         Err(_) => error!("Failed to serialize offsets."),
     }
 
-    offsets.expect("unable to find subsequence")
+    offsets
 });
 
 static FILESYSTEM_INFO_ADRP_SEARCH_CODE: &[u8] = &[0xf3, 0x03, 0x00, 0xaa, 0x1f, 0x01, 0x09, 0x6b, 0xe0, 0x04, 0x00, 0x54];
