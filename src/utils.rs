@@ -81,7 +81,7 @@ pub mod paths {
 
 pub mod save {
     use super::*;
-    use std::io::{Read, Seek, SeekFrom};
+    use std::io::{Read, Seek, SeekFrom, Result};
     use smash_arc::Region;
 
     #[repr(u8)]
@@ -138,14 +138,14 @@ pub mod save {
         unsafe { nn::fs::Unmount(skyline::c_str(&format!("{}\0", mount_path))) };
     }
 
-    pub fn get_language_id_in_savedata() -> SaveLanguageId {
-        let mut file = std::fs::File::open("save:/save_data/system_data.bin").unwrap();
+    pub fn get_language_id_in_savedata() -> Result<SaveLanguageId> {
+        let mut file = std::fs::File::open("save:/save_data/system_data.bin")?;
         file.seek(SeekFrom::Start(0x3c6098)).unwrap();
         let mut language_code = [0u8];
         file.read_exact(&mut language_code).unwrap();
         drop(file);
 
-        SaveLanguageId::from(language_code[0])
+        Ok(SaveLanguageId::from(language_code[0]))
     }
 
     pub fn get_system_region_from_language_id(language: SaveLanguageId) -> Region {

@@ -5,7 +5,6 @@
 #![feature(vec_into_raw_parts)]
 #![allow(unaligned_references)]
 #![feature(string_remove_matches)]
-#![feature(let_else)]
 // #![feature(fs_try_exists)]
 
 use std::{
@@ -43,7 +42,7 @@ mod utils;
 mod fixes;
 
 use fs::GlobalFilesystem;
-use smash_arc::Hash40;
+use smash_arc::{Hash40, Region};
 
 use crate::{config::{GLOBAL_CONFIG, REGION}, utils::save::{get_language_id_in_savedata, get_system_region_from_language_id, mount_save, unmount_save}};
 
@@ -384,7 +383,11 @@ pub fn main() {
         let language_id = get_language_id_in_savedata();
         unmount_save("save\0");
         // Read the user's region + language from the game ourselves because the game hasn't done it yet
-        *region = get_system_region_from_language_id(language_id);
+        // Default to UsEnglish if there is no Save Data on this boot
+        match language_id {
+            Ok(id) => *region = get_system_region_from_language_id(id),
+            Err(_) => *region = Region::UsEnglish,
+        }
     }
 
     // Force the configuration to be initialized right away, so we can be sure default files exist (hopefully)
