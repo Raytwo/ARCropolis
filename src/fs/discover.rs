@@ -24,6 +24,10 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     // Emulators can't use presets, so don't run this logic
     if !is_ryujinx && !legacy_discovery {
+        if std::path::PathBuf::from("rom:/arc").exists() {
+            skyline_web::DialogOk::ok("Support for mods stored in rom:/arc has been deprecated<br/>Please consider reworking your modpack to use the newer methods<br/><br/>This message will keep displaying until the directory is removed");
+        }
+
         let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
         // Get the mod cache from last run
         let mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();
