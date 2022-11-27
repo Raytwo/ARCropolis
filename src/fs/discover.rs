@@ -20,7 +20,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let mods_path = utils::paths::mods();
 
     let legacy_discovery = config::legacy_discovery();
-    let presets = crate::config::presets::get_active_preset().unwrap();
+    let mut presets = crate::config::presets::get_active_preset().unwrap();
 
     // Emulators can't use presets, so don't run this logic
     if !is_ryujinx && !legacy_discovery {
@@ -52,7 +52,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
         // Get the preset name from the workspace list
         let preset_name = &workspace_list[&workspace_name];
-        let mut presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
+        // let mut presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
         let new_mods: HashSet<&Hash40> = new_cache
             .iter()
             .filter(|cached_mod| !mod_cache.contains(cached_mod) && !presets.contains(cached_mod))
