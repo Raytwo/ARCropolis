@@ -101,6 +101,10 @@ pub fn skip_cutscene() -> bool {
     GLOBAL_CONFIG.lock().unwrap().get_flag("skip_cutscene")
 }
 
+pub fn skip_title_scene() -> bool {
+    GLOBAL_CONFIG.lock().unwrap().get_flag("skip_title_scene")
+}
+
 pub static REGION: RwLock<Region> = RwLock::new(Region::UsEnglish);
 
 pub fn region() -> Region {
