@@ -25,7 +25,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     // Emulators can't use presets, so don't run this logic
     if !is_ryujinx && !legacy_discovery {
         if std::path::PathBuf::from("rom:/arc").exists() {
-            skyline_web::DialogOk::ok("Support for mods stored in rom:/arc has been deprecated<br/>Please consider reworking your modpack to use the newer methods<br/><br/>This message will keep displaying until the directory is removed");
+            skyline_web::DialogOk::ok("Support for mods stored in `sd:/atmosphere/contents/01006A800016E000/romfs/arc/` has been deprecated<br/>Please consider reworking your modpack to use the newer methods<br/><br/>This message will keep displaying until the directory is removed");
         }
 
         let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
