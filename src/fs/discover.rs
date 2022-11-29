@@ -20,10 +20,14 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let mods_path = utils::paths::mods();
 
     let legacy_discovery = config::legacy_discovery();
-    let presets = crate::config::presets::get_active_preset().unwrap();
+    let mut presets = crate::config::presets::get_active_preset().unwrap();
 
     // Emulators can't use presets, so don't run this logic
     if !is_ryujinx && !legacy_discovery {
+        if std::path::PathBuf::from("rom:/arc").exists() {
+            skyline_web::DialogOk::ok("Support for mods stored in `sd:/atmosphere/contents/01006A800016E000/romfs/arc/` has been deprecated<br/>Please consider reworking your modpack to use the newer methods<br/><br/>This message will keep displaying until the directory is removed");
+        }
+
         let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
         // Get the mod cache from last run
         let mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();
@@ -48,7 +52,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
         // Get the preset name from the workspace list
         let preset_name = &workspace_list[&workspace_name];
-        let mut presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
+        // let mut presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
         let new_mods: HashSet<&Hash40> = new_cache
             .iter()
             .filter(|cached_mod| !mod_cache.contains(cached_mod) && !presets.contains(cached_mod))

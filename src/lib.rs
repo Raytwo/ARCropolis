@@ -5,7 +5,6 @@
 #![feature(vec_into_raw_parts)]
 #![allow(unaligned_references)]
 #![feature(string_remove_matches)]
-#![feature(let_else)]
 // #![feature(fs_try_exists)]
 
 use std::{
@@ -43,7 +42,7 @@ mod utils;
 mod fixes;
 
 use fs::GlobalFilesystem;
-use smash_arc::Hash40;
+use smash_arc::{Hash40, Region};
 
 use crate::{config::{GLOBAL_CONFIG, REGION}, utils::save::{get_language_id_in_savedata, get_system_region_from_language_id, mount_save, unmount_save}};
 
@@ -333,6 +332,19 @@ unsafe fn skip_opening_cutscene(ctx: &mut InlineCtx) {
     *data = 0;
 }
 
+// Change the next callback for the TitleSceneInfo::callbacks::Enter from "DisplayOpeningCutscene" to "HowToPlay"
+#[skyline::hook(offset = 0x1864410, inline)]
+unsafe fn title_scene_play_opening(ctx: &mut InlineCtx) {
+    let data = ctx.registers[9].x.as_mut();
+    *data = 1;
+}
+
+// Pretend the state for another state handler (OpeningCutsceneLayout?) is set to 5
+#[skyline::hook(offset = 0x18644d0, inline)]
+unsafe fn title_scene_show_how_to_play_fake_state_index(ctx: &mut InlineCtx) {
+    let data = ctx.registers[8].x.as_mut();
+    *data = 5;
+}
 
 #[skyline::main(name = "arcropolis")]
 pub fn main() {
@@ -357,6 +369,12 @@ pub fn main() {
         );
     }));
 
+    if utils::env::get_game_version() != semver::Version::new(13, 0, 1) {
+        skyline_web::DialogOk::ok("ARCropolis cannot currently run on a Smash version lower than 13.0.1<br/>Consider updating your game or uninstalling ARCropolis.");
+        // Do not perform any of the hook installation and let the game proceed as normal.
+        return;
+    }
+
     // Initialize the time for the logger
     init_time();
     // Required to mount the savedata ourselves
@@ -378,7 +396,11 @@ pub fn main() {
         let language_id = get_language_id_in_savedata();
         unmount_save("save\0");
         // Read the user's region + language from the game ourselves because the game hasn't done it yet
-        *region = get_system_region_from_language_id(language_id);
+        // Default to UsEnglish if there is no Save Data on this boot
+        match language_id {
+            Ok(id) => *region = get_system_region_from_language_id(id),
+            Err(_) => *region = Region::UsEnglish,
+        }
     }
 
     // Force the configuration to be initialized right away, so we can be sure default files exist (hopefully)
@@ -436,8 +458,10 @@ pub fn main() {
 
     skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof);
 
-    // Check config to see if the user wants to  skip the opening cutscene
-    if config::skip_cutscene() {
+    // If we skip the title scene, we obviously skip the opening cutscene with it. Well, actually not necessarily but in this case we do.
+    if config::skip_title_scene() {
+        skyline::install_hooks!(title_scene_play_opening, title_scene_show_how_to_play_fake_state_index);
+    } else if config::skip_cutscene() {
         skyline::install_hook!(skip_opening_cutscene);
     }
 

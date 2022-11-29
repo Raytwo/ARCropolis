@@ -99,6 +99,7 @@ body:
     attributes:
       label: Crash report
       description: Get the most recent ``.log`` file from ``sd:/atmosphere/crash_reports/`` right after the crash and post the first ~100 lines
+      render: shell
     validations:
       required: true
   - type: input
