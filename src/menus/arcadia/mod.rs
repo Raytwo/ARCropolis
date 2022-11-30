@@ -3,13 +3,15 @@
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
+    sync::MutexGuard,
 };
 
 use serde::{Deserialize, Serialize};
+use skyline_config::StorageHolder;
 use skyline_web::Webpage;
 use smash_arc::Hash40;
 
-use crate::{config, utils};
+use crate::{config::{ArcStorage, self}, utils};
 
 #[derive(Debug, Serialize)]
 pub struct Information {
@@ -39,8 +41,9 @@ pub enum ArcadiaMessage {
     Closure,
 }
 
-pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
+pub fn get_mods(presets: &HashSet<Hash40>, storage: &mut  MutexGuard<StorageHolder<ArcStorage>>) -> Vec<Entry> {
     let mut id: u32 = 0;
+    let use_folder_name: bool = storage.get_flag("use_folder_name");
     std::fs::read_dir(&utils::paths::mods())
         .unwrap()
         .enumerate()
@@ -72,7 +75,11 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                     Entry {
                         id: Some(id),
                         folder_name: Some(folder_name.clone()),
-                        display_name: res.display_name.or(Some(folder_name)),
+                        display_name: if use_folder_name == true {
+                                            Some(folder_name)
+                                      } else {
+                                            res.display_name.or(Some(folder_name))
+                                      },
                         authors: res.authors.or_else(|| Some(String::from("???"))),
                         is_disabled: Some(disabled),
                         version: res.version.or_else(|| Some(String::from("???"))),
@@ -116,7 +123,7 @@ pub fn show_arcadia(workspace: Option<String>) {
     let mut new_presets = presets.clone();
 
     let mods: Information = Information {
-        entries: get_mods(&presets),
+        entries: get_mods(&presets, &mut storage),
         workspace: workspace_name.clone(),
     };
 

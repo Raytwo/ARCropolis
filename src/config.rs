@@ -201,7 +201,6 @@ pub mod presets {
     use super::*;
     use std::collections::HashSet;
 
-    use once_cell::sync::Lazy;
     use skyline_config::ConfigError;
     use smash_arc::Hash40;
     use thiserror::Error;

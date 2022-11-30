@@ -3,7 +3,6 @@ use std::collections::VecDeque;
 use ::hash40::diff::Diff;
 use msbt::{builder::MsbtBuilder, Msbt};
 use nus3audio::*;
-use motion_lib::*;
 use serde::*;
 use serde_xml_rs;
 use serde_yaml::from_str;
@@ -342,14 +341,14 @@ impl ApiLoadType {
                 let mut bgm_property = BgmPropertyFile::read_from_bytes(&data[..]).unwrap();
 
                 for file_path in patches.iter() {
-                    let mut modified_file = BgmPropertyFile::open(file_path.as_path()).unwrap();
+                    let modified_file = BgmPropertyFile::open(file_path.as_path()).unwrap();
                     for entry in modified_file.entries() {
                         bgm_property.0.append(&mut vec![entry.to_owned()]);
                     }
                 }
                 let new_data : Vec<u8> = Vec::new();
                 let mut cursor = std::io::Cursor::new(new_data);
-                bgm_property.write(&mut cursor);
+                bgm_property.write(&mut cursor).unwrap();
                 let vec = cursor.into_inner();
                 Ok((vec.len(), vec))
             },
