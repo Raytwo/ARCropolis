@@ -1,13 +1,13 @@
-title = "ARCropolis update: Ver. 3.10.1"
-date = "11/24/2022"
+title = "ARCropolis update: Ver. 3.11.0"
+date = "12/01/2022"
 description = "Thank you for updating to the latest version of ARCropolis.<br/>Please read the following changelog."
 
 [[entries]]
 section_title = "New feature(s)"
 contents = """
 <ul>
-    <li>New option to skip the opening cutscene in the configuration editor menu (by Raytwo/jozz)</li>
-    <li>Merging support for bgm_property.bin files (by jozz)</li>
+    <li>New option to skip the title screen in the configuration editor menu (by Raytwo/jozz)</li>
+    <li>New option to force displaying folder names for the mod manager in the configuration editor menu (by jozz)</li>
     <li>Uncompiled lua files can now be loaded in place of compiled ones by renaming the extension to .lc (by itsmeft24)</li>
 </ul>"""
 
@@ -15,24 +15,15 @@ contents = """
 section_title = "Bug fix(es)"
 contents = """
 <ul>
-    <li>The prompt asking if you'd like to enable new mods found at boot time now works properly</li>
-    <li>Users with stacked echo fighters should now have chara_1 display again for the echo (by CoolSonicKirby)</li>
+    <li>Starting the game with a Switch account that doesn't a save file will not crash anymore</li>
+    <li>Restore loading times back to how they were on version 3.9.0</li>
 </ul>"""
 
 [[entries]]
 section_title = "Improvement(s)"
 contents = """
 <ul>
-    <li>Opening the mod manager on boot should now happen after being prompted to enable new mods and should properly display them as enabled</li>
-    <li>ARCropolis is now noticeably smaller in size</li>
-    <li>ARCropolis will now warn you if you are not on the latest version of the game until an issue is solved</li>
-</ul>"""
-
-[[entries]]
-section_title = "Removal(s)"
-contents = """
-<ul>
-    <li>(Reminder) Support for rom:/arc merged modpack has been dropped</li>
+    <li>The message about unsupported discovery methods has been slightly tweaked</li>
 </ul>"""
 
 [[entries]]
