@@ -8,7 +8,6 @@ contents = """
 <ul>
     <li>New option to skip the title screen in the configuration editor menu (by Raytwo/jozz)</li>
     <li>New option to force displaying folder names for the mod manager in the configuration editor menu (by jozz)</li>
-    <li>Uncompiled lua files can now be loaded in place of compiled ones by renaming the extension to .lc (by itsmeft24)</li>
 </ul>"""
 
 [[entries]]
