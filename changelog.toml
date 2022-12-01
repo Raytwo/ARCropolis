@@ -14,7 +14,7 @@ contents = """
 section_title = "Bug fix(es)"
 contents = """
 <ul>
-    <li>Starting the game with a Switch account that doesn't a save file will not crash anymore</li>
+    <li>Starting the game with a Switch account that doesn't have a save file will not crash anymore (by CookieScythe)</li>
     <li>Restore loading times back to how they were on version 3.9.0</li>
 </ul>"""
 
