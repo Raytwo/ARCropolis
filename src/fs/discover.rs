@@ -204,7 +204,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             Ok(json) => {
                 match std::fs::write("sd:/ultimate/arcropolis/conflicts.json", json.as_bytes()) {
                     Ok(_) => {
-                        crate::dialog_error("Please check sd:/ultimate/arcropolis/conflicts.json for all of the file conflicts.");
+                        crate::dialog_error("Conflict file created at sd:/ultimate/arcropolis/conflicts.json. Please open this file in a text editor to preview what mods are conflicting with one another and take the necessary changes to resolve them by either reslotting or removing these mods.");
                         false
                     },
                     Err(e) => {
