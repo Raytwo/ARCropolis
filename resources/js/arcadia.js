@@ -14,12 +14,6 @@ var categoriesToUse = [];
 
 var currentState = MOD_MENU;
 
-
-var LButtonHeld = false;
-var RButtonHeld = false;
-var AButtonHeld = false;
-var BButtonHeld = false;
-
 var currentDescHeight = 0; // Used for the current position of the description (modified by the R-Stick Y Value).
 var currentActiveDescription // For reference to the current active description.
 var activeDescHeight = 0; // The height for the current active description so it can't be scrolled out of bounds.
@@ -94,58 +88,6 @@ function checkGamepad(index, gamepad) {
     var axisY = gamepad.axes[1];
 
     if (currentState == MOD_MENU) {
-
-        // Y Button
-        if (gamepad.buttons[2].pressed) {
-            showSubMenu();
-        }
-
-        if (gamepad.buttons[1].pressed) {
-            if (!AButtonHeld) {
-                toggleMod();
-                AButtonHeld = true;
-            }
-        } else {
-            AButtonHeld = false;
-        }
-
-        if (gamepad.buttons[0].pressed) {
-            if (!BButtonHeld) {
-                exit();
-                BButtonHeld = true;
-            }
-        } else {
-            BButtonHeld = false;
-        }
-
-        // Check if D-pad Left pressed or Left Stick X Axis less than -0.7
-        if (gamepad.buttons[14].pressed || axisX < -0.7) {
-            console.log("D-pad left pressed");
-        }
-        // Check if D-pad Up pressed or Y-Axis
-        else if (gamepad.buttons[12].pressed || axisY < -0.7) {
-            moveUp();
-        }
-        // Check if D-pad Right pressed or X Axis > 0.7
-        else if (gamepad.buttons[15].pressed || axisX > 0.7) {
-            console.log("D-pad Right pressed");
-        }
-        // Check if D-pad Down pressed or Y Axis > 0.7
-        else if (gamepad.buttons[13].pressed || axisY > 0.7) {
-            moveDown();
-        };
-
-        //#region L and R button Pressed (Pagination Prev or Next)
-        if (gamepad.buttons[4].pressed) {
-            prevPage();
-        }
-
-        if (gamepad.buttons[5].pressed) {
-            nextPage();
-        }
-        //#endregion
-
-        //#region R-Stick Y Value Calculation (Description scroll)
         var RStickYValue = gamepad.axes[3].toFixed(2);
 
         RStickYValue = (((RStickYValue - 0) * (20 - 0)) / (1 - 0)) + 0;
@@ -156,22 +98,7 @@ function checkGamepad(index, gamepad) {
         } else if (currentDescHeight > activeDescHeight) {
             currentDescHeight = activeDescHeight;
         }
-        //#endregion
-
         currentActiveDescription.scrollTop(currentDescHeight);
-        //#endregion
-    } else if (currentState == SUB_MENU) {
-        // Handle sub menu controls
-
-        // If B button pressed
-        if (gamepad.buttons[0].pressed) {
-            if (!BButtonHeld) {
-                showModMenu();
-                BButtonHeld = true;
-            }
-        } else {
-            BButtonHeld = false;
-        }
     }
 }
 
@@ -212,6 +139,12 @@ function moveDown() {
 }
 
 function move(source, target) {
+    if (source != undefined && target != undefined) {
+        if (source.id == target.id) {
+            return;
+        }
+    }
+
     if (source != undefined) {
         source.classList.remove("is-focused");
         var srcModName = $(source).find(".abstract-button-text");
@@ -288,7 +221,7 @@ function checkOverflow(el) {
 
 function sizeToFormattedBytes(size) {
     if ((size / 1024) < 1)
-        return `${size} bytes`; 
+        return `${size} bytes`;
     size = size / 1024;
 
     if ((size / 1024) < 1)
@@ -344,12 +277,25 @@ function refreshCurrentMods() {
         showPrevious: false,
         showNext: false,
         showPageNumbers: false,
+        pageSize: 7,
         callback: function(data, pagination) {
             $("#mods").html(createMods(data));
             move(undefined, $("#mods>button").get(0));
             pageCount = Math.ceil(pagination["totalNumber"] / pagination["pageSize"]);
         },
         afterPaging: function(activePage) {
+            Array.from(document.querySelectorAll('.abstract-button')).forEach(item => {
+                item.addEventListener('focus', event => {
+                    // item.classList.add("is-focused");
+                    move(undefined, item);
+                });
+                item.addEventListener('focusout', event => {
+                    move(item, undefined);
+                });
+                item.addEventListener("click", event => {
+                    toggleMod();
+                });
+            })
             $("#pageInfo").html(`${activePage} of ${pageCount}`);
         }
     });
@@ -430,7 +376,7 @@ window.nx.addEventListener("message", (e) => {
     var info = JSON.parse(e.data);
     if (!("mod_size" in info))
         return;
-    
+
     modSize = info["mod_size"];
 });
 
@@ -464,15 +410,51 @@ window.addEventListener("DOMContentLoaded", (e) => {
             }
         });
 
-        // Listen to the keydown event and prevent the default
+        // Listen to the keydown event and prevent the
+        // default
         window.addEventListener('keydown', function(e) {
-            if (currentState != SUB_MENU) {
-                e.preventDefault();
+            if (e.keyCode == UP) {
+                var target = document.querySelector("#mods>button.is-focused").previousElementSibling;
+                if (target == undefined) {
+                    move(document.querySelector("#mods>button.is-focused"), undefined);
+                    prevPage();
+                    target = document.querySelector("#mods>button:last-child");
+                    target.focus();
+                }
+            } else if (e.keyCode == DOWN) {
+                var target = document.querySelector("#mods>button.is-focused").nextElementSibling;
+
+                if (target == undefined) {
+                    move(document.querySelector("#mods>button.is-focused"), undefined);
+                    nextPage();
+                    target = document.querySelector("#mods>button:first-child");
+                    target.focus();
+                }
             }
         });
 
-        window.nx.footer.setAssign("B", "", () => {});
-        window.nx.footer.setAssign("X", "", () => {});
+        window.nx.footer.setAssign("B", "", () => {
+            if (currentState == SUB_MENU) {
+                showModMenu();
+            } else {
+                exit();
+            }
+        });
+        window.nx.footer.setAssign("Y", "", () => {
+            if (currentState == MOD_MENU) {
+                showSubMenu();
+            }
+        });
+        window.nx.footer.setAssign("L", "", () => {
+            if (currentState == MOD_MENU) {
+                prevPage();
+            }
+        });
+        window.nx.footer.setAssign("R", "", () => {
+            if (currentState == MOD_MENU) {
+                nextPage();
+            }
+        });
         window.nx.sendMessage(JSON.stringify("GetModSize"));
     }
 });
