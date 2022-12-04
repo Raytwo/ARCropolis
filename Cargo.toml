@@ -65,7 +65,8 @@ ninput = { git = "https://github.com/blu-dev/ninput" }
 
 [patch.crates-io]
 nnsdk = { git = "https://github.com/Raytwo/nnsdk-rs", branch="account_fs" }
-native-tls = { git = "https://github.com/skyline-rs/rust-native-tls", branch="switch" }
+# Specifying latest commit because git only doesn't use latest changes
+native-tls = { git = "https://github.com/skyline-rs/rust-native-tls", rev = "f202fca"  }
 
 [features]
 default = ["online"]
