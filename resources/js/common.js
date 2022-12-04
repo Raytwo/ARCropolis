@@ -1,3 +1,5 @@
+const UP = 38;
+const DOWN = 40;
 var isNx = (typeof window.nx !== 'undefined');
 
 // Example of checkGamepad Function
