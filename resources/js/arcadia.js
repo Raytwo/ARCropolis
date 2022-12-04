@@ -433,6 +433,7 @@ window.addEventListener("DOMContentLoaded", (e) => {
             }
         });
 
+        window.nx.footer.setAssign("X", "", () => {});
         window.nx.footer.setAssign("B", "", () => {
             if (currentState == SUB_MENU) {
                 showModMenu();

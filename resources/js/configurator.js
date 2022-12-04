@@ -37,6 +37,9 @@ window.addEventListener("DOMContentLoaded", (e) => {
         document.getElementById(e.data).classList.toggle("hidden");
     });
 
+    window.nx.footer.setAssign("X", "", () => {});
+    window.nx.footer.setAssign("Y", "", () => {});
+
     // Code to handle this session wasn't made to detect a closure by button
     window.nx.footer.setAssign("B", "", () => {
         if (getCurrentActiveContainer().attr("id") != "workspaces") {

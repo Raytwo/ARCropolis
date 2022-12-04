@@ -14,7 +14,7 @@
             font-family: Arial, Helvetica, sans-serif;
             min-height: 100%;
         }
-
+        
         .header {
             padding: 10px 40px;
             background: url(/img/common/da1f9e6….svg) repeat top left/auto;
@@ -28,55 +28,55 @@
             width: 100%;
             box-shadow: 0 0 10px rgb(0 0 0 / 80%);
         }
-
+        
         .header-title {
             padding: 10px 10px 10px 20px;
         }
-
+        
         .header .header-title {
             border-left: 8px solid yellow;
         }
-
+        
         .header-title h1,
         .header-title p {
             margin: 0;
             padding: 0;
             line-height: 1.5;
         }
-
+        
         .header-title p {
             color: #959595;
             font-weight: bold;
         }
-
+        
         .container {
             margin: 0 auto;
             width: 1280px;
             box-sizing: border-box;
             padding: 150px 40px 0 40px;
         }
-
+        
         .preview img {
             width: 100%;
         }
-
+        
         .preview-text {
             margin: 0;
             font-size: 1.3rem;
             font-weight: bold;
             margin-left: 20px;
         }
-
+        
         .section {
             position: relative;
         }
-
-        .section-header{
+        
+        .section-header {
             position: relative;
             margin: 0 0 20px 0;
             line-height: 40px;
         }
-
+        
         .section-header>div::before {
             content: '';
             width: 8px;
@@ -87,7 +87,7 @@
             left: 0;
             z-index: 1;
         }
-
+        
         .section-header>div {
             padding: 0px 20px;
             background-color: #959595;
@@ -99,7 +99,7 @@
             max-width: 100%;
             white-space: nowrap;
         }
-
+        
         .section-header>div::after {
             content: '';
             width: 0;
@@ -111,7 +111,7 @@
             top: 0;
             right: -20px;
         }
-
+        
         .section-header::after {
             content: '';
             width: 100%;
@@ -120,31 +120,209 @@
             bottom: 0;
             position: absolute;
         }
-
-        .section>div{
+        
+        .section>div {
             font-size: 1.3rem;
             padding: 0 0 10px 10px;
             font-weight: bold;
         }
-
-        li{
+        
+        li {
             line-height: 2;
             font-size: 1.2rem;
             font-weight: bold;
         }
-
-        .footer{
+        
+        .footer {
             width: 100%;
             border-top: 2px solid black;
         }
-
-        .footer>p{
+        
+        .footer>p {
             color: #505050;
             font-weight: bold;
             margin: 0;
             padding: 40px 60px;
             line-height: 1.4;
             word-wrap: break-word;
+        }
+        
+        .btn {
+            background-color: transparent;
+            color: #BFBDBC;
+            transition: 0.2s;
+            padding: 3px;
+            border: none;
+            margin: 2px;
+        }
+        
+        @keyframes cursor-anim {
+            0% {
+                background-position: 200% 0%;
+            }
+            100% {
+                background-position: 0% 0%;
+            }
+        }
+        
+        .btn:focus,
+        .btn:hover {
+            background: linear-gradient(90deg, rgb(255, 109, 0) 0%, rgb(255, 255, 0) 65%, rgb(255, 109, 0) 70%);
+            background-size: 200% 1px;
+            animation: cursor-anim 650ms linear infinite normal;
+            border-color: transparent;
+        }
+        
+        .btn>div {
+            display: table-cell;
+            vertical-align: middle;
+            text-align: center;
+            border: 3px solid transparent;
+            background-color: #A5A39D;
+            width: 250px;
+            height: 70px;
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: #BFBDBC;
+            transition: 0.2s;
+        }
+        
+        .btn:focus>div,
+        .btn:hover>div {
+            border: 3px solid black;
+            background-color: orange;
+            color: white;
+            text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+        }
+        
+        .contributors-holder {
+            display: flex;
+            -ms-flex-wrap: wrap;
+            flex-wrap: wrap;
+            overflow: hidden;
+            min-height: 140px;
+            margin-right: 10px;
+        }
+        
+        .contributors-holder .contributor {
+            font-size: 1.8rem;
+            line-height: 1.6;
+            background-color: #F2EEE6;
+            box-sizing: border-box;
+            display: -ms-flexbox;
+            display: flex;
+            -ms-flex-align: center;
+            align-items: center;
+            position: relative;
+            width: calc( ( 100% - 75px) / 2);
+            margin: 10px;
+        }
+        
+        .contributors-holder .contributor-image {
+            margin: 0;
+            -ms-flex-negative: 0;
+            flex-shrink: 0;
+            -ms-flex-item-align: stretch;
+            -ms-grid-row-align: stretch;
+            align-self: stretch;
+            background-color: rgba(0, 0, 0, 0.1);
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: cover;
+            width: 140px;
+        }
+        
+        .contributor-detail {
+            list-style: none;
+            padding: 15px;
+            font-weight: normal;
+            min-height: 100px;
+            word-break: break-all;
+        }
+        
+        .contributor-detail>li {
+            font-weight: normal;
+            line-height: 1.4 !important;
+            font-size: 1rem;
+        }
+        
+        .contributor-name {
+            font-weight: bold !important;
+            font-size: 1.8rem !important;
+        }
+        /* 
+        Code below was generated with http://csscheckbox.com/ and modified to fit Smash's Style
+        */
+        
+        .css-checkbox {
+            position: absolute;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            height: 1px;
+            width: 1px;
+            margin: -1px;
+            padding: 5px;
+            border: 0;
+            transition: 0.2s;
+        }
+        
+        .css-checkbox+label {
+            position: relative;
+            font-size: 14px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            height: 26px;
+            color: rgb(0, 0, 0);
+        }
+        
+        .css-checkbox+label::before {
+            content: " ";
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 3px;
+            width: 18px;
+            height: 18px;
+            background-color: #9B9E9F;
+            border-width: 4px;
+            border-style: solid;
+            border-color: transparent;
+            border-radius: 2px;
+            box-shadow: none;
+        }
+        /* Fix this stuff since switch browser doesn't support :before and :after */
+        
+        .css-checkbox+label:focus::before,
+        .css-checkbox+label:hover::before {
+            border: 4px solid #E1E3E7;
+        }
+        
+        .css-checkbox+label:focus::after,
+        .css-checkbox+label:hover::after {
+            border: 4px solid #E1E3E7;
+            height: 18px !important;
+            width: 18px !important;
+        }
+        
+        .css-checkbox:checked+label::after {
+            content: " ";
+            background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjZmZmZmZmIiBkPSJNMTczLjg5OCA0MzkuNDA0bC0xNjYuNC0xNjYuNGMtOS45OTctOS45OTctOS45OTctMjYuMjA2IDAtMzYuMjA0bDM2LjIwMy0zNi4yMDRjOS45OTctOS45OTggMjYuMjA3LTkuOTk4IDM2LjIwNCAwTDE5MiAzMTIuNjkgNDMyLjA5NSA3Mi41OTZjOS45OTctOS45OTcgMjYuMjA3LTkuOTk3IDM2LjIwNCAwbDM2LjIwMyAzNi4yMDRjOS45OTcgOS45OTcgOS45OTcgMjYuMjA2IDAgMzYuMjA0bC0yOTQuNCAyOTQuNDAxYy05Ljk5OCA5Ljk5Ny0yNi4yMDcgOS45OTctMzYuMjA0LS4wMDF6Ii8+PC9zdmc+");
+            background-repeat: no-repeat;
+            background-size: 10px 10px;
+            background-position: center center;
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-left: 0px;
+            left: 0px;
+            top: 0px;
+            text-align: center;
+            background-color: transparent;
+            font-size: 10px;
+            height: 26px;
+            width: 26px;
+            background-color: rgb(252, 135, 2);
         }
     </style>
 </head>
@@ -188,20 +366,84 @@
                 </div>
             </div>
         {{/entries}} -->
-        
+
         {{entries}}
+
+        <!-- <div class="section">
+            <h2 class="section-header">
+                <div>Contributors</div>
+            </h2>
+            <div>
+                <ul class="contributors-holder">
+                    <li class="contributor">
+                        <div class="contributor-image" style="background-image: url('https://avatars.githubusercontent.com/u/18125485');"></div>
+                        <ul class="contributor-detail">
+                            <li class="contributor-name">Test</li>
+                            <li class="contributor-twitter">Twitter: @coolsonickirby2</li>
+                            <li class="contributor-blog">Blog: https://coolsonickirby.com/blog</li>
+                            <li class="contributor-bio">Aspiring Game Developer.</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div> -->
     </div>
+
+
+    <table style="text-align: center; width: 100%;">
+        <tr>
+            <td style="text-align: right; width: 50%;">
+                <button class="btn" onclick="submitChoice(true)">
+                    <div>
+                        Update
+                    </div>
+                </button>
+            </td>
+            <td style="text-align: left; width: 50%;">
+                <button class="btn" onclick="submitChoice(false)">
+                    <div>
+                        Later
+                    </div>
+                </button>
+            </td>
+        </tr>
+        <!-- <tr>
+            <td colspan="2">
+                <input type="checkbox" id="prompt" class="css-checkbox" onclick="submitPromptState(this.checked)">
+                <label for="prompt">Don't Ask Again</label>
+            </td>
+        </tr> -->
+    </table>
     <br>
     <br>
 
     <div class="footer">
         <p>
-            ARCropolis, a modding framework for Super Smash Bros. Ultimate<br>
-            Maintainer(s): Raytwo, Blujay, Coolsonickirby, jozz<br>
-            Special thanks: Shadów, jam1garner, Genwald, Styley<br>
-            URL: http://www.arcropolis.com
+            ARCropolis, a modding framework for Super Smash Bros. Ultimate
+            <br> Maintainer(s): Raytwo, Blujay, Coolsonickirby, jozz
+            <br> Special thanks: Shadów, jam1garner, Genwald, Styley
+            <br> URL: http://www.arcropolis.com
         </p>
     </div>
+
+    <script>
+        function submitChoice(state) {
+            window.nx.sendMessage(JSON.stringify({
+                "UpdateState": {
+                    "state": state
+                }
+            }));
+            window.nx.sendMessage(JSON.stringify("Closure"));
+        }
+
+        function submitPromptState(state) {
+            window.nx.sendMessage(JSON.stringify({
+                "Prompt": {
+                    "state": state
+                }
+            }));
+        }
+    </script>
 
 </body>
 
