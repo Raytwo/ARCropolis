@@ -4,8 +4,8 @@ version = "3.12.0"
 authors = ["Raytwo <raytwo@arcropolis.com>, blujay <the.blu.dev@gmail.com>, jam1garner <jam@jam1.re>, CoolSonicKirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
-# [package.metadata.skyline]
-# titleid = "01006A800016E000"
+[package.metadata.skyline]
+titleid = "01006A800016E000"
 # package-resources = [
 #     { local = "changelog.toml", package = "ultimate/arcropolis/changelog.toml" }
 # ]
