@@ -90,18 +90,16 @@ impl Contributor {
     fn get_contributor_image(&self) -> Vec<u8> {
         match &self.avatar_url {
             Some(url) => {
-                println!("{}", url);
                 match minreq::get(url)
                     .with_header("Accept", "application/vnd.github.v3+json")
                     .with_header("User-Agent", "ARCropolis")
                     .send() {
                         Ok(resp) => {
-                            println!("Success!");
                             resp.as_bytes()
                                 .to_vec()
                         },
                         Err(err) => {
-                            println!("{:?}", err);
+                            println!("Failed getting contributor avatar! Reason: {:?}", err);
                             vec![]
                         },
                     }

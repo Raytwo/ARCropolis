@@ -93,7 +93,8 @@ where
             let day = &split[2][..2];
             format!("{}/{}/{}", month, day, year)
         };
-        if !f(release.get_release_tag().trim_start_matches('v'), date, &release.data["body"].to_string()) {
+        let header_text = format!("{} ({})", release.get_release_tag().trim_start_matches('v'), &release.data["title"].to_string());
+        if !f(header_text, date, &release.data["body"].to_string()) {
             return
         }
         if let Some(release) = release.get_asset_by_name("release.zip") {
