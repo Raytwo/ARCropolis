@@ -250,7 +250,12 @@ fn initial_loading(_ctx: &InlineCtx) {
 
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
     #[cfg(feature = "online")]
-    check_for_update();
+    let _updater = std::thread::Builder::new()
+            .stack_size(0x10000)
+            .spawn(|| {
+                check_for_update();
+            })
+            .unwrap();
 
     // Commented out until we get an actual news server
     // #[cfg(feature = "online")]
@@ -283,6 +288,9 @@ fn initial_loading(_ctx: &InlineCtx) {
     drop(filesystem);
     fuse::mods::install_mod_fs();
     api::event::send_event(Event::ModFilesystemMounted);
+
+    #[cfg(feature = "online")]
+    _updater.join().unwrap();
 }
 
 #[skyline::hook(offset = offsets::title_screen_version())]
