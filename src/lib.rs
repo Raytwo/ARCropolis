@@ -469,7 +469,7 @@ pub fn main() {
         .unwrap();
 
     skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof);
-
+    prepo::install();
     // If we skip the title scene, we obviously skip the opening cutscene with it. Well, actually not necessarily but in this case we do.
     if config::skip_title_scene() {
         skyline::install_hooks!(title_scene_play_opening, title_scene_show_how_to_play_fake_state_index);
