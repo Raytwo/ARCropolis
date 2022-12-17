@@ -14,6 +14,7 @@ titleid = "01006A800016E000"
 crate-type = ["cdylib"]
 
 [dependencies]
+rmpv = { version = "1.0.0", features = ["with-serde"] }
 semver = { version = "1", features = ["serde"] }
 num-derive = "0.3.3"
 num-traits = "0.2"

@@ -34,6 +34,7 @@ mod hashes;
 mod logging;
 mod menus;
 mod offsets;
+mod prepo;
 mod replacement;
 mod resource;
 #[cfg(feature = "online")]
