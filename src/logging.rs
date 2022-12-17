@@ -13,7 +13,7 @@ use parking_lot::Mutex;
 use crate::config;
 
 /// Since we can't rely on most time based libraries, this is a seconds -> date/time string based on the `chrono` crates implementation
-fn format_time_string(seconds: u64) -> String {
+pub fn format_time_string(seconds: u64) -> String {
     let leapyear = |year| -> bool { year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) };
 
     static YEAR_TABLE: [[u64; 12]; 2] = [[31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31], [
