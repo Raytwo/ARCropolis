@@ -29,7 +29,9 @@ fn prepo_save(prepo: &PlayReport, uid: &nn::account::Uid) {
 
         let file_path = format!("sd:/ultimate/arcropolis/prepo/{}-{}.json", event_id, logging::format_time_string(seconds.as_secs()));
 
-        std::fs::write(file_path, json_data);
+        if !event_id.starts_with("sum_") {
+            std::fs::write(file_path, json_data);
+        }
     }
     call_original!(dbg!(prepo), uid);
 }
