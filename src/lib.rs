@@ -246,6 +246,20 @@ fn check_for_update(){
 
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
+    let mut test_log = nnsdk::prepo::PlayReport::newWithEventID("arc_test".to_string());
+    //let test2 = test_log.SetEventId("arc_test".to_string());
+    //test_log.AddString("jozz".to_string(), "jozz".to_string());
+    let test1 = test_log.AddDouble("lol".to_string(), 420.69);
+    dbg!(test1);
+    // This provides a UserHandle and sets the User in a Open state to be used.
+    let handle = nnsdk::account::try_open_preselected_user().expect("OpenPreselectedUser should not return false");
+    // Obtain the UID for this user
+    let uid = nnsdk::account::get_user_id(&handle).expect("GetUserId should return a valid Uid");
+    let test3 = test_log.GetCount();
+    let test4 = test_log.SaveWithUserId(&uid);
+
+    dbg!(test1, test3, test4);
+    nnsdk::account::close_user(handle);
     // #[cfg(feature = "online")]
     // check_for_changelog();
 
@@ -468,8 +482,9 @@ pub fn main() {
         })
         .unwrap();
 
-    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof);
     prepo::install();
+
+    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof);
     // If we skip the title scene, we obviously skip the opening cutscene with it. Well, actually not necessarily but in this case we do.
     if config::skip_title_scene() {
         skyline::install_hooks!(title_scene_play_opening, title_scene_show_how_to_play_fake_state_index);

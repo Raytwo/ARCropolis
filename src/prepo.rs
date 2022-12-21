@@ -1,17 +1,10 @@
+
 use super::logging;
 use std::{time::SystemTime, path::PathBuf, fs::DirEntry};
-use skyline::nn;
+use nnsdk::prepo::PlayReport;
+use nnsdk as nn;
 
-#[repr(C)]
-#[derive(Debug)]
-pub struct PlayReport {
-    pub event_id: [u8;32],
-    pub buffer: *const u8,
-    pub size: usize,
-    pub position: usize
-}
-
-#[skyline::hook(offset = 0x39C4980)]
+#[skyline::hook(replace = nn::prepo::PlayReport_SaveWithUserId)]
 fn prepo_save(prepo: &PlayReport, uid: &nn::account::Uid) {
     skyline::logging::hex_dump_ptr(prepo as *const PlayReport);
     let event_id = unsafe { skyline::from_c_str(prepo.event_id.as_ptr()) };
@@ -32,6 +25,7 @@ fn prepo_save(prepo: &PlayReport, uid: &nn::account::Uid) {
         std::fs::write(file_path, json_data).unwrap();
     }
     if !event_id.starts_with("arc_") {
+        dbg!(event_id);
         call_original!(dbg!(prepo), uid);
     }
 }
