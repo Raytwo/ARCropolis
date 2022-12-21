@@ -246,20 +246,18 @@ fn check_for_update(){
 
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
-    let mut test_log = nnsdk::prepo::PlayReport::newWithEventID("arc_test".to_string());
-    //let test2 = test_log.SetEventId("arc_test".to_string());
-    //test_log.AddString("jozz".to_string(), "jozz".to_string());
-    let test1 = test_log.AddDouble("lol".to_string(), 420.69);
-    dbg!(test1);
-    // This provides a UserHandle and sets the User in a Open state to be used.
-    let handle = nnsdk::account::try_open_preselected_user().expect("OpenPreselectedUser should not return false");
-    // Obtain the UID for this user
-    let uid = nnsdk::account::get_user_id(&handle).expect("GetUserId should return a valid Uid");
-    let test3 = test_log.GetCount();
-    let test4 = test_log.SaveWithUserId(&uid);
+    // Create an instance of the PlayReport class
+    let mut test_log = nnsdk::prepo::PlayReport::new_with_event_id("arc_test");
 
-    dbg!(test1, test3, test4);
-    nnsdk::account::close_user(handle);
+    // Adds an item to the log, in this case a double, with the value of `420.69`
+    test_log.add_double("lol", 420.69);
+
+    // The `get_count` method gets the total amount of items in the log
+    let log_count = test_log.get_count(); // == 1
+
+    // Saves the log with the current user's user ID
+    test_log.save_for_current_user();
+
     // #[cfg(feature = "online")]
     // check_for_changelog();
 
@@ -421,6 +419,7 @@ pub fn main() {
         return;
     }
 
+    prepo::install();
     // Initialize the time for the logger
     init_time();
     // Required to mount the savedata ourselves
@@ -482,7 +481,6 @@ pub fn main() {
         })
         .unwrap();
 
-    prepo::install();
 
     skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof);
     // If we skip the title scene, we obviously skip the opening cutscene with it. Well, actually not necessarily but in this case we do.
