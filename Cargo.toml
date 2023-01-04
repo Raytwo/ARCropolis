@@ -53,6 +53,7 @@ prcx = { git = "https://github.com/blu-dev/prcx", branch = "xml-style" }
 xml-rs = "0.8"
 serde-xml-rs = "0.6"
 msbt = { git = "https://github.com/RoccoDev/msbt-rs", branch = "feature/builder-from-impl" }
+base64 = "0.20.0"
 # For patch3audio
 nus3audio = "1.2.0"
 # For motion list patching

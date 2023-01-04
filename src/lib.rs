@@ -220,6 +220,7 @@ fn check_input_on_boot() {
     }
 }
 
+#[cfg(feature = "online")]
 fn check_for_update(){
     // Changed to pre because prerelease doesn't compile
     if !semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
