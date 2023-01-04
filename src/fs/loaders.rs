@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, iter::FromIterator};
+use std::collections::VecDeque;
 
 use ::hash40::diff::Diff;
 use msbt::{builder::MsbtBuilder, Msbt};
@@ -217,9 +217,9 @@ impl ApiLoadType {
                 let mut msbt = Msbt::from_reader(std::io::Cursor::new(&data)).unwrap();
 
                 for lbl in msbt.lbl1_mut().unwrap().labels_mut() {
-                    if labels.contains_key(&lbl.name().to_owned()) {
-                        let text_data;
-                        match &labels[&lbl.name().to_owned()] {
+                    let lbl_name = &lbl.name().to_owned();
+                    if labels.contains_key(lbl_name) {
+                        let text_data = match &labels[lbl_name] {
                             TextType::Text(text) => {
                                 let mut str_val: Vec<u16> = text.encode_utf16().collect();
                                 str_val.push(0);
@@ -231,21 +231,20 @@ impl ApiLoadType {
                                     )
                                 };
 
-                                text_data = slice_u8;
+                                slice_u8
                             },
-                            TextType::Data(data) => text_data = &data,
-                        }
+                            TextType::Data(data) => &data,
+                        };
 
                         lbl.set_value_raw(text_data).unwrap();
-                        labels.remove(&lbl.name().to_owned());
+                        labels.remove(lbl_name);
                     }
                 }
 
                 let mut builder = MsbtBuilder::from(msbt);
 
                 for lbl in labels {
-                    let text_data;
-                    match &lbl.1 {
+                    let text_data = match &lbl.1 {
                         TextType::Text(text) => {
                             let mut str_val: Vec<u16> = text
                                     .encode_utf16()
@@ -259,10 +258,10 @@ impl ApiLoadType {
                                     )
                                 };
 
-                                text_data = slice_u8;
+                                slice_u8
                         },
-                        TextType::Data(data) => text_data = &data,
-                    }
+                        TextType::Data(data) => &data,
+                    };
 
                     builder = builder.add_label(lbl.0, text_data);
                 }
