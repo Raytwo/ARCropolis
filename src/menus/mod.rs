@@ -4,7 +4,9 @@ pub mod workspaces;
 pub use workspaces::*;
 pub mod config;
 pub use config::*;
+#[cfg(feature = "online")]
 pub mod changelog;
+#[cfg(feature = "online")]
 pub use changelog::*;
 pub mod files;
 pub use files::*;

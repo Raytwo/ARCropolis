@@ -10,7 +10,7 @@ use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearch
 use crate::{
     hashes,
     replacement::FileInfoFlagsExt,
-    resource::{CppVector, LoadedData, LoadedDirectory, LoadedFilepath},
+    resource::{LoadedData, LoadedDirectory, LoadedFilepath},
     PathExtension,
 };
 

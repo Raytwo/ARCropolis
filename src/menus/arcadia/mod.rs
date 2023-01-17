@@ -1,7 +1,7 @@
 // #![feature(proc_macro_hygiene)]
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashSet,
     path::Path,
 };
 
@@ -41,7 +41,8 @@ pub enum ArcadiaMessage {
 
 pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
     let mut id: u32 = 0;
-    std::fs::read_dir(&utils::paths::mods())
+    let use_folder_name = config::use_folder_name();
+    std::fs::read_dir(utils::paths::mods())
         .unwrap()
         .enumerate()
         .filter_map(|(_i, path)| {
@@ -67,12 +68,16 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                 ..Default::default()
             };
 
-            let mod_info = match toml::from_str::<Entry>(&std::fs::read_to_string(&info_path).unwrap_or_default()) {
+            let mod_info = match toml::from_str::<Entry>(&std::fs::read_to_string(info_path).unwrap_or_default()) {
                 Ok(res) => {
                     Entry {
                         id: Some(id),
                         folder_name: Some(folder_name.clone()),
-                        display_name: res.display_name.or(Some(folder_name)),
+                        display_name: if use_folder_name {
+                                            Some(folder_name)
+                                      } else {
+                                            res.display_name.or(Some(folder_name))
+                                      },
                         authors: res.authors.or_else(|| Some(String::from("???"))),
                         is_disabled: Some(disabled),
                         version: res.version.or_else(|| Some(String::from("???"))),
@@ -87,7 +92,7 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                     }
                 },
                 Err(e) => {
-                    skyline_web::DialogOk::ok(&format!("The following info.toml is not valid: \n\n* '{}'\n\nError: {}", folder_name, e,));
+                    skyline_web::DialogOk::ok(format!("The following info.toml is not valid: \n\n* '{}'\n\nError: {}", folder_name, e,));
                     default_entry
                 },
             };
@@ -106,13 +111,9 @@ pub fn show_arcadia(workspace: Option<String>) {
         skyline_web::DialogOk::ok("It seems the directory specified in your configuration does not exist.");
         return
     }
+    let workspace_name: String = workspace.unwrap_or_else(|| config::workspaces::get_active_workspace_name().unwrap_or_else(|_| String::from("Default")));
 
-    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
-    let workspace_name: String = workspace.unwrap_or_else(|| storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string()));
-    let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
-    let preset_name = &workspace_list[&workspace_name];
-
-    let presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
+    let presets = config::presets::get_preset(&workspace_name).unwrap();
     let mut new_presets = presets.clone();
 
     let mods: Information = Information {
@@ -132,11 +133,11 @@ pub fn show_arcadia(workspace: Option<String>) {
 
     let img_cache = "sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/img";
 
-    if std::fs::metadata(&img_cache).is_ok() {
-        let _ = std::fs::remove_dir_all(&img_cache).map_err(|err| error!("Error occured in ARCadia-rs when trying to delete cache: {}", err));
+    if std::fs::metadata(img_cache).is_ok() {
+        let _ = std::fs::remove_dir_all(img_cache).map_err(|err| error!("Error occured in ARCadia-rs when trying to delete cache: {}", err));
     };
 
-    std::fs::create_dir_all(&img_cache).unwrap();
+    std::fs::create_dir_all(img_cache).unwrap();
 
     println!("Opening ARCadia...");
 
@@ -215,12 +216,8 @@ pub fn show_arcadia(workspace: Option<String>) {
         }
     }
 
-    let active_workspace: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
-
-    storage.set_field_json(&preset_name, &new_presets).unwrap();
-    storage.flush();
-
-    drop(storage);
+    let active_workspace = config::workspaces::get_active_workspace_name().unwrap();
+    config::presets::replace_preset(&workspace_name, &new_presets).unwrap();
 
     if new_presets != presets {
         // Acquire the filesystem so we can check if it's already finished or not (for boot-time mod manager)

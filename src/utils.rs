@@ -55,10 +55,10 @@ pub mod paths {
     use super::env::get_game_version;
 
     pub fn ensure_paths_exist() -> io::Result<()> {
-        std::fs::create_dir_all(&mods())?;
-        std::fs::create_dir_all(&config())?;
-        std::fs::create_dir_all(&logs())?;
-        std::fs::create_dir_all(&cache())?;
+        std::fs::create_dir_all(mods())?;
+        std::fs::create_dir_all(config())?;
+        std::fs::create_dir_all(logs())?;
+        std::fs::create_dir_all(cache())?;
         Ok(())
     }
 

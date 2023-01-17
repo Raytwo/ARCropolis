@@ -39,51 +39,57 @@
         <div class="scrollbar">
             <div class="flex-container">
                 <button onclick="changeDivFromTo('workspaces', 'logging', '0')" class="flex-item">
-                        <div class="icon-background"></div>
-                        <div class="item-container">
-                            <h2>Logging level</h2>
-                        </div>
-                    </button>
+                    <div class="icon-background"></div>
+                    <div class="item-container">
+                        <h2>Logging level</h2>
+                    </div>
+                </button>
                 <button onclick="submit(`beta`, `true`)" class="flex-item">
-                        <div class="icon-background"><img id="beta" class="abstract-icon is-appear hidden" src="check.svg" /></div>
-                        <div class="item-container">
-                            <h2>Beta updates</h2>
-                        </div>
-                    </button>
+                    <div class="icon-background"><img id="beta" class="abstract-icon is-appear hidden"
+                            src="check.svg" /></div>
+                    <div class="item-container">
+                        <h2>Beta updates</h2>
+                    </div>
+                </button>
                 <button onclick="submit(`discovery`, `true`)" class="flex-item">
-                        <div class="icon-background"><img id="legacy_discovery" class="abstract-icon is-appear hidden" src="check.svg" /></div>
-                        <div class="item-container">
-                            <h2>Use legacy mod discovery system</h2>
-                        </div>
-                    </button>
+                    <div class="icon-background"><img id="legacy_discovery" class="abstract-icon is-appear hidden"
+                            src="check.svg" /></div>
+                    <div class="item-container">
+                        <h2>Use legacy mod discovery system</h2>
+                    </div>
+                </button>
                 <button onclick="submit(`log_to_file`, `true`)" class="flex-item">
-                        <div class="icon-background"><img id="log_to_file" class="abstract-icon is-appear hidden" src="check.svg" /></div>
-                        <div class="item-container">
-                            <h2>Log to file</h2>
-                        </div>
-                    </button>
+                    <div class="icon-background"><img id="log_to_file" class="abstract-icon is-appear hidden"
+                            src="check.svg" /></div>
+                    <div class="item-container">
+                        <h2>Log to file</h2>
+                    </div>
+                </button>
                 <button onclick="submit(`auto_update`, `true`)" class="flex-item">
-                        <div class="icon-background"><img id="auto_update" class="abstract-icon is-appear hidden" src="check.svg" /></div>
-                        <div class="item-container">
-                            <h2>Check for update on boot</h2>
-                        </div>
-                    </button>
+                    <div class="icon-background"><img id="auto_update" class="abstract-icon is-appear hidden"
+                            src="check.svg" /></div>
+                    <div class="item-container">
+                        <h2>Check for update on boot</h2>
+                    </div>
+                </button>
                 <button onclick="submit(`skip_cutscene`, `true`)" class="flex-item">
-                        <div class="icon-background"><img id="skip_cutscene" class="abstract-icon is-appear hidden" src="check.svg" /></div>
-                        <div class="item-container">
-                            <h2>Skip Smash Ultimate's opening movie</h2>
-                        </div>
-                    </button>
+                    <div class="icon-background"><img id="skip_cutscene" class="abstract-icon is-appear hidden"
+                            src="check.svg" /></div>
+                    <div class="item-container">
+                        <h2>Skip Smash Ultimate's opening movie</h2>
+                    </div>
+                </button>
                 <button onclick="submit(`skip_title_scene`, `true`)" class="flex-item">
-                        <div class="icon-background"><img id="skip_title_scene" class="abstract-icon is-appear hidden" src="check.svg" /></div>
+                    <div class="icon-background"><img id="skip_title_scene" class="abstract-icon is-appear hidden"
+                            src="check.svg" /></div>
+                    <div class="item-container">
+                        <h2>Skip Smash Ultimate's opening movie and Title Screen</h2>
+                    </div>
+                    <button onclick="submit(`use_folder_name`, `true`)" class="flex-item" id="test">
+                        <div class="icon-background"><img id="use_folder_name" class="abstract-icon is-appear hidden"
+                                src="check.svg" /></div>
                         <div class="item-container">
-                            <h2>Skip Smash Ultimate's opening movie and Title Screen</h2>
-                        </div>
-                    </button>
-                <button onclick="submit(`exit`, `true`)" class="flex-item">
-                        <div class="icon-background"></div>
-                        <div class="item-container">
-                            <h2>Close</h2>
+                            <h2>Use the folder name for the mod manager</h2>
                         </div>
                     </button>
             </div>
@@ -93,49 +99,48 @@
     <div class="main" id="logging">
         <div class="scrollbar">
             <div class="flex-container">
-                <button onclick="changeDivFromTo('logging', 'workspaces', `0`)" class="flex-item">
-                        <div class="icon-background"></div>
-                        <div class="item-container">
-                            <h2>Go back</h2>
-                        </div>
-                    </button>
-
                 <button onclick="submit(`log`, `Trace`)" class="flex-item">
-                        <div class="icon-background"><img id="Trace" class="abstract-icon is-appear hidden" src="check.svg" /></div>
-                        <div class="item-container">
-                            <h2>Trace</h2>
-                        </div>
-                    </button>
+                    <div class="icon-background"><img id="Trace" class="abstract-icon is-appear hidden"
+                            src="check.svg" /></div>
+                    <div class="item-container">
+                        <h2>Trace</h2>
+                    </div>
+                </button>
                 <button onclick="submit(`log`, `Debug`)" class="flex-item">
-                        <div class="icon-background"><img id="Debug" class="abstract-icon is-appear hidden" src="check.svg" /></div>
-                        <div class="item-container">
-                            <h2>Debug</h2>
-                        </div>
-                    </button>
+                    <div class="icon-background"><img id="Debug" class="abstract-icon is-appear hidden"
+                            src="check.svg" /></div>
+                    <div class="item-container">
+                        <h2>Debug</h2>
+                    </div>
+                </button>
                 <button onclick="submit(`log`, `Info`)" class="flex-item">
-                        <div class="icon-background"><img id="Info" class="abstract-icon is-appear hidden" src="check.svg" /></div>
-                        <div class="item-container">
-                            <h2>Info</h2>
-                        </div>
-                    </button>
+                    <div class="icon-background"><img id="Info" class="abstract-icon is-appear hidden"
+                            src="check.svg" /></div>
+                    <div class="item-container">
+                        <h2>Info</h2>
+                    </div>
+                </button>
                 <button onclick="submit(`log`, `Warn`)" class="flex-item">
-                        <div class="icon-background"><img id="Warn" class="abstract-icon is-appear hidden" src="check.svg" /></div>
-                        <div class="item-container">
-                            <h2>Warning</h2>
-                        </div>
-                    </button>
+                    <div class="icon-background"><img id="Warn" class="abstract-icon is-appear hidden"
+                            src="check.svg" /></div>
+                    <div class="item-container">
+                        <h2>Warning</h2>
+                    </div>
+                </button>
                 <button onclick="submit(`log`, `Error`)" class="flex-item">
-                        <div class="icon-background"><img id="Error" class="abstract-icon is-appear hidden" src="check.svg" /></div>
-                        <div class="item-container">
-                            <h2>Error</h2>
-                        </div>
-                    </button>
+                    <div class="icon-background"><img id="Error" class="abstract-icon is-appear hidden"
+                            src="check.svg" /></div>
+                    <div class="item-container">
+                        <h2>Error</h2>
+                    </div>
+                </button>
                 <button onclick="submit(`log`, `Off`)" class="flex-item">
-                        <div class="icon-background"><img id="Off" class="abstract-icon is-appear hidden" src="check.svg" /></div>
-                        <div class="item-container">
-                            <h2>Off</h2>
-                        </div>
-                    </button>
+                    <div class="icon-background"><img id="Off" class="abstract-icon is-appear hidden" src="check.svg" />
+                    </div>
+                    <div class="item-container">
+                        <h2>Off</h2>
+                    </div>
+                </button>
             </div>
         </div>
     </div>

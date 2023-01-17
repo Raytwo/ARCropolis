@@ -52,8 +52,10 @@ pub fn show_workspaces() {
     while let Ok(message) = session.recv_json::<WorkspacesMessage>() {
         match message {
             WorkspacesMessage::Create { name } => {
-                workspace_list.insert(name.clone(), format!("{}_preset{}", name, workspace_list.len() + 1));
+                let preset_name = format!("{}_preset{}", name, workspace_list.len() + 1);
+                workspace_list.insert(name.clone(), preset_name.clone());
                 storage.set_field_json("workspace_list", &workspace_list).unwrap_or_default();
+                storage.set_field_json(&preset_name, &HashSet::<Hash40>::new()).unwrap();
             },
             WorkspacesMessage::SetActive { name } => {
                 active_workspace = name.clone();

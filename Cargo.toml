@@ -1,14 +1,14 @@
 [package]
 name = "arcropolis"
-version = "3.10.1"
+version = "3.13.0"
 authors = ["Raytwo <raytwo@arcropolis.com>, blujay <the.blu.dev@gmail.com>, jam1garner <jam@jam1.re>, CoolSonicKirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
 [package.metadata.skyline]
 titleid = "01006A800016E000"
-package-resources = [
-    { local = "changelog.toml", package = "ultimate/arcropolis/changelog.toml" }
-]
+# package-resources = [
+#     { local = "changelog.toml", package = "ultimate/arcropolis/changelog.toml" }
+# ]
 
 [lib]
 crate-type = ["cdylib"]
@@ -53,6 +53,7 @@ prcx = { git = "https://github.com/blu-dev/prcx", branch = "xml-style" }
 xml-rs = "0.8"
 serde-xml-rs = "0.6"
 msbt = { git = "https://github.com/RoccoDev/msbt-rs", branch = "feature/builder-from-impl" }
+base64 = "0.20.0"
 # For patch3audio
 nus3audio = "1.2.0"
 # For motion list patching
@@ -65,7 +66,8 @@ ninput = { git = "https://github.com/blu-dev/ninput" }
 
 [patch.crates-io]
 nnsdk = { git = "https://github.com/Raytwo/nnsdk-rs", branch="account_fs" }
-native-tls = { git = "https://github.com/skyline-rs/rust-native-tls", branch="switch" }
+# Specifying latest commit because git only doesn't use latest changes
+native-tls = { git = "https://github.com/skyline-rs/rust-native-tls", rev = "f202fca"  }
 
 [features]
 default = ["online"]

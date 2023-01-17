@@ -4,6 +4,7 @@ use std::{
     sync::Mutex,
 };
 
+use arc_config::Config;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use semver::Version;
@@ -128,6 +129,18 @@ pub fn legacy_discovery() -> bool {
     GLOBAL_CONFIG.lock().unwrap().get_flag("legacy_discovery")
 }
 
+pub fn use_folder_name() -> bool {
+    GLOBAL_CONFIG.lock().unwrap().get_flag("use_folder_name")
+}
+
+pub fn set_mod_cache(cache: &HashSet<Hash40>) -> Result<(), ConfigError> {
+    GLOBAL_CONFIG.lock().unwrap().set_field_json("mod_cache", &cache)
+}
+
+pub fn get_mod_cache() -> Result<HashSet<Hash40>, ConfigError> {
+    GLOBAL_CONFIG.lock().unwrap().get_field_json("mod_cache")
+}
+
 pub mod workspaces {
     use super::*;
     use std::collections::HashMap;
@@ -174,15 +187,19 @@ pub mod workspaces {
         }
     }
 
+    pub fn get_active_workspace_name() -> Result<String, WorkspaceError> {
+        GLOBAL_CONFIG.lock().unwrap().get_field("workspace").map_err(WorkspaceError::ConfigError)
+    }
+
     pub fn get_active_workspace() -> Result<String, WorkspaceError> {
         let workspace_list = get_list()?;
         let workspace_name: String = GLOBAL_CONFIG.lock().unwrap().get_field("workspace")?;
         workspace_list.get(&workspace_name).map(|x| x.to_owned()).ok_or(WorkspaceError::MissingWorkspace(workspace_name))
     }
 
-    fn get_workspace_by_name(name: String) -> Result<String, WorkspaceError> {
+    pub fn get_workspace_by_name(name: &str) -> Result<String, WorkspaceError> {
         let workspace_list = get_list()?;
-        workspace_list.get(&name).map(|x| x.to_owned()).ok_or(WorkspaceError::MissingWorkspace(name))
+        workspace_list.get(name).map(|x| x.to_owned()).ok_or(WorkspaceError::MissingWorkspace(name.to_string()))
     }
 
     pub fn rename_workspace(from: &str, to: &str) -> Result<(), WorkspaceError> {
@@ -201,7 +218,6 @@ pub mod presets {
     use super::*;
     use std::collections::HashSet;
 
-    use once_cell::sync::Lazy;
     use skyline_config::ConfigError;
     use smash_arc::Hash40;
     use thiserror::Error;
@@ -223,6 +239,16 @@ pub mod presets {
     pub fn get_active_preset() -> Result<HashSet<Hash40>, PresetError> {
         let preset_name = workspaces::get_active_workspace()?;
         GLOBAL_CONFIG.lock().unwrap().get_field_json(preset_name).map_err(PresetError::ConfigError)
+    }
+
+    pub fn get_preset(workspace_name: &str) -> Result<HashSet<Hash40>, PresetError> {
+        let preset_name = workspaces::get_workspace_by_name(workspace_name)?;
+        GLOBAL_CONFIG.lock().unwrap().get_field_json(preset_name).map_err(PresetError::ConfigError)
+    }
+
+    pub fn replace_preset(workspace_name: &str, preset: &HashSet<Hash40>) -> Result<(), PresetError> {
+        let preset_name = workspaces::get_workspace_by_name(workspace_name)?;
+        GLOBAL_CONFIG.lock().unwrap().set_field_json(preset_name, preset).map_err(PresetError::ConfigError)
     }
 
     pub fn replace_active_preset(preset: &HashSet<Hash40>) -> Result<(), PresetError> {

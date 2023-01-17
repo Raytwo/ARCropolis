@@ -65,12 +65,12 @@ fn install_lazy_loading_patches(){
     #[repr(C)]
     struct ParameterDatabaseTable {
         pub unk1: [u8; 360],
-        pub Character: *const u64 // ParamaterDatabase
+        pub character: *const u64 // ParamaterDatabase
     }
 
     impl ParametersCache {
         pub unsafe fn get_chara_db(&self) -> *const u64 {
-            (*(self.databases)).Character
+            (*(self.databases)).character
         }
     }
 
@@ -168,7 +168,7 @@ fn install_lazy_loading_patches(){
     }
 
     #[hook(offset = CSS_SET_SELECTED_CHARARACTER_UI_OFFSET)]
-    pub unsafe fn css_set_selected_chararacter_ui(
+    pub unsafe fn css_set_selected_character_ui(
         param_1: *const u64,
         chara_hash_1: u64,
         chara_hash_2: u64,
@@ -201,8 +201,8 @@ fn install_lazy_loading_patches(){
     // Prevent the game from loading all chara_1 colors at once for all characters
     Patch::in_text(LOAD_CHARA_1_FOR_ALL_COSTUMES_OFFSET).nop().expect("Failed to patch chara_1 load");
     
-    // Install the hooks for everything nessecary to properly load the chara_1s
-    install_hooks!(original_load_chara_1_ui_for_all_colors, css_set_selected_chararacter_ui, load_stock_icon_for_portrait_menu, chara_select_scene_destructor);
+    // Install the hooks for everything necessary to properly load the chara_1s
+    install_hooks!(original_load_chara_1_ui_for_all_colors, css_set_selected_character_ui, load_stock_icon_for_portrait_menu, chara_select_scene_destructor);
 }
 
 // Patch to allow running uncompiled lua scripts

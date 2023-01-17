@@ -20,6 +20,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let mods_path = utils::paths::mods();
 
     let legacy_discovery = config::legacy_discovery();
+
     let mut presets = crate::config::presets::get_active_preset().unwrap();
 
     // Emulators can't use presets, so don't run this logic
@@ -27,10 +28,9 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         if std::path::PathBuf::from("rom:/arc").exists() {
             skyline_web::DialogOk::ok("Support for mods stored in `sd:/atmosphere/contents/01006A800016E000/romfs/arc/` has been deprecated<br/>Please consider reworking your modpack to use the newer methods<br/><br/>This message will keep displaying until the directory is removed");
         }
-
-        let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
+        
         // Get the mod cache from last run
-        let mod_cache: HashSet<Hash40> = storage.get_field_json("mod_cache").unwrap_or_default();
+        let mod_cache: HashSet<Hash40> = config::get_mod_cache().unwrap_or_default();
 
         // Inspect the list of mods to see if some are new ones
         let new_cache: HashSet<Hash40> = std::fs::read_dir(&mods_path)
@@ -46,13 +46,6 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             })
             .collect();
 
-        // Get the workspace name and workspace list
-        let workspace_name: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
-        let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
-
-        // Get the preset name from the workspace list
-        let preset_name = &workspace_list[&workspace_name];
-        // let mut presets: HashSet<Hash40> = storage.get_field_json(preset_name).unwrap_or_default();
         let new_mods: HashSet<&Hash40> = new_cache
             .iter()
             .filter(|cached_mod| !mod_cache.contains(cached_mod) && !presets.contains(cached_mod))
@@ -63,11 +56,11 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             // Add the new mods to the presets file
             presets.extend(new_mods);
             // Save it back
-            storage.set_field_json(preset_name, &presets).unwrap();
+            config::presets::replace_active_preset(&presets).unwrap();
         }
 
         // No matter what, the cache has to be updated
-        storage.set_field_json("mod_cache", &new_cache).unwrap();
+        config::set_mod_cache(&new_cache).unwrap();
     }
 
     #[cfg(feature = "online")]
@@ -211,7 +204,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             Ok(json) => {
                 match std::fs::write("sd:/ultimate/arcropolis/conflicts.json", json.as_bytes()) {
                     Ok(_) => {
-                        crate::dialog_error("Please check sd:/ultimate/arcropolis/conflicts.json for all of the file conflicts.");
+                        crate::dialog_error("Conflict file created at sd:/ultimate/arcropolis/conflicts.json. Please open this file in a text editor to preview what mods are conflicting with one another and take the necessary changes to resolve them by either reslotting or removing these mods.");
                         false
                     },
                     Err(e) => {

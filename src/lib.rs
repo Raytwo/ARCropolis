@@ -220,19 +220,48 @@ fn check_input_on_boot() {
     }
 }
 
+#[cfg(feature = "online")]
+fn check_for_update(){
+    // Changed to pre because prerelease doesn't compile
+    if !semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
+        update::check_for_updates(config::beta_updates(), |_, _, _| true);
+    }
+
+    if config::auto_update_enabled() {
+        update::check_for_updates(config::beta_updates(), |update_kind, date, description| {
+            let (contributors, entries) = menus::get_entries_from_md(description);
+            let main_entry = menus::MainEntry {
+                title: format!("ARCropolis update: Ver. {}", update_kind),
+                date,
+                description: "A new version of ARCropolis was detected!<br/>Please read the following changelog.".to_string(),
+                entries,
+                contributors
+            };
+
+            menus::display_update_page(&main_entry)
+            // skyline_web::Dialog::no_yes(format!("{} has been detected. Do you want to install it?", update_kind))
+        });
+    }
+}
+
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
-    #[cfg(feature = "online")]
-    check_for_changelog();
+    // #[cfg(feature = "online")]
+    // check_for_changelog();
 
+    // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
     #[cfg(feature = "online")]
-    check_input_on_boot();
+    let _updater = std::thread::Builder::new()
+            .stack_size(0x10000)
+            .spawn(|| {
+                check_for_update();
+            })
+            .unwrap();
 
     // Commented out until we get an actual news server
     // #[cfg(feature = "online")]
     // get_news_data();
 
-    // menus::show_arcadia();
     let arc = resource::arc();
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
@@ -260,6 +289,9 @@ fn initial_loading(_ctx: &InlineCtx) {
     drop(filesystem);
     fuse::mods::install_mod_fs();
     api::event::send_event(Event::ModFilesystemMounted);
+
+    #[cfg(feature = "online")]
+    _updater.join().unwrap();
 }
 
 #[skyline::hook(offset = offsets::title_screen_version())]
@@ -435,26 +467,6 @@ pub fn main() {
             replacement::lookup::initialize(None);
         })
         .unwrap();
-
-    // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
-    #[cfg(feature = "online")]
-    {
-        let _updater = std::thread::Builder::new()
-            .stack_size(0x10000)
-            .spawn(|| {
-                // Changed to pre because prerelease doesn't compile
-                if !semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
-                    update::check_for_updates(config::beta_updates(), |_| true);
-                }
-
-                if config::auto_update_enabled() {
-                    update::check_for_updates(config::beta_updates(), |update_kind| {
-                        skyline_web::Dialog::no_yes(format!("{} has been detected. Do you want to install it?", update_kind))
-                    });
-                }
-            })
-            .unwrap();
-    }
 
     skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof);
 

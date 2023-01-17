@@ -37,7 +37,8 @@ fn compare_tags(current: &str, target: &str) -> Result<Option<VersionDifference>
 
 pub fn check_for_updates<F>(beta_enabled: bool, f: F)
 where
-    F: Fn(VersionDifference) -> bool,
+    // Version, Date, and Description
+    F: Fn(&str, String, &String) -> bool,
 {
     let release = ReleaseFinderConfig::new("ARCropolis")
         .with_author("Raytwo")
@@ -84,7 +85,16 @@ where
     };
 
     if let Some(update_kind) = version_difference {
-        if !f(update_kind) {
+        let date = {
+            let published_at = &release.data["published_at"].to_string();
+            let split = published_at.split("-").collect::<Vec<&str>>();
+            let year = &split[0][1..];
+            let month = split[1];
+            let day = &split[2][..2];
+            format!("{}/{}/{}", month, day, year)
+        };
+        let header_text = format!("{} ({})", release.get_release_tag().trim_start_matches('v'), &release.data["name"].to_string().trim_matches('\"'));
+        if !f(&header_text, date, &release.data["body"].to_string()) {
             return
         }
         if let Some(release) = release.get_asset_by_name("release.zip") {

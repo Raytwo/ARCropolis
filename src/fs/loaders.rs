@@ -3,7 +3,6 @@ use std::collections::VecDeque;
 use ::hash40::diff::Diff;
 use msbt::{builder::MsbtBuilder, Msbt};
 use nus3audio::*;
-use motion_lib::*;
 use serde::*;
 use serde_xml_rs;
 use serde_yaml::from_str;
@@ -22,6 +21,7 @@ pub struct Xmsbt {
 #[derive(Deserialize, Debug)]
 pub struct Entry {
     label: String,
+    base64: Option<bool>,
     #[serde(rename = "text")]
     text: Text,
 }
@@ -30,6 +30,11 @@ pub struct Entry {
 pub struct Text {
     #[serde(rename = "$value")]
     value: String,
+}
+
+pub enum TextType {
+    Text(String),
+    Data(Vec<u8>)
 }
 
 #[derive(Error, Debug)]
@@ -162,7 +167,7 @@ impl ApiLoadType {
                     return Err(ApiLoaderError::Other("No patches found for file in MSBT patch!".to_string()));
                 };
 
-                let mut labels: HashMap<String, String> = HashMap::new();
+                let mut labels: HashMap<String, TextType> = HashMap::new();
 
                 for patch_path in patches.iter() {
                     let data = &std::fs::read(patch_path).unwrap()[2..];
@@ -191,7 +196,19 @@ impl ApiLoadType {
                     };
 
                     for entry in &xmsbt.entries {
-                        labels.insert(entry.label.to_owned(), entry.text.value.to_owned());
+                        if entry.base64.unwrap_or(false) {
+                            match base64::decode::<String>(entry.text.value.to_owned()) {
+                                Ok(mut decoded) => {
+                                    // Pushing these 0s to ensure that the end of the text is marked clearly
+                                    decoded.push(0);
+                                    decoded.push(0);
+                                    labels.insert(entry.label.to_owned(), TextType::Data(decoded));
+                                },
+                                Err(err) => error!("XMSBT Label {} could not be base64 decoded. Reason: {}", entry.label, err),
+                            }
+                        } else {
+                            labels.insert(entry.label.to_owned(), TextType::Text(entry.text.value.to_owned()));
+                        }
                     }
                 }
 
@@ -200,37 +217,53 @@ impl ApiLoadType {
                 let mut msbt = Msbt::from_reader(std::io::Cursor::new(&data)).unwrap();
 
                 for lbl in msbt.lbl1_mut().unwrap().labels_mut() {
-                    if labels.contains_key(&lbl.name().to_owned()) {
-                        let mut str_val: Vec<u16> = labels[&lbl.name().to_owned()].encode_utf16().collect();
-                        str_val.push(0);
+                    let lbl_name = &lbl.name().to_owned();
+                    if labels.contains_key(lbl_name) {
+                        let text_data = match &labels[lbl_name] {
+                            TextType::Text(text) => {
+                                let mut str_val: Vec<u16> = text.encode_utf16().collect();
+                                str_val.push(0);
+        
+                                let slice_u8: &[u8] = unsafe {
+                                    std::slice::from_raw_parts(
+                                        str_val.as_ptr() as *const u8,
+                                        str_val.len() * std::mem::size_of::<u16>(),
+                                    )
+                                };
 
-                        let slice_u8: &[u8] = unsafe {
-                            std::slice::from_raw_parts(
-                                str_val.as_ptr() as *const u8,
-                                str_val.len() * std::mem::size_of::<u16>(),
-                            )
+                                slice_u8
+                            },
+                            TextType::Data(data) => &data,
                         };
 
-                        lbl.set_value_raw(slice_u8).unwrap();
-                        labels.remove(&lbl.name().to_owned());
+                        lbl.set_value_raw(text_data).unwrap();
+                        labels.remove(lbl_name);
                     }
                 }
 
                 let mut builder = MsbtBuilder::from(msbt);
 
                 for lbl in labels {
-                    let mut str_val: Vec<u16> = lbl.1
-                            .encode_utf16()
-                            .collect();
-                        str_val.push(0);
+                    let text_data = match &lbl.1 {
+                        TextType::Text(text) => {
+                            let mut str_val: Vec<u16> = text
+                                    .encode_utf16()
+                                    .collect();
+                                str_val.push(0);
+        
+                                let slice_u8: &[u8] = unsafe {
+                                    std::slice::from_raw_parts(
+                                        str_val.as_ptr() as *const u8,
+                                        str_val.len() * std::mem::size_of::<u16>(),
+                                    )
+                                };
 
-                        let slice_u8: &[u8] = unsafe {
-                            std::slice::from_raw_parts(
-                                str_val.as_ptr() as *const u8,
-                                str_val.len() * std::mem::size_of::<u16>(),
-                            )
-                        };
-                    builder = builder.add_label(lbl.0, slice_u8);
+                                slice_u8
+                        },
+                        TextType::Data(data) => &data,
+                    };
+
+                    builder = builder.add_label(lbl.0, text_data);
                 }
 
                 let out_msbt = builder.build();
@@ -342,14 +375,14 @@ impl ApiLoadType {
                 let mut bgm_property = BgmPropertyFile::read_from_bytes(&data[..]).unwrap();
 
                 for file_path in patches.iter() {
-                    let mut modified_file = BgmPropertyFile::open(file_path.as_path()).unwrap();
+                    let modified_file = BgmPropertyFile::open(file_path.as_path()).unwrap();
                     for entry in modified_file.entries() {
                         bgm_property.0.append(&mut vec![entry.to_owned()]);
                     }
                 }
                 let new_data : Vec<u8> = Vec::new();
                 let mut cursor = std::io::Cursor::new(new_data);
-                bgm_property.write(&mut cursor);
+                bgm_property.write(&mut cursor).unwrap();
                 let vec = cursor.into_inner();
                 Ok((vec.len(), vec))
             },
