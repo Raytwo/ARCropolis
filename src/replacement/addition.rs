@@ -105,7 +105,7 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
     } else if let Some(file_path_idx) = ctx.added_files.get(&shared_to) {
         let info_index = ctx.filepaths[usize::from(*file_path_idx)].path.index() as usize;
         let info_idx = ctx.file_info_indices[info_index].file_info_index;
-        ctx.get_shared_info_index(info_idx).0
+        ctx.file_infos[usize::from(info_idx)].file_info_indice_index.0
     } else {
         error!(
             "Failed to find file '{}' ({:#x}) when attempting to share file to it.",
