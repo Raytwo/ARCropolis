@@ -393,10 +393,10 @@ pub fn main() {
             },
         };
 
-        let err_msg = format!("SSBU Arcropolis has panicked at '{}', {}", msg, location);
+        let err_msg = format!("Arcropolis has panicked at '{}', {}", msg, location);
         skyline::error::show_error(
             69,
-            "SSBU Arcropolis has panicked! Please open the details and send a screenshot to the developer, then close the game.\n\0",
+            "Arcropolis has panicked! Please open the details and send a screenshot to the developer, then close the game.\n\0",
             err_msg.as_str(),
         );
     }));
