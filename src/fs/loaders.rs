@@ -368,6 +368,7 @@ impl ApiLoadType {
                     let mut last_read = None;
 
                     for full_patch in yml_patches.iter() {
+                        println!("[ARCropolis::loader] Replacing motion_list.bin with {}.", full_patch.to_str().unwrap());
                         last_read = Some(full_patch.clone());
                         let mut contents: String = String::default();
                         std::fs::File::open(full_patch)?.read_to_string(&mut contents)?;
@@ -378,17 +379,9 @@ impl ApiLoadType {
                     }
     
                     if full_patches > 1 {
-                        let mut dialogue : String = "Multiple motion_list.yml files found for ".to_owned();
                         let local_path = local.to_str().unwrap();
-                        dialogue.push_str(local.to_str().unwrap());
-                        dialogue.push_str(
-                            ".
-                            Using equivalent file from "
-                        );
-                        let used_path = last_read.unwrap().to_str().unwrap().replace("motion_list.yml", "motion_list.bin").replace(local_path, "");
-                        dialogue.push_str(used_path.as_str());
-                        dialogue.push_str(".");
-                        skyline_web::DialogOk::ok(dialogue);
+                        println!("[ARCropolis::loader] Multiple motion_list.yml files found for {}.", local.to_str().unwrap());
+                        println!("                     The last applied .yml file will be used.");
                     }
                 }
 
