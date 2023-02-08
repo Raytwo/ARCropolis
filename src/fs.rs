@@ -133,7 +133,8 @@ impl CachedFilesystem {
         let mut set = HashSet::new();
         for (root, path) in launchpad.collected_paths().iter() {
             // The collected paths gives us everything so we only want these extensions
-            if path.has_extension("motdiff") {
+            if path.has_extension("motdiff")
+            || path.ends_with("motion_list.yml") {
                 if let Some(hash) = utils::add_motionlist_patch(api_tree, root, path) {
                     set.insert(hash);
                 }

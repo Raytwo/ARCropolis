@@ -341,19 +341,60 @@ impl ApiLoadType {
                     return Err(ApiLoaderError::Other("No patches found for file in motion list patch!".to_string()));
                 };
 
+                let mut yml_patches = Vec::new();
+                let mut diff_patches = Vec::new();
+
+                for x in patches.iter() {
+                    if x.has_extension("motdiff") {
+                        diff_patches.push(x.clone());
+                    }
+                    else if x.ends_with("motion_list.yml") {
+                        yml_patches.push(x.clone());
+                    }
+                    else {
+                        return Err(ApiLoaderError::Other("This isn't a motion list patch file!".to_string()));
+                    }
+                }
+
                 let data = ApiLoader::handle_load_base_file(local)?;
                 let mut reader = std::io::Cursor::new(data);
 
                 let mut motion = motion_lib::read_stream(&mut reader)?;
 
-                for patch_path in patches.iter() {
-                    let mut contents: String = String::default();
-                    std::fs::File::open(patch_path)?.read_to_string(&mut contents)?;
-                    if let Some(diff) = from_str(&contents)? {
-                        motion.apply(&diff);
+                if !yml_patches.is_empty() {
+                    println!("[ARCropolis::loader] motion_list.yml file(s) found!");
+                    let mut full_patches = 0;
+
+                    let mut last_read = None;
+
+                    for full_patch in yml_patches.iter() {
+                        println!("[ARCropolis::loader] Replacing motion_list.bin with {}.", full_patch.to_str().unwrap());
+                        last_read = Some(full_patch.clone());
+                        let mut contents: String = String::default();
+                        std::fs::File::open(full_patch)?.read_to_string(&mut contents)?;
+                        if let Some(full) = from_str(&contents)? {
+                            motion = full;
+                            full_patches += 1;
+                        }
                     }
-                    else {
-                        return Err(ApiLoaderError::Other("This isn't a motion list patch file!".to_string()));
+    
+                    if full_patches > 1 {
+                        let local_path = local.to_str().unwrap();
+                        println!("[ARCropolis::loader] Multiple motion_list.yml files found for {}.", local.to_str().unwrap());
+                        println!("                     The last applied .yml file will be used.");
+                    }
+                }
+
+                if !diff_patches.is_empty() {
+                    for patch_path in diff_patches.iter() {
+                        let mut contents: String = String::default();
+                        std::fs::File::open(patch_path)?.read_to_string(&mut contents)?;
+                        if let Some(diff) = from_str(&contents)? {
+                            motion.apply(&diff);
+                        }
+                        else {
+                            return Err(ApiLoaderError::Other("This isn't a motion list patch file!".to_string()));
+                        }
                     }
                 }
                 println!("[ARCropolis::loader] Motion List Patching finished, writing to file...");

@@ -317,6 +317,6 @@ pub fn add_bgm_property_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<Ap
             }
         }
     }
-    error!("Could not add file {} to API tree. Reason: This is not a motion_list.bin file.", full_path.display());
+    error!("Could not add file {} to API tree. Reason: This is not a bgm_property.bin file.", full_path.display());
     None
 }
