@@ -16,42 +16,60 @@ fn install_inkling_patches(){
         *ctx.registers[24].w.as_mut() = res;
     }
 
-    // Inkling Patches here nop some branches so it can work with more than
-    // 8 players
+    // Inkling Patches here nop some branches so it can work with more than c08+
     Patch::in_text(INKLING_1_PATCH).nop().expect("Failed to patch inkling 1 cmp");
     Patch::in_text(INKLING_2_PATCH).nop().expect("Failed to patch inkling 1 b.cs");
     
     install_hooks!(clear_ink_patch);
 }
 
-// Patches to get Aegis c08+ working + some issues reported with some other characters
+/* 
+Patches for:
+            - Aegis c08+ working
+            - Some issues reported with some other characters
+            - Crashes in Classic Mode with colors greater than c08+
+*/
 fn install_added_color_patches(){
 
     // Install inkling patches here since they're related to added color issues
     install_inkling_patches();
 
-    // Offsets and Instructions that need to be patched in array so we don't repeat
-    // same code over and over.
-    // Format: (offset, instruction)
+    static SET_GLOBAL_COLOR_FOR_CLASSIC_MODE: usize = 0x23d94dc;
+
+    #[hook(offset = SET_GLOBAL_COLOR_FOR_CLASSIC_MODE, inline)]
+    pub unsafe fn set_global_color_for_classic_mode(ctx: &mut InlineCtx){
+        *(ctx.registers[9].w.as_mut()) = *(ctx.registers[9].w.as_ref()) % 8;
+    }
+
+    skyline::install_hook!(set_global_color_for_classic_mode);
+
+    /*
+      Offsets and Instructions that need to be patched in array so we don't repeat
+      same code with minor changes over and over.
+      Format: (offset, instruction)
+    */
     static ADDED_COLOR_PATCHES: &[(usize, u32)] = &[
         (0x1834b0c, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
         (0x18347bc, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
-        (0x1834b28, 0xF104011F), // cmp x8, #256 (Issue related to Aegis)
+        (0x1834b28, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
         (0x1834ef8, 0xF10402FF), // cmp x23, #256 (Issue related to Aegis)
-        (0x183538c, 0xF104011F), // cmp x8, #256 (Issue related to Aegis)
+        (0x183538c, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
         (0x1835ae4, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
-        (0x1835e00, 0xF104013F), // cmp x9, #256 (Issue related to Aegis)
-        (0x1a1c2f0, 0xF104011F), // cmp x8, #256 (Issue related to Aegis)
-        (0x1a1c334, 0xF104011F), // cmp x8, #256 (Issue related to Aegis)
-        (0x14de340, 0x7104013F), // cmp w9, #256 (Issue related to Terry)
+        (0x1835e00, 0xF104013F), // cmp  x9, #256 (Issue related to Aegis)
+        (0x1a1c2f0, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
+        (0x1a1c334, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
+        (0x14de340, 0x7104013F), // cmp  w9, #256 (Issue related to Terry)
         (0x14e1410, 0x710402FF), // cmp w23, #256 (Issue related to Terry)
-        (0x14e159c, 0x7104011F), // cmp w8, #256 (Issue related to Terry)
+        (0x14e159c, 0x7104011F), // cmp  w8, #256 (Issue related to Terry)
     ];
 
     for entry in ADDED_COLOR_PATCHES {
         let (offset, value) = entry;
         Patch::in_text(*offset).data(*value).expect(&format!("Failed to run Aegis Patch! Offset: {:#x} - Data: {:#x}", offset, value));
     }
+
+
+
 }
 
 fn install_lazy_loading_patches(){
@@ -94,9 +112,11 @@ fn install_lazy_loading_patches(){
     #[from_offset(LOAD_UI_FILE_OFFSET)]
     pub fn load_ui_file(param_1: *const u64, ui_path_hash: *const u64, unk1: u64, unk2: u64);
     
-    // This function is the function that takes the ui_chara_hash, color_slot, and
-    // the type of UI to load and converts them to a hash40 that represents the path
-    // it needs to load
+    /*
+      This function is the function that takes the ui_chara_hash, color_slot, and
+      the type of UI to load and converts them to a hash40 that represents the path
+      it needs to load
+    */
     #[from_offset(GET_UI_CHARA_PATH_FROM_HASH_COLOR_AND_TYPE_OFFSET)]
     pub fn get_ui_chara_path_from_hash_color_and_type(ui_chara_hash: u64, color_slot: u32, ui_type: u32) -> u64;
     
@@ -110,16 +130,17 @@ fn install_lazy_loading_patches(){
     
     #[hook(offset = LOAD_CHARA_1_FOR_ALL_COSTUMES_OFFSET, inline)]
     pub unsafe fn original_load_chara_1_ui_for_all_colors(ctx: &mut InlineCtx){
-        // Save the first and fourth paramater for reference when we load the
-        // file ourselves
+        // Save the first and fourth paramater for reference when we load the file ourselves
         PARAM_1 = *ctx.registers[0].x.as_ref();
         PARAM_4 = *ctx.registers[3].x.as_ref();
     }
     
     #[hook(offset = LOAD_STOCK_ICON_FOR_PORTRAIT_MENU_OFFSET, inline)]
     pub unsafe fn load_stock_icon_for_portrait_menu(ctx: &mut InlineCtx){
-        // If both of these params are valid, then most likely we're in the
-        // CharaSelectMenu, which means we should be pretty safe loading the CSPs
+        /*
+          If both of these params are valid, then most likely we're in the
+          CharaSelectMenu, which means we should be pretty safe loading the CSPs
+        */
         if PARAM_1 != 0 && PARAM_4 != 0 {
             let ui_chara_hash = *ctx.registers[1].x.as_ref();
             let color = *ctx.registers[2].w.as_ref();
@@ -129,8 +150,10 @@ fn install_lazy_loading_patches(){
     }
     
     pub unsafe fn load_chara_1_for_ui_chara_hash_and_num(ui_chara_hash: u64, color: u32){
-        // If we have the first and fourth param in our cache, then we're in the
-        // character select screen and can load the files manually
+        /*
+          If we have the first and fourth param in our cache, then we're in the
+          character select screen and can load the files manually
+        */
         if PARAM_1 != 0 && PARAM_4 != 0 {
             // Get the color_num for smooth loading between different CSPs
             // Get the character database for the color num function
@@ -139,8 +162,10 @@ fn install_lazy_loading_patches(){
             let path = get_ui_chara_path_from_hash_color_and_type(ui_chara_hash, color, 1);
             load_ui_file(PARAM_1 as *const u64, &path, 0, PARAM_4);
     
-            // Set next color to 0 if it's going to end up past the max, else just be
-            // the current color + 1
+            /*
+              Set next color to 0 if it's going to end up past the max, else just be
+              the current color + 1
+            */
             let next_color = {
                 let mut res = color + 1;
                 if res >= max_color {
@@ -149,8 +174,10 @@ fn install_lazy_loading_patches(){
                 res
             };
     
-            // Set the previous color to max_color - 1 (so 8 - 1 = 7) if it's gonna be
-            // the u32::MAX (aka underflowed to max), else just be the current color - 1
+            /*
+              Set the previous color to max_color - 1 (so 8 - 1 = 7) if it's gonna be
+              the u32::MAX (aka underflowed to max), else just be the current color - 1
+            */
             let prev_color = {
                 let mut res = color - 1;
                 if res == u32::MAX {
@@ -192,8 +219,7 @@ fn install_lazy_loading_patches(){
         call_original!(param_1);
     }
 
-    // Gets the PARAMATERS_CACHE address so we can get the character database
-    // later
+    // Gets the PARAMATERS_CACHE address so we can get the character database later
     unsafe {
         PARAMATERS_CACHE = offset_to_addr(PARAMATERS_CACHE_OFFSET) as *const u64;
     }
