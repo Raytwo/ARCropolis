@@ -64,6 +64,8 @@ fn install_added_color_patches(){
         (0x14e1410, 0x710402FF), // cmp w23, #256 (Issue related to Terry)
         (0x14e159c, 0x7104011F), // cmp  w8, #256 (Issue related to Terry)
 
+        (0x1a55584, 0x52800020), // mov  w0, #1   (Issue related to Tourney Mode Crash)
+        (0x1a556b4, 0xF104011F), // cmp  x8, #256 (Issue related to Tourney Mode Crash)
         (0x1a54f74, 0x7104015F), // cmp w10, #256 (Issue related to Tourney Mode Crash)
         (0x1a5500c, 0x7104001F), // cmp  w0, #256 (Issue related to Tourney Mode Crash)
         (0x1a55038, 0xF104001F), // cmp  x0, #256 (Issue related to Tourney Mode Crash)
