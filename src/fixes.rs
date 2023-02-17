@@ -28,6 +28,7 @@ Patches for:
             - Aegis c08+ working
             - Some issues reported with some other characters
             - Crashes in Classic Mode with colors greater than c08+
+            - Crashes in Tourney Mode when selecting a c08+ color
 */
 fn install_added_color_patches(){
 
@@ -58,18 +59,22 @@ fn install_added_color_patches(){
         (0x1835e00, 0xF104013F), // cmp  x9, #256 (Issue related to Aegis)
         (0x1a1c2f0, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
         (0x1a1c334, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
+        
         (0x14de340, 0x7104013F), // cmp  w9, #256 (Issue related to Terry)
         (0x14e1410, 0x710402FF), // cmp w23, #256 (Issue related to Terry)
         (0x14e159c, 0x7104011F), // cmp  w8, #256 (Issue related to Terry)
+
+        (0x1a54f74, 0x7104015F), // cmp w10, #256 (Issue related to Tourney Mode Crash)
+        (0x1a5500c, 0x7104001F), // cmp  w0, #256 (Issue related to Tourney Mode Crash)
+        (0x1a55038, 0xF104001F), // cmp  x0, #256 (Issue related to Tourney Mode Crash)
+        (0x1a54fa0, 0xF104001F), // cmp  x0, #256 (Issue related to Tourney Mode Crash)
+        (0x1a54fd4, 0x7104017F), // cmp w11, #256 (Issue related to Tourney Mode Crash)
     ];
 
     for entry in ADDED_COLOR_PATCHES {
         let (offset, value) = entry;
         Patch::in_text(*offset).data(*value).expect(&format!("Failed to run Aegis Patch! Offset: {:#x} - Data: {:#x}", offset, value));
     }
-
-
-
 }
 
 fn install_lazy_loading_patches(){
