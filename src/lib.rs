@@ -6,6 +6,7 @@
 #![allow(unaligned_references)]
 #![feature(string_remove_matches)]
 // #![feature(fs_try_exists)]
+#![feature(let_else)]
 
 use std::{
     collections::HashMap,
