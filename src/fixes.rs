@@ -93,14 +93,10 @@ fn install_lazy_loading_patches(){
             (*(self.databases)).character
         }
     }
-
-    // All offsets related to lazy loading
-    static PARAMATERS_CACHE_OFFSET: usize = 0x532d730; // ask ray about this later
     
     // Cache of variables we reuse later for loading UI + getting the character database
     static mut PARAM_1: u64 = 0x0;
     static mut PARAM_4: u64 = 0x0;
-    static mut PARAMATERS_CACHE: *const u64 = 0x0 as *const u64;
     
     // This function is what's responsible for loading the UI File.
     #[from_offset(offsets::load_ui_file())]
@@ -151,7 +147,7 @@ fn install_lazy_loading_patches(){
         if PARAM_1 != 0 && PARAM_4 != 0 {
             // Get the color_num for smooth loading between different CSPs
             // Get the character database for the color num function
-            let max_color: u32 = get_color_num_from_hash((*(*PARAMATERS_CACHE as *const ParametersCache)).get_chara_db() as u64, ui_chara_hash) as u32;
+            let max_color: u32 = get_color_num_from_hash((*(*(offsets::offset_to_addr(offsets::paramaters_cache()) as *const u64) as *const ParametersCache)).get_chara_db() as u64, ui_chara_hash) as u32;
     
             let path = get_ui_chara_path_from_hash_color_and_type(ui_chara_hash, color, 1);
             load_ui_file(PARAM_1 as *const u64, &path, 0, PARAM_4);
@@ -197,7 +193,7 @@ fn install_lazy_loading_patches(){
         unk1: u32,
         unk2: u32,
     ){
-        let echo = get_ui_chara_echo((*(*PARAMATERS_CACHE as *const ParametersCache)).get_chara_db() as u64, chara_hash_1);
+        let echo = get_ui_chara_echo((*(*(offsets::offset_to_addr(offsets::paramaters_cache()) as *const u64) as *const ParametersCache)).get_chara_db() as u64, chara_hash_1);
         load_chara_1_for_ui_chara_hash_and_num(chara_hash_1, color);
         load_chara_1_for_ui_chara_hash_and_num(echo, color);
         call_original!(param_1, chara_hash_1, chara_hash_2, color, unk1, unk2);
@@ -211,11 +207,6 @@ fn install_lazy_loading_patches(){
         PARAM_1 = 0;
         PARAM_4 = 0;
         call_original!(param_1);
-    }
-
-    // Gets the PARAMATERS_CACHE address so we can get the character database later
-    unsafe {
-        PARAMATERS_CACHE = offsets::offset_to_addr(PARAMATERS_CACHE_OFFSET) as *const u64;
     }
 
     // Prevent the game from loading all chara_1 colors at once for all characters
