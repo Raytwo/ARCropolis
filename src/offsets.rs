@@ -299,8 +299,18 @@ impl Offsets {
         let chara_select_scene_destructor = get_offset(text, CHARA_SELECT_SCENE_DESTRUCTOR_SEARCH_CODE);
 
 
-        let filesystem_info = 0;
-        let res_service = 0;
+        let filesystem_info = {
+            let adrp = get_offset(text, FILESYSTEM_INFO_ADRP_SEARCH_CODE);
+            let adrp_offset = offset_from_adrp(adrp);
+            let ldr_offset = offset_from_ldr(adrp + 4);
+            adrp_offset + ldr_offset
+        };
+        let res_service = {
+            let adrp = get_offset(text, RES_SERVICE_ADRP_SEARCH_CODE);
+            let adrp_offset = offset_from_adrp(adrp);
+            let ldr_offset = offset_from_ldr(adrp + 4);
+            adrp_offset + ldr_offset
+        };
 
         Some(Self {
             lookup_stream_hash,
