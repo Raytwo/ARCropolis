@@ -321,7 +321,7 @@ fn change_version_string(arg: u64, string: *const c_char) {
 // #[skyline::from_offset(0x336d890)]
 // pub fn stop_all_bgm();
 
-#[skyline::hook(offset = offsets::eshop_show())]
+#[skyline::hook(offset = offsets::eshop_button())]
 fn show_eshop() {
     // stop_all_bgm();
     // let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
@@ -330,7 +330,7 @@ fn show_eshop() {
     // play_menu_bgm();
 }
 
-#[skyline::hook(offset = 0x3778bf4, inline)]
+#[skyline::hook(offset = offsets::msbt_text(), inline)]
 unsafe fn msbt_text(ctx: &mut InlineCtx) {
     let msbt_label = skyline::from_c_str((ctx as *const InlineCtx as *const u8).add(0x100).add(224));
 
@@ -358,21 +358,21 @@ unsafe fn online_slot_spoof(ctx: &InlineCtx) {
     }
 }
 
-#[skyline::hook(offset = 0x1bfa1e8, inline)]
+#[skyline::hook(offset = offsets::skip_opening(), inline)]
 unsafe fn skip_opening_cutscene(ctx: &mut InlineCtx) {
     let data = ctx.registers[8].x.as_mut();
     *data = 0;
 }
 
 // Change the next callback for the TitleSceneInfo::callbacks::Enter from "DisplayOpeningCutscene" to "HowToPlay"
-#[skyline::hook(offset = 0x1864410, inline)]
+#[skyline::hook(offset = offsets::title_scene_play_opening(), inline)]
 unsafe fn title_scene_play_opening(ctx: &mut InlineCtx) {
     let data = ctx.registers[9].x.as_mut();
     *data = 1;
 }
 
 // Pretend the state for another state handler (OpeningCutsceneLayout?) is set to 5
-#[skyline::hook(offset = 0x18644d0, inline)]
+#[skyline::hook(offset = offsets::title_scene_how_to_play(), inline)]
 unsafe fn title_scene_show_how_to_play_fake_state_index(ctx: &mut InlineCtx) {
     let data = ctx.registers[8].x.as_mut();
     *data = 5;

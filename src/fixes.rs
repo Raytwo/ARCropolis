@@ -1,24 +1,19 @@
 use skyline::{hook, hooks::InlineCtx, install_hooks, from_offset, patching::Patch};
-use crate::offsets::*;
+use crate::offsets;
 
 // OFFSETS IN THIS FILE ARE CURRENTLY HARDCODED TO VERSION 13.0.1
 
 // Patches to get Inkling c08+ working
 fn install_inkling_patches(){
-    // All offsets related to Inkling stuff here
-    static INKLING_1_PATCH: usize = 0x35baed4;
-    static INKLING_2_PATCH: usize = 0x35baed8;
-    static CLEAR_INK_PATCH_OFFSET: usize = 0x35bb960;
-
-    #[skyline::hook(offset = CLEAR_INK_PATCH_OFFSET, inline)]
+    #[skyline::hook(offset = offsets::clear_ink_patch(), inline)]
     unsafe fn clear_ink_patch(ctx: &mut InlineCtx) {
         let res = (*ctx.registers[24].w.as_ref() as u32) % 8;
         *ctx.registers[24].w.as_mut() = res;
     }
 
     // Inkling Patches here nop some branches so it can work with more than c08+
-    Patch::in_text(INKLING_1_PATCH).nop().expect("Failed to patch inkling 1 cmp");
-    Patch::in_text(INKLING_2_PATCH).nop().expect("Failed to patch inkling 1 b.cs");
+    Patch::in_text(offsets::inkling_patch()).nop().expect("Failed to patch inkling 1 cmp");
+    Patch::in_text(offsets::inkling_patch() + 4).nop().expect("Failed to patch inkling 1 b.cs");
     
     install_hooks!(clear_ink_patch);
 }
@@ -100,15 +95,7 @@ fn install_lazy_loading_patches(){
     }
 
     // All offsets related to lazy loading
-    static PARAMATERS_CACHE_OFFSET: usize = 0x532d730;
-    static LOAD_CHARA_1_FOR_ALL_COSTUMES_OFFSET: usize = 0x18465cc;
-    static LOAD_UI_FILE_OFFSET: usize = 0x323b290;
-    static GET_UI_CHARA_PATH_FROM_HASH_COLOR_AND_TYPE_OFFSET: usize = 0x3237820;
-    static GET_COLOR_NUM_FROM_HASH: usize = 0x32621a0;
-    static GET_ECHO_FROM_HASH: usize = 0x3261de0;
-    static LOAD_STOCK_ICON_FOR_PORTRAIT_MENU_OFFSET: usize = 0x19e784c;
-    static CSS_SET_SELECTED_CHARARACTER_UI_OFFSET: usize = 0x19fc790;
-    static CHARA_SELECT_SCENE_DESTRUCTOR_OFFSET: usize = 0x18467c0;
+    static PARAMATERS_CACHE_OFFSET: usize = 0x532d730; // ask ray about this later
     
     // Cache of variables we reuse later for loading UI + getting the character database
     static mut PARAM_1: u64 = 0x0;
@@ -116,7 +103,7 @@ fn install_lazy_loading_patches(){
     static mut PARAMATERS_CACHE: *const u64 = 0x0 as *const u64;
     
     // This function is what's responsible for loading the UI File.
-    #[from_offset(LOAD_UI_FILE_OFFSET)]
+    #[from_offset(offsets::load_ui_file())]
     pub fn load_ui_file(param_1: *const u64, ui_path_hash: *const u64, unk1: u64, unk2: u64);
     
     /*
@@ -124,25 +111,25 @@ fn install_lazy_loading_patches(){
       the type of UI to load and converts them to a hash40 that represents the path
       it needs to load
     */
-    #[from_offset(GET_UI_CHARA_PATH_FROM_HASH_COLOR_AND_TYPE_OFFSET)]
+    #[from_offset(offsets::get_ui_chara_path_from_hash())]
     pub fn get_ui_chara_path_from_hash_color_and_type(ui_chara_hash: u64, color_slot: u32, ui_type: u32) -> u64;
     
     // This takes the character_database and the ui_chara_hash to get the color_num
-    #[from_offset(GET_COLOR_NUM_FROM_HASH)]
+    #[from_offset(offsets::get_color_num_from_hash())]
     pub fn get_color_num_from_hash(character_database: u64, ui_chara_hash: u64) -> u8;
 
     // This takes the character_database and the ui_chara_hash to get the chara's respective echo (for loading it at the same time)
-    #[from_offset(GET_ECHO_FROM_HASH)]
+    #[from_offset(offsets::get_echo_from_hash())]
     pub fn get_ui_chara_echo(character_database: u64, ui_chara_hash: u64) -> u64;
     
-    #[hook(offset = LOAD_CHARA_1_FOR_ALL_COSTUMES_OFFSET, inline)]
+    #[hook(offset = offsets::load_chara_1_for_all_costumes(), inline)]
     pub unsafe fn original_load_chara_1_ui_for_all_colors(ctx: &mut InlineCtx){
         // Save the first and fourth paramater for reference when we load the file ourselves
         PARAM_1 = *ctx.registers[0].x.as_ref();
         PARAM_4 = *ctx.registers[3].x.as_ref();
     }
     
-    #[hook(offset = LOAD_STOCK_ICON_FOR_PORTRAIT_MENU_OFFSET, inline)]
+    #[hook(offset = offsets::load_stock_icon_for_portrait_menu(), inline)]
     pub unsafe fn load_stock_icon_for_portrait_menu(ctx: &mut InlineCtx){
         /*
           If both of these params are valid, then most likely we're in the
@@ -201,7 +188,7 @@ fn install_lazy_loading_patches(){
         }
     }
 
-    #[hook(offset = CSS_SET_SELECTED_CHARARACTER_UI_OFFSET)]
+    #[hook(offset = offsets::css_set_selected_character_ui())]
     pub unsafe fn css_set_selected_character_ui(
         param_1: *const u64,
         chara_hash_1: u64,
@@ -216,7 +203,7 @@ fn install_lazy_loading_patches(){
         call_original!(param_1, chara_hash_1, chara_hash_2, color, unk1, unk2);
     }
     
-    #[hook(offset = CHARA_SELECT_SCENE_DESTRUCTOR_OFFSET)]
+    #[hook(offset = offsets::chara_select_scene_destructor())]
     pub unsafe fn chara_select_scene_destructor(
         param_1: u64,
     ){
@@ -228,11 +215,11 @@ fn install_lazy_loading_patches(){
 
     // Gets the PARAMATERS_CACHE address so we can get the character database later
     unsafe {
-        PARAMATERS_CACHE = offset_to_addr(PARAMATERS_CACHE_OFFSET) as *const u64;
+        PARAMATERS_CACHE = offsets::offset_to_addr(PARAMATERS_CACHE_OFFSET) as *const u64;
     }
 
     // Prevent the game from loading all chara_1 colors at once for all characters
-    Patch::in_text(LOAD_CHARA_1_FOR_ALL_COSTUMES_OFFSET).nop().expect("Failed to patch chara_1 load");
+    Patch::in_text(offsets::load_chara_1_for_all_costumes()).nop().expect("Failed to patch chara_1 load");
     
     // Install the hooks for everything necessary to properly load the chara_1s
     install_hooks!(original_load_chara_1_ui_for_all_colors, css_set_selected_character_ui, load_stock_icon_for_portrait_menu, chara_select_scene_destructor);
@@ -240,7 +227,7 @@ fn install_lazy_loading_patches(){
 
 // Patch to allow running uncompiled lua scripts
 fn install_lua_magic_patch() {
-	Patch::in_text(lua_magic_check()).nop().expect("Failed to patch lua magic check cbnz");
+	Patch::in_text(offsets::lua_magic_check()).nop().expect("Failed to patch lua magic check cbnz");
 }
 
 pub fn install() {
