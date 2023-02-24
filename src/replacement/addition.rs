@@ -58,6 +58,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
 
     // Set the new file to be standalone so it doesn't need to be near the other files
     new_file_info.flags.set_standalone_file(true);
+    new_file_info.flags.set_unshared_nus3bank(true);
 
     // Create new FileInfoToData with the folder_offset_index of the base file from earlier,
     // file_data_index from the newly generated file_data_idx above, and a file info index and load type of 1
