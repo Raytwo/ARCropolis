@@ -7,6 +7,7 @@
 #![feature(string_remove_matches)]
 // #![feature(fs_try_exists)]
 #![feature(let_else)]
+#![feature(int_roundings)]
 
 use std::{
     collections::HashMap,
