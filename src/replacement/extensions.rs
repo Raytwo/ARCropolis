@@ -18,11 +18,23 @@ use crate::{
     PathExtension,
 };
 
+/// Used to keep track of added DirInfo children. 
+#[derive(Debug)]
+pub struct InterDir {
+    /// Whether or not this modifies a DirInfo in the original game.
+    pub modifies_original: bool,
+    /// The dir_hash_to_info_idx for each new child in the corresponding DirInfo. 
+    pub children: Vec<HashToIndex>,
+}
+
 pub struct AdditionContext {
     pub arc: &'static mut LoadedArc,
     pub filesystem_info: &'static FilesystemInfo,
 
     pub added_files: HashMap<Hash40, FilePathIdx>,
+
+    /// Maps a DirInfo's path hash to an InterDir; which helps keep track of new children.
+    pub inter_dirs: HashMap<Hash40, InterDir>,
 
     pub filepaths: CppVector<FilePath>,
     pub file_info_indices: CppVector<FileInfoIndex>,
@@ -274,6 +286,7 @@ impl LoadedArcEx for LoadedArc {
             filesystem_info,
 
             added_files: HashMap::new(),
+            inter_dirs: HashMap::new(),
 
             filepaths,
             file_info_indices,
@@ -325,6 +338,69 @@ impl LoadedArcEx for LoadedArc {
         let (loaded_filepaths, loaded_filepath_len) = (loaded_filepaths.as_mut_ptr(), loaded_filepaths.len());
         let (loaded_datas, loaded_data_len) = (loaded_datas.as_mut_ptr(), loaded_datas.len());
         let (loaded_directories, loaded_directory_len) = (loaded_directories.as_mut_ptr(), loaded_directories.len());
+
+        for (dir_name, info) in &ctx.inter_dirs {
+            let mut dir_info = *dir_infos_vec.iter().find(|x| x.path.hash40() == *dir_name).unwrap();
+            if info.modifies_original {
+                let current_folder_children_hashes_len = folder_children_hashes.len() as u32;
+
+                // Copy the old children to the end of folder_children_hashes
+                folder_children_hashes.extend_from_within(dir_info.children_range());
+
+                // Reset all the child hashes that were previously children of the original parent to an invalid value. 
+                let original_children = &mut folder_children_hashes[dir_info.children_range()];
+                original_children.iter_mut().for_each(|x| *x = HashToIndex::new());
+                
+                dir_info.child_dir_start_index = current_folder_children_hashes_len;
+                dir_info.child_dir_count += info.children.len() as u32;
+                
+                // Update the dir info
+                *dir_infos_vec.iter_mut().find(|x| x.path.hash40() == *dir_name).unwrap() = dir_info;
+
+                // Reserve space at the end of the folder_children_hashes vector for our new children.
+                let reserved_hashes: Vec<HashToIndex> = std::iter::repeat(HashToIndex::new()).take(info.children.len()).collect();
+                folder_children_hashes.extend_from_slice(&reserved_hashes);
+
+                add_children_to_dir_info(&mut dir_infos_vec, &mut folder_children_hashes, &dir_info, &info, &ctx.inter_dirs);
+            }
+            else {
+                dir_info.child_dir_start_index = folder_children_hashes.len() as u32;
+                dir_info.child_dir_count = info.children.len() as u32;
+                
+                // Update the dir info
+                *dir_infos_vec.iter_mut().find(|x| x.path.hash40() == *dir_name).unwrap() = dir_info;
+
+                // Reserve space at the end of the folder_children_hashes vector for our new children.
+                let reserved_hashes: Vec<HashToIndex> = std::iter::repeat(HashToIndex::new()).take(info.children.len()).collect();
+                folder_children_hashes.extend_from_slice(&reserved_hashes);
+
+                add_children_to_dir_info(&mut dir_infos_vec, &mut folder_children_hashes, &dir_info, &info, &ctx.inter_dirs);
+            }
+        }
+
+        fn add_children_to_dir_info(dir_infos_vec: &mut CppVector<DirInfo>, folder_children_hashes: &mut CppVector<HashToIndex>, dir: &DirInfo, info: &InterDir, inter_dirs: &HashMap<Hash40, InterDir>) {
+            let mut base_index = dir.child_dir_start_index as usize + dir.child_dir_count as usize - info.children.len();
+            for child in &info.children {
+                // If we have an intermediate directory for the child, then start adding its children
+                if let Some(child_inter_dir) = inter_dirs.get(&child.hash40()) {
+                    let mut child_dir_info = *dir_infos_vec.iter().find(|x| x.path.hash40() == child.hash40()).unwrap();
+                    
+                    child_dir_info.child_dir_start_index = folder_children_hashes.len() as u32;
+                    child_dir_info.child_dir_count = child_inter_dir.children.len() as u32;
+
+                    // Update the dir info
+                    *dir_infos_vec.iter_mut().find(|x| x.path.hash40() == child.hash40()).unwrap() = child_dir_info;
+
+                    // Reserve space at the end of the dir info vector for our new children.
+                    let reserved_dirs: Vec<HashToIndex> = std::iter::repeat(HashToIndex::new()).take(child_inter_dir.children.len() as usize).collect();
+                    folder_children_hashes.extend_from_slice(&reserved_dirs);
+                    add_children_to_dir_info(dir_infos_vec, folder_children_hashes, &child_dir_info, child_inter_dir, inter_dirs);
+                }
+
+                folder_children_hashes[base_index] = *child;
+                base_index += 1;
+            }
+        }
 
         // --------------------- SETUP DIRECTORY ADDITION VARIABLES ---------------------
         let (dir_infos_vec, dir_infos_vec_len) = (dir_infos_vec.as_mut_ptr(), dir_infos_vec.len());

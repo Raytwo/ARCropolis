@@ -42,7 +42,7 @@ strip-ansi-escapes = "0.1.1"
 bincode = "1.3.3"
 # To manage mods
 orbits = { git = "https://github.com/blu-dev/orbits" }
-smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd", "serialize"] }
+smash-arc = { git = "https://github.com/itsmeft24/smash-arc", features = ["smash-runtime", "rust-zstd", "serialize"] }
 hash40 = "1.2"
 arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api" }
 arc-config = { git = "https://github.com/blu-dev/arc-config", features = ["runtime"] }
@@ -63,6 +63,10 @@ serde_yaml = "0.8"
 smash-bgm-property = "1.1.0"
 # For inputs
 ninput = { git = "https://github.com/blu-dev/ninput" }
+
+[patch.'https://github.com/jam1garner/smash-arc']
+smash-arc = { git = "https://github.com/itsmeft24/smash-arc" }
+
 
 [patch.crates-io]
 nnsdk = { git = "https://github.com/Raytwo/nnsdk-rs", branch="account_fs" }
