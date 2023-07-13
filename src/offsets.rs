@@ -443,7 +443,7 @@ pub fn get_offset_neon(data: &[u8], pattern: (&'static [u8], isize)) -> usize {
     write!(&mut s, "??").expect("lmao");
 
 
-    find_pattern_neon(data.as_ptr(), data.len(), s)
+    ((find_pattern_neon(data.as_ptr(), data.len(), s) as isize) + pattern.1) as usize
 }
 
 pub fn find_pattern_neon<S: AsRef<str>>(data: *const u8, data_len: usize, pattern: S) -> usize {
