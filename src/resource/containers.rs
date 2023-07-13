@@ -120,6 +120,21 @@ impl<T> CppVector<T> {
             }
         }
     }
+
+    pub fn extend_from_within(&mut self, range: Range<usize>)
+    where
+        T: Copy + Clone,
+    {
+        unsafe {
+            if self.end.add(range.len()) > self.eos {
+                self.realloc();
+                self.extend_from_within(range);
+            } else {
+                std::ptr::copy_nonoverlapping(self.start.add(range.start), self.end, range.len());
+                self.end = self.end.add(range.len());
+            }
+        }
+    }
 }
 
 impl<T: Copy + Clone> CppVector<T> {

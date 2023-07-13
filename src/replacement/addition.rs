@@ -6,7 +6,7 @@ use arc_config::{
 };
 use smash_arc::*;
 
-use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, SearchContext};
+use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, SearchContext, InterDir};
 use crate::{
     hashes,
     replacement::FileInfoFlagsExt,
@@ -493,15 +493,17 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
 
 // Right now this will take up a bit of memory if adding multiple dirs to the same dirinfo, so gonna have to change it to take a vec instead ig
 pub fn add_dir_info_to_parent(ctx: &mut AdditionContext, parent_dir_info: &mut DirInfo, child_hash_to_index: &HashToIndex) {
-    let mut parent_folder_children_hashes = ctx.folder_children_hashes[parent_dir_info.children_range()].to_vec();
-
-    // Change so that it equals len of vector if this ever gets changed
-    parent_dir_info.child_dir_count += 1;
-    parent_dir_info.child_dir_start_index = ctx.folder_children_hashes.len() as u32;
-
-    // Add new child hash to the index
-    parent_folder_children_hashes.push(*child_hash_to_index);
-    ctx.folder_children_hashes.extend_from_slice(&parent_folder_children_hashes[..]);
+    if ctx.inter_dirs.contains_key(&parent_dir_info.path.hash40()) {
+        ctx.inter_dirs.get_mut(&parent_dir_info.path.hash40()).unwrap().children.push(*child_hash_to_index);
+    } else {
+        // If parent_dir_info already has children, then it must be from the original game. (Children ranges aren't modified until later) 
+        let modifies_original = parent_dir_info.child_dir_count > 0;
+        let inter_dir = InterDir {
+            modifies_original,
+            children: [*child_hash_to_index].to_vec(),
+        };
+        ctx.inter_dirs.insert(parent_dir_info.path.hash40(), inter_dir);
+    }
 }
 
 pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
@@ -516,7 +518,7 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
     // Get a base
     let mut dir_info = *ctx.get_dir_info_from_hash_ctx(Hash40::from("fighter/luigi/c00")).unwrap();
 
-    let dir_hash_to_info_idx = HashToIndex::new()
+    let mut dir_hash_to_info_idx = HashToIndex::new()
         .with_hash(dir_info_path.path.hash())
         .with_length(dir_info_path.path.length())
         .with_index(ctx.dir_infos_vec.len() as u32);
@@ -530,6 +532,11 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
     dir_info.child_dir_start_index = 0;
     dir_info.child_dir_count = 0;
     // dir_info.flags =  DirInfoFlags::new().with_unk1(0).with_redirected(false).with_unk2(false).with_is_symlink(false).with_unk3(0);
+
+    // If we already have the dir added, we can return early 
+    if let Ok(_dir) = ctx.get_dir_info_from_hash_ctx(dir_info_path.path.hash40()) {
+        return;
+    }
 
     // --------------------- FOLDER CHILD HASHES DONE HERE --------------------- //
     // Check to see if parent actually exists
@@ -552,6 +559,11 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
                     // add it
                     Some(parent) => {
                         add_dir_info(ctx, parent);
+
+                        // Since we just added a dirinfo, we need to update our new dir_hash_to_info_idx so when the parent/child structure is
+                        // resolved it doesnt end up pointing back to itself.
+                        dir_hash_to_info_idx.set_index(ctx.dir_infos_vec.len() as u32);
+                        
                         // After adding it, go ahead and try the logic from above again
                         match ctx.get_dir_info_from_hash_ctx(dir_info_path.parent.hash40()) {
                             Ok(parent_dir_info) => {
