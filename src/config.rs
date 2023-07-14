@@ -4,7 +4,6 @@ use std::{
     sync::Mutex,
 };
 
-use arc_config::Config;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use semver::Version;
@@ -17,27 +16,24 @@ use crate::utils::env::get_arcropolis_version;
 
 pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| {
     let mut storage = StorageHolder::new(ArcStorage::new());
-
     let version: Result<Version, _> = storage.get_field("version");
 
     if let Ok(config_version) = version {
-            let curr_version = get_arcropolis_version();
+        let curr_version = get_arcropolis_version();
 
-            // Check if the configuration is from a previous version
-            if curr_version > config_version {
-                // TODO: Code to perform changes for each version
-                if Version::new(3, 2, 0) > config_version {
-                    let mut default_workspace = HashMap::<&str, &str>::new();
-                    default_workspace.insert("Default", "presets");
-                    storage.set_field_json("workspace_list", &default_workspace).unwrap();
-                    storage.set_field("workspace", "Default").unwrap();
-                }
-                // Update the version in the config
-                storage.set_field("version", get_arcropolis_version().to_string()).unwrap();
+        // Check if the configuration is from a previous version
+        if curr_version > config_version {
+            // TODO: Code to perform changes for each version
+            if Version::new(3, 2, 0) > config_version {
+                let mut default_workspace = HashMap::<&str, &str>::new();
+                default_workspace.insert("Default", "presets");
+                storage.set_field_json("workspace_list", &default_workspace).unwrap();
+                storage.set_field("workspace", "Default").unwrap();
             }
-    }
-    else // Version file does not exist
-    {
+            // Update the version in the config
+            storage.set_field("version", get_arcropolis_version().to_string()).unwrap();
+        }
+    } else { // Version file does not exist
         generate_default_config(&mut storage).unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
     }
 

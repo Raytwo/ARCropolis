@@ -1,10 +1,8 @@
 use skyline::{hook, hooks::InlineCtx, install_hooks, from_offset, patching::Patch};
 use crate::offsets;
 
-// OFFSETS IN THIS FILE ARE CURRENTLY HARDCODED TO VERSION 13.0.1
-
 // Patches to get Inkling c08+ working
-fn install_inkling_patches(){
+fn install_inkling_patches() {
     #[skyline::hook(offset = offsets::clear_ink_patch(), inline)]
     unsafe fn clear_ink_patch(ctx: &mut InlineCtx) {
         let res = (*ctx.registers[24].w.as_ref() as u32) % 8;
@@ -14,7 +12,7 @@ fn install_inkling_patches(){
     // Inkling Patches here nop some branches so it can work with more than c08+
     Patch::in_text(offsets::inkling_patch()).nop().expect("Failed to patch inkling 1 cmp");
     Patch::in_text(offsets::inkling_patch() + 4).nop().expect("Failed to patch inkling 1 b.cs");
-    
+
     install_hooks!(clear_ink_patch);
 }
 
@@ -25,14 +23,11 @@ Patches for:
             - Crashes in Classic Mode with colors greater than c08+
             - Crashes in Tourney Mode when selecting a c08+ color
 */
-fn install_added_color_patches(){
-
+fn install_added_color_patches() {
     // Install inkling patches here since they're related to added color issues
     install_inkling_patches();
 
-    static SET_GLOBAL_COLOR_FOR_CLASSIC_MODE: usize = 0x23d94dc;
-
-    #[hook(offset = SET_GLOBAL_COLOR_FOR_CLASSIC_MODE, inline)]
+    #[hook(offset = offsets::set_global_color_for_classic_mode(), inline)]
     pub unsafe fn set_global_color_for_classic_mode(ctx: &mut InlineCtx){
         *(ctx.registers[9].w.as_mut()) = *(ctx.registers[9].w.as_ref()) % 8;
     }
@@ -44,6 +39,7 @@ fn install_added_color_patches(){
       same code with minor changes over and over.
       Format: (offset, instruction)
     */
+    // OFFSETS ARE CURRENTLY HARDCODED TO VERSION 13.0.1
     static ADDED_COLOR_PATCHES: &[(usize, u32)] = &[
         (0x1834b0c, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
         (0x18347bc, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
@@ -85,7 +81,7 @@ fn install_lazy_loading_patches(){
     #[repr(C)]
     struct ParameterDatabaseTable {
         pub unk1: [u8; 360],
-        pub character: *const u64 // ParamaterDatabase
+        pub character: *const u64 // ParameterDatabase
     }
 
     impl ParametersCache {
@@ -120,7 +116,7 @@ fn install_lazy_loading_patches(){
     
     #[hook(offset = offsets::load_chara_1_for_all_costumes(), inline)]
     pub unsafe fn original_load_chara_1_ui_for_all_colors(ctx: &mut InlineCtx){
-        // Save the first and fourth paramater for reference when we load the file ourselves
+        // Save the first and fourth parameter for reference when we load the file ourselves
         PARAM_1 = *ctx.registers[0].x.as_ref();
         PARAM_4 = *ctx.registers[3].x.as_ref();
     }
@@ -147,7 +143,7 @@ fn install_lazy_loading_patches(){
         if PARAM_1 != 0 && PARAM_4 != 0 {
             // Get the color_num for smooth loading between different CSPs
             // Get the character database for the color num function
-            let max_color: u32 = get_color_num_from_hash((*(*(offsets::offset_to_addr(offsets::paramaters_cache()) as *const u64) as *const ParametersCache)).get_chara_db() as u64, ui_chara_hash) as u32;
+            let max_color: u32 = get_color_num_from_hash((*(*(offsets::offset_to_addr(offsets::parameters_cache()) as *const u64) as *const ParametersCache)).get_chara_db() as u64, ui_chara_hash) as u32;
     
             let path = get_ui_chara_path_from_hash_color_and_type(ui_chara_hash, color, 1);
             load_ui_file(PARAM_1 as *const u64, &path, 0, PARAM_4);
@@ -193,7 +189,7 @@ fn install_lazy_loading_patches(){
         unk1: u32,
         unk2: u32,
     ){
-        let echo = get_ui_chara_echo((*(*(offsets::offset_to_addr(offsets::paramaters_cache()) as *const u64) as *const ParametersCache)).get_chara_db() as u64, chara_hash_1);
+        let echo = get_ui_chara_echo((*(*(offsets::offset_to_addr(offsets::parameters_cache()) as *const u64) as *const ParametersCache)).get_chara_db() as u64, chara_hash_1);
         load_chara_1_for_ui_chara_hash_and_num(chara_hash_1, color);
         load_chara_1_for_ui_chara_hash_and_num(echo, color);
         call_original!(param_1, chara_hash_1, chara_hash_2, color, unk1, unk2);
