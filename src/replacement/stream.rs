@@ -20,7 +20,7 @@ fn lookup_stream_hash(out_path: *mut c_char, loaded_arc: &LoadedArc, size_out: &
                 let cpath = format!("{}\0", path.display());
                 let out_buffer = unsafe { std::slice::from_raw_parts_mut(out_path, cpath.len()) };
                 out_buffer.copy_from_slice(cpath.as_bytes());
-                return
+                return;
             } else if path.exists() {
                 if let Ok(size) = std::fs::metadata(&path).map(|x| x.len()) {
                     *size_out = size as usize;
@@ -28,7 +28,7 @@ fn lookup_stream_hash(out_path: *mut c_char, loaded_arc: &LoadedArc, size_out: &
                     let cpath = format!("{}\0", path.display());
                     let out_buffer = unsafe { std::slice::from_raw_parts_mut(out_path, cpath.len()) };
                     out_buffer.copy_from_slice(cpath.as_bytes());
-                    return
+                    return;
                 }
             }
         }

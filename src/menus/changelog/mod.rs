@@ -73,18 +73,16 @@ impl Contributor {
 
     fn get_contributor_from_git(username: &str) -> Contributor {
         match minreq::get(format!("https://api.github.com/users/{}", username))
-                    .with_header("Accept", "application/vnd.github.v3+json")
-                    .with_header("User-Agent", "ARCropolis")
-                    .send() {
-                        Ok(resp) => {
-                            match resp
-                                    .json::<Contributor>() {
-                                        Ok(contributor) => contributor,
-                                        Err(_) => Contributor::make_contributor_name_only(username),
-                                    }
-                        }
-                        Err(_) => Contributor::make_contributor_name_only(username),
-                    }
+            .with_header("Accept", "application/vnd.github.v3+json")
+            .with_header("User-Agent", "ARCropolis")
+            .send()
+        {
+            Ok(resp) => match resp.json::<Contributor>() {
+                Ok(contributor) => contributor,
+                Err(_) => Contributor::make_contributor_name_only(username),
+            },
+            Err(_) => Contributor::make_contributor_name_only(username),
+        }
     }
 
     fn get_contributor_image(&self) -> Vec<u8> {
@@ -93,21 +91,17 @@ impl Contributor {
                 match minreq::get(url)
                     .with_header("Accept", "application/vnd.github.v3+json")
                     .with_header("User-Agent", "ARCropolis")
-                    .send() {
-                        Ok(resp) => {
-                            resp.as_bytes()
-                                .to_vec()
-                        },
-                        Err(err) => {
-                            println!("Failed getting contributor avatar! Reason: {:?}", err);
-                            vec![]
-                        },
-                    }
-                    
+                    .send()
+                {
+                    Ok(resp) => resp.as_bytes().to_vec(),
+                    Err(err) => {
+                        println!("Failed getting contributor avatar! Reason: {:?}", err);
+                        vec![]
+                    },
+                }
             },
-            None => vec![]
+            None => vec![],
         }
-        
     }
 }
 
@@ -115,7 +109,7 @@ impl Contributor {
 pub enum NotesMessage {
     UpdateState { state: bool },
     Prompt { state: bool },
-    Closure
+    Closure,
 }
 
 #[derive(Deserialize)]
@@ -132,9 +126,13 @@ pub fn build_html(info: &MainEntry) -> String {
     rendered = rendered.replace("{{title}}", &info.title);
     rendered = rendered.replace("{{date}}", &info.date);
     rendered = rendered.replace("{{description}}", &info.description);
-    
-    let mut entries = info.entries.iter().map(|entry| {
-        format!("
+
+    let mut entries = info
+        .entries
+        .iter()
+        .map(|entry| {
+            format!(
+                "
         <div class=\"section\">
             <h2 class=\"section-header\">
                 <div>{}</div>
@@ -143,11 +141,15 @@ pub fn build_html(info: &MainEntry) -> String {
                 {}
             </div>
         </div>
-        ", entry.section_title, entry.contents)
-    }).collect::<Vec<String>>();
+        ",
+                entry.section_title, entry.contents
+            )
+        })
+        .collect::<Vec<String>>();
 
     if info.contributors.len() > 0 {
-        let formatted = format!("
+        let formatted = format!(
+            "
         <div class=\"section\">
             <h2 class=\"section-header\">
                 <div>Contributors</div>
@@ -158,47 +160,57 @@ pub fn build_html(info: &MainEntry) -> String {
                 </ul>
             </div>
         </div>
-        ", {
-            let mut res = String::new();
-            for i in 0..info.contributors.len() {
-                let mut current_contributor: Vec<String> = vec![];
+        ",
+            {
+                let mut res = String::new();
+                for i in 0..info.contributors.len() {
+                    let mut current_contributor: Vec<String> = vec![];
 
-                current_contributor.push(format!("<li class=\"contributor-name\">{} {}</li>", info.contributors[i].login.as_ref().unwrap(), {
-                    match &info.contributors[i].name {
-                        Some(name) => format!("<span style=\"font-size: 20px;\">({})</span>", name),
-                        None => format!("")
+                    current_contributor.push(format!(
+                        "<li class=\"contributor-name\">{} {}</li>",
+                        info.contributors[i].login.as_ref().unwrap(),
+                        {
+                            match &info.contributors[i].name {
+                                Some(name) => format!("<span style=\"font-size: 20px;\">({})</span>", name),
+                                None => format!(""),
+                            }
+                        }
+                    ));
+
+                    match &info.contributors[i].twitter_username {
+                        Some(twitter) => current_contributor.push(format!("<li class=\"contributor-twitter\">Twitter: @{}</li>", twitter)),
+                        None => {},
                     }
-                }));
 
-                match &info.contributors[i].twitter_username {
-                    Some(twitter) => current_contributor.push(format!("<li class=\"contributor-twitter\">Twitter: @{}</li>", twitter)),
-                    None => {}
-                }
+                    match &info.contributors[i].blog {
+                        Some(blog) => current_contributor.push(format!("<li class=\"contributor-blog\">{}</li>", blog)),
+                        None => {},
+                    }
 
-                match &info.contributors[i].blog {
-                    Some(blog) => current_contributor.push(format!("<li class=\"contributor-blog\">{}</li>", blog)),
-                    None => {}
-                }
-                
-                match &info.contributors[i].bio {
-                    Some(bio) => current_contributor.push(format!("<li class=\"contributor-bio\">{}</li>", bio)),
-                    None => {}
-                }
+                    match &info.contributors[i].bio {
+                        Some(bio) => current_contributor.push(format!("<li class=\"contributor-bio\">{}</li>", bio)),
+                        None => {},
+                    }
 
-                res.push_str(&format!("
+                    res.push_str(&format!(
+                        "
                 <li class=\"contributor\">
                     <div class=\"contributor-image\" style=\"background-image: url('./{}.png');\"></div>
                     <ul class=\"contributor-detail\">
                         {}
                     </ul>
-                </li>", i, current_contributor.join("\n")));
+                </li>",
+                        i,
+                        current_contributor.join("\n")
+                    ));
+                }
+                res
             }
-            res
-        });
+        );
 
         entries.push(formatted);
     }
-    
+
     rendered = rendered.replace("{{entries}}", &entries.join("\n"));
 
     rendered
@@ -224,18 +236,13 @@ pub fn get_entries_from_md(text: &String) -> (Vec<Contributor>, Vec<NotesEntry>)
                     },
                     None => {
                         break;
-                    }
+                    },
                 }
 
                 if data[y].contains("@") {
                     let split = data[y].split("@").collect::<Vec<&str>>();
                     for z in 1..split.len() {
-                        static EOC: &[char] = &[
-                            ' ',
-                            '/',
-                            ')',
-                            '\\'
-                        ];
+                        static EOC: &[char] = &[' ', '/', ')', '\\'];
                         let contributor = &split[z][..split[z].find(EOC).unwrap_or(split[z].len())];
 
                         if !found_contributors.contains(&contributor) {
@@ -247,7 +254,10 @@ pub fn get_entries_from_md(text: &String) -> (Vec<Contributor>, Vec<NotesEntry>)
                 y += 1;
             }
             i = y;
-            entries.push(NotesEntry { section_title: heading, contents: format!("<ul>{}</ul>", bullet_points.join("")) })
+            entries.push(NotesEntry {
+                section_title: heading,
+                contents: format!("<ul>{}</ul>", bullet_points.join("")),
+            })
         } else {
             i += 1;
         }
@@ -262,17 +272,11 @@ pub fn get_entries_from_md(text: &String) -> (Vec<Contributor>, Vec<NotesEntry>)
     (contributors, entries)
 }
 
-
 pub fn display_update_page(info: &MainEntry) -> bool {
     let mut user_images: Vec<(String, Vec<u8>)> = Vec::new();
 
     for i in 0..info.contributors.len() {
-        user_images.push(
-            (
-                format!("{}.png", i),
-                info.contributors[i].get_contributor_image()
-            )
-        );
+        user_images.push((format!("{}.png", i), info.contributors[i].get_contributor_image()));
     }
 
     let session = Webpage::new()
@@ -291,14 +295,14 @@ pub fn display_update_page(info: &MainEntry) -> bool {
         match message {
             NotesMessage::UpdateState { state } => {
                 update = state;
-            }
+            },
             NotesMessage::Prompt { state } => {
                 todo!()
             },
             NotesMessage::Closure => {
                 session.exit();
                 session.wait_for_exit();
-                break
+                break;
             },
         }
     }

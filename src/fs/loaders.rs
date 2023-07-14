@@ -4,10 +4,7 @@ use std::{
     io::{Cursor, Read},
 };
 
-use base64::{
-    Engine,
-    engine::general_purpose::STANDARD as BASE64_STANDARD,
-};
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine};
 use hash40::diff::Diff;
 use msbt::{builder::MsbtBuilder, Msbt};
 use nus3audio::*;

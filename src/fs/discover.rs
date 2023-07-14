@@ -28,7 +28,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         if std::path::PathBuf::from("rom:/arc").exists() {
             skyline_web::DialogOk::ok("Support for mods stored in `sd:/atmosphere/contents/01006A800016E000/romfs/arc/` has been deprecated<br/>Please consider reworking your modpack to use the newer methods<br/><br/>This message will keep displaying until the directory is removed");
         }
-        
+
         // Get the mod cache from last run
         let mod_cache: HashSet<Hash40> = config::get_mod_cache().unwrap_or_default();
 
@@ -79,8 +79,8 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             // Legacy filter, load the mod except if it has a period at the start of the name
 
             Utf8Path::from_path(path)
-            .unwrap()
-            .file_name()
+                .unwrap()
+                .file_name()
                 .map(|name| !name.starts_with('.'))
                 .unwrap_or(false)
         }
@@ -203,20 +203,18 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         }
 
         let should_log = match serde_json::to_string_pretty(&conflict_map) {
-            Ok(json) => {
-                match std::fs::write("sd:/ultimate/arcropolis/conflicts.json", json.as_bytes()) {
-                    Ok(_) => {
-                        crate::dialog_error("Conflict file created at sd:/ultimate/arcropolis/conflicts.json. Please open this file in a text editor to preview what mods are conflicting with one another and take the necessary changes to resolve them by either reslotting or removing these mods.");
-                        false
-                    },
-                    Err(e) => {
-                        crate::dialog_error(format!(
-                            "Failed to write conflict map to sd:/ultimate/arcropolis/conflicts.json<br>{:?}",
-                            e
-                        ));
-                        true
-                    },
-                }
+            Ok(json) => match std::fs::write("sd:/ultimate/arcropolis/conflicts.json", json.as_bytes()) {
+                Ok(_) => {
+                    crate::dialog_error("Conflict file created at sd:/ultimate/arcropolis/conflicts.json. Please open this file in a text editor to preview what mods are conflicting with one another and take the necessary changes to resolve them by either reslotting or removing these mods.");
+                    false
+                },
+                Err(e) => {
+                    crate::dialog_error(format!(
+                        "Failed to write conflict map to sd:/ultimate/arcropolis/conflicts.json<br>{:?}",
+                        e
+                    ));
+                    true
+                },
             },
             Err(e) => {
                 crate::dialog_error(format!("Failed to serialize conflict map to JSON. {:?}", e));
@@ -257,16 +255,14 @@ where
     let fighter_nro_parent = Path::new("prebuilt;/nro/release");
     let mut fighter_nro_nrr = NrrBuilder::new();
 
-    tree.walk_paths(|node, entry_type| {
-        match node.get_local().parent() {
-            Some(parent) if entry_type.is_file() && parent == fighter_nro_parent => {
-                info!("Reading '{}' for module registration.", node.full_path().display());
-                if let Ok(data) = std::fs::read(node.full_path()) {
-                    fighter_nro_nrr.add_module(data.as_slice());
-                }
-            },
-            _ => {},
-        }
+    tree.walk_paths(|node, entry_type| match node.get_local().parent() {
+        Some(parent) if entry_type.is_file() && parent == fighter_nro_parent => {
+            info!("Reading '{}' for module registration.", node.full_path().display());
+            if let Ok(data) = std::fs::read(node.full_path()) {
+                fighter_nro_nrr.add_module(data.as_slice());
+            }
+        },
+        _ => {},
     });
 
     fighter_nro_nrr.register()
@@ -304,7 +300,7 @@ pub fn load_and_run_plugins(plugins: &[(PathBuf, PathBuf)]) {
 
     if modules.is_empty() {
         info!("No plugins found for chainloading.");
-        return
+        return;
     }
 
     let mut registration_info = match plugin_nrr.register() {
@@ -313,7 +309,7 @@ pub fn load_and_run_plugins(plugins: &[(PathBuf, PathBuf)]) {
         Err(e) => {
             error!("{:?}", e);
             crate::dialog_error("ARCropolis failed to register plugin module info.");
-            return
+            return;
         },
     };
 
@@ -323,14 +319,12 @@ pub fn load_and_run_plugins(plugins: &[(PathBuf, PathBuf)]) {
     // i didn't write hos
     let modules: Vec<Module> = modules
         .into_iter()
-        .filter_map(|x| {
-            match x.mount() {
-                Ok(module) => Some(module),
-                Err(e) => {
-                    error!("Failed to mount chainloaded plugin. {:?}", e);
-                    None
-                },
-            }
+        .filter_map(|x| match x.mount() {
+            Ok(module) => Some(module),
+            Err(e) => {
+                error!("Failed to mount chainloaded plugin. {:?}", e);
+                None
+            },
         })
         .collect();
 
