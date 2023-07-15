@@ -6,7 +6,7 @@ use arc_config::{
 };
 use smash_arc::*;
 
-use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, SearchContext, InterDir};
+use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, InterDir, SearchContext};
 use crate::{
     hashes,
     replacement::FileInfoFlagsExt,
@@ -20,7 +20,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
         file_path
     } else {
         error!("Failed to generate a FilePath from {}!", path.display());
-        return
+        return;
     };
 
     // Create a new FilePathIdx by getting the length of all filepaths in the vector
@@ -113,7 +113,7 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
             hashes::find(shared_to),
             shared_to.0
         );
-        return
+        return;
     };
 
     // Make FilePath from path passed in
@@ -155,40 +155,38 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
                 ctx.path_list_indices.push(ctx.paths.len() as u32);
                 ctx.paths.push(new_path);
                 ctx.folder_paths.push(new_folder_path);
-                return
+                return;
             } else {
                 error!("Unable to generate new folder path list entry for {}", path.display());
-                return
+                return;
             }
         },
-        Some(parent) => {
-            match parent.smash_hash() {
-                Ok(hash) => {
-                    let len = ctx.path_list_indices.len();
-                    match ctx.get_folder_path_mut(hash) {
-                        Some(parent) => (parent, len),
-                        None => {
-                            add_searchable_folder_recursive(ctx, parent);
-                            let len = ctx.path_list_indices.len();
-                            match ctx.get_folder_path_mut(hash) {
-                                Some(parent) => (parent, len),
-                                None => {
-                                    error!("Unable to add folder '{}'", parent.display());
-                                    return
-                                },
-                            }
-                        },
-                    }
-                },
-                Err(e) => {
-                    error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
-                    return
-                },
-            }
+        Some(parent) => match parent.smash_hash() {
+            Ok(hash) => {
+                let len = ctx.path_list_indices.len();
+                match ctx.get_folder_path_mut(hash) {
+                    Some(parent) => (parent, len),
+                    None => {
+                        add_searchable_folder_recursive(ctx, parent);
+                        let len = ctx.path_list_indices.len();
+                        match ctx.get_folder_path_mut(hash) {
+                            Some(parent) => (parent, len),
+                            None => {
+                                error!("Unable to add folder '{}'", parent.display());
+                                return;
+                            },
+                        }
+                    },
+                }
+            },
+            Err(e) => {
+                error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
+                return;
+            },
         },
         None => {
             error!("Failed to get the parent for path '{}'", path.display());
-            return
+            return;
         },
     };
 
@@ -225,13 +223,13 @@ fn add_searchable_folder_by_folder(ctx: &mut SearchContext, folder: &Folder) -> 
     // if we can't find or add anything, just jump out and let the user die
     if !has_parent && !add_searchable_folder_by_folder(ctx, parent) {
         error!("Cannot add folder recursively because we failed to find/add its parent");
-        return false
+        return false;
     }
 
     // quick check on the fields of folder to ensure that we can actually do this
     if folder.name.is_none() {
         error!("Cannot add folder with no name");
-        return false
+        return false;
     }
 
     let path_list_indices_len = ctx.path_list_indices.len();
@@ -276,7 +274,7 @@ pub fn add_shared_searchable_file(ctx: &mut SearchContext, new_file: &File) {
     // if it isn't there, then we are going to recursively add it's parent, returning out if it's not possible
     if !has_parent && !add_searchable_folder_by_folder(ctx, &new_file.parent) {
         error!("Cannot add shared file to search section because we could not add it's parents");
-        return
+        return;
     }
 
     // we get the length here because we are about to acquire a mutable reference
@@ -305,7 +303,7 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
         // If the parent is empty, then just return
         Some(parent) if parent == Path::new("") => {
             error!("Cannot add file {} as root file!", path.display());
-            return
+            return;
         },
         // Else if the parent is alright (actually something), keep going
         Some(parent) => {
@@ -332,7 +330,7 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
                                 // Else, just return
                                 None => {
                                     error!("Unable to add folder '{}'", parent.display());
-                                    return
+                                    return;
                                 },
                             }
                         },
@@ -340,13 +338,13 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
                 },
                 Err(e) => {
                     error!("Unable to get the smash hash for '{}'. {:?}", parent.display(), e);
-                    return
+                    return;
                 },
             }
         },
         None => {
             error!("Failed to get the parent for path '{}'", path.display());
-            return
+            return;
         },
     };
 
@@ -385,7 +383,7 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
         Ok(dir) => dir.file_info_range(),
         Err(_) => {
             error!("Cannot get file info range for '{}' ({:#x})", hashes::find(directory), directory.0);
-            return
+            return;
         },
     };
 
@@ -416,7 +414,7 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
     for file in files {
         // If the file passed in is already exists, then just skip it
         if contained_files.contains(&file) {
-            continue
+            continue;
         }
 
         // Get the FilePathIdx from the context
@@ -494,9 +492,13 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
 // Right now this will take up a bit of memory if adding multiple dirs to the same dirinfo, so gonna have to change it to take a vec instead ig
 pub fn add_dir_info_to_parent(ctx: &mut AdditionContext, parent_dir_info: &mut DirInfo, child_hash_to_index: &HashToIndex) {
     if ctx.inter_dirs.contains_key(&parent_dir_info.path.hash40()) {
-        ctx.inter_dirs.get_mut(&parent_dir_info.path.hash40()).unwrap().children.push(*child_hash_to_index);
+        ctx.inter_dirs
+            .get_mut(&parent_dir_info.path.hash40())
+            .unwrap()
+            .children
+            .push(*child_hash_to_index);
     } else {
-        // If parent_dir_info already has children, then it must be from the original game. (Children ranges aren't modified until later) 
+        // If parent_dir_info already has children, then it must be from the original game. (Children ranges aren't modified until later)
         let modifies_original = parent_dir_info.child_dir_count > 0;
         let inter_dir = InterDir {
             modifies_original,
@@ -512,7 +514,7 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
         dir_info_path
     } else {
         error!("Failed to generate a FolderPathListEntry from {}!", path.display());
-        return
+        return;
     };
 
     // Get a base
@@ -533,7 +535,7 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
     dir_info.child_dir_count = 0;
     // dir_info.flags =  DirInfoFlags::new().with_unk1(0).with_redirected(false).with_unk2(false).with_is_symlink(false).with_unk3(0);
 
-    // If we already have the dir added, we can return early 
+    // If we already have the dir added, we can return early
     if let Ok(_dir) = ctx.get_dir_info_from_hash_ctx(dir_info_path.path.hash40()) {
         return;
     }
@@ -563,7 +565,7 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
                         // Since we just added a dirinfo, we need to update our new dir_hash_to_info_idx so when the parent/child structure is
                         // resolved it doesnt end up pointing back to itself.
                         dir_hash_to_info_idx.set_index(ctx.dir_infos_vec.len() as u32);
-                        
+
                         // After adding it, go ahead and try the logic from above again
                         match ctx.get_dir_info_from_hash_ctx(dir_info_path.parent.hash40()) {
                             Ok(parent_dir_info) => {
@@ -582,7 +584,7 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
                     },
                     None => {
                         println!("Could not get parent of {:?}!", path);
-                        return
+                        return;
                     },
                 }
             },
@@ -617,7 +619,7 @@ pub fn add_dir_info_with_base(ctx: &mut AdditionContext, path: &Path, base: &Pat
         dir_info_path
     } else {
         error!("Failed to generate a FolderPathListEntry from {} for dir_info_path!", path.display());
-        return
+        return;
     };
 
     // Create a FolderPathListEntry from the path that's passed in
@@ -625,7 +627,7 @@ pub fn add_dir_info_with_base(ctx: &mut AdditionContext, path: &Path, base: &Pat
         base_dir_info_path
     } else {
         error!("Failed to generate a FolderPathListEntry from {} for base_dir_info_path!", base.display());
-        return
+        return;
     };
 
     add_dir_info(ctx, path);

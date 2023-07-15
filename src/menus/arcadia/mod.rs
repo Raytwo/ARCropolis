@@ -1,9 +1,6 @@
 // #![feature(proc_macro_hygiene)]
 
-use std::{
-    collections::HashSet,
-    path::Path,
-};
+use std::{collections::HashSet, path::Path};
 
 use serde::{Deserialize, Serialize};
 use skyline_web::Webpage;
@@ -49,7 +46,7 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
             let path_to_be_used = path.unwrap().path();
 
             if path_to_be_used.is_file() {
-                return None
+                return None;
             }
 
             let disabled = !presets.contains(&Hash40::from(path_to_be_used.to_str().unwrap()));
@@ -69,27 +66,21 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
             };
 
             let mod_info = match toml::from_str::<Entry>(&std::fs::read_to_string(info_path).unwrap_or_default()) {
-                Ok(res) => {
-                    Entry {
-                        id: Some(id),
-                        folder_name: Some(folder_name.clone()),
-                        display_name: if use_folder_name {
-                                            Some(folder_name)
-                                      } else {
-                                            res.display_name.or(Some(folder_name))
-                                      },
-                        authors: res.authors.or_else(|| Some(String::from("???"))),
-                        is_disabled: Some(disabled),
-                        version: res.version.or_else(|| Some(String::from("???"))),
-                        category: res.category.map_or(Some(String::from("Misc")), |cat| {
-                            if cat == "Music" {
-                                Some("Audio".to_string())
-                            } else {
-                                Some(cat)
-                            }
-                        }),
-                        description: Some(res.description.unwrap_or_default().replace('\n', "<br />")),
-                    }
+                Ok(res) => Entry {
+                    id: Some(id),
+                    folder_name: Some(folder_name.clone()),
+                    display_name: if use_folder_name { Some(folder_name) } else { res.display_name.or(Some(folder_name)) },
+                    authors: res.authors.or_else(|| Some(String::from("???"))),
+                    is_disabled: Some(disabled),
+                    version: res.version.or_else(|| Some(String::from("???"))),
+                    category: res.category.map_or(Some(String::from("Misc")), |cat| {
+                        if cat == "Music" {
+                            Some("Audio".to_string())
+                        } else {
+                            Some(cat)
+                        }
+                    }),
+                    description: Some(res.description.unwrap_or_default().replace('\n', "<br />")),
                 },
                 Err(e) => {
                     skyline_web::DialogOk::ok(format!("The following info.toml is not valid: \n\n* '{}'\n\nError: {}", folder_name, e,));
@@ -109,9 +100,10 @@ pub fn show_arcadia(workspace: Option<String>) {
 
     if !umm_path.exists() {
         skyline_web::DialogOk::ok("It seems the directory specified in your configuration does not exist.");
-        return
+        return;
     }
-    let workspace_name: String = workspace.unwrap_or_else(|| config::workspaces::get_active_workspace_name().unwrap_or_else(|_| String::from("Default")));
+    let workspace_name: String =
+        workspace.unwrap_or_else(|| config::workspaces::get_active_workspace_name().unwrap_or_else(|_| String::from("Default")));
 
     let presets = config::presets::get_preset(&workspace_name).unwrap();
     let mut new_presets = presets.clone();
@@ -211,7 +203,7 @@ pub fn show_arcadia(workspace: Option<String>) {
             ArcadiaMessage::Closure => {
                 session.exit();
                 session.wait_for_exit();
-                break
+                break;
             },
         }
     }

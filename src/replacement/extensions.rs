@@ -18,12 +18,12 @@ use crate::{
     PathExtension,
 };
 
-/// Used to keep track of added DirInfo children. 
+/// Used to keep track of added DirInfo children.
 #[derive(Debug)]
 pub struct InterDir {
     /// Whether or not this modifies a DirInfo in the original game.
     pub modifies_original: bool,
-    /// The dir_hash_to_info_idx for each new child in the corresponding DirInfo. 
+    /// The dir_hash_to_info_idx for each new child in the corresponding DirInfo.
     pub children: Vec<HashToIndex>,
 }
 
@@ -103,7 +103,6 @@ impl AdditionContext {
     pub fn get_dir_info_from_hash_ctx(&self, hash: Hash40) -> Result<&DirInfo, LookupError> {
         let dir_hash_to_info_index = self.dir_hash_to_info_idx.iter().collect::<Vec<_>>();
 
-
         let mut index: Option<usize> = None;
 
         for i in 0..dir_hash_to_info_index.len() {
@@ -112,11 +111,10 @@ impl AdditionContext {
                 break;
             }
         }
-        
 
         match index {
             Some(dir_index) => Ok(&self.dir_infos_vec[dir_index]),
-            None => Err(LookupError::Missing)
+            None => Err(LookupError::Missing),
         }
 
         // let index = dir_hash_to_info_index
@@ -138,11 +136,10 @@ impl AdditionContext {
                 break;
             }
         }
-        
 
         match index {
             Some(dir_index) => Ok(&mut self.dir_infos_vec[dir_index]),
-            None => Err(LookupError::Missing)
+            None => Err(LookupError::Missing),
         }
 
         // let index = dir_hash_to_info_index
@@ -177,11 +174,9 @@ impl SearchContext {
     pub fn get_folder_path_mut(&mut self, hash: Hash40) -> Option<&mut FolderPathListEntry> {
         match self.search.get_folder_path_index_from_hash(hash) {
             Ok(entry) => Some(&mut self.folder_paths[entry.index() as usize]),
-            Err(_) => {
-                match self.new_folder_paths.get(&hash) {
-                    Some(index) => Some(&mut self.folder_paths[*index]),
-                    None => None,
-                }
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(&mut self.folder_paths[*index]),
+                None => None,
             },
         }
     }
@@ -324,7 +319,6 @@ impl LoadedArcEx for LoadedArc {
             ..
         } = ctx;
 
-
         // sort hash_to_info_index here
         let mut dir_hash_to_info_index_sorted = dir_hash_to_info_idx.iter().cloned().collect::<Vec<_>>();
         dir_hash_to_info_index_sorted.sort_by_key(|a| a.hash40());
@@ -347,13 +341,13 @@ impl LoadedArcEx for LoadedArc {
                 // Copy the old children to the end of folder_children_hashes
                 folder_children_hashes.extend_from_within(dir_info.children_range());
 
-                // Reset all the child hashes that were previously children of the original parent to an invalid value. 
+                // Reset all the child hashes that were previously children of the original parent to an invalid value.
                 let original_children = &mut folder_children_hashes[dir_info.children_range()];
                 original_children.iter_mut().for_each(|x| *x = HashToIndex::new());
-                
+
                 dir_info.child_dir_start_index = current_folder_children_hashes_len;
                 dir_info.child_dir_count += info.children.len() as u32;
-                
+
                 // Update the dir info
                 *dir_infos_vec.iter_mut().find(|x| x.path.hash40() == *dir_name).unwrap() = dir_info;
 
@@ -362,11 +356,10 @@ impl LoadedArcEx for LoadedArc {
                 folder_children_hashes.extend_from_slice(&reserved_hashes);
 
                 add_children_to_dir_info(&mut dir_infos_vec, &mut folder_children_hashes, &dir_info, &info, &ctx.inter_dirs);
-            }
-            else {
+            } else {
                 dir_info.child_dir_start_index = folder_children_hashes.len() as u32;
                 dir_info.child_dir_count = info.children.len() as u32;
-                
+
                 // Update the dir info
                 *dir_infos_vec.iter_mut().find(|x| x.path.hash40() == *dir_name).unwrap() = dir_info;
 
@@ -378,13 +371,19 @@ impl LoadedArcEx for LoadedArc {
             }
         }
 
-        fn add_children_to_dir_info(dir_infos_vec: &mut CppVector<DirInfo>, folder_children_hashes: &mut CppVector<HashToIndex>, dir: &DirInfo, info: &InterDir, inter_dirs: &HashMap<Hash40, InterDir>) {
+        fn add_children_to_dir_info(
+            dir_infos_vec: &mut CppVector<DirInfo>,
+            folder_children_hashes: &mut CppVector<HashToIndex>,
+            dir: &DirInfo,
+            info: &InterDir,
+            inter_dirs: &HashMap<Hash40, InterDir>,
+        ) {
             let mut base_index = dir.child_dir_start_index as usize + dir.child_dir_count as usize - info.children.len();
             for child in &info.children {
                 // If we have an intermediate directory for the child, then start adding its children
                 if let Some(child_inter_dir) = inter_dirs.get(&child.hash40()) {
                     let mut child_dir_info = *dir_infos_vec.iter().find(|x| x.path.hash40() == child.hash40()).unwrap();
-                    
+
                     child_dir_info.child_dir_start_index = folder_children_hashes.len() as u32;
                     child_dir_info.child_dir_count = child_inter_dir.children.len() as u32;
 
@@ -392,7 +391,9 @@ impl LoadedArcEx for LoadedArc {
                     *dir_infos_vec.iter_mut().find(|x| x.path.hash40() == child.hash40()).unwrap() = child_dir_info;
 
                     // Reserve space at the end of the dir info vector for our new children.
-                    let reserved_dirs: Vec<HashToIndex> = std::iter::repeat(HashToIndex::new()).take(child_inter_dir.children.len() as usize).collect();
+                    let reserved_dirs: Vec<HashToIndex> = std::iter::repeat(HashToIndex::new())
+                        .take(child_inter_dir.children.len() as usize)
+                        .collect();
                     folder_children_hashes.extend_from_slice(&reserved_dirs);
                     add_children_to_dir_info(dir_infos_vec, folder_children_hashes, &child_dir_info, child_inter_dir, inter_dirs);
                 }
@@ -456,7 +457,6 @@ impl LoadedArcEx for LoadedArc {
         // --------------------- END MODIFY DIRECTORY RELEATED FIELDS ---------------------
 
         self.resort_file_hashes();
-        
     }
 
     fn resort_file_hashes(&mut self) {
@@ -572,7 +572,7 @@ pub trait SearchEx: SearchLookup {
         let index_idx = folder_path.get_first_child_index();
 
         if index_idx == 0xFF_FFFF {
-            return Err(LookupError::Missing)
+            return Err(LookupError::Missing);
         }
 
         let path_entry_index = self.get_path_list_indices()[index_idx];
@@ -586,7 +586,7 @@ pub trait SearchEx: SearchLookup {
     fn get_next_child_in_folder_mut(&mut self, current_child: &PathListEntry) -> Result<&mut PathListEntry, LookupError> {
         let index_idx = current_child.path.index() as usize;
         if index_idx == 0xFF_FFFF {
-            return Err(LookupError::Missing)
+            return Err(LookupError::Missing);
         }
 
         let path_entry_index = self.get_path_list_indices()[index_idx];
@@ -884,11 +884,9 @@ impl FromPathExt for FilePath {
         };
 
         let ext_hash = match path.extension().and_then(|x| x.to_str()) {
-            Some(str) => {
-                match get_smash_hash(str) {
-                    Ok(hash) => hash,
-                    Err(_) => return None,
-                }
+            Some(str) => match get_smash_hash(str) {
+                Ok(hash) => hash,
+                Err(_) => return None,
             },
             None => return None,
         };
@@ -977,11 +975,9 @@ impl FromPathExt for PathListEntry {
         };
 
         let ext_hash = match path.extension().and_then(|x| x.to_str()) {
-            Some(str) => {
-                match get_smash_hash(str) {
-                    Ok(hash) => hash,
-                    Err(_) => return None,
-                }
+            Some(str) => match get_smash_hash(str) {
+                Ok(hash) => hash,
+                Err(_) => return None,
             },
             None => return None,
         };

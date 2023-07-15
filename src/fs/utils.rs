@@ -29,14 +29,14 @@ where
     let mut path_map = HashMap::new();
     tree.walk_paths(|node, ty| {
         if !ty.is_file() {
-            return
+            return;
         }
 
         if let Some(size) = tree.query_filesize(node.get_local()) {
             match node.get_local().smash_hash() {
                 Ok(hash) => {
                     if regional_overrides.contains(&hash) {
-                        return
+                        return;
                     }
 
                     let is_regional_variant = if let Some(node) = node.get_local().to_str() { node.contains('+') } else { false };
@@ -66,12 +66,12 @@ where
     let mut nus3banks_found = HashSet::new();
     tree.walk_paths(|node, ty| {
         if !ty.is_file() {
-            return
+            return;
         }
 
         let local = node.get_local();
         if local.is_stream() {
-            return
+            return;
         }
 
         if local.has_extension("nus3audio") {
@@ -274,7 +274,10 @@ pub fn add_motionlist_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiL
             }
         }
     }
-    error!("Could not add file {} to API tree. Reason: This is not a motion_list.bin file.", full_path.display());
+    error!(
+        "Could not add file {} to API tree. Reason: This is not a motion_list.bin file.",
+        full_path.display()
+    );
     None
 }
 
@@ -317,6 +320,9 @@ pub fn add_bgm_property_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<Ap
             }
         }
     }
-    error!("Could not add file {} to API tree. Reason: This is not a bgm_property.bin file.", full_path.display());
+    error!(
+        "Could not add file {} to API tree. Reason: This is not a bgm_property.bin file.",
+        full_path.display()
+    );
     None
 }

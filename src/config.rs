@@ -4,7 +4,6 @@ use std::{
     sync::Mutex,
 };
 
-use arc_config::Config;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use semver::Version;
@@ -17,28 +16,27 @@ use crate::utils::env::get_arcropolis_version;
 
 pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| {
     let mut storage = StorageHolder::new(ArcStorage::new());
-
     let version: Result<Version, _> = storage.get_field("version");
 
     if let Ok(config_version) = version {
-            let curr_version = get_arcropolis_version();
+        let curr_version = get_arcropolis_version();
 
-            // Check if the configuration is from a previous version
-            if curr_version > config_version {
-                // TODO: Code to perform changes for each version
-                if Version::new(3, 2, 0) > config_version {
-                    let mut default_workspace = HashMap::<&str, &str>::new();
-                    default_workspace.insert("Default", "presets");
-                    storage.set_field_json("workspace_list", &default_workspace).unwrap();
-                    storage.set_field("workspace", "Default").unwrap();
-                }
-                // Update the version in the config
-                storage.set_field("version", get_arcropolis_version().to_string()).unwrap();
+        // Check if the configuration is from a previous version
+        if curr_version > config_version {
+            // TODO: Code to perform changes for each version
+            if Version::new(3, 2, 0) > config_version {
+                let mut default_workspace = HashMap::<&str, &str>::new();
+                default_workspace.insert("Default", "presets");
+                storage.set_field_json("workspace_list", &default_workspace).unwrap();
+                storage.set_field("workspace", "Default").unwrap();
             }
-    }
-    else // Version file does not exist
-    {
-        generate_default_config(&mut storage).unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
+            // Update the version in the config
+            storage.set_field("version", get_arcropolis_version().to_string()).unwrap();
+        }
+    } else {
+        // Version file does not exist
+        generate_default_config(&mut storage)
+            .unwrap_or_else(|err| panic!("ARCropolis encountered an error when generating the default configuration: {}", err));
     }
 
     Mutex::new(storage)
@@ -79,7 +77,11 @@ fn convert_legacy_to_presets() -> HashSet<Hash40> {
             presets.insert(Hash40::from(path.to_str().unwrap()));
         } else {
             // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
-            std::fs::rename(path, format!("{}/{}", crate::utils::paths::mods() ,&path.file_name().unwrap().to_str().unwrap()[1..])).unwrap();
+            std::fs::rename(
+                path,
+                format!("{}/{}", crate::utils::paths::mods(), &path.file_name().unwrap().to_str().unwrap()[1..]),
+            )
+            .unwrap();
         }
     }
 
@@ -155,13 +157,16 @@ pub mod workspaces {
         #[error("a workspace with this name already exists")]
         AlreadyExists,
         #[error("failed to find workspace with name: {0}")]
-        MissingWorkspace(String)
-        // #[error("failed to call from_str for the desired type")]
-        // FromStrErr,
+        MissingWorkspace(String), // #[error("failed to call from_str for the desired type")]
+                                  // FromStrErr,
     }
 
     pub fn get_list() -> Result<HashMap<String, String>, WorkspaceError> {
-        GLOBAL_CONFIG.lock().unwrap().get_field_json("workspace_list").map_err(WorkspaceError::ConfigError)
+        GLOBAL_CONFIG
+            .lock()
+            .unwrap()
+            .get_field_json("workspace_list")
+            .map_err(WorkspaceError::ConfigError)
     }
 
     pub fn create_new_workspace(name: String) -> Result<(), WorkspaceError> {
@@ -169,7 +174,11 @@ pub mod workspaces {
 
         if let std::collections::hash_map::Entry::Vacant(e) = list.entry(name.clone()) {
             e.insert(name);
-            GLOBAL_CONFIG.lock().unwrap().set_field_json("workspace_list", &list).map_err(WorkspaceError::ConfigError)
+            GLOBAL_CONFIG
+                .lock()
+                .unwrap()
+                .set_field_json("workspace_list", &list)
+                .map_err(WorkspaceError::ConfigError)
         } else {
             Err(WorkspaceError::AlreadyExists)
         }
@@ -180,7 +189,11 @@ pub mod workspaces {
         // Make sure the workspace actually exists before setting it
         if workspace_list.contains_key(&name) {
             // If we couldn't write the new active workspace, return an error
-            GLOBAL_CONFIG.lock().unwrap().set_field("workspace", name).map_err(WorkspaceError::ConfigError)
+            GLOBAL_CONFIG
+                .lock()
+                .unwrap()
+                .set_field("workspace", name)
+                .map_err(WorkspaceError::ConfigError)
         } else {
             // Couldn't find the workspace in our list, something is wrong
             Err(WorkspaceError::MissingWorkspace(name))
@@ -194,25 +207,36 @@ pub mod workspaces {
     pub fn get_active_workspace() -> Result<String, WorkspaceError> {
         let workspace_list = get_list()?;
         let workspace_name: String = GLOBAL_CONFIG.lock().unwrap().get_field("workspace")?;
-        workspace_list.get(&workspace_name).map(|x| x.to_owned()).ok_or(WorkspaceError::MissingWorkspace(workspace_name))
+        workspace_list
+            .get(&workspace_name)
+            .map(|x| x.to_owned())
+            .ok_or(WorkspaceError::MissingWorkspace(workspace_name))
     }
 
     pub fn get_workspace_by_name(name: &str) -> Result<String, WorkspaceError> {
         let workspace_list = get_list()?;
-        workspace_list.get(name).map(|x| x.to_owned()).ok_or(WorkspaceError::MissingWorkspace(name.to_string()))
+        workspace_list
+            .get(name)
+            .map(|x| x.to_owned())
+            .ok_or(WorkspaceError::MissingWorkspace(name.to_string()))
     }
 
     pub fn rename_workspace(from: &str, to: &str) -> Result<(), WorkspaceError> {
         let mut workspace_list = get_list()?;
         // Remove the workspace if we find it and get back the associate preset name, but if we don't, return an error.
-        let preset_name = workspace_list.remove(from).ok_or_else(|| WorkspaceError::MissingWorkspace(from.to_string()))?;
+        let preset_name = workspace_list
+            .remove(from)
+            .ok_or_else(|| WorkspaceError::MissingWorkspace(from.to_string()))?;
         // Reinsert the preset name with the new workspace name
         workspace_list.insert(to.to_string(), preset_name);
         // Overwrite the list with the changes
-        GLOBAL_CONFIG.lock().unwrap().set_field_json("workspace_list", &workspace_list).map_err(WorkspaceError::ConfigError)
+        GLOBAL_CONFIG
+            .lock()
+            .unwrap()
+            .set_field_json("workspace_list", &workspace_list)
+            .map_err(WorkspaceError::ConfigError)
     }
 }
-
 
 pub mod presets {
     use super::*;
@@ -238,22 +262,38 @@ pub mod presets {
 
     pub fn get_active_preset() -> Result<HashSet<Hash40>, PresetError> {
         let preset_name = workspaces::get_active_workspace()?;
-        GLOBAL_CONFIG.lock().unwrap().get_field_json(preset_name).map_err(PresetError::ConfigError)
+        GLOBAL_CONFIG
+            .lock()
+            .unwrap()
+            .get_field_json(preset_name)
+            .map_err(PresetError::ConfigError)
     }
 
     pub fn get_preset(workspace_name: &str) -> Result<HashSet<Hash40>, PresetError> {
         let preset_name = workspaces::get_workspace_by_name(workspace_name)?;
-        GLOBAL_CONFIG.lock().unwrap().get_field_json(preset_name).map_err(PresetError::ConfigError)
+        GLOBAL_CONFIG
+            .lock()
+            .unwrap()
+            .get_field_json(preset_name)
+            .map_err(PresetError::ConfigError)
     }
 
     pub fn replace_preset(workspace_name: &str, preset: &HashSet<Hash40>) -> Result<(), PresetError> {
         let preset_name = workspaces::get_workspace_by_name(workspace_name)?;
-        GLOBAL_CONFIG.lock().unwrap().set_field_json(preset_name, preset).map_err(PresetError::ConfigError)
+        GLOBAL_CONFIG
+            .lock()
+            .unwrap()
+            .set_field_json(preset_name, preset)
+            .map_err(PresetError::ConfigError)
     }
 
     pub fn replace_active_preset(preset: &HashSet<Hash40>) -> Result<(), PresetError> {
         let preset_name = workspaces::get_active_workspace()?;
-        GLOBAL_CONFIG.lock().unwrap().set_field_json(preset_name, preset).map_err(PresetError::ConfigError)
+        GLOBAL_CONFIG
+            .lock()
+            .unwrap()
+            .set_field_json(preset_name, preset)
+            .map_err(PresetError::ConfigError)
     }
 }
 
@@ -261,7 +301,9 @@ pub struct ArcStorage(std::path::PathBuf);
 
 impl ArcStorage {
     pub fn new() -> Self {
-        unsafe { nn::account::Initialize(); }
+        unsafe {
+            nn::account::Initialize();
+        }
 
         // This provides a UserHandle and sets the User in a Open state to be used.
         let handle = nn::account::try_open_preselected_user().expect("TryOpenPreselectedUser should open the current user");

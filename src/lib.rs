@@ -3,10 +3,8 @@
 #![feature(if_let_guard)]
 #![feature(map_try_insert)] // for not overwriting previously stored hashes
 #![feature(vec_into_raw_parts)]
-#![allow(unaligned_references)]
 #![feature(string_remove_matches)]
 // #![feature(fs_try_exists)]
-#![feature(let_else)]
 #![feature(int_roundings)]
 
 use std::{
@@ -21,7 +19,8 @@ use arcropolis_api::Event;
 use log::LevelFilter;
 use thiserror::Error;
 
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
 use once_cell::sync::Lazy;
 use parking_lot::{const_rwlock, RwLock};
@@ -30,6 +29,7 @@ use skyline::{hooks::InlineCtx, libc::c_char, nn};
 mod api;
 mod chainloader;
 mod config;
+mod fixes;
 mod fs;
 mod fuse;
 mod hashes;
@@ -41,12 +41,14 @@ mod resource;
 #[cfg(feature = "online")]
 mod update;
 mod utils;
-mod fixes;
 
 use fs::GlobalFilesystem;
 use smash_arc::{Hash40, Region};
 
-use crate::{config::{GLOBAL_CONFIG, REGION}, utils::save::{get_language_id_in_savedata, get_system_region_from_language_id, mount_save, unmount_save}};
+use crate::{
+    config::{GLOBAL_CONFIG, REGION},
+    utils::save::{get_language_id_in_savedata, get_system_region_from_language_id, mount_save, unmount_save},
+};
 
 pub static GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = const_rwlock(GlobalFilesystem::Uninitialized);
 
@@ -128,7 +130,7 @@ impl PathExtension for Path {
                 )
                 .map(Hash40);
             if let Some(hash) = hash {
-                return Ok(hash)
+                return Ok(hash);
             }
         }
         let mut path = self
@@ -176,9 +178,7 @@ fn init_time() {
 
 fn init_account() {
     // It is safe to initialize multiple times
-    unsafe {
-        nn::account::Initialize()
-    }
+    unsafe { nn::account::Initialize() }
 }
 
 #[cfg(feature = "online")]
@@ -202,11 +202,9 @@ fn check_for_changelog() {
 fn get_news_data() {
     skyline::install_hook!(msbt_text);
     match minreq::get("https://coolsonickirby.com/arc/news").send() {
-        Ok(resp) => {
-            match resp.json::<HashMap<String, String>>() {
-                Ok(info) => unsafe { NEWS_DATA.extend(info) },
-                Err(err) => println!("{:?}", err),
-            }
+        Ok(resp) => match resp.json::<HashMap<String, String>>() {
+            Ok(info) => unsafe { NEWS_DATA.extend(info) },
+            Err(err) => println!("{:?}", err),
         },
         Err(err) => println!("{:?}", err),
     }
@@ -223,7 +221,7 @@ fn check_input_on_boot() {
 }
 
 #[cfg(feature = "online")]
-fn check_for_update(){
+fn check_for_update() {
     // Changed to pre because prerelease doesn't compile
     if !semver::Version::from_str(env!("CARGO_PKG_VERSION")).unwrap().pre.is_empty() {
         update::check_for_updates(config::beta_updates(), |_, _, _| true);
@@ -237,7 +235,7 @@ fn check_for_update(){
                 date,
                 description: "A new version of ARCropolis was detected!<br/>Please read the following changelog.".to_string(),
                 entries,
-                contributors
+                contributors,
             };
 
             menus::display_update_page(&main_entry)
@@ -254,11 +252,11 @@ fn initial_loading(_ctx: &InlineCtx) {
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
     #[cfg(feature = "online")]
     let _updater = std::thread::Builder::new()
-            .stack_size(0x10000)
-            .spawn(|| {
-                check_for_update();
-            })
-            .unwrap();
+        .stack_size(0x10000)
+        .spawn(|| {
+            check_for_update();
+        })
+        .unwrap();
 
     // Commented out until we get an actual news server
     // #[cfg(feature = "online")]
@@ -301,7 +299,11 @@ fn change_version_string(arg: u64, string: *const c_char) {
     let original_str = unsafe { skyline::from_c_str(string) };
 
     if original_str.contains("Ver.") {
-        let new_str = format!("Smash {}\nARCropolis Ver. {}\0", original_str, crate::utils::env::get_arcropolis_version());
+        let new_str = format!(
+            "Smash {}\nARCropolis Ver. {}\0",
+            original_str,
+            crate::utils::env::get_arcropolis_version()
+        );
 
         original!()(arg, skyline::c_str(&new_str))
     } else {
@@ -351,7 +353,7 @@ unsafe fn online_slot_spoof(ctx: &InlineCtx) {
     let data = *ctx.registers[3].x.as_ref() as *mut u8;
 
     if data.is_null() {
-        return
+        return;
     }
 
     if *(data as *const u64).add(0x28 / 8) & 0xFFFF_0000_0000_0000 == 0xc100_0000_0000_0000 {
@@ -387,11 +389,9 @@ pub fn main() {
 
         let msg = match info.payload().downcast_ref::<&'static str>() {
             Some(s) => *s,
-            None => {
-                match info.payload().downcast_ref::<String>() {
-                    Some(s) => &s[..],
-                    None => "Box<Any>",
-                }
+            None => match info.payload().downcast_ref::<String>() {
+                Some(s) => &s[..],
+                None => "Box<Any>",
             },
         };
 
@@ -404,7 +404,9 @@ pub fn main() {
     }));
 
     if utils::env::get_game_version() != semver::Version::new(13, 0, 1) {
-        skyline_web::DialogOk::ok("ARCropolis cannot currently run on a Smash version lower than 13.0.1<br/>Consider updating your game or uninstalling ARCropolis.");
+        skyline_web::DialogOk::ok(
+            "ARCropolis cannot currently run on a Smash version lower than 13.0.1<br/>Consider updating your game or uninstalling ARCropolis.",
+        );
         // Do not perform any of the hook installation and let the game proceed as normal.
         return;
     }

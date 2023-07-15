@@ -15,12 +15,12 @@ crate-type = ["cdylib"]
 
 [dependencies]
 semver = { version = "1", features = ["serde"] }
-num-derive = "0.3.3"
-num-traits = "0.2"
-walkdir = "2.3.2"
-parking_lot = "0.12"
-once_cell = "1.12.0"
-thiserror = "1.0.30"
+num-derive = "0.4.0"
+num-traits = "0.2.15"
+walkdir = "2.3.3"
+parking_lot = "0.12.1"
+once_cell = "1.18.0"
+thiserror = "1.0.43"
 minreq = { version = "2", features = ["https-native", "json-using-serde"], optional = true }
 camino = "1"
 # Switch utilities
@@ -32,35 +32,35 @@ skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }
 zip = { version = "0.6", default-features = false, features = ["deflate"], optional = true }
 gh-updater = { git = "https://github.com/blu-dev/gh-updater", default-features = false, features = ["native-tls"], optional = true }
 # For offset caching and legacy configuration
-toml = "0.5.8"
+toml = "0.5.11"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 # For the logger
-log = "0.4.14"
-owo-colors = "3.0.1"
+log = "0.4.19"
+owo-colors = "3.5.0"
 strip-ansi-escapes = "0.1.1"
 bincode = "1.3.3"
 # To manage mods
 orbits = { git = "https://github.com/blu-dev/orbits" }
 smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd", "serialize"] }
-hash40 = "1.2"
+hash40 = "1.3"
 arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api" }
 arc-config = { git = "https://github.com/blu-dev/arc-config", features = ["runtime"] }
 # For arc:/ and mods:/
 nn-fuse = { git = "https://github.com/Raytwo/nn-fuse" }
 prcx = { git = "https://github.com/blu-dev/prcx", branch = "xml-style" }
 # For xmsbt
-xml-rs = "0.8"
-serde-xml-rs = "0.6"
+xml-rs = "0.8.15"
+serde-xml-rs = "0.6.0"
 msbt = { git = "https://github.com/RoccoDev/msbt-rs", branch = "feature/builder-from-impl" }
-base64 = "0.20.0"
+base64 = "0.21.2"
 # For patch3audio
 nus3audio = "1.2.0"
 # For motion list patching
 motion_list_rs = "1.4.3"
 serde_yaml = "0.8"
 # for bgm property patching
-smash-bgm-property = "1.1.0"
+smash-bgm-property = "1.2.0"
 # For inputs
 ninput = { git = "https://github.com/blu-dev/ninput" }
 

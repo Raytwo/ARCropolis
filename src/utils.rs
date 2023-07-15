@@ -1,9 +1,9 @@
 use skyline::nn;
 
 pub mod env {
-    use std::str::FromStr;
-    use semver::Version;
     use once_cell::sync::Lazy;
+    use semver::Version;
+    use std::str::FromStr;
 
     use super::*;
 
@@ -50,9 +50,9 @@ pub mod env {
 }
 
 pub mod paths {
-    use std::io;
-    use camino::Utf8PathBuf;
     use super::env::get_game_version;
+    use camino::Utf8PathBuf;
+    use std::io;
 
     pub fn ensure_paths_exist() -> io::Result<()> {
         std::fs::create_dir_all(mods())?;
@@ -81,8 +81,8 @@ pub mod paths {
 
 pub mod save {
     use super::*;
-    use std::io::{Read, Seek, SeekFrom, Result};
     use smash_arc::Region;
+    use std::io::{Read, Result, Seek, SeekFrom};
 
     #[repr(u8)]
     #[derive(Debug)]
@@ -150,16 +150,16 @@ pub mod save {
 
     pub fn get_system_region_from_language_id(language: SaveLanguageId) -> Region {
         let system_locale_id = unsafe { *(skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u8).add(0x523b00c) };
-    
+
         let system_region_map = unsafe {
             std::slice::from_raw_parts(
                 (skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as *const u32).add(0x4740f90 / 4),
                 14,
             )
         };
-    
+
         let system_region = system_region_map[system_locale_id as usize];
-    
+
         match language {
             SaveLanguageId::Japanese => Region::Japanese,
             SaveLanguageId::English => {
