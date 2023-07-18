@@ -20,7 +20,7 @@ pub struct Entry {
     folder_name: Option<String>,
     is_disabled: Option<bool>,
     display_name: Option<String>,
-    authors: Option<String>,
+    author: Option<String>,
     version: Option<String>,
     description: Option<String>,
     category: Option<String>,
@@ -61,26 +61,26 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                 is_disabled: Some(disabled),
                 version: Some("???".to_string()),
                 // description: Some("".to_string()),
-                category: Some("Misc".to_string()),
+                category: Some("Miscellaneous".to_string()),
                 ..Default::default()
             };
 
             let mod_info = match toml::from_str::<Entry>(&std::fs::read_to_string(info_path).unwrap_or_default()) {
                 Ok(res) => Entry {
-                    id: Some(id),
-                    folder_name: Some(folder_name.clone()),
-                    display_name: if use_folder_name { Some(folder_name) } else { res.display_name.or(Some(folder_name)) },
-                    authors: res.authors.or_else(|| Some(String::from("???"))),
-                    is_disabled: Some(disabled),
-                    version: res.version.or_else(|| Some(String::from("???"))),
-                    category: res.category.map_or(Some(String::from("Misc")), |cat| {
-                        if cat == "Music" {
-                            Some("Audio".to_string())
-                        } else {
-                            Some(cat)
-                        }
-                    }),
-                    description: Some(res.description.unwrap_or_default().replace('\n', "<br />")),
+                        id: Some(id),
+                        folder_name: Some(folder_name.clone()),
+                        display_name: if use_folder_name { Some(folder_name) } else { res.display_name.or(Some(folder_name)) },
+                        author: res.author.or_else(|| Some(String::from("???"))),
+                        is_disabled: Some(disabled),
+                        version: res.version.or_else(|| Some(String::from("???"))),
+                        category: res.category.map_or(Some(String::from("Misc")), |cat| {
+                            if cat == "Music" {
+                                Some("Sound".to_string())
+                            } else {
+                                Some(cat)
+                            }
+                        }),
+                        description: Some(res.description.unwrap_or_default().replace('\n', "<br />")),
                 },
                 Err(e) => {
                     skyline_web::DialogOk::ok(format!("The following info.toml is not valid: \n\n* '{}'\n\nError: {}", folder_name, e,));

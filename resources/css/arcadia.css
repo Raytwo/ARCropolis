@@ -11,35 +11,95 @@
     background: #FE3636 !important;
 }
 
+.Fighter.abstract-button.is-focused> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(255,10,10) !important;
+}
+/* .Fighter.abstract-button> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(140,9,0) !important;
+} */
+
 .Stage>.abstract-icon-back-decoration,
 .Stage>div.abstract-button-border>div>div.abstract-icon-wrapper {
     background: #28B448 !important;
 }
 
-.Effects>.abstract-icon-back-decoration,
-.Effects>div.abstract-button-border>div>div.abstract-icon-wrapper {
+.Stage.abstract-button.is-focused> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(0,136,5) !important;
+}
+/* .Stage.abstract-button> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(3,54,6) !important;
+} */
+
+.Item>.abstract-icon-back-decoration,
+.Item>div.abstract-button-border>div>div.abstract-icon-wrapper {
     background: #FFC124 !important;
 }
+.Item.abstract-button.is-focused> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(255, 129, 1) !important;
+}
+/* .Item.abstract-button> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(105,45,0) !important;
+} */
 
 .UI>.abstract-icon-back-decoration,
 .UI>div.abstract-button-border>div>div.abstract-icon-wrapper {
     background: #0069F2 !important;
 }
 
-.Param>.abstract-icon-back-decoration,
-.Param>div.abstract-button-border>div>div.abstract-icon-wrapper {
+.UI.abstract-button.is-focused> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(6,65,255) !important;}
+/* .UI.abstract-button> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(28,41,175) !important;
+} */
+
+.Parameter>.abstract-icon-back-decoration,
+.Parameter>div.abstract-button-border>div>div.abstract-icon-wrapper {
     background: #1ACEE8 !important;
 }
 
-.Audio>.abstract-icon-back-decoration,
-.Audio>div.abstract-button-border>div>div.abstract-icon-wrapper {
+.Parameter.abstract-button.is-focused> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(5,166,211) !important;
+}
+/* .Parameter.abstract-button> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(3,95,123) !important;
+} */
+
+.Sound>.abstract-icon-back-decoration,
+.Sound>div.abstract-button-border>div>div.abstract-icon-wrapper {
     background: #F98636 !important;
 }
 
-.Misc>.abstract-icon-back-decoration,
-.Misc>div.abstract-button-border>div>div.abstract-icon-wrapper {
+.Sound.abstract-button.is-focused> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(242,62,8) !important;
+}
+/* .Sound.abstract-button> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(159,37,3) !important;
+} */
+
+
+
+.Plugin>.abstract-icon-back-decoration,
+.Plugin>div.abstract-button-border>div>div.abstract-icon-wrapper {
+    background: #FF9BB4 !important;
+}
+.Plugin.abstract-button.is-focused> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(255,85,119) !important;
+}
+/* .Plugin.abstract-button> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(39,22,123) !important;
+} */
+
+
+.Miscellaneous>.abstract-icon-back-decoration,
+.Miscellaneous>div.abstract-button-border>div>div.abstract-icon-wrapper {
     background: #713FD6 !important;
 }
+.Miscellaneous.abstract-button.is-focused> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(78,42,255) !important;
+}
+/* .Miscellaneous.abstract-button> div.abstract-button-border > div.abstract-button-inner {
+    background: rgb(39,22,123) !important;
+} */
 
 table.main {
     width: 1278px;

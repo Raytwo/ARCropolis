@@ -4,11 +4,12 @@ const categories = [
     "All",
     "Fighter",
     "Stage",
-    "Effects",
+    "Item",
     "UI",
-    "Param",
-    "Audio",
-    "Misc",
+    "Parameter",
+    "Sound",
+    "Plugin",
+    "Miscellaneous",
 ];
 var categoriesToUse = [];
 
@@ -175,7 +176,7 @@ function move(source, target) {
         var mod = mods[target.getAttribute("data-mod-index")];
         $("#description").html(mod["description"]);
         $("#version").html(mod["version"]);
-        $("#authors").html(mod["authors"]);
+        $("#author").html(mod["author"]);
         $("#preview").attr("src", `img/${mod['id']}`);
         updateCurrentDesc();
     }
@@ -221,7 +222,7 @@ function checkOverflow(el) {
 
 function sizeToFormattedBytes(size) {
     if ((size / 1024) < 1)
-        return `${size} bytes`;
+        return `${size} bytes`; 
     size = size / 1024;
 
     if ((size / 1024) < 1)
@@ -283,7 +284,7 @@ function refreshCurrentMods() {
             move(undefined, $("#mods>button").get(0));
             pageCount = Math.ceil(pagination["totalNumber"] / pagination["pageSize"]);
         },
-        afterPaging: function(activePage) {
+        afterPaging: function(activePage) { 
             Array.from(document.querySelectorAll('.abstract-button')).forEach(item => {
                 item.addEventListener('focus', event => {
                     // item.classList.add("is-focused");
@@ -341,8 +342,8 @@ function updateSort() {
 
     if (sortType == "alphabetical") {
         currentMods = JSON.parse(JSON.stringify(currentMods)).sort((a, b) => {
-            if (mods[a]["display_name"] < mods[b]["display_name"]) { return -1; }
-            if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
+            if (mods[a]["folder_name"] < mods[b]["folder_name"]) { return -1; }
+            if (mods[a]["folder_name"] > mods[b]["folder_name"]) { return 1; }
             return 0;
         });
     } else if (sortType == "enabled") {
@@ -350,8 +351,8 @@ function updateSort() {
             if (!mods[a]["is_disabled"] != !mods[b]["is_disabled"]) {
                 return mods[b]["is_disabled"] ? -1 : 1;
             } else {
-                if (mods[a]["display_name"] < mods[b]["display_name"]) { return -1; }
-                if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
+                if (mods[a]["folder_name"] < mods[b]["folder_name"]) { return -1; }
+                if (mods[a]["folder_name"] > mods[b]["folder_name"]) { return 1; }
             }
             return 0;
         });
@@ -360,8 +361,8 @@ function updateSort() {
             if (!mods[a]["is_disabled"] != !mods[b]["is_disabled"]) {
                 return mods[b]["is_disabled"] ? 1 : -1;
             } else {
-                if (mods[a]["display_name"] < mods[b]["display_name"]) { return -1; }
-                if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
+                if (mods[a]["folder_name"] < mods[b]["folder_name"]) { return -1; }
+                if (mods[a]["folder_name"] > mods[b]["folder_name"]) { return 1; }
             }
             return 0;
         });
@@ -376,7 +377,7 @@ window.nx.addEventListener("message", (e) => {
     var info = JSON.parse(e.data);
     if (!("mod_size" in info))
         return;
-
+    
     modSize = info["mod_size"];
 });
 
@@ -390,7 +391,7 @@ window.addEventListener("DOMContentLoaded", (e) => {
                 "version": `${i + 3}.${i + 2}.${i}`,
                 "is_disabled": true,
                 "category": categories[i % categories.length],
-                "authors": `Coolsonickirby`,
+                "author": `Coolsonickirby`,
                 "description": `Hey guys! This is one of the coolest mods ever made! Mod #${i}. Hey guys! This is one of the coolest mods ever made! Mod #${i}. Hey guys! This is one of the coolest mods ever made! Mod #${i}. Hey guys! This is one of the coolest mods ever made! Mod #${i}. Hey guys! This is one of the coolest mods ever made! Mod #${i}.`,
             });
         }

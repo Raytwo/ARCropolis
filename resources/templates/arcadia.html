@@ -34,6 +34,10 @@
                                 <h3>Category:</h3>
                                 <div id="filters">
                                     <div>
+                                        <input type="checkbox" id="Ui">
+                                        <label for="Ui">UI</label>
+                                    </div>
+                                    <div>
                                         <input type="checkbox" id="Fighter">
                                         <label for="Fighter">Fighter</label>
                                     </div>
@@ -43,27 +47,27 @@
                                     </div>
 
                                     <div>
-                                        <input type="checkbox" id="Effects">
-                                        <label for="Effects">Effects</label>
+                                        <input type="checkbox" id="Item">
+                                        <label for="Item">Item</label>
                                     </div>
 
                                     <div>
-                                        <input type="checkbox" id="UI">
-                                        <label for="UI">UI</label>
+                                        <input type="checkbox" id="Sound">
+                                        <label for="Sound">Sound</label>
                                     </div>
 
                                     <div>
-                                        <input type="checkbox" id="Param">
-                                        <label for="Param">Param</label>
+                                        <input type="checkbox" id="Parameter">
+                                        <label for="Parameter">Parameter</label>
                                     </div>
 
                                     <div>
-                                        <input type="checkbox" id="Audio">
-                                        <label for="Audio">Audio</label>
+                                        <input type="checkbox" id="Plugin">
+                                        <label for="Plugin">Plugin</label>
                                     </div>
                                     <div>
-                                        <input type="checkbox" id="Misc">
-                                        <label for="Misc">Misc</label>
+                                        <input type="checkbox" id="Miscellaneous">
+                                        <label for="Miscellaneous">Miscellaneous</label>
                                     </div>
                                 </div>
                             </td>
@@ -104,34 +108,34 @@
     </div>
     <div id="footer">
         <h3 style='font-family: Arial, Helvetica, sans-serif; margin-right: 10px;'>&#xe000 Toggle Mod &nbsp; &#xe003 Show Submenu <span id="r-stick-desc-icon" style="margin-left: 10px; visibility: hidden;">&nbsp; &#xE102</h3>
-    </div>
+        </div>
 
     <div id="header">
         <span class="background-clip"></span>
-            <div>
-                <a id="ret-button" tabindex="-1" nx-se-disabled="">
-                    <div class="ret-icon-wrapper">
-                        <div class="ret-icon-shadow svg-container" ref="./help/img/icon/m_retnormal.svg"></div>
-                        <div class="ret-icon svg-container" ref="./help/img/icon/m_retnormal.svg"></div>
-                    </div>
-                </a>
-                <div class="breadcrumb-list f-u-bold">
-                    <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
+        <div>
+            <a id="ret-button" tabindex="-1" nx-se-disabled="">
+                <div class="ret-icon-wrapper">
+                    <div class="ret-icon-shadow svg-container" ref="./help/img/icon/m_retnormal.svg"></div>
+                    <div class="ret-icon svg-container" ref="./help/img/icon/m_retnormal.svg"></div>
+                </div>
+            </a>
+            <div class="breadcrumb-list f-u-bold">
+                <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
               color: #02A7D4;
               -webkit-text-stroke-width: 2px;
               -webkit-text-stroke-color: black;
               z-index: 1;">Mods</span></p>
-                    <span data-msgid="textbox_id-2" style="
+                <span data-msgid="textbox_id-2" style="
             color: #797979;
             -webkit-text-stroke-width: 2px;
             -webkit-text-stroke-color: black;">▶</span>
-                    <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
+                <p><span data-msgcom="true" data-msgid="textbox_id-10002" style="
               color: white;
               -webkit-text-stroke-width: 2px;
               -webkit-text-stroke-color: black;
               z-index: 1;" id="workspace">Ultimate</span></p>
-                </div>
             </div>
+        </div>
     </div>
 
     <table class="main">
@@ -166,7 +170,7 @@
                     </div>
                     <div class="l-info" style="margin-bottom: 32px;">
                         <div class="f-b-bold">
-                            <p class="sentence">Authors: <span id="authors" data-msgid="textbox_id-5"></span></p>
+                            <p class="sentence">Author: <span id="author" data-msgid="textbox_id-5"></span></p>
                         </div>
                     </div>
                     <div class="l-description scrollbar-desc">
