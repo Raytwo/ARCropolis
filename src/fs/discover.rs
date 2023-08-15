@@ -11,9 +11,9 @@ use smash_arc::Hash40;
 use crate::{chainloader::*, config, utils};
 
 pub fn perform_discovery() -> LaunchPad<StandardLoader> {
-    let is_ryujinx = utils::env::is_ryujinx();
+    let is_emulator = utils::env::is_emulator();
 
-    if is_ryujinx {
+    if is_emulator {
         info!("Emulator usage detected in perform_discovery, reverting to old behavior.");
     }
 
@@ -24,7 +24,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let mut presets = crate::config::presets::get_active_preset().unwrap();
 
     // Emulators can't use presets, so don't run this logic
-    if !is_ryujinx && !legacy_discovery {
+    if !is_emulator && !legacy_discovery {
         if std::path::PathBuf::from("rom:/arc").exists() {
             skyline_web::DialogOk::ok("Support for mods stored in `sd:/atmosphere/contents/01006A800016E000/romfs/arc/` has been deprecated<br/>Please consider reworking your modpack to use the newer methods<br/><br/>This message will keep displaying until the directory is removed");
         }
@@ -72,7 +72,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     let filter = |path: &Path| {
         // If we're not running on emulator
-        if !is_ryujinx && !legacy_discovery {
+        if !is_emulator && !legacy_discovery {
             // If it's not in the presets, don't load
             presets.contains(&Hash40::from(path.to_str().unwrap()))
         } else {

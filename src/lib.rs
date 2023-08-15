@@ -70,7 +70,7 @@ macro_rules! reg_w {
 
 /// Basic code for displaying an ARCropolis dialog error informing the user to check their logs, or enable them if they don't currently.
 fn dialog_error<S: AsRef<str>>(msg: S) {
-    if utils::env::is_ryujinx() {
+    if utils::env::is_emulator() {
         if config::file_logging_enabled() {
             error!("{}<br>See the latest log for more information.", msg.as_ref());
         } else {
@@ -183,7 +183,7 @@ fn init_account() {
 
 #[cfg(feature = "online")]
 fn check_for_changelog() {
-    if !crate::utils::env::is_ryujinx() {
+    if !crate::utils::env::is_emulator() {
         if let Ok(changelog) = std::fs::read_to_string("sd:/ultimate/arcropolis/changelog.toml") {
             match toml::from_str(&changelog) {
                 Ok(changelog) => {
@@ -212,7 +212,7 @@ fn get_news_data() {
 
 #[cfg(feature = "online")]
 fn check_input_on_boot() {
-    if !crate::utils::env::is_ryujinx() {
+    if !crate::utils::env::is_emulator() {
         // Open the ARCropolis menu if Minus is held before mod discovery
         if ninput::any::is_down(ninput::Buttons::PLUS) {
             crate::menus::show_main_menu();
@@ -417,7 +417,7 @@ pub fn main() {
     init_account();
 
     // Initialize hid
-    if !utils::env::is_ryujinx() {
+    if !utils::env::is_emulator() {
         println!("Initializing ninput");
         ninput::init();
     }
