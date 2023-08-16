@@ -362,6 +362,38 @@ unsafe fn online_slot_spoof(ctx: &InlineCtx) {
     }
 }
 
+pub fn is_online() -> bool {
+    unsafe {
+        *(offsets::offset_to_addr(offsets::is_online()) as *const bool)
+    }
+}
+
+// Thanks to blujay for these two function hooks
+#[skyline::hook(offset = offsets::change_color_r(), inline)]
+unsafe fn change_fighter_color_r(ctx: &mut skyline::hooks::InlineCtx) {
+    if is_online() {
+        unsafe {
+            if *ctx.registers[8].w.as_ref() >= 8 {
+                *ctx.registers[8].w.as_mut() = 0; // Actual color
+                *ctx.registers[3].w.as_mut() = 0; // UI
+            }
+        }
+    }
+}
+
+#[skyline::hook(offset = offsets::change_color_l(), inline)]
+unsafe fn change_fighter_color_l(ctx: &mut skyline::hooks::InlineCtx) {
+    if is_online() {
+        unsafe {
+            if *ctx.registers[8].w.as_ref() >= 8 {
+                // Assuming that if they can change a character's color then that means a character has at least a set of 8 colors
+                *ctx.registers[8].w.as_mut() = 7; // Actual color
+                *ctx.registers[3].w.as_mut() = 7; // UI
+            }
+        }
+    }
+}
+
 #[skyline::hook(offset = offsets::skip_opening(), inline)]
 unsafe fn skip_opening_cutscene(ctx: &mut InlineCtx) {
     let data = ctx.registers[8].x.as_mut();
@@ -472,7 +504,7 @@ pub fn main() {
         })
         .unwrap();
 
-    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof);
+    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof, change_fighter_color_l, change_fighter_color_r);
 
     // If we skip the title scene, we obviously skip the opening cutscene with it. Well, actually not necessarily but in this case we do.
     if config::skip_title_scene() {
