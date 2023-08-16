@@ -286,6 +286,27 @@ static PARAMETERS_CACHE_SEARCH_CODE: (&[u8], isize) = (
     -0x158,
 );
 
+static IS_ONLINE_SEARCH_CODE: (&[u8], isize) = (
+    &[
+        0x29, 0xa1, 0x17, 0x91, 0xea, 0x03, 0x17, 0xaa, 0xe8, 0x02, 0x00, 0xf9, 0xe8, 0x03, 0x14, 0x32, 0xff, 0xfe, 0x00, 0xa9, 0x49, 0x8d, 0x01,
+        0xf8, 0xe8, 0x22, 0x00, 0xb9, 0xe8, 0x03, 0x17, 0xaa, 0xf6, 0x03, 0x17, 0xaa, 0x1f, 0x8d, 0x02, 0xf8, 0xe8, 0x17, 0x00, 0xf9, 0xe8, 0x03,
+        0x17, 0xaa, 0xff, 0x2a, 0x00, 0xf9, 0xff, 0x7e, 0x03, 0xa9, 0xfc, 0x03, 0x17, 0xaa, 0xf5, 0x03, 0x17, 0xaa, 0xf3, 0xe3, 0x06, 0x91, 0x1a,
+        0x48, 0x88, 0x52, 0xfa, 0x01, 0xa0, 0x72, 0x1f, 0x8d, 0x04, 0xf8, 0xe8, 0x22, 0x00, 0xf9, 0xe8, 0x03, 0x17, 0xaa, 0x1f, 0x8d, 0x05, 0xf8,
+        0xea, 0x23, 0x06, 0xa9, 0xe8, 0x03, 0x17, 0xaa, 0x1f, 0x0d, 0x09, 0xf8, 0xe8, 0x1f, 0x00, 0xf9, 0xe8, 0x03, 0x17, 0xaa, 0xff, 0xe2, 0x0e,
+        0xf8, 0x1f, 0x0d, 0x0c, 0xf8, 0xe8, 0x23, 0x00, 0xf9, 0xe8, 0x03, 0x17, 0xaa, 0x1f, 0x8d, 0x0d, 0xf8, 0xdf, 0x0e, 0x06, 0xf8, 0x9f, 0x8f,
+        0x07, 0xf8, 0xbf, 0x8e, 0x0a, 0xf8, 0xe8, 0x1b, 0x00, 0xf9,
+    ],
+    -0xAf4,
+);
+
+static CHANGE_COLOR_R_CODE: (&[u8], isize) = (
+    &[
+        0xa2, 0x06, 0x41, 0xf9, 0xa4, 0x0a, 0x5b, 0x39, 0x03, 0x1d, 0x00, 0x12, 0xa0, 0xf6, 0x42, 0xf9, 0xe1, 0x03, 0x18, 0xaa, 0xe5, 0x03, 0x1f,
+        0x2a, 0xa8, 0x42, 0x08, 0x39,
+    ],
+    0x18,
+);
+
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|window| window == needle)
 }
@@ -313,6 +334,14 @@ fn offset_from_ldr(ldr_offset: usize) -> usize {
         let size = (ldr & 0b1100_0000_0000_0000_0000_0000_0000_0000) >> 30;
         let imm = (ldr & 0b0000_0000_0011_1111_1111_1100_0000_0000) >> 10;
         (imm as usize) << size
+    }
+}
+
+#[allow(clippy::inconsistent_digit_grouping)]
+fn offset_from_strb_unsigned_immediate(strb_offset: usize) -> usize {
+    unsafe {
+        let strb = *(offset_to_addr(strb_offset) as *const u32);
+        ((strb & 0b00000_000_00_111111111111_00000_00000) >> 10) as usize
     }
 }
 
@@ -375,6 +404,9 @@ generate_members! {
         css_set_selected_character_ui: usize,
         chara_select_scene_destructor: usize,
         parameters_cache: usize,
+        is_online: usize,
+        change_color_r: usize,
+        change_color_l: usize,
     }
 }
 
@@ -409,6 +441,8 @@ impl Offsets {
         let load_stock_icon_for_portrait_menu = get_offset_neon(text, LOAD_STOCK_ICON_FOR_PORTRAIT_MENU_SEARCH_CODE);
         let css_set_selected_character_ui = get_offset_neon(text, CSS_SET_SELECTED_CHARACTER_UI_SEARCH_CODE);
         let chara_select_scene_destructor = get_offset_neon(text, CHARA_SELECT_SCENE_DESTRUCTOR_SEARCH_CODE);
+        let change_color_r = get_offset_neon(text, CHANGE_COLOR_R_CODE);
+        let change_color_l = change_color_r + 0x298;
         let filesystem_info = {
             let adrp = get_offset_neon(text, FILESYSTEM_INFO_ADRP_SEARCH_CODE);
             let adrp_offset = offset_from_adrp(adrp);
@@ -426,6 +460,12 @@ impl Offsets {
             let adrp_offset = offset_from_adrp(adrp);
             let ldr_offset = offset_from_ldr(adrp + 4);
             adrp_offset + ldr_offset
+        };
+        let is_online = {
+            let adrp = get_offset_neon(text, IS_ONLINE_SEARCH_CODE);
+            let adrp_offset = offset_from_adrp(adrp);
+            let strb_offset = offset_from_strb_unsigned_immediate(adrp + 4);
+            adrp_offset + strb_offset
         };
 
         Some(Self {
@@ -460,6 +500,9 @@ impl Offsets {
             css_set_selected_character_ui,
             chara_select_scene_destructor,
             parameters_cache,
+            is_online,
+            change_color_r,
+            change_color_l,
         })
     }
 }
