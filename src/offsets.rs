@@ -320,7 +320,7 @@ fn offset_from_adrp(adrp_offset: usize) -> usize {
     unsafe {
         let adrp = *(offset_to_addr(adrp_offset) as *const u32);
         let immhi = (adrp & 0b0000_0000_1111_1111_1111_1111_1110_0000) >> 3;
-        let immlo = (adrp & 0b01100000000000000000000000000000) >> 29;
+        let immlo = (adrp & 0b0110_0000_0000_0000_0000_0000_0000_0000) >> 29;
         let imm = ((immhi | immlo) << 12) as i32 as usize;
         let base = adrp_offset & 0xFFFF_FFFF_FFFF_F000;
         base + imm
