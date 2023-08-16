@@ -1,7 +1,7 @@
 use std::{
     alloc::Layout,
     ops::{Index, IndexMut, Range},
-    ptr::null,
+    ptr::{NonNull, null},
 };
 
 #[derive(Debug)]
@@ -95,14 +95,22 @@ impl<T> CppVector<T> {
     pub fn as_slice(&self) -> &[T] {
         unsafe {
             let len = self.end.offset_from(self.start) as usize;
-            std::slice::from_raw_parts(self.start, len)
+            if len > 0 {
+                std::slice::from_raw_parts(self.start, len)
+            } else {
+                std::slice::from_raw_parts(NonNull::<T>::dangling().as_ptr(), len)
+            }
         }
     }
 
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         unsafe {
             let len = self.end.offset_from(self.start) as usize;
-            std::slice::from_raw_parts_mut(self.start, len)
+            if len > 0 {
+                std::slice::from_raw_parts_mut(self.start, len)
+            } else {
+                std::slice::from_raw_parts_mut(NonNull::<T>::dangling().as_ptr(), len)
+            }
         }
     }
 

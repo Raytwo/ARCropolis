@@ -451,8 +451,8 @@ impl LoadedArcEx for LoadedArc {
 
         // Calculate extra folders and set extra folder header for FolderOffsets
         let extra_folder_count =
-            (folder_offsets_vec_len as u32) - (header.folder_offset_count_1 + header.folder_offset_count_2 + header.extra_folder);
-        header.extra_folder += extra_folder_count as u32;
+            (folder_offsets_vec_len as u32).wrapping_sub(header.folder_offset_count_1 + header.folder_offset_count_2 + header.extra_folder);
+        header.extra_folder = header.extra_folder.wrapping_add(extra_folder_count as u32);
         self.folder_offsets = folder_offsets_vec;
         // --------------------- END MODIFY DIRECTORY RELEATED FIELDS ---------------------
 
