@@ -63,6 +63,8 @@ serde_yaml = "0.8"
 smash-bgm-property = "1.2.0"
 # For inputs
 ninput = { git = "https://github.com/blu-dev/ninput" }
+# For reading in NRR hashes
+binrw = "0.11.2"
 
 [patch.crates-io]
 nnsdk = { git = "https://github.com/Raytwo/nnsdk-rs", branch="account_fs" }

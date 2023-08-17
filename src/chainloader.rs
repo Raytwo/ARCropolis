@@ -1,6 +1,8 @@
-use std::{cmp::Ordering, fmt, io, mem::MaybeUninit, ops::Deref, path::Path};
+use std::{cmp::Ordering, fmt, io::{self, Seek}, mem::MaybeUninit, ops::Deref, path::Path};
 
+use binrw::{BinReaderExt, VecArgs, BinRead};
 use nn::ro::{self, Module, NrrHeader, RegistrationInfo};
+use once_cell::sync::Lazy;
 use skyline::{libc, nn};
 
 macro_rules! align_up {
@@ -9,6 +11,7 @@ macro_rules! align_up {
     };
 }
 
+#[derive(BinRead)]
 struct Sha256Hash {
     hash: [u8; 0x20],
 }
@@ -64,6 +67,27 @@ pub struct NrrBuilder {
     hashes: Vec<Sha256Hash>,
 }
 
+static ORIGINAL_GAME_NRO_HASHES: Lazy<Vec<Sha256Hash>> = Lazy::new(|| { 
+    let mut out = Vec::new();
+    let read_dir = std::fs::read_dir("rom:/.nrr/").unwrap();
+    for entry in read_dir {
+        if let Ok(dir_entry) = entry {
+            let path = dir_entry.path();
+            if path.is_file() {
+                let mut file = std::fs::File::open(path).unwrap();
+                file.seek(io::SeekFrom::Start(0x340)).unwrap();
+                let hashes_offset: u32 = file.read_le().unwrap();
+                let num_hashes: u32 = file.read_le().unwrap();
+                file.seek(io::SeekFrom::Start(hashes_offset as u64)).unwrap();
+                let hashes: Vec<Sha256Hash> = file.read_le_args(VecArgs::builder().count(num_hashes as usize).finalize()).unwrap();
+                out.extend(hashes);
+            }
+        }
+    }
+    out
+    }
+);
+
 const NRR_SIZE: usize = std::mem::size_of::<NrrHeader>();
 
 impl NrrBuilder {
@@ -72,7 +96,11 @@ impl NrrBuilder {
     }
 
     pub fn add_module(&mut self, data: &[u8]) {
-        self.hashes.push(Sha256Hash::new(data));
+        let hash = Sha256Hash::new(data);
+        let original_hashes = Lazy::force(&ORIGINAL_GAME_NRO_HASHES);
+        if !original_hashes.contains(&hash) {
+            self.hashes.push(hash);
+        }
     }
 
     pub fn register(self) -> Result<Option<RegistrationInfo>, NrrRegistrationFailedError> {
