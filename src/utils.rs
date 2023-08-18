@@ -10,13 +10,14 @@ pub mod env {
     #[non_exhaustive]
     pub enum RunEnvironment {
         Switch,
-        Ryujinx,
-        // Yuzu
+        Emulator,
     }
 
     static PLATFORM: Lazy<RunEnvironment> = Lazy::new(|| {
-        if unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 } == 0x8004000 {
-            RunEnvironment::Ryujinx
+        let base_addr = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 };
+
+        if base_addr == 0x8004000 || base_addr == 0x8504000 {
+            RunEnvironment::Emulator
         } else {
             RunEnvironment::Switch
         }
@@ -26,12 +27,12 @@ pub mod env {
         &PLATFORM
     }
 
-    pub fn is_emulator() -> bool {
+    pub fn is_hardware() -> bool {
         matches!(get_running_env(), RunEnvironment::Switch)
     }
 
-    pub fn is_ryujinx() -> bool {
-        matches!(get_running_env(), RunEnvironment::Ryujinx)
+    pub fn is_emulator() -> bool {
+        matches!(get_running_env(), RunEnvironment::Emulator)
     }
 
     /// Wrapper function for getting the version string of the game from nnSdk

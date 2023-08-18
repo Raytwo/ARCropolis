@@ -70,7 +70,7 @@ pub extern "C" fn arcrop_is_mod_enabled(hash: Hash40) -> bool {
 
     let storage = crate::config::GLOBAL_CONFIG.lock().unwrap();
 
-    let preset: HashSet<Hash40> = if storage.get_flag("legacy_discovery") || utils::env::is_ryujinx() {
+    let preset: HashSet<Hash40> = if storage.get_flag("legacy_discovery") || utils::env::is_emulator() {
         WalkDir::new(crate::utils::paths::mods())
             .max_depth(1)
             .into_iter()

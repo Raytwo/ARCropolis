@@ -70,7 +70,7 @@ macro_rules! reg_w {
 
 /// Basic code for displaying an ARCropolis dialog error informing the user to check their logs, or enable them if they don't currently.
 fn dialog_error<S: AsRef<str>>(msg: S) {
-    if utils::env::is_ryujinx() {
+    if utils::env::is_emulator() {
         if config::file_logging_enabled() {
             error!("{}<br>See the latest log for more information.", msg.as_ref());
         } else {
@@ -183,7 +183,7 @@ fn init_account() {
 
 #[cfg(feature = "online")]
 fn check_for_changelog() {
-    if !crate::utils::env::is_ryujinx() {
+    if !crate::utils::env::is_emulator() {
         if let Ok(changelog) = std::fs::read_to_string("sd:/ultimate/arcropolis/changelog.toml") {
             match toml::from_str(&changelog) {
                 Ok(changelog) => {
@@ -212,7 +212,7 @@ fn get_news_data() {
 
 #[cfg(feature = "online")]
 fn check_input_on_boot() {
-    if !crate::utils::env::is_ryujinx() {
+    if !crate::utils::env::is_emulator() {
         // Open the ARCropolis menu if Minus is held before mod discovery
         if ninput::any::is_down(ninput::Buttons::PLUS) {
             crate::menus::show_main_menu();
@@ -362,6 +362,38 @@ unsafe fn online_slot_spoof(ctx: &InlineCtx) {
     }
 }
 
+pub fn is_online() -> bool {
+    unsafe {
+        *(offsets::offset_to_addr(offsets::is_online()) as *const bool)
+    }
+}
+
+// Thanks to blujay for these two function hooks
+#[skyline::hook(offset = offsets::change_color_r(), inline)]
+unsafe fn change_fighter_color_r(ctx: &mut skyline::hooks::InlineCtx) {
+    if is_online() {
+        unsafe {
+            if *ctx.registers[8].w.as_ref() >= 8 {
+                *ctx.registers[8].w.as_mut() = 0; // Actual color
+                *ctx.registers[3].w.as_mut() = 0; // UI
+            }
+        }
+    }
+}
+
+#[skyline::hook(offset = offsets::change_color_l(), inline)]
+unsafe fn change_fighter_color_l(ctx: &mut skyline::hooks::InlineCtx) {
+    if is_online() {
+        unsafe {
+            if *ctx.registers[8].w.as_ref() >= 8 {
+                // Assuming that if they can change a character's color then that means a character has at least a set of 8 colors
+                *ctx.registers[8].w.as_mut() = 7; // Actual color
+                *ctx.registers[3].w.as_mut() = 7; // UI
+            }
+        }
+    }
+}
+
 #[skyline::hook(offset = offsets::skip_opening(), inline)]
 unsafe fn skip_opening_cutscene(ctx: &mut InlineCtx) {
     let data = ctx.registers[8].x.as_mut();
@@ -417,7 +449,7 @@ pub fn main() {
     init_account();
 
     // Initialize hid
-    if !utils::env::is_ryujinx() {
+    if !utils::env::is_emulator() {
         println!("Initializing ninput");
         ninput::init();
     }
@@ -472,7 +504,7 @@ pub fn main() {
         })
         .unwrap();
 
-    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof);
+    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof, change_fighter_color_l, change_fighter_color_r);
 
     // If we skip the title scene, we obviously skip the opening cutscene with it. Well, actually not necessarily but in this case we do.
     if config::skip_title_scene() {
