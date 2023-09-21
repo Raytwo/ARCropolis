@@ -10,10 +10,17 @@ fn install_inkling_patches() {
     }
 
     // Inkling Patches here nop some branches so it can work with more than c08+
-    Patch::in_text(offsets::inkling_patch()).nop().expect("Failed to patch inkling 1 cmp");
+    Patch::in_text(offsets::inkling_patch())
+        .nop()
+        .expect("Failed to patch inkling 1 cmp");
+    
     Patch::in_text(offsets::inkling_patch() + 4)
         .nop()
         .expect("Failed to patch inkling 1 b.cs");
+    
+    Patch::in_text(0xB0B5F4)
+        .data(0x1400000E)
+        .expect("Failed to patch inkling effect.prc c10+ fix!");
 
     install_hooks!(clear_ink_patch);
 }
