@@ -1,5 +1,5 @@
 use crate::offsets;
-use skyline::{from_offset, hook, hooks::InlineCtx, install_hooks, patching::Patch};
+use skyline::{from_offset, hook, hooks::InlineCtx, install_hooks, patching::{Patch, BranchBuilder}};
 
 // Patches to get Inkling c08+ working
 fn install_inkling_patches() {
@@ -18,8 +18,10 @@ fn install_inkling_patches() {
         .nop()
         .expect("Failed to patch inkling 1 b.cs");
     
-    Patch::in_text(0xB0B5F4)
-        .data(0x1400000E)
+    BranchBuilder::branch()
+        .branch_offset(offsets::inkling_c10plus())
+        .branch_to_offset(offsets::inkling_c10plus() + 0x38)
+        .replace()
         .expect("Failed to patch inkling effect.prc c10+ fix!");
 
     install_hooks!(clear_ink_patch);
