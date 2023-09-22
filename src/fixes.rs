@@ -21,8 +21,7 @@ fn install_inkling_patches() {
     BranchBuilder::branch()
         .branch_offset(offsets::inkling_c10plus())
         .branch_to_offset(offsets::inkling_c10plus() + 0x38)
-        .replace()
-        .expect("Failed to patch inkling effect.prc c10+ fix!");
+        .replace();
 
     install_hooks!(clear_ink_patch);
 }
