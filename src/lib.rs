@@ -41,6 +41,7 @@ mod resource;
 #[cfg(feature = "online")]
 mod update;
 mod utils;
+mod lua;
 
 use fs::GlobalFilesystem;
 use smash_arc::{Hash40, Region};
@@ -515,6 +516,7 @@ pub fn main() {
 
     replacement::install();
     fixes::install();
+    lua::install();
 
     // Wait on hashes/lut to finish
     let _ = resources.join();
