@@ -7,6 +7,7 @@ use std::ffi::CString;
 
 pub mod lua;
 use crate::lua::lua::{lua_state, luaL_Reg, luaL_Reg_container};
+use crate::offsets;
 
 static LUA_MANAGERS: Lazy<RwLock<HashMap<&'static str, Vec<luaL_Reg_container>>>> = Lazy::new(|| RwLock::new(HashMap::new()));
 
@@ -35,7 +36,7 @@ pub fn add_lua_manager(name: impl AsRef<str>, registry: Vec<luaL_Reg_container>)
     }
 }
 
-#[hook(offset = 0x33702b0)]
+#[hook(offset = offsets::lua_ui2d_bindings())]
 fn apply_ui2d_layout_bindings(lua_state: &mut lua_state) {
     clean_installed_managers();
     original!()(lua_state);

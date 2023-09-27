@@ -1,36 +1,37 @@
 use skyline::{from_offset, hooks::{getRegionAddress, Region}};
+use crate::offsets;
 
 pub type LuaCfunction = ::std::option::Option<unsafe extern "C" fn(L: &mut lua_state) -> ::std::os::raw::c_int>;
 pub type LMem = u64;
 
-#[from_offset(0x38f5c30)]
+#[from_offset(offsets::lua_l_newmetatable())]
 fn lua_l_newmetatable(lua_state: &mut lua_state, name: *const u8);
 
-#[from_offset(0x38f3d60)]
+#[from_offset(offsets::lua_setfield())]
 fn lua_setfield(lua_state: &mut lua_state, unk_1: *const u64, name: *const u8);
 
-#[from_offset(0x38f7ee0)]
+#[from_offset(offsets::lua_l_setfuncs())]
 fn lua_l_setfuncs(lua_state: &mut lua_state, regs: *const u64, index: u32);
 
-#[from_offset(0x38fd610)]
+#[from_offset(offsets::lua_c_step())]
 fn lua_c_step(lua_state: &mut lua_state);
 
-#[from_offset(0x391ca20)]
+#[from_offset(offsets::lua_h_new())]
 fn lua_h_new(lua_state: &mut lua_state) -> *const u64;
 
-#[from_offset(0x38f3710)]
+#[from_offset(offsets::lua_getfield())]
 fn lua_getfield(lua_state: &mut lua_state, lua_registry: *const TValue, name: *const u8);
 
-#[from_offset(0x38f45d0)]
+#[from_offset(offsets::lua_setmetatable())]
 fn lua_setmetatable(lua_state: &mut lua_state, obj_idx: i32);
 
-#[from_offset(0x38f2e10)]
+#[from_offset(offsets::lua_tonumberx())]
 fn lua_tonumberx(lua_state: &mut lua_state, idx: i32, unk: *const u64) -> f32;
 
-#[from_offset(0x38f2f80)]
+#[from_offset(offsets::lua_tointegerx())]
 fn lua_tointegerx(lua_state: &mut lua_state, idx: i32, unk: *const u64) -> u64;
 
-#[from_offset(0x38f3100)]
+#[from_offset(offsets::lua_tolstring())]
 fn lua_tolstring(lua_state: &mut lua_state, idx: i32, unk: *const u64) -> *const u8;
 
 #[repr(C, align(16))]
@@ -256,7 +257,7 @@ impl lua_state {
             let mut pu_var4: *const unk_struct = std::ptr::null();
             let mut pi_var1: *const unk_struct = std::ptr::null();
 
-            let lua_nil_addr = getRegionAddress(Region::Text) as u64 + 0x4860ab0;
+            let lua_nil_addr = offsets::lua_nil() as *const u64;
             let lua_r_udata = lua_registry.udata as *const unk_udata_struct;
 
             if (*lua_r_udata).unk_2_0xc < 2 {
@@ -274,7 +275,7 @@ impl lua_state {
                     }
                     pi_var1 = (*pu_var4).unk_5_0x1c as *const unk_struct;
                     pu_var4 = ((pu_var4 as u64) + (*pi_var1).unk_1_0x0) as *const unk_struct;
-                    set_field_var = lua_nil_addr as *const u64; // &LUA_NIL
+                    set_field_var = lua_nil_addr; // &LUA_NIL
                     if *(pi_var1 as *const u32) == 0 {
                         break;
                     }
