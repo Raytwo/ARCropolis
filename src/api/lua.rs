@@ -2,8 +2,8 @@ use crate::lua::lua::{lua_state, luaL_Reg_container, luaL_Reg_from_api};
 use std::ffi::CString;
 
 #[no_mangle]
-pub extern "C" fn arcorp_add_lua_manager(name: *mut u8, reg_vec_ptr: *mut luaL_Reg_from_api, reg_vec_size: usize, reg_vec_cap: usize) -> bool {
-    debug!("arcorp_add_lua_manager -> Function called");
+pub extern "C" fn arcorp_add_lua_menu_manager(name: *mut u8, reg_vec_ptr: *mut luaL_Reg_from_api, reg_vec_size: usize, reg_vec_cap: usize) -> bool {
+    debug!("arcorp_add_lua_menu_manager -> Function called");
     unsafe {
         match CString::from_raw(name).to_str() {
             Ok(s) => {
@@ -17,7 +17,32 @@ pub extern "C" fn arcorp_add_lua_manager(name: *mut u8, reg_vec_ptr: *mut luaL_R
                     }
                 }).collect::<Vec<luaL_Reg_container>>();
 
-                crate::lua::add_lua_manager(name, functions)
+                crate::lua::add_lua_menu_manager(name, functions)
+            },
+            Err(err) => {
+                false
+            }
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn arcorp_add_lua_ingame_manager(name: *mut u8, reg_vec_ptr: *mut luaL_Reg_from_api, reg_vec_size: usize, reg_vec_cap: usize) -> bool {
+    debug!("arcorp_add_lua_ingame_manager -> Function called");
+    unsafe {
+        match CString::from_raw(name).to_str() {
+            Ok(s) => {
+                let name = s.to_string();
+                let registry = Vec::from_raw_parts(reg_vec_ptr, reg_vec_size, reg_vec_cap);
+                
+                let functions = registry.iter().map(|x| {
+                    luaL_Reg_container {
+                        name: CString::from_raw(x.name).to_str().unwrap().to_string(),
+                        func: x.func
+                    }
+                }).collect::<Vec<luaL_Reg_container>>();
+
+                crate::lua::add_lua_ingame_manager(name, functions)
             },
             Err(err) => {
                 false

@@ -34,6 +34,12 @@ fn lua_tointegerx(lua_state: &mut lua_state, idx: i32, unk: *const u64) -> u64;
 #[from_offset(offsets::lua_tolstring())]
 fn lua_tolstring(lua_state: &mut lua_state, idx: i32, unk: *const u64) -> *const u8;
 
+#[from_offset(offsets::declare_namespace())]
+fn declare_namespace(enum_builder: &mut LuaEnumBuilder, lua_state: &mut lua_state, enum_name: *const u8, table_index: i32);
+
+#[from_offset(offsets::add_method())]
+fn add_method(enum_builder: &mut LuaEnumBuilder, enum_name: *const u8, function: (unsafe extern "C" fn(L: &mut lua_state) -> ::std::os::raw::c_int));
+
 #[repr(C, align(16))]
 #[derive(Debug, Copy, Clone)]
 pub struct TValue {
@@ -100,6 +106,37 @@ pub struct unk_struct {
     pub unk_3_0x10: u64,
     pub unk_4_0x18: u32,
     pub unk_5_0x1c: u32,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct LuaEnumBuilder {
+    pub lua_state: *mut lua_state,
+    pub type_name: *const u8,
+    pub table_index: i32
+}
+
+impl LuaEnumBuilder {
+    pub fn new() -> LuaEnumBuilder {
+        LuaEnumBuilder { lua_state: std::ptr::null_mut(), type_name: std::ptr::null(), table_index: 0 }
+    }
+
+    pub fn declare_namespace(&mut self, lua_state: &mut lua_state, name: impl AsRef<str>){
+        unsafe {
+            declare_namespace(self, lua_state, format!("{}\0", name.as_ref()).as_ptr() as _, -3);
+        }
+    }
+
+    pub fn add_method(&mut self, reg: &luaL_Reg) {
+        unsafe {
+            if !reg.name.is_null() {
+                match reg.func {
+                    Some(fun_ptr) => add_method(self, reg.name, fun_ptr),
+                    None => {},
+                }
+            }
+        }
+    }
 }
 
 impl lua_state {
@@ -211,7 +248,7 @@ impl lua_state {
         }
     }
 
-    pub fn add_manager(&mut self, name: impl AsRef<str>, registry: &[luaL_Reg]){
+    pub fn add_menu_manager(&mut self, name: impl AsRef<str>, registry: &[luaL_Reg]){
         unsafe {
             // Replicates the code used by the game to insert a new lua singleton
             let normal = format!("{}", name.as_ref());
@@ -253,7 +290,7 @@ impl lua_state {
             
             let pv_var7 = lua_registry.udata;
 
-            
+
             let mut pu_var4: *const unk_struct = std::ptr::null();
             let mut pi_var1: *const unk_struct = std::ptr::null();
 
@@ -285,6 +322,14 @@ impl lua_state {
             }
 
             self.set_field(set_field_var, &normal);
+        }
+    }
+
+    pub fn add_ingame_manager(&mut self, name: impl AsRef<str>, registry: &[luaL_Reg]) {
+        let mut enum_builder = LuaEnumBuilder::new();
+        enum_builder.declare_namespace(self, name);
+        for reg in registry.iter() {
+            enum_builder.add_method(reg);
         }
     }
 }
