@@ -1,10 +1,7 @@
 use std::ffi::CString;
 
 use crate::offsets;
-use skyline::{
-    from_offset,
-    hooks::{getRegionAddress, Region},
-};
+use skyline::from_offset;
 
 pub type LuaCfunction = ::std::option::Option<unsafe extern "C" fn(L: &mut lua_state) -> ::std::os::raw::c_int>;
 pub type LMem = u64;

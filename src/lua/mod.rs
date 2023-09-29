@@ -29,12 +29,10 @@ fn string_to_static_str(s: String) -> &'static str {
 }
 
 pub fn add_lua_menu_manager(name: impl AsRef<str>, registry: Vec<luaL_Reg_container>) -> bool {
-    unsafe {
-        let mut lua_menu_managers = LUA_MENU_MANAGERS.write();
-        match lua_menu_managers.try_insert(string_to_static_str(name.as_ref().to_string()), registry) {
-            Ok(_s) => true,
-            Err(_err) => false
-        }
+    let mut lua_menu_managers = LUA_MENU_MANAGERS.write();
+    match lua_menu_managers.try_insert(string_to_static_str(name.as_ref().to_string()), registry) {
+        Ok(_s) => true,
+        Err(_err) => false
     }
 }
 
@@ -67,12 +65,10 @@ fn apply_ui2d_layout_bindings(lua_state: &mut lua_state) {
 
 
 pub fn add_lua_ingame_manager(name: impl AsRef<str>, registry: Vec<luaL_Reg_container>) -> bool {
-    unsafe {
-        let mut lua_ingame_managers = LUA_INGAME_MANAGERS.write();
-        match lua_ingame_managers.try_insert(string_to_static_str(name.as_ref().to_string()), registry) {
-            Ok(_s) => true,
-            Err(_err) => false
-        }
+    let mut lua_ingame_managers = LUA_INGAME_MANAGERS.write();
+    match lua_ingame_managers.try_insert(string_to_static_str(name.as_ref().to_string()), registry) {
+        Ok(_s) => true,
+        Err(_err) => false
     }
 }
 
@@ -82,7 +78,7 @@ fn apply_ingame_bindings(lua_state: &mut lua_state) {
     original!()(lua_state);
     let lua_ingame_managers = LUA_INGAME_MANAGERS.read();
     for (key, value) in lua_ingame_managers.iter() {
-        let mut functions = value.iter().map(|x| luaL_Reg {
+        let functions = value.iter().map(|x| luaL_Reg {
             name: {
                 let c_str = CString::new(format!("{}", x.name)).expect(&format!("Failed to make a CString from {}!", x.name));
                 let raw = c_str.into_raw();

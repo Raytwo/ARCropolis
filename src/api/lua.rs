@@ -20,6 +20,7 @@ pub extern "C" fn arcorp_add_lua_menu_manager(name: *mut u8, reg_vec_ptr: *mut l
                 crate::lua::add_lua_menu_manager(name, functions)
             },
             Err(err) => {
+                error!("arcorp_add_lua_menu_manager -> Error when adding manager! Reason: {:?}", err);
                 false
             }
         }
