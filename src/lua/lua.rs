@@ -1,5 +1,10 @@
-use skyline::{from_offset, hooks::{getRegionAddress, Region}};
+use std::ffi::CString;
+
 use crate::offsets;
+use skyline::{
+    from_offset,
+    hooks::{getRegionAddress, Region},
+};
 
 pub type LuaCfunction = ::std::option::Option<unsafe extern "C" fn(L: &mut lua_state) -> ::std::os::raw::c_int>;
 pub type LMem = u64;
@@ -35,16 +40,19 @@ fn lua_tointegerx(lua_state: &mut lua_state, idx: i32, unk: *const u64) -> u64;
 fn lua_tolstring(lua_state: &mut lua_state, idx: i32, unk: *const u64) -> *const u8;
 
 #[from_offset(offsets::declare_namespace())]
-fn declare_namespace(enum_builder: &mut LuaEnumBuilder, lua_state: &mut lua_state, enum_name: *const u8, table_index: i32);
+fn declare_namespace(enum_builder: &mut LuaEnumBuilder, lua_state: Option<&mut lua_state>, enum_name: *const u8, table_index: i32);
 
 #[from_offset(offsets::add_method())]
-fn add_method(enum_builder: &mut LuaEnumBuilder, enum_name: *const u8, function: (unsafe extern "C" fn(L: &mut lua_state) -> ::std::os::raw::c_int));
+fn add_method(enum_builder: &mut LuaEnumBuilder, enum_name: *const u8, function: LuaCfunction);
+
+// #[from_offset(0x38f3fa0)] 13.0.1 offset
+// fn lua_gettable(lua_state: *mut lua_state, idx: i32);
 
 #[repr(C, align(16))]
 #[derive(Debug, Copy, Clone)]
 pub struct TValue {
     pub udata: u64,
-    pub tt: u32
+    pub tt: u32,
 }
 
 #[repr(C)]
@@ -74,7 +82,7 @@ pub struct lua_state {
     pub unk: [u8; 0xF],
     pub top_ptr: *mut TValue,
     pub global_state: &'static mut global_state,
-    pub unk_2: [u8; 176]
+    pub unk_2: [u8; 176],
 }
 
 #[repr(C)]
@@ -84,7 +92,7 @@ pub struct global_state {
     pub gc_debt: LMem,
     pub unk_2: [u8; 0x20],
     pub l_registry: TValue,
-    pub unk_3: [u8; 0xA9]
+    pub unk_3: [u8; 0xA9],
 }
 
 #[repr(C)]
@@ -113,44 +121,44 @@ pub struct unk_struct {
 pub struct LuaEnumBuilder {
     pub lua_state: *mut lua_state,
     pub type_name: *const u8,
-    pub table_index: i32
+    pub table_index: i32,
 }
 
 impl LuaEnumBuilder {
     pub fn new() -> LuaEnumBuilder {
-        LuaEnumBuilder { lua_state: std::ptr::null_mut(), type_name: std::ptr::null(), table_index: 0 }
+        LuaEnumBuilder {
+            lua_state: std::ptr::null_mut(),
+            type_name: std::ptr::null(),
+            table_index: 0,
+        }
     }
 
-    pub fn declare_namespace(&mut self, lua_state: &mut lua_state, name: impl AsRef<str>){
+    pub fn declare_namespace(&mut self, lua_state: Option<&mut lua_state>, name: impl AsRef<str>) {
         unsafe {
-            declare_namespace(self, lua_state, format!("{}\0", name.as_ref()).as_ptr() as _, -3);
+            declare_namespace(
+                self,
+                lua_state,
+                CString::new(name.as_ref())
+                    .expect(&format!("Failed to make CString from {}!", name.as_ref()))
+                    .into_raw() as _,
+                -3,
+            );
         }
     }
 
     pub fn add_method(&mut self, reg: &luaL_Reg) {
-        unsafe {
-            if !reg.name.is_null() {
-                match reg.func {
-                    Some(fun_ptr) => add_method(self, reg.name, fun_ptr),
-                    None => {},
-                }
-            }
-        }
+        unsafe { add_method(self, reg.name, reg.func) }
     }
 }
 
 impl lua_state {
     pub fn get_current_top(&mut self) -> TValue {
-        unsafe {
-            *(self.top_ptr)
-        }
+        unsafe { *(self.top_ptr) }
     }
     pub fn get_previous_top(&mut self) -> TValue {
-        unsafe {
-            *(self.top_ptr).sub(1)
-        }
+        unsafe { *(self.top_ptr).sub(1) }
     }
-    pub fn update_current_top(&mut self, new: &TValue){
+    pub fn update_current_top(&mut self, new: &TValue) {
         unsafe {
             let top_ptr = self.top_ptr;
             (*top_ptr).tt = new.tt;
@@ -167,7 +175,7 @@ impl lua_state {
             self.top_ptr = (self.top_ptr).sub(1);
         }
     }
-    pub fn set_top_field(&mut self, index: i32, field: impl AsRef<str>){
+    pub fn set_top_field(&mut self, index: i32, field: impl AsRef<str>) {
         unsafe {
             let ptr = {
                 if index < 0 {
@@ -180,14 +188,10 @@ impl lua_state {
         }
     }
     pub fn new_table(&mut self) -> *const u64 {
-        unsafe {
-            lua_h_new(self)
-        }
+        unsafe { lua_h_new(self) }
     }
     pub fn step(&mut self) {
-        unsafe {
-            lua_c_step(self)
-        }
+        unsafe { lua_c_step(self) }
     }
     pub fn get_field(&mut self, registry: &TValue, field: impl AsRef<str>) {
         unsafe {
@@ -205,11 +209,9 @@ impl lua_state {
         }
     }
     pub fn new_metatable(&mut self, field: impl AsRef<str>) {
-        unsafe {
-            lua_l_newmetatable(self, format!("{}\0", field.as_ref()).as_ptr() as _)
-        }
+        unsafe { lua_l_newmetatable(self, format!("{}\0", field.as_ref()).as_ptr() as _) }
     }
-    pub fn set_funcs(&mut self, funcs: &[luaL_Reg]){
+    pub fn set_funcs(&mut self, funcs: &[luaL_Reg]) {
         unsafe {
             lua_l_setfuncs(self, funcs.as_ptr() as _, 0);
         }
@@ -248,48 +250,47 @@ impl lua_state {
         }
     }
 
-    pub fn add_menu_manager(&mut self, name: impl AsRef<str>, registry: &[luaL_Reg]){
+    pub fn add_menu_manager(&mut self, name: impl AsRef<str>, registry: &[luaL_Reg]) {
         unsafe {
             // Replicates the code used by the game to insert a new lua singleton
             let normal = format!("{}", name.as_ref());
             let metatable = format!("Metatable{}", name.as_ref());
             self.new_metatable(&metatable);
-            
-            let mut top = self.get_current_top();        
+
+            let mut top = self.get_current_top();
             let prev_top = self.get_previous_top();
-            
+
             top.tt = prev_top.tt;
             top.udata = prev_top.udata;
             self.update_current_top(&top);
-            
+
             self.increment_top_address();
             self.set_top_field(-1, "__index");
             self.set_funcs(registry);
             self.decrement_top_address();
-            
+
             let gc_debt = self.global_state.gc_debt;
             if 0 < gc_debt {
                 self.step();
             }
-            
+
             let tbl_ptr = self.new_table();
-            
+
             let mut top = self.get_current_top();
             top.udata = tbl_ptr as u64;
             top.tt = 69; // CollectableTableType
-            
+
             self.update_current_top(&top);
             self.increment_top_address();
-            
+
             let lua_registry = self.global_state.l_registry;
-            
+
             self.get_field(&lua_registry, &metatable);
             self.set_metatable(-2);
-            
-            let mut set_field_var = std::ptr::null();
-            
-            let pv_var7 = lua_registry.udata;
 
+            let mut set_field_var = std::ptr::null();
+
+            let pv_var7 = lua_registry.udata;
 
             let mut pu_var4: *const unk_struct = std::ptr::null();
             let mut pi_var1: *const unk_struct = std::ptr::null();
@@ -302,9 +303,8 @@ impl lua_state {
                 // Implementation is copied word for word (and translated) from Ghidra.
                 // I have no idea what the game is doing here, but this is replicating what its doing
                 // You can see this being done in the `apply_ui2d_layout_bindings` function (0x33702b0 in Smash ver 13.0.1) after the metatable is set
-                pu_var4 = ((*lua_r_udata).unk_4_0x18
-                        +
-                        (!((0xffffffff as u64) << ((*lua_r_udata).unk_1_0xb as u64 & 0x3f)) as u64 & 2) * 0x20) as *const unk_struct;
+                pu_var4 = ((*lua_r_udata).unk_4_0x18 + (!((0xffffffff as u64) << ((*lua_r_udata).unk_1_0xb as u64 & 0x3f)) as u64 & 2) * 0x20)
+                    as *const unk_struct;
                 loop {
                     set_field_var = pu_var4 as *const u64;
                     if (*pu_var4).unk_4_0x18 == 0x13 && (*pu_var4).unk_3_0x10 == 2 {
@@ -327,7 +327,7 @@ impl lua_state {
 
     pub fn add_ingame_manager(&mut self, name: impl AsRef<str>, registry: &[luaL_Reg]) {
         let mut enum_builder = LuaEnumBuilder::new();
-        enum_builder.declare_namespace(self, name);
+        enum_builder.declare_namespace(Some(self), name);
         for reg in registry.iter() {
             enum_builder.add_method(reg);
         }

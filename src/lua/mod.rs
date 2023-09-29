@@ -91,6 +91,7 @@ fn apply_ingame_bindings(lua_state: &mut lua_state) {
             },
             func: x.func,
         }).collect::<Vec<luaL_Reg>>();
+
         lua_state.add_ingame_manager(key, &functions);
     }
 }
