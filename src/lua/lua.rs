@@ -42,6 +42,9 @@ fn declare_namespace(enum_builder: &mut LuaEnumBuilder, lua_state: Option<&mut l
 #[from_offset(offsets::add_method())]
 fn add_method(enum_builder: &mut LuaEnumBuilder, enum_name: *const u8, function: LuaCfunction);
 
+#[from_offset(0x38f34f0)]
+fn lua_pushstring(lua_state: &mut lua_state, name: *const u8);
+
 // #[from_offset(0x38f3fa0)] 13.0.1 offset
 // fn lua_gettable(lua_state: *mut lua_state, idx: i32);
 
@@ -119,6 +122,32 @@ pub struct LuaEnumBuilder {
     pub lua_state: *mut lua_state,
     pub type_name: *const u8,
     pub table_index: i32,
+}
+
+#[repr(i32)]
+pub enum LuaTagType {
+    NilType = 0x0,
+    BoolType = 0x1,
+    LightUserDataType = 0x2,
+    NumberType = 0x3,
+    StringType = 0x4,
+    TableType = 0x5,
+    FunctionType = 0x6,
+    UserDataType = 0x7,
+    ThreadType = 0x8,
+    IntType = 0x13,
+    LongStringType = 0x14,
+    LightCFunctionType = 0x16,
+    CClosureType = 0x26,
+    CollectableNilType = 0x40,
+    CollectableBoolType = 0x41,
+    CollectableLightUserDataType = 0x42,
+    CollectableNumberType = 0x43,
+    CollectableStringType = 0x44,
+    CollectableTableType = 0x45,
+    CollectableFunctionType = 0x46,
+    CollectableUserDataType = 0x47,
+    CollectableThreadType = 0x48,
 }
 
 impl LuaEnumBuilder {
@@ -239,6 +268,48 @@ impl lua_state {
         }
     }
 
+    pub fn push_integer(&mut self, int: u64) {
+        unsafe {
+            (*self.top_ptr).tt = LuaTagType::IntType as _;
+            *((*self.top_ptr).udata as *mut u64) = (&int as *const u64) as u64;
+        }
+        self.increment_top_address();
+    }
+
+    pub fn push_number(&mut self, float: f32) {
+        unsafe {
+            let ptr = self.top_ptr;
+
+            (*ptr).tt = LuaTagType::NumberType as _;
+            *((*ptr).udata as *mut f32) = float;
+        }
+        self.increment_top_address();
+    }
+
+    pub fn push_string(&mut self, string: impl AsRef<str>) {
+        let ptr = format!("{}\0", string.as_ref()).as_ptr();
+        unsafe {
+            lua_pushstring(self, ptr as _);
+        }
+        // self.increment_top_address(); // This is done by the native smash function
+    }
+
+    pub fn push_bool(&mut self, state: bool) {
+        unsafe {
+            (*self.top_ptr).tt = LuaTagType::BoolType as _;
+            *((*self.top_ptr).udata as *mut u32) = state as _;
+        }
+        self.increment_top_address();
+    }
+
+    pub fn push_nil(&mut self) {
+        unsafe {
+            (*self.top_ptr).tt = LuaTagType::NilType as _;
+        }
+        self.increment_top_address();
+    }
+
+
     pub fn get_integer_arg(&mut self) -> u64 {
         unsafe {
             let num = lua_tointegerx(self, -1, std::ptr::null());
@@ -275,7 +346,7 @@ impl lua_state {
 
             let mut top = self.get_current_top();
             top.udata = tbl_ptr as u64;
-            top.tt = 69; // CollectableTableType
+            top.tt = LuaTagType::CollectableTableType as _;
 
             self.update_current_top(&top);
             self.increment_top_address();

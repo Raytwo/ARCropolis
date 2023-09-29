@@ -69,3 +69,33 @@ pub extern "C" fn arcrop_lua_state_get_integer(lua_state: &mut lua_state) -> u64
     debug!("arcrop_lua_state_get_integer -> Function called");
     lua_state.get_integer_arg()
 }
+
+#[no_mangle]
+pub extern "C" fn arcrop_lua_state_push_bool(lua_state: &mut lua_state, val: bool) {
+    debug!("arcrop_lua_state_push_bool -> Function called");
+    lua_state.push_bool(val)
+}
+
+#[no_mangle]
+pub extern "C" fn arcrop_lua_state_push_integer(lua_state: &mut lua_state, val: u64) {
+    debug!("arcrop_lua_state_push_integer -> Function called");
+    lua_state.push_integer(val)
+}
+
+#[no_mangle]
+pub extern "C" fn arcrop_lua_state_push_number(lua_state: &mut lua_state, val: f32) {
+    debug!("arcrop_lua_state_push_number -> Function called");
+    lua_state.push_number(val)
+}
+
+#[no_mangle]
+pub extern "C" fn arcrop_lua_state_push_nil(lua_state: &mut lua_state) {
+    debug!("arcrop_lua_state_push_nil -> Function called");
+    lua_state.push_nil()
+}
+
+#[no_mangle]
+pub extern "C" fn arcrop_lua_state_push_string(lua_state: &mut lua_state, str: *mut u8) {
+    debug!("arcrop_lua_state_push_string -> Function called");
+    unsafe { lua_state.push_string(CString::from_raw(str).to_str().expect("Failed to get string from str pointer!")); }
+}
