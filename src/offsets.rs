@@ -457,6 +457,15 @@ static ADD_METHOD_CODE: (&[u8], isize) = (
     0x68,
 );
 
+static LUA_PUSHSTRING_CODE: (&[u8], isize) = (
+    &[
+        0x76, 0x0e, 0x40, 0xf9, 0x88, 0x7e, 0x40, 0x92, 0x69, 0xf6, 0x99, 0x52, 0x29, 0xa4, 0xa6, 0x72, 0x08, 0x7d, 0x09, 0x9b, 0x08, 0xfd, 0x60,
+        0xd3, 0x89, 0x02, 0x08, 0x4b, 0x08, 0x05, 0x49, 0x0b, 0xa9, 0x06, 0x80, 0x52, 0x08, 0x7d, 0x05, 0x53, 0x18, 0xd1, 0x09, 0x1b, 0xd7, 0x52,
+        0x38, 0x8b, 0xf5, 0xf6, 0x40, 0xf9, 0xa1, 0x62, 0x00, 0x91, 0xe0, 0x03, 0x14, 0xaa,
+    ],
+    -0x38,
+);
+
 #[allow(clippy::inconsistent_digit_grouping)]
 fn offset_from_adrp(adrp_offset: usize) -> usize {
     unsafe {
@@ -566,6 +575,7 @@ generate_members! {
         lua_ingame_bindings: usize,
         declare_namespace: usize,
         add_method: usize,
+        lua_pushstring: usize,
     }
 }
 
@@ -617,6 +627,7 @@ impl Offsets {
         let lua_ingame_bindings = get_offset_neon(text, LUA_INGAME_BINDINGS_CODE);
         let declare_namespace = get_offset_neon(text, DECLARE_NAMESPACE_CODE);
         let add_method = get_offset_neon(text, ADD_METHOD_CODE);
+        let lua_pushstring = get_offset_neon(text, LUA_PUSHSTRING_CODE);
 
         let filesystem_info = {
             let adrp = get_offset_neon(text, FILESYSTEM_INFO_ADRP_SEARCH_CODE);
@@ -700,6 +711,7 @@ impl Offsets {
             lua_ingame_bindings,
             declare_namespace,
             add_method,
+            lua_pushstring,
         })
     }
 }

@@ -42,7 +42,7 @@ fn declare_namespace(enum_builder: &mut LuaEnumBuilder, lua_state: Option<&mut l
 #[from_offset(offsets::add_method())]
 fn add_method(enum_builder: &mut LuaEnumBuilder, enum_name: *const u8, function: LuaCfunction);
 
-#[from_offset(0x38f34f0)]
+#[from_offset(offsets::lua_pushstring())]
 fn lua_pushstring(lua_state: &mut lua_state, name: *const u8);
 
 // #[from_offset(0x38f3fa0)] 13.0.1 offset
