@@ -287,7 +287,7 @@ impl lua_state {
     pub fn push_number(&mut self, float: f32) {
         unsafe {
             (*self.top_ptr).tt = LuaTagType::NumberType as _;
-            (*self.top_ptr).udata = float as _;
+            *((&((*self.top_ptr).udata) as *const u64) as *mut f32) = float;
         }
         self.increment_top_address();
     }
@@ -303,7 +303,7 @@ impl lua_state {
     pub fn push_bool(&mut self, state: bool) {
         unsafe {
             (*self.top_ptr).tt = LuaTagType::BoolType as _;
-            (*self.top_ptr).udata = state as _;
+            *((&((*self.top_ptr).udata) as *const u64) as *mut u32) = state as _;
         }
         self.increment_top_address();
     }
