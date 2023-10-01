@@ -268,20 +268,26 @@ impl lua_state {
         }
     }
 
+    pub fn get_integer_arg(&mut self) -> u64 {
+        unsafe {
+            let num = lua_tointegerx(self, -1, std::ptr::null());
+            self.decrement_top_address();
+            num
+        }
+    }
+
     pub fn push_integer(&mut self, int: u64) {
         unsafe {
             (*self.top_ptr).tt = LuaTagType::IntType as _;
-            *((*self.top_ptr).udata as *mut u64) = (&int as *const u64) as u64;
+            (*self.top_ptr).udata = int;
         }
         self.increment_top_address();
     }
 
     pub fn push_number(&mut self, float: f32) {
         unsafe {
-            let ptr = self.top_ptr;
-
-            (*ptr).tt = LuaTagType::NumberType as _;
-            *((*ptr).udata as *mut f32) = float;
+            (*self.top_ptr).tt = LuaTagType::NumberType as _;
+            (*self.top_ptr).udata = float as _;
         }
         self.increment_top_address();
     }
@@ -297,7 +303,7 @@ impl lua_state {
     pub fn push_bool(&mut self, state: bool) {
         unsafe {
             (*self.top_ptr).tt = LuaTagType::BoolType as _;
-            *((*self.top_ptr).udata as *mut u32) = state as _;
+            (*self.top_ptr).udata = state as _;
         }
         self.increment_top_address();
     }
@@ -307,15 +313,6 @@ impl lua_state {
             (*self.top_ptr).tt = LuaTagType::NilType as _;
         }
         self.increment_top_address();
-    }
-
-
-    pub fn get_integer_arg(&mut self) -> u64 {
-        unsafe {
-            let num = lua_tointegerx(self, -1, std::ptr::null());
-            self.decrement_top_address();
-            num
-        }
     }
 
     pub fn add_menu_manager(&mut self, name: impl AsRef<str>, registry: &[luaL_Reg]) {
