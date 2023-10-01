@@ -287,6 +287,10 @@ impl lua_state {
     pub fn push_number(&mut self, float: f32) {
         unsafe {
             (*self.top_ptr).tt = LuaTagType::NumberType as _;
+            // We need to get udata as a mutable pointer to a f32, so we first get the pointer of the udata as a *const u64
+            // since the compiler won't allow us to directly cast it into a *mut f32 pointer, then we dereference the f32 pointer and give it
+            // our own float.
+            // Basically: v = u64 -> v = &v -> v = &v as *const u64 -> v = v as *mut f32 -> *v = float
             *((&((*self.top_ptr).udata) as *const u64) as *mut f32) = float;
         }
         self.increment_top_address();
@@ -303,6 +307,7 @@ impl lua_state {
     pub fn push_bool(&mut self, state: bool) {
         unsafe {
             (*self.top_ptr).tt = LuaTagType::BoolType as _;
+            // Same logic as the number type, where we need the udata as a pointer to a specific type, then give it our value
             *((&((*self.top_ptr).udata) as *const u64) as *mut u32) = state as _;
         }
         self.increment_top_address();
