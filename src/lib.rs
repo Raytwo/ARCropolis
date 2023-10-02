@@ -12,7 +12,7 @@ use std::{
     fmt,
     io::{BufWriter, Write},
     path::{Path, PathBuf},
-    str::FromStr,
+    str::FromStr, num::ParseIntError,
 };
 
 use arcropolis_api::Event;
@@ -84,20 +84,23 @@ fn dialog_error<S: AsRef<str>>(msg: S) {
     }
 }
 
-#[derive(Error, Debug)]
-pub struct InvalidOsStrError;
-
-impl fmt::Display for InvalidOsStrError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Failed to convert from OsStr to &str")
-    }
+#[derive(Debug, Error)]
+pub enum HashingError {
+    #[error("couldn't convert OsStr to str")]
+    InvalidOsStrError,
+    #[error("the path does not have a filename")]
+    MissingFilename,
+    #[error("the path does not have an extension")]
+    MissingExtension,
+    #[error("hash parsing failed")]
+    FailedParsing(#[from] ParseIntError)
 }
 
 pub trait PathExtension {
     fn to_str(&self) -> Option<&str>;
     fn is_stream(&self) -> bool;
     fn has_extension<S: AsRef<str>>(&self, ext: S) -> bool;
-    fn smash_hash(&self) -> Result<Hash40, InvalidOsStrError>;
+    fn smash_hash(&self) -> Result<Hash40, HashingError>;
 }
 
 impl PathExtension for Path {
@@ -115,44 +118,45 @@ impl PathExtension for Path {
         self.extension().and_then(|x| x.to_str()).map(|x| x == ext.as_ref()).unwrap_or(false)
     }
 
-    fn smash_hash(&self) -> Result<Hash40, InvalidOsStrError> {
-        if self.extension().is_none() {
-            let hash = self
-                .file_name()
-                .and_then(|x| x.to_str())
-                .and_then(
-                    |x| {
-                        if x.starts_with("0x") {
-                            u64::from_str_radix(x.trim_start_matches("0x"), 16).ok()
-                        } else {
-                            None
-                        }
-                    },
-                )
-                .map(Hash40);
-            if let Some(hash) = hash {
-                return Ok(hash);
-            }
-        }
-        let mut path = self
-            .as_os_str()
-            .to_str()
-            .map_or(Err(InvalidOsStrError), Ok)?
-            .to_lowercase()
-            .replace(';', ":")
-            .replace(".mp4", ".webm")
-            .replace(".lua", ".lc");
+    fn smash_hash(&self) -> Result<Hash40, HashingError> {
+        match self.extension() {
+            // The file has an extension, proceed to cleanup
+            Some(_) => {
+                let mut path = self
+                    .as_os_str()
+                    .to_str()
+                    .map(|path| {
+                        path
+                            .trim_start_matches('/')
+                            .to_lowercase()
+                            .replace(';', ":")
+                            .replace(".mp4", ".webm")
+                            .replace(".lua", ".lc")
+                    })
+                    .ok_or(HashingError::InvalidOsStrError)?;
 
-        if let Some(regional_idx) = path.find('+') {
-            path.replace_range(regional_idx..regional_idx + 6, "")
-        }
+                // Remove the regional marker if present. Note that this assume there is no mispelling, we should probably find the position of the period instead.
+                if let Some(regional_idx) = path.find('+') {
+                    path.replace_range(regional_idx..regional_idx + 6, "")
+                }
 
-        Ok(Hash40::from(path.trim_start_matches('/')))
+                Ok(Hash40::from(path.trim_start_matches('/')))
+            },
+            // No extension, check if we received a hash
+            None => {
+                self
+                    .file_name()
+                    .and_then(|x| x.to_str())
+                    .map(|x| {
+                        u64::from_str_radix(x.trim_start_matches("0x"), 16).map(Hash40).map_err(HashingError::FailedParsing)
+                    }).ok_or(HashingError::MissingFilename)? // If you run into this I am confused.
+            },
+        }
     }
 }
 
 /// Basic code for getting a hash40 from a path, ignoring things like if it exists
-fn get_smash_hash<P: AsRef<Path>>(path: P) -> Result<Hash40, InvalidOsStrError> {
+fn get_smash_hash<P: AsRef<Path>>(path: P) -> Result<Hash40, HashingError> {
     path.as_ref().smash_hash()
 }
 

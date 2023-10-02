@@ -289,10 +289,10 @@ pub fn load_and_run_plugins(plugins: &[(PathBuf, PathBuf)]) {
                     },
                 }
             } else {
-                error!(
-                    "File discovery collected path '{}' but it does not exist and/or is invalid!",
-                    full_path.display()
-                );
+                // error!(
+                //     "File discovery collected path '{}' but it does not exist and/or is invalid!",
+                //     full_path.display()
+                // );
                 None
             }
         })

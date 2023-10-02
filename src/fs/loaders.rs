@@ -47,7 +47,7 @@ pub enum ApiLoaderError {
     Arc(#[from] LookupError),
 
     #[error("Unable to generate hash from path.")]
-    Hash(#[from] crate::InvalidOsStrError),
+    Hash(#[from] crate::HashingError),
 
     #[error("Invalid serde_yaml found.")]
     InvalidSerde(#[from] serde_yaml::Error),

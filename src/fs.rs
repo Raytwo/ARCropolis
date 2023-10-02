@@ -442,6 +442,8 @@ impl CachedFilesystem {
 
     /// Goes through and performs the required file manipulation in order to load mods
     pub fn process_mods(&mut self) {
+        let now = std::time::Instant::now();
+
         let mut context = LoadedArc::make_addition_context();
         let mut search_context = LoadedSearchSection::make_context();
 
@@ -459,12 +461,18 @@ impl CachedFilesystem {
         // Add new dir infos before resharing the file group to avoid some characters inf loading (Pyra c00)
         // Add new dir infos
         for dir_info in self.config.new_dir_infos.iter() {
-            replacement::addition::add_dir_info(&mut context, Path::new(dir_info));
+            if let Err(err) = replacement::addition::add_dir_info(&mut context, Path::new(dir_info)) {
+                match err {
+                    replacement::addition::DirectoryAdditionError::AdditionFailed => todo!(),
+                    replacement::addition::DirectoryAdditionError::Hash(err) => println!("Failed to hash dir_info `{}`", dir_info),
+                    replacement::addition::DirectoryAdditionError::Lookup(_) => todo!(),
+                }
+            }
         }
 
         // Add new dir infos that use a base before adding the files
         for (new, base) in self.config.new_dir_infos_base.iter() {
-            replacement::addition::add_dir_info_with_base(&mut context, Path::new(new), Path::new(base));
+            replacement::addition::add_dir_info_with_base(&mut context, Path::new(new), Path::new(base)).unwrap();
         }
 
         // Go through and add any files that were not found in the data.arc
@@ -482,8 +490,8 @@ impl CachedFilesystem {
                 return;
             };
 
-            replacement::addition::add_file(&mut context, node.get_local());
-            replacement::addition::add_searchable_file_recursive(&mut search_context, node.get_local());
+            replacement::addition::add_file(&mut context, node.get_local()).unwrap();
+            replacement::addition::add_searchable_file_recursive(&mut search_context, node.get_local()).unwrap();
         });
 
         // Don't unshare any files in the unshare blacklist (nus3audio handled during filesystem finish)
@@ -533,6 +541,9 @@ impl CachedFilesystem {
 
         resource::arc_mut().take_context(context);
         resource::search_mut().take_context(search_context);
+
+        println!("Process mods took {}ms", now.elapsed().as_millis());
+
     }
 
     /// Gets the global mod config

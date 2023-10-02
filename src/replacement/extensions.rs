@@ -2,21 +2,23 @@ use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
     path::Path,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, Ordering}, time::Duration,
 };
 
 use arc_config::search::{File, Folder};
 use smash_arc::{
     ArcLookup, DirInfo, DirectoryOffset, FileData, FileInfo, FileInfoBucket, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath,
     FilePathIdx, FileSystemHeader, FolderPathListEntry, Hash40, HashToIndex, LoadedArc, LoadedSearchSection, LookupError, PathListEntry,
-    RedirectionType, Region, SearchListEntry, SearchLookup, SearchSectionBody,
+    RedirectionType, Region, SearchListEntry, SearchLookup, SearchSectionBody, FileInfoIndiceIdx, InfoToDataIdx, FileDataIdx, FileDataFlags, FileInfoToFileDataBitfield,
 };
 
 use crate::{
     get_smash_hash, hashes,
     resource::{self, CppVector, FilesystemInfo, LoadedData, LoadedDirectory, LoadedFilepath},
-    PathExtension,
+    PathExtension, HashingError,
 };
+
+use thiserror::Error;
 
 /// Used to keep track of added DirInfo children.
 #[derive(Debug)]
@@ -91,8 +93,101 @@ impl DerefMut for SearchContext {
 }
 
 impl AdditionContext {
+    fn new_file_info_index(&mut self, file_info_index: FileInfoIdx) -> FileInfoIndiceIdx {
+        let new_indice = FileInfoIndiceIdx(self.file_info_indices.len() as u32);
+
+        let new_info_indice_idx = FileInfoIndex {
+            dir_offset_index: 0xFF_FFFF,
+            file_info_index,
+        };
+
+        self.file_info_indices.push(new_info_indice_idx);
+
+        new_indice
+    }
+
+    // This could probably be cleaned and split better but one thing at a time eh
+    pub fn new_fileinfo_from_path(&mut self, path: &Path, info_to_data_index: InfoToDataIdx) -> Result<(), HashingError> {
+        let new_indice = FilePathIdx(self.filepaths.len() as u32);
+
+        // Create a FilePath from the path that's passed in
+        let mut file_path = FilePath::from_path(path)?;
+
+        // Sets unknown1 flags to true if file is either a nutexb or eff
+        let with_unknown1 = file_path.ext.hash40() == Hash40::from("nutexb") || file_path.ext.hash40() == Hash40::from("eff");
+
+        let (_, file_info_indice_index) = self.new_fileinfo(new_indice, info_to_data_index, with_unknown1);
+        
+        // Set the FilePath's path index to be the new file_info_indice_index
+        file_path.path.set_index(file_info_indice_index.0);
+
+        self.filepaths.push(file_path);
+
+        // Insert the added FilePath's path and it's index to the context's added_files vector
+        self.added_files.insert(file_path.path.hash40(), new_indice);
+
+        Ok(())
+    }
+
+    pub fn new_fileinfo(&mut self, file_path_index: FilePathIdx, info_to_data_index: InfoToDataIdx, unknown1: bool) -> (FileInfoIdx, FileInfoIndiceIdx) {
+        let new_indice = FileInfoIdx(self.file_infos.len() as u32);
+
+        let file_info_indice_index = self.new_file_info_index(new_indice);
+
+        let mut new_file_info = FileInfo {
+            file_path_index,
+            file_info_indice_index,
+            info_to_data_index,
+            flags: FileInfoFlags::new().with_unknown1(unknown1),
+        };
+
+        // Set the new file to be standalone so it doesn't need to be near the other files
+        new_file_info.flags.set_standalone_file(true);
+        new_file_info.flags.set_unshared_nus3bank(true);
+        
+        self.file_infos.push(new_file_info);
+
+        (new_indice, file_info_indice_index)
+    }
+
+    pub fn new_fileinfo_to_filedata(&mut self, folder_offset_index: u32, file_data_index: FileDataIdx) -> InfoToDataIdx {
+        let new_indice = InfoToDataIdx(self.info_to_datas.len() as u32);
+
+        let new_info_to_data = FileInfoToFileData {
+            folder_offset_index,
+            file_data_index,
+            file_info_index_and_load_type: FileInfoToFileDataBitfield::new().with_load_type(1),
+        };
+
+        self.info_to_datas.push(new_info_to_data);
+
+        new_indice
+    }
+
+    pub fn new_file_data(&mut self, offset_in_folder: u32, comp_size: u32, decomp_size: u32) -> FileDataIdx {
+        let new_indice = FileDataIdx(self.file_datas.len() as u32);
+
+        let new_file_data = FileData {
+            offset_in_folder,
+            comp_size,
+            decomp_size,
+            flags: FileDataFlags::new().with_compressed(false).with_use_zstd(false),
+        };
+
+        self.file_datas.push(new_file_data);
+
+        new_indice
+    }
+
+    // Add new entries to the resource tables so they match with the FilePath and FileData tables
+    pub fn expand_file_resource_tables(&mut self) {
+        self.loaded_filepaths.push(LoadedFilepath::default());
+        self.loaded_datas.push(LoadedData::new());
+    }
+
     pub fn get_shared_info_index(&self, current_index: FileInfoIdx) -> FileInfoIdx {
         let shared_idx = self.file_info_indices[usize::from(self.file_infos[usize::from(current_index)].file_info_indice_index)].file_info_index;
+        
         if shared_idx == current_index {
             shared_idx
         } else {
@@ -333,6 +428,8 @@ impl LoadedArcEx for LoadedArc {
         let (loaded_datas, loaded_data_len) = (loaded_datas.as_mut_ptr(), loaded_datas.len());
         let (loaded_directories, loaded_directory_len) = (loaded_directories.as_mut_ptr(), loaded_directories.len());
 
+        let now = std::time::Instant::now();
+
         for (dir_name, info) in &ctx.inter_dirs {
             let mut dir_info = *dir_infos_vec.iter().find(|x| x.path.hash40() == *dir_name).unwrap();
             if info.modifies_original {
@@ -370,6 +467,8 @@ impl LoadedArcEx for LoadedArc {
                 add_children_to_dir_info(&mut dir_infos_vec, &mut folder_children_hashes, &dir_info, &info, &ctx.inter_dirs);
             }
         }
+        println!("Added dirinfo children took {}ms", now.elapsed().as_millis());
+
 
         fn add_children_to_dir_info(
             dir_infos_vec: &mut CppVector<DirInfo>,
@@ -456,7 +555,9 @@ impl LoadedArcEx for LoadedArc {
         self.folder_offsets = folder_offsets_vec;
         // --------------------- END MODIFY DIRECTORY RELEATED FIELDS ---------------------
 
+        let now = std::time::Instant::now();
         self.resort_file_hashes();
+        println!("File hash sort took {}ms", now.elapsed().as_millis());
     }
 
     fn resort_file_hashes(&mut self) {
@@ -738,8 +839,10 @@ impl SearchEx for LoadedSearchSection {
             (*(self.body as *mut SearchSectionBody)).path_count = paths_len as u32;
         }
 
+        let now = std::time::Instant::now();
         self.resort_folder_paths();
         self.resort_paths();
+        println!("Sorting folder and paths took {}ms", now.elapsed().as_millis());
     }
 }
 
@@ -791,7 +894,7 @@ impl FileInfoFlagsExt for FileInfoFlags {
 }
 
 pub trait FromPathExt {
-    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self>
+    fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, HashingError>
     where
         Self: Sized;
 }
@@ -876,30 +979,21 @@ impl FromSearchableFolder for FolderPathListEntry {
 }
 
 impl FromPathExt for FilePath {
-    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self> {
+    fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, HashingError> {
         let path = path.as_ref();
-        let path_hash = match path.smash_hash() {
-            Ok(hash) => hash,
-            Err(_) => return None,
-        };
+        let path_hash =  path.smash_hash()?;
 
-        let ext_hash = match path.extension().and_then(|x| x.to_str()) {
-            Some(str) => match get_smash_hash(str) {
-                Ok(hash) => hash,
-                Err(_) => return None,
-            },
-            None => return None,
-        };
+        let ext_hash =  path.extension()
+            .and_then(|x| x.to_str())
+            .map(get_smash_hash)
+            .ok_or(HashingError::MissingExtension)??;
 
-        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(get_smash_hash) {
-            Some(Ok(hash)) => hash,
-            _ => return None,
-        };
+        let name_hash = path.file_name()
+            .and_then(|x| x.to_str())
+            .map(get_smash_hash)
+            .expect("could not read the filename")?;
 
-        let parent_hash = match path.parent().map_or(Ok(Hash40::from("")), |x| x.smash_hash()) {
-            Ok(hash) => hash,
-            Err(_) => return None,
-        };
+        let parent_hash = path.parent().map_or(Ok(Hash40::from("")), |x| x.smash_hash())?;
 
         let mut result = FilePath {
             path: HashToIndex::default(),
@@ -917,31 +1011,26 @@ impl FromPathExt for FilePath {
         result.parent.set_hash(parent_hash.crc32());
         result.parent.set_length(parent_hash.len());
 
-        Some(result)
+        Ok(result)
     }
 }
 
 impl FromPathExt for FolderPathListEntry {
-    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self>
+    fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, HashingError>
     where
         Self: Sized,
     {
         let path = path.as_ref();
-        let path_hash = match path.smash_hash() {
-            Ok(hash) => hash,
-            Err(_) => return None,
-        };
+        let path_hash = path.smash_hash()?;
 
-        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(get_smash_hash) {
-            Some(Ok(hash)) => hash,
-            _ => return None,
-        };
+        let name_hash = path.file_name()
+            .and_then(|x| x.to_str())
+            .map(get_smash_hash)
+            .expect("could not read the filename")?;
 
-        let parent_hash = match path.parent().map_or(Ok(Hash40::from("")), |x| x.smash_hash()) {
-            Ok(hash) => hash,
-            Err(_) => return None,
-        };
+        let parent_hash = path.parent().map_or(Ok(Hash40::from("")), |x| x.smash_hash())?;
 
+        // TODO: Move this to Smash-arc
         let mut result = Self(SearchListEntry {
             path: HashToIndex::default(),
             ext: HashToIndex::default(),
@@ -959,38 +1048,29 @@ impl FromPathExt for FolderPathListEntry {
         result.parent.set_length(parent_hash.len());
         result.parent.set_index(0x40_0000);
 
-        Some(result)
+        Ok(result)
     }
 }
 
 impl FromPathExt for PathListEntry {
-    fn from_path<P: AsRef<Path>>(path: P) -> Option<Self>
+    fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, HashingError>
     where
         Self: Sized,
     {
         let path = path.as_ref();
-        let path_hash = match path.smash_hash() {
-            Ok(hash) => hash,
-            Err(_) => return None,
-        };
+        let path_hash =  path.smash_hash()?;
 
-        let ext_hash = match path.extension().and_then(|x| x.to_str()) {
-            Some(str) => match get_smash_hash(str) {
-                Ok(hash) => hash,
-                Err(_) => return None,
-            },
-            None => return None,
-        };
+        let ext_hash =  path.extension()
+            .and_then(|x| x.to_str())
+            .map(get_smash_hash)
+            .ok_or(HashingError::MissingExtension)??;
 
-        let name_hash = match path.file_name().and_then(|x| x.to_str()).map(get_smash_hash) {
-            Some(Ok(hash)) => hash,
-            _ => return None,
-        };
+        let name_hash = path.file_name()
+            .and_then(|x| x.to_str())
+            .map(get_smash_hash)
+            .expect("could not read the filename")?;
 
-        let parent_hash = match path.parent().map_or(Ok(Hash40::from("")), |x| x.smash_hash()) {
-            Ok(hash) => hash,
-            Err(_) => return None,
-        };
+        let parent_hash = path.parent().map_or(Ok(Hash40::from("")), |x| x.smash_hash())?;
 
         let mut result = Self(SearchListEntry {
             path: HashToIndex::default(),
@@ -1008,6 +1088,6 @@ impl FromPathExt for PathListEntry {
         result.parent.set_hash(parent_hash.crc32());
         result.parent.set_length(parent_hash.len());
 
-        Some(result)
+        Ok(result)
     }
 }
