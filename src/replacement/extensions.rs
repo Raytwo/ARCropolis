@@ -185,6 +185,25 @@ impl AdditionContext {
         self.loaded_datas.push(LoadedData::new());
     }
 
+    /// Attempts to find the hash in LoadedArc, and if not, look into the added files
+    pub fn get_file_info_indice_idx<H: Into<Hash40>>(&self, hash: H) -> Result<FileInfoIndiceIdx, LookupError> {
+        let hash = hash.into();
+
+        match self.get_file_info_from_hash(hash) {
+            Ok(info) => Ok(info.file_info_indice_index),
+            Err(_) => {
+                match self.added_files.get(&hash) {
+                    Some(filepath_idx) => {
+                        let info_index = self.filepaths[usize::from(*filepath_idx)].path.index() as usize;
+                        let info_idx = self.file_info_indices[info_index].file_info_index;
+                        Ok(self.file_infos[usize::from(info_idx)].file_info_indice_index)
+                    },
+                    None => Err(LookupError::Missing),
+                }
+            },
+        }
+    }
+
     pub fn get_shared_info_index(&self, current_index: FileInfoIdx) -> FileInfoIdx {
         let shared_idx = self.file_info_indices[usize::from(self.file_infos[usize::from(current_index)].file_info_indice_index)].file_info_index;
         

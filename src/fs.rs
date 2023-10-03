@@ -461,13 +461,7 @@ impl CachedFilesystem {
         // Add new dir infos before resharing the file group to avoid some characters inf loading (Pyra c00)
         // Add new dir infos
         for dir_info in self.config.new_dir_infos.iter() {
-            if let Err(err) = replacement::addition::add_dir_info(&mut context, Path::new(dir_info)) {
-                match err {
-                    replacement::addition::DirectoryAdditionError::AdditionFailed => todo!(),
-                    replacement::addition::DirectoryAdditionError::Hash(err) => println!("Failed to hash dir_info `{}`", dir_info),
-                    replacement::addition::DirectoryAdditionError::Lookup(_) => todo!(),
-                }
-            }
+            replacement::addition::add_dir_info(&mut context, Path::new(dir_info)).unwrap()
         }
 
         // Add new dir infos that use a base before adding the files
@@ -491,6 +485,7 @@ impl CachedFilesystem {
             };
 
             replacement::addition::add_file(&mut context, node.get_local()).unwrap();
+
             replacement::addition::add_searchable_file_recursive(&mut search_context, node.get_local()).unwrap();
         });
 
@@ -505,12 +500,14 @@ impl CachedFilesystem {
             },
         );
 
-        for (hash, new_file_set) in self.config.share_to_vanilla.iter() {
+        for (i, (hash, new_file_set)) in self.config.share_to_vanilla.iter().enumerate() {
             for new_file in new_file_set.0.iter() {
                 if context.contains_file(new_file.full_path.to_smash_arc()) {
                     replacement::unshare::reshare_file(&mut context, new_file.full_path.to_smash_arc(), hash.to_smash_arc());
                 } else {
-                    replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc());
+                    if let Err(err) = replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc()) {
+                        println!("Could not find FileInfoIndiceIdx for {} in config file {}", hashes::find(hash.to_smash_arc()), i);
+                    }
                     replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
                 }
             }
@@ -527,7 +524,7 @@ impl CachedFilesystem {
                 if context.contains_file(new_file.full_path.to_smash_arc()) {
                     replacement::unshare::reshare_file(&mut context, new_file.full_path.to_smash_arc(), hash.to_smash_arc());
                 } else {
-                    replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc());
+                    replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc()).unwrap();
                     replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
                 }
             }
@@ -542,7 +539,7 @@ impl CachedFilesystem {
         resource::arc_mut().take_context(context);
         resource::search_mut().take_context(search_context);
 
-        println!("Process mods took {}ms", now.elapsed().as_millis());
+        panic!("Process mods took {}ms", now.elapsed().as_millis());
 
     }
 

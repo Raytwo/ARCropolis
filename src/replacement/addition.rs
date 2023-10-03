@@ -72,34 +72,36 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) -> Result<(), FilePathEr
     // Push default values to the loaded_(filepaths/datas) to make it match up with the other vectors length
     ctx.expand_file_resource_tables();
 
-    info!("Added file '{}'", path.display());
+    // info!("Added file '{}'", path.display());
     Ok(())
 }
 
-pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Hash40) {
+pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Hash40) -> Result<(), LookupError> {
     // Get the target shared FileInfoIndice index
     let info_indice_idx = if let Ok(info) = ctx.get_file_info_from_hash(shared_to) {
-        info.file_info_indice_index.0
+        info.file_info_indice_index
     } else if let Some(file_path_idx) = ctx.added_files.get(&shared_to) {
         let info_index = ctx.filepaths[usize::from(*file_path_idx)].path.index() as usize;
         let info_idx = ctx.file_info_indices[info_index].file_info_index;
-        ctx.file_infos[usize::from(info_idx)].file_info_indice_index.0
+        ctx.file_infos[usize::from(info_idx)].file_info_indice_index
     } else {
-        error!(
-            "Failed to find file '{}' ({:#x}) when attempting to share file to it.",
-            hashes::find(shared_to),
-            shared_to.0
-        );
-        return;
+        // error!(
+        //     "Failed to find file '{}' ({:#x}) when attempting to share file to it.",
+        //     hashes::find(shared_to),
+        //     shared_to.0
+        // );
+        return Err(LookupError::Missing);
     };
+
+    // let info_indice_idx = ctx.get_file_info_indice_idx(shared_to)?;
 
     // Make FilePath from path passed in
     let mut filepath = FilePath::from_file(new_file);
 
     // Set the FilePath's path index to the shared target FileInfoIndice index
-    filepath.path.set_index(info_indice_idx);
+    filepath.path.set_index(info_indice_idx.0);
 
-    ctx.file_infos[usize::from(ctx.file_info_indices[info_indice_idx as usize].file_info_index)]
+    ctx.file_infos[usize::from(ctx.file_info_indices[info_indice_idx.0 as usize].file_info_index)]
         .flags
         .set_new_shared_file(true);
 
@@ -110,7 +112,7 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
     ctx.loaded_filepaths.push(LoadedFilepath::default());
 
     let shared_to = ctx.filepaths
-        [usize::from(ctx.file_infos[usize::from(ctx.file_info_indices[info_indice_idx as usize].file_info_index)].file_path_index)]
+        [usize::from(ctx.file_infos[usize::from(ctx.file_info_indices[info_indice_idx.0 as usize].file_info_index)].file_path_index)]
     .path
     .hash40();
 
@@ -119,6 +121,8 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
         new_file.full_path.to_smash_arc(), // we can unwrap because of FilePath::from_path being successful
         shared_to.to_smash_arc(),
     );
+
+    Ok(())
 }
 
 pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) -> Result<(), DirectoryAdditionError> {

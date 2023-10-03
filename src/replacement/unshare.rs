@@ -371,13 +371,13 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
         .flags
         .set_standalone_file(true);
     let shared_hash = ctx.filepaths[usize::from(shared_file)].path.hash40();
-    info!(
-        "Unshared file '{}' ({:#x}) from '{}' ({:#x})",
-        hashes::find(hash),
-        hash.0,
-        hashes::find(shared_hash),
-        shared_hash.0
-    );
+    // info!(
+    //     "Unshared file '{}' ({:#x}) from '{}' ({:#x})",
+    //     hashes::find(hash),
+    //     hash.0,
+    //     hashes::find(shared_hash),
+    //     shared_hash.0
+    // );
 }
 
 fn reshare_file_group(ctx: &mut AdditionContext, dir_info: Range<usize>, file_group: Range<usize>) {
