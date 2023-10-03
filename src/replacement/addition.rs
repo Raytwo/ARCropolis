@@ -34,7 +34,9 @@ pub enum DirectoryAdditionError {
     #[error("hashing error")]
     Hash(#[from] HashingError),
     #[error("lookup error")]
-    Lookup(#[from] LookupError)
+    Lookup(#[from] LookupError),
+    #[error("Couldn't add the directory since it already exists")]
+    AlreadyExists(DirInfo),
 }
 
 #[derive(Debug, Error)]
@@ -447,114 +449,53 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
     // info!("Added files to {} ({:#x})", hashes::find(directory), directory.0);
 }
 
-// Right now this will take up a bit of memory if adding multiple dirs to the same dirinfo, so gonna have to change it to take a vec instead ig
-pub fn add_dir_info_to_parent(ctx: &mut AdditionContext, parent_dir_info: &mut DirInfo, child_hash_to_index: &HashToIndex) {
-    if ctx.inter_dirs.contains_key(&parent_dir_info.path.hash40()) {
-        ctx.inter_dirs
-            .get_mut(&parent_dir_info.path.hash40())
-            .unwrap()
-            .children
-            .push(*child_hash_to_index);
-    } else {
-        // If parent_dir_info already has children, then it must be from the original game. (Children ranges aren't modified until later)
-        let modifies_original = parent_dir_info.child_dir_count > 0;
-        let inter_dir = InterDir {
-            modifies_original,
-            children: [*child_hash_to_index].to_vec(),
-        };
-        ctx.inter_dirs.insert(parent_dir_info.path.hash40(), inter_dir);
-    }
-}
-
-pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) -> Result<(), DirectoryAdditionError> {
+pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) -> Result<DirInfo, DirectoryAdditionError> {
     // Create a FolderPathListEntry from the path that's passed in
     let dir_info_path = FolderPathListEntry::from_path(path)?;
 
-    // Get a base
-    let mut dir_info = *ctx.get_dir_info_from_hash_ctx(Hash40::from("fighter/luigi/c00")).unwrap();
-
-    let mut dir_hash_to_info_idx = HashToIndex::new()
-        .with_hash(dir_info_path.path.hash())
-        .with_length(dir_info_path.path.length())
-        .with_index(ctx.dir_infos_vec.len() as u32);
-
-    // Set dir_info values to our new dir_info info
-    dir_info.path = dir_info_path.path;
-    dir_info.name = dir_info_path.file_name.hash40();
-    dir_info.parent = dir_info_path.parent.hash40();
-    dir_info.file_info_start_index = 0;
-    dir_info.file_count = 0;
-    dir_info.child_dir_start_index = 0;
-    dir_info.child_dir_count = 0;
-    // dir_info.flags =  DirInfoFlags::new().with_unk1(0).with_redirected(false).with_unk2(false).with_is_symlink(false).with_unk3(0);
-
-    // If we already have the dir added, we can return early
-    if ctx.get_dir_info_from_hash_ctx(dir_info_path.path.hash40()).is_ok() {
-        return Ok(());
+    // If the dir info already exists, then just go back and give it the found dir info
+    match ctx.get_dir_info_from_hash_ctx(dir_info_path.path.hash40()) {
+        Ok(res) => return Err(DirectoryAdditionError::AlreadyExists(*res)),
+        Err(_) => {}, // Doesn't exist, so we keep going to make one
     }
 
-    // --------------------- FOLDER CHILD HASHES DONE HERE --------------------- //
-    // Check to see if parent actually exists
-    if dir_info_path.parent.hash40().as_u64() != 0x0 {
-        // If so, try getting the parent dir info
-        match ctx.get_dir_info_from_hash_ctx(dir_info_path.parent.hash40()) {
-            // If successful, add the current dir info the parent
+    // Make a new dir info based on the path passed in
+    let mut dir_info = ctx.new_dir_info(dir_info_path)?;
+
+    // Make a new hash to info idx using the dir info we just made
+    let mut dir_hash_to_info_idx = ctx.new_dir_hash_to_info_idx(&dir_info);
+
+    if dir_info.parent.as_u64() != 0x0 {
+        match add_dir_info(ctx, path.parent().expect(&format!("Could not get parent of {:?}!", path))) {
             Ok(parent_dir_info) => {
-                // Clone the parent dir info so we can make it mutable
-                let mut parent_dir_info_mut = *parent_dir_info;
-                add_dir_info_to_parent(ctx, &mut parent_dir_info_mut, &dir_hash_to_info_idx);
-
-                // We can unwrap directly because if we're here, the parent does exist
-                *ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.parent.hash40()).unwrap() = parent_dir_info_mut;
-            },
-            // Else, just say you failed at getting the parent dirinfo and say why
-            Err(_) => {
-                // If a parent does exist in the path but parent doesn't exist in the DirInfos, add it
-                let parent = path.parent().expect(&format!("Could not get parent of {:?}!", path));
-                
-                if let Err(err) = add_dir_info(ctx, parent) {
-                    match err {
-                        DirectoryAdditionError::AdditionFailed => todo!(),
-                        DirectoryAdditionError::Hash(err) => println!("Failed to hash dir_info `{}`", parent.display()),
-                        DirectoryAdditionError::Lookup(_) => todo!(),
-                    }
-                }
-
+                ctx.add_dir_info_to_parent(&parent_dir_info, &dir_hash_to_info_idx);
+            
                 // Since we just added a dirinfo, we need to update our new dir_hash_to_info_idx so when the parent/child structure is resolved, it doesnt end up pointing back to itself.
                 dir_hash_to_info_idx.set_index(ctx.dir_infos_vec.len() as u32);
-                
-                // After adding it, go ahead and try the logic from above again
-                let parent_dir_info = ctx.get_dir_info_from_hash_ctx(dir_info_path.parent.hash40()).map_err(DirectoryAdditionError::Lookup)?;
-
-                let mut parent_dir_info_mut = *parent_dir_info;
-                add_dir_info_to_parent(ctx, &mut parent_dir_info_mut, &dir_hash_to_info_idx);
-                *ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.parent.hash40()).unwrap() = parent_dir_info_mut;
+            },
+            Err(err) => {
+                match err {
+                    DirectoryAdditionError::AlreadyExists(parent_dir_info) => {
+                        // Since it already exists we can just add it to the parent without needing to do anything else
+                        ctx.add_dir_info_to_parent(&parent_dir_info, &dir_hash_to_info_idx);
+                    },
+                    _ => {
+                        return Err(err);
+                    }
+                }
             },
         }
     }
-    // --------------------- END FOLDER CHILD HASHES --------------------- //
 
-    // --------------------- FOLDER OFFSETS DONE HERE (FIGURE OUT STUFF ABOUT THIS LATER IF IT DOESN'T WORK) --------------------- //
-    let new_dir_offset = DirectoryOffset {
-        offset: 0,
-        decomp_size: 0,
-        size: 0,
-        file_start_index: dir_info.file_info_start_index,
-        file_count: dir_info.file_count,
-        directory_index: 0xFF_FFFF,
-    };
-
+    // Make a new directory offset
+    let new_dir_offset = ctx.new_directory_offset(&dir_info);
+    
+    // Update the dir_info's path index to be the length of the current amount of folder_offsets (to point to the right one)
     dir_info.path.set_index(ctx.folder_offsets_vec.len() as u32);
-    // --------------------- END FOLDER OFFSETS --------------------- //
 
-    // --------------------- PUSH TO CONTEXT DONE HERE --------------------- //
-    ctx.dir_infos_vec.push(dir_info);
-    ctx.dir_hash_to_info_idx.push(dir_hash_to_info_idx);
-    ctx.folder_offsets_vec.push(new_dir_offset);
-    ctx.loaded_directories.push(LoadedDirectory::default());
-    // --------------------- END PUSH TO CONTEXT --------------------- //
+    ctx.push_dir_context(dir_info, dir_hash_to_info_idx, new_dir_offset);
 
-    Ok(())
+    Ok(dir_info)
 }
 
 pub fn add_dir_info_with_base(ctx: &mut AdditionContext, path: &Path, base: &Path) -> Result<(), DirectoryAdditionError> {

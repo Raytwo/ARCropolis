@@ -179,6 +179,69 @@ impl AdditionContext {
         new_indice
     }
 
+    pub fn new_dir_info(&mut self, dir_info_path: FolderPathListEntry) -> Result<DirInfo, LookupError> {
+        // Get a base
+        let mut dir_info = match self.get_dir_info_from_hash_ctx(Hash40::from("fighter/luigi/c00")) {
+            Ok(dir) => *dir,
+            Err(_) => return Err(LookupError::Missing),
+        };
+
+        // Change the values to match the path passed in
+        dir_info.path = dir_info_path.path;
+        dir_info.name = dir_info_path.file_name.hash40();
+        dir_info.parent = dir_info_path.parent.hash40();
+        dir_info.file_info_start_index = 0;
+        dir_info.file_count = 0;
+        dir_info.child_dir_start_index = 0;
+        dir_info.child_dir_count = 0;
+
+        Ok(dir_info)
+    }
+
+    pub fn new_dir_hash_to_info_idx(&mut self, dir_info: &DirInfo) -> HashToIndex {
+        HashToIndex::new()
+            .with_hash(dir_info.path.hash())
+            .with_length(dir_info.path.length())
+            .with_index(self.dir_infos_vec.len() as u32)
+    }
+
+    // Right now this will take up a bit of memory if adding multiple dirs to the same dirinfo, so gonna have to change it to take a vec instead ig
+    pub fn add_dir_info_to_parent(&mut self, parent_dir_info: &DirInfo, child_hash_to_index: &HashToIndex) {
+        if self.inter_dirs.contains_key(&parent_dir_info.path.hash40()) {
+            self.inter_dirs
+                .get_mut(&parent_dir_info.path.hash40())
+                .unwrap()
+                .children
+                .push(*child_hash_to_index);
+        } else {
+            // If parent_dir_info already has children, then it must be from the original game. (Children ranges aren't modified until later)
+            let modifies_original = parent_dir_info.child_dir_count > 0;
+            let inter_dir = InterDir {
+                modifies_original,
+                children: [*child_hash_to_index].to_vec(),
+            };
+            self.inter_dirs.insert(parent_dir_info.path.hash40(), inter_dir);
+        }
+    }
+
+    pub fn new_directory_offset(&mut self, dir_info: &DirInfo) -> DirectoryOffset {
+        DirectoryOffset {
+            offset: 0,
+            decomp_size: 0,
+            size: 0,
+            file_start_index: dir_info.file_info_start_index,
+            file_count: dir_info.file_count,
+            directory_index: 0xFF_FFFF,
+        }
+    }
+
+    pub fn push_dir_context(&mut self, dir_info: DirInfo, dir_hash_to_info_idx: HashToIndex, new_dir_offset: DirectoryOffset) {
+        self.dir_infos_vec.push(dir_info);
+        self.dir_hash_to_info_idx.push(dir_hash_to_info_idx);
+        self.folder_offsets_vec.push(new_dir_offset);
+        self.loaded_directories.push(LoadedDirectory::default());
+    }
+
     // Add new entries to the resource tables so they match with the FilePath and FileData tables
     pub fn expand_file_resource_tables(&mut self) {
         self.loaded_filepaths.push(LoadedFilepath::default());
