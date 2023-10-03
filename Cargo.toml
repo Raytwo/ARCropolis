@@ -65,6 +65,8 @@ smash-bgm-property = "1.2.0"
 ninput = { git = "https://github.com/blu-dev/ninput" }
 # For Offset Searching
 lazysimd = { git = "https://github.com/Raytwo/lazysimd" }
+# To deal with the Orbits mess
+itertools = "0.11.0"
 
 [patch.crates-io]
 nnsdk = { git = "https://github.com/Raytwo/nnsdk-rs", branch="account_fs" }

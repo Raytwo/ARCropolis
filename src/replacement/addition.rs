@@ -425,7 +425,7 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
             // Push the modified file_info to the file_infos vector
             file_infos.push(file_info);
         } else {
-            error!("Cannot get file path index for '{}' ({:#x})", hashes::find(file), file.0);
+            // error!("Cannot get file path index for '{}' ({:#x})", hashes::find(file), file.0);
         }
     }
 

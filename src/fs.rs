@@ -13,6 +13,7 @@ use orbits::{orbit::LaunchPad, Error, FileEntryType, FileLoader, Orbit, Standard
 use owo_colors::OwoColorize;
 use smash_arc::{ArcLookup, Hash40, LoadedArc, LoadedSearchSection, LookupError, SearchLookup};
 use thiserror::Error;
+use itertools::Itertools;
 
 // pub mod api;
 // mod event;
@@ -57,27 +58,20 @@ pub struct CachedFilesystem {
 impl CachedFilesystem {
     /// Load all configs that were found during discovery and join them into a singular config
     fn load_remaining_configs(current: &mut ModConfig, launchpad: &LaunchPad<StandardLoader>) {
-        for (root, local) in launchpad.collected_paths().iter() {
-            let full_path = root.join(local);
-            if !full_path.exists() {
-                warn!("Collected path at {} does not exist.", full_path.display());
-                continue;
-            }
+        let now = std::time::Instant::now();
 
-            if !full_path.ends_with("config.json") {
-                trace!("Skipping path {} while loading all configs", full_path.display());
-                continue;
-            }
+        for root in launchpad.collected_paths().iter().map(|(root, _)| root).unique() {
+            let full_path = root.join("config.json");
 
             // Read the file data and map it to a json. If that fails, just skip this current JSON.
-            let cfg = ModConfig::from_file_json(&full_path).ok();
-
-            if let Some(cfg) = cfg {
+            if let Ok(cfg) = ModConfig::from_file_json(&full_path) {
                 current.merge(cfg);
             } else {
                 warn!("Could not read/parse JSON data from file {}", full_path.display());
             }
         }
+
+        println!("Loading and merging Config.json files took {}ms (old average 2800ms)", now.elapsed().as_millis());
     }
 
     /// Get a list of all PRC patch files and add them to the virtual tree
@@ -539,7 +533,7 @@ impl CachedFilesystem {
         resource::arc_mut().take_context(context);
         resource::search_mut().take_context(search_context);
 
-        panic!("Process mods took {}ms", now.elapsed().as_millis());
+        panic!("Process mods took {}ms (old average 27633ms)", now.elapsed().as_millis());
 
     }
 
