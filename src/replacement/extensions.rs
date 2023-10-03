@@ -20,6 +20,8 @@ use crate::{
 
 use thiserror::Error;
 
+use super::addition::DirectoryAdditionError;
+
 /// Used to keep track of added DirInfo children.
 #[derive(Debug)]
 pub struct InterDir {
@@ -356,6 +358,88 @@ impl SearchContext {
                 None => None,
             },
         }
+    }
+
+    pub fn add_folder_recursive<'a>(&'a mut self, path: &Path) -> Result<(), DirectoryAdditionError> {
+        match self.get_folder_path_mut(path.smash_hash()?) {
+            Some(found) => Ok(()),
+            None => {
+                self.create_folder_hierarchy(path)?;
+                Ok(())
+            },
+        }
+    }
+
+    pub fn create_folder_hierarchy(&mut self, path: &Path) -> Result<&mut FolderPathListEntry, DirectoryAdditionError> {
+        let parent = path.parent().expect(&format!("Failed to get the parent for path '{}'", path.display()));
+        let mut new_folder = FolderPathListEntry::from_path(path)?;
+
+        // We reached the root of the filesystem
+        if parent == Path::new("") {
+            self.add_new_root_folder_path(new_folder);
+        } else {
+            let next_index = self.path_list_indices.len() as u32;
+            // Considering the path for this folder was not found, this means we need to either create of find its parent first. Recursively.
+            let parent_folder = self.create_folder_hierarchy(parent)?;
+
+            // TODO: Probably reconsider this design. Logically speaking we would just be called add_new_search_folder_to_parent here.
+            // I ended up having to copy paste a chunk of the implementation to make it work.
+
+            // Add our new FolderPath as a child of the parent folder
+            // self.add_new_search_folder_to_parent(new_folder, parent_folder);
+
+            let mut new_path = new_folder.as_path_entry();
+            // Set the previous head of the linked list as the child of the new path
+            new_path.path.set_index(parent_folder.get_first_child_index() as u32);
+
+            // Set the next path as the first element of the linked list
+            parent_folder.set_first_child_index(next_index);
+
+            self.add_new_search_path(new_path);
+            self.add_new_folder_path(new_folder);
+        }
+
+        // return the new FolderPath here
+        self.get_folder_path_mut(path.smash_hash()?).ok_or(DirectoryAdditionError::Lookup(LookupError::Missing))
+
+    }
+
+    pub fn add_new_search_path(&mut self, entry: PathListEntry) {
+        self.new_paths.insert(entry.path.hash40(), self.path_list_indices.len());
+        self.path_list_indices.push(self.paths.len() as u32);
+        self.paths.push(entry);
+    }
+
+    pub fn add_new_search_path_with_parent(&mut self, mut entry: PathListEntry, parent: &mut FolderPathListEntry) {
+        // Set the previous head of the linked list as the child of the new path
+        entry.path.set_index(parent.get_first_child_index() as u32);
+
+        // Set the next path as the first element of the linked list
+        parent.set_first_child_index(self.path_list_indices.len() as u32);
+
+        self.add_new_search_path(entry)
+    }
+
+    pub fn add_new_search_folder_to_parent(&mut self, entry: FolderPathListEntry, parent: &mut FolderPathListEntry) {
+        let mut new_path = entry.as_path_entry();
+
+        self.add_new_search_path_with_parent(new_path, parent);
+        self.add_new_folder_path(entry);
+    }
+
+    /// Create a new directory that does not have a parent
+    pub fn add_new_root_folder_path(&mut self, entry: FolderPathListEntry) {
+        // Create a new directory that does not have child directories
+        let mut new_path = entry.as_path_entry();
+
+        self.add_new_search_path(new_path);
+        self.add_new_folder_path(entry);
+    }
+
+    pub fn add_new_folder_path(&mut self, mut entry: FolderPathListEntry) {
+        entry.set_first_child_index(0xFF_FFFF);
+        self.new_folder_paths.insert(entry.path.hash40(), self.folder_paths.len());
+        self.folder_paths.push(entry);
     }
 }
 
