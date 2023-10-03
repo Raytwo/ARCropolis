@@ -35,7 +35,7 @@ pub enum DirectoryAdditionError {
     Hash(#[from] HashingError),
     #[error("lookup error")]
     Lookup(#[from] LookupError),
-    #[error("Couldn't add the directory since it already exists")]
+    #[error("directory already exists")]
     AlreadyExists(DirInfo),
 }
 

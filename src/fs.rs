@@ -455,7 +455,9 @@ impl CachedFilesystem {
         // Add new dir infos before resharing the file group to avoid some characters inf loading (Pyra c00)
         // Add new dir infos
         for dir_info in self.config.new_dir_infos.iter() {
-            replacement::addition::add_dir_info(&mut context, Path::new(dir_info)).unwrap();
+            if let Err(err) = replacement::addition::add_dir_info(&mut context, Path::new(dir_info)) {
+                println!("Could not add directory {}, reason: {}", dir_info, err);
+            }
         }
 
         // Add new dir infos that use a base before adding the files
