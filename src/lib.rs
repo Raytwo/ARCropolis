@@ -119,38 +119,34 @@ impl PathExtension for Path {
     }
 
     fn smash_hash(&self) -> Result<Hash40, HashingError> {
-        match self.extension() {
-            // The file has an extension, proceed to cleanup
-            Some(_) => {
-                let mut path = self
-                    .as_os_str()
-                    .to_str()
-                    .map(|path| {
-                        path
-                            .trim_start_matches('/')
-                            .to_lowercase()
-                            .replace(';', ":")
-                            .replace(".mp4", ".webm")
-                            .replace(".lua", ".lc")
-                    })
-                    .ok_or(HashingError::InvalidOsStrError)?;
+        // Don't check for an extension anymore because directories also go through this...
+        if self.starts_with("0x") {
+            self
+                .file_name()
+                .and_then(|x| x.to_str())
+                .map(|x| {
+                    u64::from_str_radix(x.trim_start_matches("0x"), 16).map(Hash40).map_err(HashingError::FailedParsing)
+                }).ok_or(HashingError::MissingFilename)? // If you run into this I am confused.
+        } else {
+            let mut path = self
+                .as_os_str()
+                .to_str()
+                .map(|path| {
+                    path
+                        .trim_start_matches('/')
+                        .to_lowercase()
+                        .replace(';', ":")
+                        .replace(".mp4", ".webm")
+                        .replace(".lua", ".lc")
+                })
+                .ok_or(HashingError::InvalidOsStrError)?;
 
-                // Remove the regional marker if present. Note that this assume there is no mispelling, we should probably find the position of the period instead.
-                if let Some(regional_idx) = path.find('+') {
-                    path.replace_range(regional_idx..regional_idx + 6, "")
-                }
+            // Remove the regional marker if present. Note that this assume there is no mispelling, we should probably find the position of the period instead.
+            if let Some(regional_idx) = path.find('+') {
+                path.replace_range(regional_idx..regional_idx + 6, "")
+            }
 
-                Ok(Hash40::from(path.trim_start_matches('/')))
-            },
-            // No extension, check if we received a hash
-            None => {
-                self
-                    .file_name()
-                    .and_then(|x| x.to_str())
-                    .map(|x| {
-                        u64::from_str_radix(x.trim_start_matches("0x"), 16).map(Hash40).map_err(HashingError::FailedParsing)
-                    }).ok_or(HashingError::MissingFilename)? // If you run into this I am confused.
-            },
+            Ok(Hash40::from(path.trim_start_matches('/')))
         }
     }
 }
@@ -432,7 +428,7 @@ pub fn main() {
             },
         };
 
-        let err_msg = format!("ARCropolis has panicked at '{}', {}", msg, location);
+        let err_msg = format!("ARCropolis has panicked at '{}', {}\0", msg, location);
         skyline::error::show_error(
             69,
             "ARCropolis has panicked! Please open the details and send a screenshot to the developer, then close the game.\n\0",
