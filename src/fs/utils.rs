@@ -252,7 +252,7 @@ pub fn add_motionlist_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiL
     };
     let full_path = phys_root.as_ref().join(local); // need the full path so that our API loader can load it
     if let Some(name) = full_path.file_name() {
-        if name.to_str().unwrap().contains(&"motion_list") {
+        if name.to_str().unwrap().contains("motion_list") {
             match base_local.smash_hash() {
                 Ok(hash) => {
                     tree.insert_file("api:/patch-motionlist", &base_local);
@@ -298,7 +298,7 @@ pub fn add_bgm_property_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<Ap
     };
     let full_path = phys_root.as_ref().join(local); // need the full path so that our API loader can load it
     if let Some(name) = full_path.file_name() {
-        if name.to_str().unwrap().contains(&"bgm_property") {
+        if name.to_str().unwrap().contains("bgm_property") {
             match base_local.smash_hash() {
                 Ok(hash) => {
                     tree.insert_file("api:/patch-bgm_property", &base_local);

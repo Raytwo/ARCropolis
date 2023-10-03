@@ -5,7 +5,7 @@ use skyline::{from_offset, hook, hooks::InlineCtx, install_hooks, patching::{Pat
 fn install_inkling_patches() {
     #[skyline::hook(offset = offsets::clear_ink_patch(), inline)]
     unsafe fn clear_ink_patch(ctx: &mut InlineCtx) {
-        let res = (*ctx.registers[24].w.as_ref() as u32) % 8;
+        let res = (*ctx.registers[24].w.as_ref()) % 8;
         *ctx.registers[24].w.as_mut() = res;
     }
 

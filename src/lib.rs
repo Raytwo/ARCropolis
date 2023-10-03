@@ -9,7 +9,6 @@
 
 use std::{
     collections::HashMap,
-    fmt,
     io::{BufWriter, Write},
     path::{Path, PathBuf},
     str::FromStr, num::ParseIntError,

@@ -498,13 +498,13 @@ impl CachedFilesystem {
             },
         );
 
-        for (i, (hash, new_file_set)) in self.config.share_to_vanilla.iter().enumerate() {
+        for (hash, new_file_set) in self.config.share_to_vanilla.iter() {
             for new_file in new_file_set.0.iter() {
                 if context.contains_file(new_file.full_path.to_smash_arc()) {
                     replacement::unshare::reshare_file(&mut context, new_file.full_path.to_smash_arc(), hash.to_smash_arc());
                 } else {
                     if let Err(err) = replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc()) {
-                        println!("Could not find FileInfoIndiceIdx for {} in config file {}", hashes::find(hash.to_smash_arc()), i);
+                        println!("Could not find FileInfoIndiceIdx for {}, reason: {}", hashes::find(hash.to_smash_arc()), err);
                     }
                     replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
                 }

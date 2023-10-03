@@ -68,35 +68,30 @@ pub struct NrrBuilder {
 static ORIGINAL_GAME_NRO_HASHES: Lazy<Vec<Sha256Hash>> = Lazy::new(|| { 
     let mut out = Vec::new();
     let read_dir = std::fs::read_dir("rom:/.nrr/").unwrap();
-    for entry in read_dir {
-        if let Ok(dir_entry) = entry {
-            let path = dir_entry.path();
-            if path.is_file() {
-                let mut file = std::fs::File::open(path).unwrap();
-                file.seek(io::SeekFrom::Start(0x340)).unwrap();
-
-                // Manually read in the hashes_offset and num_hashes members of NRR file header.
-                let mut hashes_offset_bytes = [0u8; 4];
-                file.read_exact(&mut hashes_offset_bytes).unwrap();
-                let hashes_offset = u32::from_le_bytes(hashes_offset_bytes);
-
-                let mut num_hashes_bytes = [0u8; 4];
-                file.read_exact(&mut num_hashes_bytes).unwrap();
-                let num_hashes = u32::from_le_bytes(num_hashes_bytes);
-                
-                // Seek to hashes_offset and read the module hashes into nrr_hashes.
-                file.seek(io::SeekFrom::Start(hashes_offset as u64)).unwrap();
-                let mut nrr_hashes = Vec::with_capacity(num_hashes as usize);
-                for i in 0..num_hashes {
-                    let mut hash_bytes = [0u8; 0x20];
-                    file.read_exact(&mut hash_bytes).unwrap();
-                    nrr_hashes.push(Sha256Hash { hash: hash_bytes });
-                }
-
-                // Append the module hashes from this NRR into the global vector.
-                out.extend(nrr_hashes);
-            }
-        }
+    for entry in read_dir.flatten() {
+         let path = entry.path();
+         if path.is_file() {
+             let mut file = std::fs::File::open(path).unwrap();
+             file.seek(io::SeekFrom::Start(0x340)).unwrap();
+             // Manually read in the hashes_offset and num_hashes members of NRR file header.
+             let mut hashes_offset_bytes = [0u8; 4];
+             file.read_exact(&mut hashes_offset_bytes).unwrap();
+             let hashes_offset = u32::from_le_bytes(hashes_offset_bytes);
+             let mut num_hashes_bytes = [0u8; 4];
+             file.read_exact(&mut num_hashes_bytes).unwrap();
+             let num_hashes = u32::from_le_bytes(num_hashes_bytes);
+             
+             // Seek to hashes_offset and read the module hashes into nrr_hashes.
+             file.seek(io::SeekFrom::Start(hashes_offset as u64)).unwrap();
+             let mut nrr_hashes = Vec::with_capacity(num_hashes as usize);
+             for i in 0..num_hashes {
+                 let mut hash_bytes = [0u8; 0x20];
+                 file.read_exact(&mut hash_bytes).unwrap();
+                 nrr_hashes.push(Sha256Hash { hash: hash_bytes });
+             }
+             // Append the module hashes from this NRR into the global vector.
+             out.extend(nrr_hashes);
+         }
     }
     out
     }

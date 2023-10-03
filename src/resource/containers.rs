@@ -147,7 +147,7 @@ impl<T> CppVector<T> {
 
 impl<T: Copy + Clone> CppVector<T> {
     pub fn from_slice(slice: &[T]) -> Self {
-        let layout = Layout::from_size_align(slice.len() * std::mem::size_of::<T>(), 1).unwrap();
+        let layout = Layout::from_size_align(std::mem::size_of_val(slice), 1).unwrap();
         let (start, eos) = unsafe {
             let start = std::alloc::alloc(layout) as *mut T;
             (start, start.add(slice.len()))
@@ -160,7 +160,7 @@ impl<T: Copy + Clone> CppVector<T> {
 
 impl<T: Clone> CppVector<T> {
     pub fn clone_from_slice(slice: &[T]) -> Self {
-        let layout = Layout::from_size_align(slice.len() * std::mem::size_of::<T>(), 1).unwrap();
+        let layout = Layout::from_size_align(std::mem::size_of_val(slice), 1).unwrap();
         let (start, eos) = unsafe {
             let start = std::alloc::alloc(layout) as *mut T;
             (start, start.add(slice.len()))

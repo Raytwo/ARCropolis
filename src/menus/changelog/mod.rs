@@ -147,7 +147,7 @@ pub fn build_html(info: &MainEntry) -> String {
         })
         .collect::<Vec<String>>();
 
-    if info.contributors.len() > 0 {
+    if !info.contributors.is_empty() {
         let formatted = format!(
             "
         <div class=\"section\">
@@ -172,7 +172,7 @@ pub fn build_html(info: &MainEntry) -> String {
                         {
                             match &info.contributors[i].name {
                                 Some(name) => format!("<span style=\"font-size: 20px;\">({})</span>", name),
-                                None => format!(""),
+                                None => String::new(),
                             }
                         }
                     ));
@@ -216,7 +216,7 @@ pub fn build_html(info: &MainEntry) -> String {
     rendered
 }
 
-pub fn get_entries_from_md(text: &String) -> (Vec<Contributor>, Vec<NotesEntry>) {
+pub fn get_entries_from_md(text: &str) -> (Vec<Contributor>, Vec<NotesEntry>) {
     let mut entries: Vec<NotesEntry> = vec![];
     let mut found_contributors: Vec<&str> = vec![];
     let data = text.split("\\r\\n").collect::<Vec<&str>>();
@@ -226,7 +226,7 @@ pub fn get_entries_from_md(text: &String) -> (Vec<Contributor>, Vec<NotesEntry>)
             let heading = data[i].strip_prefix("### ").unwrap().trim().to_string();
             let mut bullet_points: Vec<String> = vec![];
             let mut y = i + 1;
-            while y != data.len() && data[y] != "" {
+            while y != data.len() && !data[y].is_empty() {
                 match data[y].strip_prefix("* ") {
                     Some(mut line) => {
                         if line.contains("(@") {
@@ -239,8 +239,8 @@ pub fn get_entries_from_md(text: &String) -> (Vec<Contributor>, Vec<NotesEntry>)
                     },
                 }
 
-                if data[y].contains("@") {
-                    let split = data[y].split("@").collect::<Vec<&str>>();
+                if data[y].contains('@') {
+                    let split = data[y].split('@').collect::<Vec<&str>>();
                     for z in 1..split.len() {
                         static EOC: &[char] = &[' ', '/', ')', '\\'];
                         let contributor = &split[z][..split[z].find(EOC).unwrap_or(split[z].len())];

@@ -1,4 +1,4 @@
-use std::{collections::HashSet, path::{Path, PathBuf}};
+use std::{collections::HashSet, path::Path};
 
 use arc_config::{
     search::{File, Folder},
@@ -7,11 +7,11 @@ use arc_config::{
 use smash_arc::*;
 use thiserror::Error;
 
-use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, InterDir, SearchContext, DirInfoExt};
+use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, SearchContext, DirInfoExt};
 use crate::{
     hashes,
     replacement::FileInfoFlagsExt,
-    resource::{LoadedData, LoadedDirectory, LoadedFilepath},
+    resource::LoadedFilepath,
     PathExtension, HashingError,
 };
 
@@ -216,7 +216,7 @@ pub fn add_shared_searchable_file(ctx: &mut SearchContext, new_file: &File) {
 }
 
 pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) -> Result<(), FileAdditionError> {
-    let parent = path.parent().expect(&format!("Failed to get the parent for path '{}'", path.display()));
+    let parent = path.parent().unwrap_or_else(|| panic!("Failed to get the parent for path '{}'", path.display()));
 
     // If the parent is empty, then just return
     if parent == Path::new("") {
@@ -388,9 +388,8 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) -> Result<DirInfo, D
     let dir_info_path = FolderPathListEntry::from_path(path)?;
 
     // If the dir info already exists, then just go back and give it the found dir info
-    match ctx.get_dir_info_from_hash_ctx(dir_info_path.path.hash40()) {
-        Ok(res) => return Err(DirectoryAdditionError::AlreadyExists(*res)),
-        Err(_) => {}, // Doesn't exist, so we keep going to make one
+    if let Ok(res) = ctx.get_dir_info_from_hash_ctx(dir_info_path.path.hash40()) {
+        return Err(DirectoryAdditionError::AlreadyExists(*res))
     }
 
     // Make a new dir info based on the path passed in
@@ -400,7 +399,7 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) -> Result<DirInfo, D
     let mut dir_hash_to_info_idx = ctx.new_dir_hash_to_info_idx(&dir_info);
 
     if dir_info.parent.as_u64() != 0x0 {
-        match add_dir_info(ctx, path.parent().expect(&format!("Could not get parent of {:?}!", path))) {
+        match add_dir_info(ctx, path.parent().unwrap_or_else(|| panic!("Could not get parent of {:?}!", path))) {
             Ok(parent_dir_info) => {
                 ctx.add_dir_info_to_parent(&parent_dir_info, &dir_hash_to_info_idx);
             
@@ -445,8 +444,6 @@ pub fn add_dir_info_with_base(ctx: &mut AdditionContext, path: &Path, base: &Pat
 
             Ok(*dir_info)
         },
-        Err(err) => match err {
-            _ => Err(err)
-        }
+        Err(err) => Err(err)
     }
 }

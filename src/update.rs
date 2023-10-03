@@ -87,7 +87,7 @@ where
     if let Some(update_kind) = version_difference {
         let date = {
             let published_at = &release.data["published_at"].to_string();
-            let split = published_at.split("-").collect::<Vec<&str>>();
+            let split = published_at.split('-').collect::<Vec<&str>>();
             let year = &split[0][1..];
             let month = split[1];
             let day = &split[2][..2];

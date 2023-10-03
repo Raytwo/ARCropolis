@@ -236,7 +236,7 @@ impl ApiLoadType {
 
                                 slice_u8
                             },
-                            TextType::Data(data) => &data,
+                            TextType::Data(data) => data,
                         };
 
                         lbl.set_value_raw(text_data).unwrap();
@@ -264,7 +264,7 @@ impl ApiLoadType {
 
                             slice_u8
                         },
-                        TextType::Data(data) => &data,
+                        TextType::Data(data) => data,
                     };
 
                     builder = builder.add_label(lbl.0, text_data);
@@ -318,7 +318,7 @@ impl ApiLoadType {
                 }
 
                 // Initialize the `new_audio_files` Vec, which takes in the values of the known_audiofiles HashMap
-                let mut new_audio_files: Vec<AudioFile> = known_audiofiles.iter().map(|(_, audio_file)| audio_file.clone()).collect();
+                let mut new_audio_files: Vec<AudioFile> = known_audiofiles.values().cloned().collect();
 
                 // Sort the new_audio_files vec by ID, because if we don't, the game loads the wrong AudioFiles on request.
                 new_audio_files.sort_by(|a, b| a.id.cmp(&b.id));

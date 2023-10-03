@@ -1,8 +1,8 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, hash_map::Entry},
     ops::{Deref, DerefMut},
     path::Path,
-    sync::atomic::{AtomicBool, Ordering}, time::Duration,
+    sync::atomic::{AtomicBool, Ordering},
 };
 
 use arc_config::search::{File, Folder};
@@ -17,8 +17,6 @@ use crate::{
     resource::{self, CppVector, FilesystemInfo, LoadedData, LoadedDirectory, LoadedFilepath},
     PathExtension, HashingError,
 };
-
-use thiserror::Error;
 
 use super::addition::DirectoryAdditionError;
 
@@ -209,21 +207,38 @@ impl AdditionContext {
 
     // Right now this will take up a bit of memory if adding multiple dirs to the same dirinfo, so gonna have to change it to take a vec instead ig
     pub fn add_dir_info_to_parent(&mut self, parent_dir_info: &DirInfo, child_hash_to_index: &HashToIndex) {
-        if self.inter_dirs.contains_key(&parent_dir_info.path.hash40()) {
-            self.inter_dirs
+        // if self.inter_dirs.contains_key(&parent_dir_info.path.hash40()) {
+        //     self.inter_dirs
+        //         .get_mut(&parent_dir_info.path.hash40())
+        //         .unwrap()
+        //         .children
+        //         .push(*child_hash_to_index);
+        // } else {
+        //     // If parent_dir_info already has children, then it must be from the original game. (Children ranges aren't modified until later)
+        //     let modifies_original = parent_dir_info.child_dir_count > 0;
+        //     let inter_dir = InterDir {
+        //         modifies_original,
+        //         children: [*child_hash_to_index].to_vec(),
+        //     };
+        //     self.inter_dirs.insert(parent_dir_info.path.hash40(), inter_dir);
+        // }
+
+        if let Entry::Vacant(e) = self.inter_dirs.entry(parent_dir_info.path.hash40()) {
+             // If parent_dir_info already has children, then it must be from the original game. (Children ranges aren't modified until later)
+             let modifies_original = parent_dir_info.child_dir_count > 0;
+             
+             let inter_dir = InterDir {
+                 modifies_original,
+                 children: [*child_hash_to_index].to_vec(),
+             };
+             e.insert(inter_dir);
+         } else {
+             self.inter_dirs
                 .get_mut(&parent_dir_info.path.hash40())
                 .unwrap()
                 .children
                 .push(*child_hash_to_index);
-        } else {
-            // If parent_dir_info already has children, then it must be from the original game. (Children ranges aren't modified until later)
-            let modifies_original = parent_dir_info.child_dir_count > 0;
-            let inter_dir = InterDir {
-                modifies_original,
-                children: [*child_hash_to_index].to_vec(),
-            };
-            self.inter_dirs.insert(parent_dir_info.path.hash40(), inter_dir);
-        }
+         }
     }
 
     pub fn new_directory_offset(&mut self, dir_info: &DirInfo) -> DirectoryOffset {
@@ -284,8 +299,8 @@ impl AdditionContext {
 
         let mut index: Option<usize> = None;
 
-        for i in 0..dir_hash_to_info_index.len() {
-            if dir_hash_to_info_index[i].hash40() == hash {
+        for (i, hashtoindex) in dir_hash_to_info_index.iter().enumerate() {
+            if hashtoindex.hash40() == hash {
                 index = Some(i);
                 break;
             }
@@ -309,8 +324,8 @@ impl AdditionContext {
 
         let mut index: Option<usize> = None;
 
-        for i in 0..dir_hash_to_info_index.len() {
-            if dir_hash_to_info_index[i].hash40() == hash {
+        for (i, hashtoindex) in dir_hash_to_info_index.iter().enumerate() {
+            if hashtoindex.hash40() == hash {
                 index = Some(i);
                 break;
             }
@@ -360,9 +375,9 @@ impl SearchContext {
         }
     }
 
-    pub fn add_folder_recursive<'a>(&'a mut self, path: &Path) -> Result<(), DirectoryAdditionError> {
+    pub fn add_folder_recursive(&mut self, path: &Path) -> Result<(), DirectoryAdditionError> {
         match self.get_folder_path_mut(path.smash_hash()?) {
-            Some(found) => Ok(()),
+            Some(_) => Ok(()),
             None => {
                 self.create_folder_hierarchy(path)?;
                 Ok(())
@@ -371,8 +386,8 @@ impl SearchContext {
     }
 
     pub fn create_folder_hierarchy(&mut self, path: &Path) -> Result<&mut FolderPathListEntry, DirectoryAdditionError> {
-        let parent = path.parent().expect(&format!("Failed to get the parent for path '{}'", path.display()));
-        let mut new_folder = FolderPathListEntry::from_path(path)?;
+        let parent = path.parent().unwrap_or_else(|| panic!("Could not get parent of {:?}!", path));
+        let new_folder = FolderPathListEntry::from_path(path)?;
 
         // We reached the root of the filesystem
         if parent == Path::new("") {
@@ -421,7 +436,7 @@ impl SearchContext {
     }
 
     pub fn add_new_search_folder_to_parent(&mut self, entry: FolderPathListEntry, parent: &mut FolderPathListEntry) {
-        let mut new_path = entry.as_path_entry();
+        let new_path = entry.as_path_entry();
 
         self.add_new_search_path_with_parent(new_path, parent);
         self.add_new_folder_path(entry);
@@ -430,7 +445,7 @@ impl SearchContext {
     /// Create a new directory that does not have a parent
     pub fn add_new_root_folder_path(&mut self, entry: FolderPathListEntry) {
         // Create a new directory that does not have child directories
-        let mut new_path = entry.as_path_entry();
+        let new_path = entry.as_path_entry();
 
         self.add_new_search_path(new_path);
         self.add_new_folder_path(entry);
@@ -618,7 +633,7 @@ impl LoadedArcEx for LoadedArc {
                 let reserved_hashes: Vec<HashToIndex> = std::iter::repeat(HashToIndex::new()).take(info.children.len()).collect();
                 folder_children_hashes.extend_from_slice(&reserved_hashes);
 
-                add_children_to_dir_info(&mut dir_infos_vec, &mut folder_children_hashes, &dir_info, &info, &ctx.inter_dirs);
+                add_children_to_dir_info(&mut dir_infos_vec, &mut folder_children_hashes, &dir_info, info, &ctx.inter_dirs);
             } else {
                 dir_info.child_dir_start_index = folder_children_hashes.len() as u32;
                 dir_info.child_dir_count = info.children.len() as u32;
@@ -630,7 +645,7 @@ impl LoadedArcEx for LoadedArc {
                 let reserved_hashes: Vec<HashToIndex> = std::iter::repeat(HashToIndex::new()).take(info.children.len()).collect();
                 folder_children_hashes.extend_from_slice(&reserved_hashes);
 
-                add_children_to_dir_info(&mut dir_infos_vec, &mut folder_children_hashes, &dir_info, &info, &ctx.inter_dirs);
+                add_children_to_dir_info(&mut dir_infos_vec, &mut folder_children_hashes, &dir_info, info, &ctx.inter_dirs);
             }
         }
         println!("Added dirinfo children took {}ms", now.elapsed().as_millis());
@@ -657,7 +672,7 @@ impl LoadedArcEx for LoadedArc {
 
                     // Reserve space at the end of the dir info vector for our new children.
                     let reserved_dirs: Vec<HashToIndex> = std::iter::repeat(HashToIndex::new())
-                        .take(child_inter_dir.children.len() as usize)
+                        .take(child_inter_dir.children.len())
                         .collect();
                     folder_children_hashes.extend_from_slice(&reserved_dirs);
                     add_children_to_dir_info(dir_infos_vec, folder_children_hashes, &child_dir_info, child_inter_dir, inter_dirs);
@@ -717,7 +732,7 @@ impl LoadedArcEx for LoadedArc {
         // Calculate extra folders and set extra folder header for FolderOffsets
         let extra_folder_count =
             (folder_offsets_vec_len as u32).wrapping_sub(header.folder_offset_count_1 + header.folder_offset_count_2 + header.extra_folder);
-        header.extra_folder = header.extra_folder.wrapping_add(extra_folder_count as u32);
+        header.extra_folder = header.extra_folder.wrapping_add(extra_folder_count);
         self.folder_offsets = folder_offsets_vec;
         // --------------------- END MODIFY DIRECTORY RELEATED FIELDS ---------------------
 
@@ -746,7 +761,7 @@ impl LoadedArcEx for LoadedArc {
         for bucket in buckets.iter_mut() {
             start_count.push((start, bucket.len()));
             start += bucket.len();
-            bucket.as_mut_slice().sort_by(|a, b| a.hash40().as_u64().cmp(&b.hash40().as_u64()));
+            bucket.as_mut_slice().sort_by_key(|a| a.hash40().as_u64());
         }
 
         let mut new_hash_to_index = Vec::with_capacity(self.get_file_paths().len());

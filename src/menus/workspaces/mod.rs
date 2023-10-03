@@ -30,7 +30,7 @@ pub fn show_workspaces() {
     let mut workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
 
     let info: Information = Information {
-        workspaces: workspace_list.iter().map(|(k, _v)| k.clone()).collect(),
+        workspaces: workspace_list.keys().cloned().collect(),
         active_workspace: active_workspace.clone(),
     };
 

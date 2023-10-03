@@ -389,7 +389,6 @@ fn reshare_file_group(ctx: &mut AdditionContext, dir_info: Range<usize>, file_gr
     // based off of FilePath instead of sequential InfoToDatas).
     let referenced_file_infos: HashSet<FileInfoIdx> = file_group
         .clone()
-        .into_iter()
         .map(|x| ctx.get_shared_info_index(FileInfoIdx(x as u32)))
         .collect();
     for dir_index in dir_info {

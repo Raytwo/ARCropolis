@@ -165,7 +165,7 @@ impl LuaEnumBuilder {
                 self,
                 lua_state,
                 CString::new(name.as_ref())
-                    .expect(&format!("Failed to make CString from {}!", name.as_ref()))
+                    .unwrap_or_else(|_| panic!("Failed to make CString from {}!", name.as_ref()))
                     .into_raw() as _,
                 -3,
             );
@@ -205,7 +205,7 @@ impl lua_state {
         unsafe {
             let ptr = {
                 if index < 0 {
-                    self.top_ptr.sub((index * -1) as usize)
+                    self.top_ptr.sub((-index) as usize)
                 } else {
                     self.top_ptr.add(index as usize)
                 }
@@ -373,7 +373,7 @@ impl lua_state {
                 // Implementation is copied word for word (and translated) from Ghidra.
                 // I have no idea what the game is doing here, but this is replicating what its doing
                 // You can see this being done in the `apply_ui2d_layout_bindings` function (0x33702b0 in Smash ver 13.0.1) after the metatable is set
-                pu_var4 = ((*lua_r_udata).unk_4_0x18 + (!((0xffffffff as u64) << ((*lua_r_udata).unk_1_0xb as u64 & 0x3f)) as u64 & 2) * 0x20)
+                pu_var4 = ((*lua_r_udata).unk_4_0x18 + (!((0xffffffff as u64) << ((*lua_r_udata).unk_1_0xb as u64 & 0x3f)) & 2) * 0x20)
                     as *const unk_struct;
                 loop {
                     set_field_var = pu_var4 as *const u64;
