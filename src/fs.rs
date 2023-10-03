@@ -71,7 +71,7 @@ impl CachedFilesystem {
             }
         }
 
-        println!("Loading and merging Config.json files took {}ms (old average 2800ms)", now.elapsed().as_millis());
+        println!("Loading and merging Config.json files took {}ms (old average 2980ms)", now.elapsed().as_millis());
     }
 
     /// Get a list of all PRC patch files and add them to the virtual tree
