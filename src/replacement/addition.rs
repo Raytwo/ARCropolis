@@ -127,72 +127,6 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
     Ok(())
 }
 
-pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) -> Result<(), DirectoryAdditionError> {
-    let parent = path.parent().expect(&format!("Failed to get the parent for path '{}'", path.display()));
-
-    // Something about root folders?
-    if parent == Path::new("") {
-        let mut new_folder_path = FolderPathListEntry::from_path(path)?;
-            let new_path = new_folder_path.as_path_entry();
-            new_folder_path.set_first_child_index(0xFF_FFFF);
-            ctx.new_folder_paths.insert(new_folder_path.path.hash40(), ctx.folder_paths.len());
-            ctx.new_paths.insert(new_path.path.hash40(), ctx.path_list_indices.len());
-            ctx.path_list_indices.push(ctx.paths.len() as u32);
-            ctx.paths.push(new_path);
-            ctx.folder_paths.push(new_folder_path);
-            return Ok(())
-    }
-
-    // Convert the parent to a smash_hash
-    let hash = parent.smash_hash().map_err(DirectoryAdditionError::Hash)?;
-    
-    // Get the length of the current path list indices
-    let len = ctx.path_list_indices.len();
-    
-    let (parent, current_path_list_indices_len) = match ctx.get_folder_path_mut(hash) {
-        Some(parent) => (parent, len),
-        None => {
-            add_searchable_folder_recursive(ctx, parent).unwrap();
-            let len = ctx.path_list_indices.len();
-            match ctx.get_folder_path_mut(hash) {
-                Some(parent) => (parent, len),
-                None => {
-                    // If it doesn't exist, then call the add_searchable_folder_recursive with the parent path
-                    add_searchable_folder_recursive(ctx, parent).unwrap();
-
-                    // Get the new length since it changed thanks to the previous function call
-                    let len = ctx.path_list_indices.len();
-
-                    // Try getting the folder path again
-                    ctx.get_folder_path_mut(hash)
-                        .map(|parent: &mut FolderPathListEntry| (parent, len))
-                        .ok_or(DirectoryAdditionError::Lookup(LookupError::Missing))?
-                },
-            }
-        },
-    };
-
-    let mut new_folder = FolderPathListEntry::from_path(path).map_err(DirectoryAdditionError::Hash)?;
-     // Create a new directory that does not have child directories
-     new_folder.set_first_child_index(0xFF_FFFF);
-
-     // Create a new search path
-     let mut new_path = new_folder.as_path_entry();
-
-     // Set the previous head of the linked list as the child of the new path
-     new_path.path.set_index(parent.get_first_child_index() as u32);
-
-     // Set the next path as the first element of the linked list
-     parent.set_first_child_index(current_path_list_indices_len as u32);
-     ctx.new_folder_paths.insert(new_folder.path.hash40(), ctx.folder_paths.len());
-     ctx.new_paths.insert(new_path.path.hash40(), ctx.path_list_indices.len());
-     ctx.path_list_indices.push(ctx.paths.len() as u32);
-     ctx.folder_paths.push(new_folder);
-     ctx.paths.push(new_path);
-
-     Ok(())
-}
-
 fn add_searchable_folder_by_folder(ctx: &mut SearchContext, folder: &Folder) -> bool {
     // begin by simply checking if this folder's parent exists
     // eventually up the chain we should be able to find an existing folder to add our tree into
@@ -293,7 +227,7 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) -> Re
     // If the parent is alright (actually something), keep going
 
     // Convert the parent to a smash_hash
-    let hash = parent.smash_hash().map_err(FileAdditionError::Hash)?;
+    let hash = parent.smash_hash()?;
     
     // Get the length of the current path list indices
     let len = ctx.path_list_indices.len();
@@ -304,7 +238,7 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) -> Re
         Some(parent) => (parent, len),
         None => {
             // If it doesn't exist, then call the add_searchable_folder_recursive with the parent path
-            add_searchable_folder_recursive(ctx, parent).unwrap();
+            ctx.add_folder_recursive(parent).unwrap();
             
             // Get the new length since it changed thanks to the previous function call
             let len = ctx.path_list_indices.len();
@@ -427,7 +361,7 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
             // Push the modified file_info to the file_infos vector
             file_infos.push(file_info);
         } else {
-            // error!("Cannot get file path index for '{}' ({:#x})", hashes::find(file), file.0);
+            error!("Cannot get file path index for '{}' ({:#x})", hashes::find(file), file.0);
         }
     }
 
