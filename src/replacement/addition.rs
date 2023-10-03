@@ -7,7 +7,7 @@ use arc_config::{
 use smash_arc::*;
 use thiserror::Error;
 
-use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, InterDir, SearchContext};
+use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, InterDir, SearchContext, DirInfoExt};
 use crate::{
     hashes,
     replacement::FileInfoFlagsExt,
@@ -432,28 +432,21 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) -> Result<DirInfo, D
     Ok(dir_info)
 }
 
-pub fn add_dir_info_with_base(ctx: &mut AdditionContext, path: &Path, base: &Path) -> Result<(), DirectoryAdditionError> {
-    // Create a FolderPathListEntry from the path that's passed in
-    let dir_info_path = FolderPathListEntry::from_path(path)?;
+pub fn add_dir_info_with_base(ctx: &mut AdditionContext, path: &Path, base: &Path) -> Result<DirInfo, DirectoryAdditionError> {
+    match add_dir_info(ctx, path) {
+        Ok(_) | Err(DirectoryAdditionError::AlreadyExists(_)) => {
+            let base_dir_info_path = FolderPathListEntry::from_path(base)?;
+            let dir_info_path = FolderPathListEntry::from_path(path)?;
 
-    // Create a FolderPathListEntry from the path that's passed in
-    let base_dir_info_path = FolderPathListEntry::from_path(base)?;
+            let base_dir_info = *ctx.get_dir_info_from_hash_ctx(base_dir_info_path.path.hash40())?;
+            let dir_info = ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.path.hash40())?;
 
-    add_dir_info(ctx, path).unwrap();
+            dir_info.copy_from_source(&base_dir_info);
 
-    // Get the base
-    let base_dir_info = *ctx.get_dir_info_from_hash_ctx(base_dir_info_path.path.hash40())?;
-
-    // Get the newly added dirinfo
-    let mut dir_info = ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.path.hash40())?;
-
-    // Set dir_info values to the base dirinfo
-    dir_info.path.set_index(base_dir_info.path.index());
-    dir_info.file_info_start_index = base_dir_info.file_info_start_index;
-    dir_info.file_count = base_dir_info.file_count;
-    dir_info.child_dir_start_index = base_dir_info.child_dir_start_index;
-    dir_info.child_dir_count = base_dir_info.child_dir_count;
-    dir_info.flags = base_dir_info.flags;
-
-    Ok(())
+            Ok(*dir_info)
+        },
+        Err(err) => match err {
+            _ => Err(err)
+        }
+    }
 }

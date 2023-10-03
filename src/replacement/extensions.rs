@@ -1257,3 +1257,18 @@ impl FromPathExt for PathListEntry {
         Ok(result)
     }
 }
+
+pub trait DirInfoExt {
+    fn copy_from_source(&mut self, src_dir_info: &DirInfo);
+}
+
+impl DirInfoExt for DirInfo {
+    fn copy_from_source(&mut self, src_dir_info: &DirInfo) {
+        self.path.set_index(src_dir_info.path.index());
+        self.file_info_start_index = src_dir_info.file_info_start_index;
+        self.file_count = src_dir_info.file_count;
+        self.child_dir_start_index = src_dir_info.child_dir_start_index;
+        self.child_dir_count = src_dir_info.child_dir_count;
+        self.flags = src_dir_info.flags;
+    }
+}

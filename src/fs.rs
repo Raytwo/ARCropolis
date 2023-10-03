@@ -462,7 +462,9 @@ impl CachedFilesystem {
 
         // Add new dir infos that use a base before adding the files
         for (new, base) in self.config.new_dir_infos_base.iter() {
-            replacement::addition::add_dir_info_with_base(&mut context, Path::new(new), Path::new(base)).unwrap();
+            if let Err(err) = replacement::addition::add_dir_info_with_base(&mut context, Path::new(new), Path::new(base)) {
+                println!("Could not add directory: {} (base) - {} (new), reason: {}", base, new, err);
+            }
         }
 
         // Go through and add any files that were not found in the data.arc
