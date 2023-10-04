@@ -207,26 +207,10 @@ impl AdditionContext {
 
     // Right now this will take up a bit of memory if adding multiple dirs to the same dirinfo, so gonna have to change it to take a vec instead ig
     pub fn add_dir_info_to_parent(&mut self, parent_dir_info: &DirInfo, child_hash_to_index: &HashToIndex) {
-        // if self.inter_dirs.contains_key(&parent_dir_info.path.hash40()) {
-        //     self.inter_dirs
-        //         .get_mut(&parent_dir_info.path.hash40())
-        //         .unwrap()
-        //         .children
-        //         .push(*child_hash_to_index);
-        // } else {
-        //     // If parent_dir_info already has children, then it must be from the original game. (Children ranges aren't modified until later)
-        //     let modifies_original = parent_dir_info.child_dir_count > 0;
-        //     let inter_dir = InterDir {
-        //         modifies_original,
-        //         children: [*child_hash_to_index].to_vec(),
-        //     };
-        //     self.inter_dirs.insert(parent_dir_info.path.hash40(), inter_dir);
-        // }
-
         if let Entry::Vacant(e) = self.inter_dirs.entry(parent_dir_info.path.hash40()) {
              // If parent_dir_info already has children, then it must be from the original game. (Children ranges aren't modified until later)
              let modifies_original = parent_dir_info.child_dir_count > 0;
-             
+
              let inter_dir = InterDir {
                  modifies_original,
                  children: [*child_hash_to_index].to_vec(),
