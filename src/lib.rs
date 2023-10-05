@@ -278,6 +278,9 @@ fn initial_loading(_ctx: &InlineCtx) {
     filesystem.share_hashes();
     filesystem.patch_files();
 
+    unsafe { nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Disabled) }
+
+
     if config::debug_enabled() {
         let mut output = BufWriter::new(std::fs::File::create("sd:/ultimate/arcropolis/filesystem_dump.txt").unwrap());
         filesystem.get().walk_patch(|node, entry_type| {
@@ -487,6 +490,8 @@ pub fn main() {
 
     // Acquire the filesystem and promise it to the initial_loading hook
     let mut filesystem = GLOBAL_FILESYSTEM.write();
+
+    unsafe { nn::oe::SetCpuBoostMode(nn::oe::CpuBoostMode::Boost) }
 
     let discovery = std::thread::Builder::new()
         .stack_size(0x10000)
