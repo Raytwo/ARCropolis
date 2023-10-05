@@ -198,10 +198,7 @@ impl AdditionContext {
 
     pub fn new_dir_info(&mut self, dir_info_path: FolderPathListEntry) -> Result<DirInfo, LookupError> {
         // Get a base
-        let mut dir_info = match self.get_dir_info_from_hash_ctx(Hash40::from("fighter/luigi/c00")) {
-            Ok(dir) => *dir,
-            Err(_) => return Err(LookupError::Missing),
-        };
+        let mut dir_info = *self.get_dir_info_from_hash_ctx(Hash40::from("fighter/luigi/c00"))?;
 
         // Change the values to match the path passed in
         dir_info.path = dir_info_path.path;
@@ -296,53 +293,19 @@ impl AdditionContext {
     }
 
     pub fn get_dir_info_from_hash_ctx(&self, hash: Hash40) -> Result<&DirInfo, LookupError> {
-        let dir_hash_to_info_index = self.dir_hash_to_info_idx.iter().collect::<Vec<_>>();
-
-        let mut index: Option<usize> = None;
-
-        for (i, hashtoindex) in dir_hash_to_info_index.iter().enumerate() {
-            if hashtoindex.hash40() == hash {
-                index = Some(i);
-                break;
-            }
-        }
-
-        match index {
-            Some(dir_index) => Ok(&self.dir_infos_vec[dir_index]),
-            None => Err(LookupError::Missing),
-        }
-
-        // let index = dir_hash_to_info_index
-        //     .binary_search_by_key(&hash, |dir| dir.hash40())
-        //     .map(|index| dir_hash_to_info_index[index].index() as usize)
-        //     .map_err(|_| LookupError::Missing)?;
-
-        // Ok(&self.dir_infos_vec[index])
+        self.dir_hash_to_info_idx
+            .iter()
+            .position(|hashtoindex| hashtoindex.hash40() == hash)
+            .map(|dir_index| &self.dir_infos_vec[dir_index])
+            .ok_or(LookupError::Missing)
     }
 
     pub fn get_dir_info_from_hash_ctx_mut(&mut self, hash: Hash40) -> Result<&mut DirInfo, LookupError> {
-        let dir_hash_to_info_index = self.dir_hash_to_info_idx.iter().collect::<Vec<_>>();
-
-        let mut index: Option<usize> = None;
-
-        for (i, hashtoindex) in dir_hash_to_info_index.iter().enumerate() {
-            if hashtoindex.hash40() == hash {
-                index = Some(i);
-                break;
-            }
-        }
-
-        match index {
-            Some(dir_index) => Ok(&mut self.dir_infos_vec[dir_index]),
-            None => Err(LookupError::Missing),
-        }
-
-        // let index = dir_hash_to_info_index
-        //     .binary_search_by_key(&hash, |dir| dir.hash40())
-        //     .map(|index| dir_hash_to_info_index[index].index() as usize)
-        //     .map_err(|_| LookupError::Missing)?;
-
-        // Ok(&mut self.dir_infos_vec[index])
+        self.dir_hash_to_info_idx
+            .iter()
+            .position(|hashtoindex| hashtoindex.hash40() == hash)
+            .map(move |dir_index| &mut self.dir_infos_vec[dir_index])
+            .ok_or(LookupError::Missing)
     }
 
     // for resharing super shared files
