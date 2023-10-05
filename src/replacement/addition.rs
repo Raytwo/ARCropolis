@@ -83,24 +83,9 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
     let info_indice_idx = ctx.get_file_info_indice_idx(shared_to)?;
 
     // Make FilePath from path passed in
-    let mut filepath = FilePath::from_file(new_file);
+    let mut filepath = FilePath::from_file(new_file);    
 
-    // Set the FilePath's path index to the shared target FileInfoIndice index
-    filepath.path.set_index(info_indice_idx.0);
-
-    ctx.file_infos[usize::from(ctx.file_info_indices[info_indice_idx.0 as usize].file_info_index)]
-        .flags
-        .set_new_shared_file(true);
-
-    // Push the FilePath to the context FilePaths
-    ctx.filepaths.push(filepath);
-    ctx.added_files.insert(filepath.path.hash40(), FilePathIdx((ctx.filepaths.len() - 1) as u32));
-    ctx.loaded_filepaths.push(LoadedFilepath::default());
-
-    let shared_to = ctx.filepaths
-        [usize::from(ctx.file_infos[usize::from(ctx.file_info_indices[info_indice_idx.0 as usize].file_info_index)].file_path_index)]
-    .path
-    .hash40();
+    let shared_to = ctx.add_shared_filepath(filepath, info_indice_idx);
 
     // Add the shared file to the lookup
     lookup::add_shared_file(

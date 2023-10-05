@@ -129,6 +129,23 @@ impl AdditionContext {
         Ok(())
     }
 
+    /// Returns the Hash40 of what it was shared to (do we really need this?)
+    pub fn add_shared_filepath(&mut self, mut filepath: FilePath, info_indice_idx: FileInfoIndiceIdx) -> Hash40 {
+        // Set the FilePath's path index to the shared target FileInfoIndice index
+        filepath.path.set_index(info_indice_idx.0);
+
+        self.file_infos[usize::from(self.file_info_indices[info_indice_idx.0 as usize].file_info_index)]
+            .flags
+            .set_new_shared_file(true);
+
+        // Push the FilePath to the context FilePaths
+        self.filepaths.push(filepath);
+        self.added_files.insert(filepath.path.hash40(), FilePathIdx((self.filepaths.len() - 1) as u32));
+        self.loaded_filepaths.push(LoadedFilepath::default());
+
+        self.filepaths[usize::from(self.file_infos[usize::from(self.file_info_indices[info_indice_idx.0 as usize].file_info_index)].file_path_index)].path.hash40()
+    }
+
     pub fn new_fileinfo(&mut self, file_path_index: FilePathIdx, info_to_data_index: InfoToDataIdx, unknown1: bool) -> (FileInfoIdx, FileInfoIndiceIdx) {
         let new_indice = FileInfoIdx(self.file_infos.len() as u32);
 
