@@ -39,7 +39,7 @@ pub fn try_find(hash: Hash40) -> Option<&'static str> {
 }
 
 pub fn find(hash: Hash40) -> &'static str {
-    try_find(hash).unwrap_or("Unknown")
+    try_find(hash).unwrap_or(string_to_static_str(format!("{:#x}", hash.as_u64())))
 }
 
 pub fn add<S: AsRef<str>>(new_hash: S) {

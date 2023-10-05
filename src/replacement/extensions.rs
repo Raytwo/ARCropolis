@@ -1,11 +1,11 @@
 use std::{
     collections::{HashMap, hash_map::Entry},
-    ops::{Deref, DerefMut},
+    ops::{Deref, DerefMut, Range},
     path::Path,
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use arc_config::search::{File, Folder};
+use arc_config::{ToSmashArc, search::{File, Folder}};
 use smash_arc::{
     ArcLookup, DirInfo, DirectoryOffset, FileData, FileInfo, FileInfoBucket, FileInfoFlags, FileInfoIdx, FileInfoIndex, FileInfoToFileData, FilePath,
     FilePathIdx, FileSystemHeader, FolderPathListEntry, Hash40, HashToIndex, LoadedArc, LoadedSearchSection, LookupError, PathListEntry,
@@ -18,7 +18,7 @@ use crate::{
     PathExtension, HashingError,
 };
 
-use super::addition::DirectoryAdditionError;
+use super::addition::{DirectoryAdditionError, FileAdditionError, OutOfBounds, FolderAddition};
 
 /// Used to keep track of added DirInfo children.
 #[derive(Debug)]
@@ -263,6 +263,75 @@ impl AdditionContext {
         self.loaded_datas.push(LoadedData::new());
     }
 
+    pub fn get_path_idx(&self, hash: &Hash40) -> Option<FilePathIdx> {
+        // Try getting the FilePathIdx from the passed in hash, if failed, then get index from the added files
+        match self.get_file_path_index_from_hash(*hash) {
+            Ok(idx) => Some(idx),
+            Err(_) => self.added_files.get(&hash).copied(),
+        }
+    }
+
+    pub fn get_file_infos_from_range(&self, range: &Range<usize>) -> Result<Vec<FileInfo>, OutOfBounds> {
+        if range.start < self.file_infos.len() && range.end <= self.file_infos.len() {
+            Ok(self.file_infos[range.clone()].to_vec())
+        } else {
+            Err(OutOfBounds::FileInfos(range.start, range.end))
+        }
+    }
+
+    pub fn get_filepath_from_file_path_idx(&self, file_path_idx: &FilePathIdx) -> Result<FilePath, OutOfBounds> {
+        let idx = usize::from(*file_path_idx);
+        if idx >= self.filepaths.len() {
+            Err(OutOfBounds::FilePath(idx))
+        } else {
+            Ok(self.filepaths[idx])
+        }
+    }
+
+    
+    pub fn get_file_info_index_from_filepath(&self, filepath: &FilePath) -> Result<FileInfoIndex, OutOfBounds> {
+        let idx = filepath.path.index() as usize;
+        if idx >= self.file_info_indices.len() {
+            Err(OutOfBounds::FileInfoIndex(idx))
+        } else {
+            Ok(self.file_info_indices[idx])
+        }
+    }
+    
+    pub fn get_file_info_from_file_info_index(&self, file_info_index: &FileInfoIndex) -> Result<FileInfo, OutOfBounds> {
+        let idx = usize::from(file_info_index.file_info_index);
+        if idx >= self.file_infos.len() {
+            Err(OutOfBounds::FileInfo(idx))
+        } else {
+            Ok(self.file_infos[idx])
+        }
+    }
+
+    pub fn get_file_info_to_file_data_from_fileinfo(&mut self, fileinfo: &FileInfo) -> Result<FileInfoToFileData, OutOfBounds> {
+        let idx = usize::from(fileinfo.info_to_data_index);
+        if idx >= self.info_to_datas.len() {
+            Err(OutOfBounds::InfoToData(idx))
+        } else {
+            Ok(self.info_to_datas[idx])
+        }
+    }
+
+    pub fn get_file_data_from_file_data_index(&mut self, data_idx: &FileDataIdx) -> Result<FileData, OutOfBounds> {
+        let idx = usize::from(*data_idx);
+        if idx >= self.file_datas.len() {
+            Err(OutOfBounds::FileData(idx))
+        } else {
+            Ok(self.file_datas[idx])
+        }
+    }
+
+    pub fn update_directory_info_files(&mut self, directory: Hash40, file_info_start_index: u32, file_count: u32) -> Result<(), FileAdditionError>{
+        let dir_info = self.get_dir_info_from_hash_ctx_mut(directory)?;
+        dir_info.file_info_start_index = file_info_start_index;
+        dir_info.file_count = file_count;
+        Ok(())
+    }
+
     /// Attempts to find the hash in LoadedArc, and if not, look into the added files
     pub fn get_file_info_indice_idx<H: Into<Hash40>>(&self, hash: H) -> Result<FileInfoIndiceIdx, LookupError> {
         let hash = hash.into();
@@ -326,6 +395,19 @@ impl AdditionContext {
             None
         }
     }
+
+    pub fn reset_file_data(&self, file_data: &mut FileData){
+        // Set the compressed and decompressed size to 0x100 (256) (The decompressed size will change later
+        // when patched by ARCropolis)
+        file_data.comp_size = 0x100;
+        file_data.decomp_size = 0x100;
+    
+        // Set the FileData offset in folder to 0 so it at least has a value
+        file_data.offset_in_folder = 0x0;
+        
+        // Set the flags to not be compressed and not use zstd
+        file_data.flags = FileDataFlags::new().with_compressed(false).with_use_zstd(false);
+    }
 }
 
 impl SearchContext {
@@ -334,6 +416,16 @@ impl SearchContext {
             Ok(entry) => Some(&mut self.folder_paths[entry.index() as usize]),
             Err(_) => match self.new_folder_paths.get(&hash) {
                 Some(index) => Some(&mut self.folder_paths[*index]),
+                None => None,
+            },
+        }
+    }
+
+    pub fn get_folder_path(&mut self, hash: Hash40) -> Option<FolderPathListEntry> {
+        match self.search.get_folder_path_index_from_hash(hash) {
+            Ok(entry) => Some(self.folder_paths[entry.index() as usize]),
+            Err(_) => match self.new_folder_paths.get(&hash) {
+                Some(index) => Some(self.folder_paths[*index]),
                 None => None,
             },
         }
@@ -419,6 +511,46 @@ impl SearchContext {
         entry.set_first_child_index(0xFF_FFFF);
         self.new_folder_paths.insert(entry.path.hash40(), self.folder_paths.len());
         self.folder_paths.push(entry);
+    }
+
+    fn add_searchable_folder_by_folder(&mut self, folder: &Folder) -> Result<(), FolderAddition> {
+        if folder.name.is_none() {
+            error!("Cannot add folder with no name");
+            return Err(FolderAddition::NoName);
+        }        
+        
+        match folder.parent.as_ref() {
+            Some(parent) => {
+                match self.get_folder_path(parent.full_path.to_smash_arc()) {
+                    Some(mut parent) => {
+                        let mut new_folder = FolderPathListEntry::from_folder(folder);
+                        self.add_new_search_folder_to_parent(new_folder, &mut parent);
+                        Ok(())
+                    },
+                    None => {
+                        self.add_searchable_folder_by_folder(parent)?;
+                        self.add_searchable_folder_by_folder(folder)
+                    },
+                }
+            },
+            None => {
+                Err(FolderAddition::NoParent)
+            },
+        }
+    }
+
+    pub fn add_shared_searchable_file(&mut self, new_file: &File) -> Result<(), FileAdditionError> {
+        match self.get_folder_path(new_file.parent.full_path.to_smash_arc()) {
+            Some(mut parent) => {
+                let mut new_file = PathListEntry::from_file(new_file);
+                self.add_new_search_path_with_parent(new_file, &mut parent);
+                Ok(())
+            },
+            None => {
+                self.add_searchable_folder_by_folder(&new_file.parent)?;
+                self.add_shared_searchable_file(new_file)
+            },
+        }
     }
 }
 
