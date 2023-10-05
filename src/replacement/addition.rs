@@ -215,7 +215,7 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) -> Re
             // Try getting the folder path again
             ctx.get_folder_path_mut(hash)
                 .map(|parent| (parent, len))
-                .ok_or(FileAdditionError::Lookup(LookupError::Missing))?
+                .ok_or(LookupError::Missing)?
         },
     };
 
@@ -232,23 +232,9 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) -> Re
     Ok(())
 }
 
-pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, files: HashSet<Hash40>) {
-    fn get_path_idx(ctx: &AdditionContext, hash: Hash40) -> Option<FilePathIdx> {
-        // Try getting the FilePathIdx from the passed in hash, if failed, then get index from the added files
-        match ctx.get_file_path_index_from_hash(hash) {
-            Ok(idx) => Some(idx),
-            Err(_) => ctx.added_files.get(&hash).copied(),
-        }
-    }
-
-    // Get the file info range of the directory (dirinfo?) that was passed in
-    let file_info_range = match ctx.get_dir_info_from_hash_ctx(directory) {
-        Ok(dir) => dir.file_info_range(),
-        Err(_) => {
-            error!("Cannot get file info range for '{}' ({:#x})", hashes::find(directory), directory.0);
-            return;
-        },
-    };
+pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, files: HashSet<Hash40>) -> Result<(), LookupError> {
+    // Get the file info range of the directory that was passed in
+    let file_info_range = ctx.get_dir_info_from_hash_ctx(directory).map(|dir| dir.file_info_range())?;
 
     // Create new Vec with the size of the file count of the specified dir + the count of the files passed in
     let mut file_infos = Vec::with_capacity(file_info_range.len() + files.len());
@@ -263,11 +249,10 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
 
         // If the file_info_range has an entry for the FileInfoIndex for the current file, then update the FileInfoIdx
         // with a new FileInfoIdx that takes the context file_infos length + the length of the current file_infos (don't know why this is done)
-        if file_info_range.contains(&usize::from(
-            ctx.file_info_indices[ctx.filepaths[usize::from(file_info.file_path_index)].path.index() as usize].file_info_index,
-        )) {
-            ctx.file_info_indices[ctx.filepaths[usize::from(file_info.file_path_index)].path.index() as usize].file_info_index =
-                FileInfoIdx((ctx.file_infos.len() + file_infos.len()) as u32);
+        if file_info_range.contains(&usize::from(ctx.get_file_info_idx_by_filepath_idx(file_info.file_path_index))) {
+            let fileinfoindice_idx = ctx.get_filepath_by_idx(file_info.file_path_index).path.index() as usize;
+            // Can't use the util method here because it's being indexed ... Needs a get/get_mut or something
+            ctx.file_info_indices[fileinfoindice_idx].file_info_index = FileInfoIdx((ctx.file_infos.len() + file_infos.len()) as u32);
         }
 
         // Add file_info to the file_infos vector created earlier
@@ -281,20 +266,17 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
         }
 
         // Get the FilePathIdx from the context
-        if let Some(file_index) = get_path_idx(ctx, file) {
+        if let Some(file_index) = ctx.get_path_index_from_hash(file) {
             // Get the FileInfo from the context FileInfos with the FileInfoIndex with the file_index gotten
             // earlier
-            let mut file_info =
-                ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index)];
+            let mut file_info = ctx.file_infos[usize::from(ctx.get_file_info_idx_by_filepath_idx(file_index))];
 
             // only change the file linkage/file datas if we aren't a new shared file
             // changing those things has unintended/cataclysmic behavior lmfao
             if !file_info.flags.new_shared_file() {
+                let fileinfo_idx = usize::from(ctx.get_file_info_idx_by_filepath_idx(file_index));
                 // Get the FileInfoToData from the InfoToData array context
-                let info_to_data = &mut ctx.info_to_datas[usize::from(
-                    ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index)]
-                        .info_to_data_index,
-                )];
+                let info_to_data = &mut ctx.info_to_datas[usize::from(ctx.file_infos[fileinfo_idx].info_to_data_index)];
 
                 // Set the folder offset index to 0
                 info_to_data.folder_offset_index = 0x0;
@@ -323,7 +305,9 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
             // Set the file info index to the current context file infos size + the current length of the
             // file_infos vector created earlier
             if !file_info.flags.new_shared_file() {
-                ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index =
+                let file_info_indice_idx = ctx.get_filepath_by_idx(file_index).path.index() as usize;
+
+                ctx.file_info_indices[file_info_indice_idx].file_info_index =
                     FileInfoIdx((ctx.file_infos.len() + file_infos.len()) as u32);
             }
 
@@ -350,6 +334,8 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
     dir_info.file_info_start_index = file_start_index;
     dir_info.file_count = file_infos.len() as u32;
     // info!("Added files to {} ({:#x})", hashes::find(directory), directory.0);
+
+    Ok(())
 }
 
 pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) -> Result<DirInfo, DirectoryAdditionError> {

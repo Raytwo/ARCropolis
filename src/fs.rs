@@ -338,16 +338,7 @@ impl CachedFilesystem {
 
     // Load the file data from the Orbits filesystem
     pub fn load(&self, hash: Hash40) -> Option<Vec<u8>> {
-        let path = if let Some(path) = self.hash_lookup.get(&hash) {
-            path
-        } else {
-            error!(
-                "Failed to load data for '{}' ({:#x}) because the filesystem does not contain it!",
-                hashes::find(hash),
-                hash.0
-            );
-            return None;
-        };
+        let path = self.hash_lookup.get(&hash)?;
 
         match self.loader.load(path) {
             Ok(data) => Some(data),

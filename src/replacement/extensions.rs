@@ -282,6 +282,22 @@ impl AdditionContext {
         }
     }
 
+    pub fn get_path_index_from_hash(&self, hash: Hash40) -> Option<FilePathIdx> {
+        // Try getting the FilePathIdx from the passed in hash, if failed, then get index from the added files
+        match self.get_file_path_index_from_hash(hash) {
+            Ok(idx) => Some(idx),
+            Err(_) => self.added_files.get(&hash).copied(),
+        }
+    }
+
+    pub fn get_filepath_by_idx(&self, index: FilePathIdx) -> &FilePath {
+        &self.filepaths[usize::from(index)]
+    }
+
+    pub fn get_file_info_idx_by_filepath_idx(&self, index: FilePathIdx) -> FileInfoIdx {
+        self.file_info_indices[self.get_filepath_by_idx(index).path.index() as usize].file_info_index
+    }
+
     pub fn get_shared_info_index(&self, current_index: FileInfoIdx) -> FileInfoIdx {
         let shared_idx = self.file_info_indices[usize::from(self.file_infos[usize::from(current_index)].file_info_indice_index)].file_info_index;
         
