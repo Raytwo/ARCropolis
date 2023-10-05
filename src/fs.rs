@@ -11,7 +11,7 @@ use std::{
 use arc_config::{Config as ModConfig, ToExternal, ToSmashArc};
 use orbits::{orbit::LaunchPad, Error, FileEntryType, FileLoader, Orbit, StandardLoader, Tree};
 use owo_colors::OwoColorize;
-use smash_arc::{ArcLookup, Hash40, LoadedArc, LoadedSearchSection, LookupError, SearchLookup};
+use smash_arc::{ArcLookup, Hash40, LoadedArc, LoadedSearchSection, LookupError, SearchLookup, Region};
 use thiserror::Error;
 use itertools::Itertools;
 
@@ -33,7 +33,37 @@ static DEFAULT_CONFIG: &str = include_str!("../resources/override.json");
 static IS_INIT: AtomicBool = AtomicBool::new(false);
 // pub type ApiLoader = StandardLoader; // temporary until an actual ApiLoader is implemented
 
-pub type ArcropolisOrbit = Orbit<ArcLoader, StandardLoader, ApiLoader>;
+pub type ArcropolisOrbit = Orbit<ArcLoader, ArcStandardLoader, ApiLoader>;
+
+pub struct ArcStandardLoader;
+
+impl FileLoader for ArcStandardLoader {
+    type ErrorType = std::io::Error;
+
+    fn path_exists(&self, root_path: &Path, local_path: &Path) -> bool {
+        let full_path = root_path.join(local_path);
+
+        full_path.exists()
+    }
+
+    fn get_file_size(&self, root_path: &Path, local_path: &Path) -> Option<usize> {
+        let full_path = root_path.join(local_path);
+        
+        std::fs::metadata(&full_path).map(|meta| meta.len() as usize).ok()
+    }
+
+    fn get_path_type(&self, root_path: &Path, local_path: &Path) -> Result<FileEntryType, Self::ErrorType> {
+        let full_path = root_path.join(local_path);
+
+        std::fs::metadata(&full_path).map(|m| if m.is_dir() { FileEntryType::Directory } else { FileEntryType::File } )
+    }
+
+    fn load_path(&self, root_path: &Path, local_path: &Path) -> Result<Vec<u8>, Self::ErrorType> {
+        let full_path = root_path.join(local_path);
+
+        std::fs::read(full_path)
+    }
+}
 
 pub struct FilesystemUninitializedError;
 
@@ -57,7 +87,7 @@ pub struct CachedFilesystem {
 
 impl CachedFilesystem {
     /// Load all configs that were found during discovery and join them into a singular config
-    fn load_remaining_configs(current: &mut ModConfig, launchpad: &LaunchPad<StandardLoader>) {
+    fn load_remaining_configs(current: &mut ModConfig, launchpad: &LaunchPad<ArcStandardLoader>) {
         let now = std::time::Instant::now();
 
         for root in launchpad.collected_paths().iter().map(|(root, _)| root).unique() {
@@ -75,7 +105,7 @@ impl CachedFilesystem {
     }
 
     /// Get a list of all PRC patch files and add them to the virtual tree
-    fn initialize_prc_patches(launchpad: &LaunchPad<StandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
+    fn initialize_prc_patches(launchpad: &LaunchPad<ArcStandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
         let mut set = HashSet::new();
         for (root, path) in launchpad.collected_paths().iter() {
             // The collected paths gives us everything so we only want these extensions
@@ -95,7 +125,7 @@ impl CachedFilesystem {
     }
 
     /// Get a list of all MSBT patch files and add them to the virtual tree
-    fn initialize_msbt_patches(launchpad: &LaunchPad<StandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
+    fn initialize_msbt_patches(launchpad: &LaunchPad<ArcStandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
         let mut set = HashSet::new();
         for (root, path) in launchpad.collected_paths().iter() {
             // The collected paths gives us everything so we only want these extensions
@@ -109,7 +139,7 @@ impl CachedFilesystem {
     }
 
     /// Get a list of all nus3audio patch files and add them to the virtual tree
-    fn initialize_nus3audio_patches(launchpad: &LaunchPad<StandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
+    fn initialize_nus3audio_patches(launchpad: &LaunchPad<ArcStandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
         let mut set = HashSet::new();
         for (root, path) in launchpad.collected_paths().iter() {
             // The collected paths gives us everything so we only want these extensions
@@ -123,7 +153,7 @@ impl CachedFilesystem {
     }
 
     /// Get a list of all motion list patch files and add them to the virtual tree
-    fn initialize_motionlist_patches(launchpad: &LaunchPad<StandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
+    fn initialize_motionlist_patches(launchpad: &LaunchPad<ArcStandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
         let mut set = HashSet::new();
         for (root, path) in launchpad.collected_paths().iter() {
             // The collected paths gives us everything so we only want these extensions
@@ -137,7 +167,7 @@ impl CachedFilesystem {
     }
 
     /// Get a list of all bgm_property files and add them to the virtual tree
-    fn initialize_bgm_property_patches(launchpad: &LaunchPad<StandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
+    fn initialize_bgm_property_patches(launchpad: &LaunchPad<ArcStandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
         let mut set = HashSet::new();
         for (root, path) in launchpad.collected_paths().iter() {
             // The collected paths gives us everything so we only want these extensions
@@ -178,12 +208,20 @@ impl CachedFilesystem {
     }
 
     /// Use the file information that was generated during file discovery to fill out a GlobalFilesystem struct
-    fn make_from_promise(launchpad: LaunchPad<StandardLoader>) -> CachedFilesystem {
+    fn make_from_promise(launchpad: LaunchPad<ArcStandardLoader>) -> CachedFilesystem {
+        let start = std::time::Instant::now();
+
         let arc = resource::arc();
+
+        let hash_maps = std::time::Instant::now();
+
         // Provide the discovered tree and get two hashmaps, one of the sizes of each file discovered (for patching)
         // and also get hash40 -> PathBuf lookup, since it's going to be a lot faster when the game is loading
         // individual files
         let (mut hashed_sizes, mut hashed_paths) = utils::make_hash_maps(launchpad.tree());
+
+        println!("Making the hash maps took {}ms (old average 39313ms)", hash_maps.elapsed().as_millis());
+
 
         // Add the discovered paths to the global hashes, so that when a file is loading that *we have discovered* we can guarantee
         // that we are printing the real path in the logger.
@@ -220,6 +258,8 @@ impl CachedFilesystem {
         hashes.extend(Self::initialize_motionlist_patches(&launchpad, &mut api_tree));
         hashes.extend(Self::initialize_bgm_property_patches(&launchpad, &mut api_tree));
 
+
+
         // Add the hash files and set the new size to 10x the original files
         for hash in hashes {
             if let Ok(data) = arc.get_file_data_from_hash(hash, config::region()) {
@@ -227,6 +267,7 @@ impl CachedFilesystem {
                 hashed_sizes.insert(hash, (data.decomp_size as usize) * 10);
             }
         }
+
 
         // Add all of the NUS3BANKs that our NUS3AUDIOs depend on to the API tree
         for dep in nus3audio_deps {
@@ -257,7 +298,7 @@ impl CachedFilesystem {
         IS_INIT.store(true, Ordering::SeqCst);
 
         // Construct a CachedFilesystem
-        CachedFilesystem {
+        let cache = CachedFilesystem {
             loader: launchpad.launch(ArcLoader(arc), api_tree),
             config,
             hash_lookup: hashed_paths,
@@ -267,40 +308,19 @@ impl CachedFilesystem {
             current_nus3bank_id: 7420,
             nus3banks: HashMap::new(),
             total_size: 0,
-        }
+        };
+        
+        println!("Make from promise took {}ms (old average 42948ms)", start.elapsed().as_millis());
+
+        cache
     }
 
     /// Patches a file in the LoadedArc
-    fn patch_file(&self, hash: Hash40, size: usize) -> Option<usize> {
-        let arc = resource::arc_mut();
-        let region = config::region();
-        let decomp_size = match arc.get_file_data_from_hash(hash, region) {
-            Ok(data) => data.decomp_size as usize,
-            Err(_) => {
-                warn!(
-                    "Failed to patch '{}' ({:#x}) filesize! It should be {:#x}.",
-                    hashes::find(hash).bright_yellow(),
-                    hash.0,
-                    size.green()
-                );
-                return None;
-            },
-        };
+    fn patch_file(&self, arc: &mut LoadedArc, region: Region, hash: Hash40, size: usize) -> Option<usize> {
+        let decomp_size = arc.get_file_data_from_hash(hash, region).map(|data| data.decomp_size as usize).ok()?;
 
         if size > decomp_size {
-            match arc.patch_filedata(hash, size as u32, region) {
-                Ok(old_size) => {
-                    // info!(
-                    //     "File '{}' ({:#x}) has a new decompressed filesize! {:#x} -> {:#x}",
-                    //     hashes::find(hash).bright_yellow(),
-                    //     hash.0,
-                    //     old_size.red(),
-                    //     size.green()
-                    // );
-                    Some(old_size as usize)
-                },
-                Err(_) => None,
-            }
+            arc.patch_filedata(hash, size as u32, region).map(|size| size as usize).ok()
         } else {
             None
         }
@@ -403,12 +423,15 @@ impl CachedFilesystem {
 
     // Patch all files in the hash size cache
     pub fn patch_files(&mut self) {
+        let arc = resource::arc_mut();
+        let region = config::region();
+
         let mut hash_cache = HashMap::new();
         let mut sum_size = 0;
         std::mem::swap(&mut hash_cache, &mut self.hash_size_cache);
         for (hash, size) in hash_cache.iter_mut() {
             sum_size += *size;
-            if let Some(old_size) = self.patch_file(*hash, *size) {
+            if let Some(old_size) = self.patch_file(arc, region, *hash, *size) {
                 *size = old_size;
             }
         }
@@ -436,8 +459,6 @@ impl CachedFilesystem {
 
     /// Goes through and performs the required file manipulation in order to load mods
     pub fn process_mods(&mut self) {
-        let now = std::time::Instant::now();
-
         let mut context = LoadedArc::make_addition_context();
         let mut search_context = LoadedSearchSection::make_context();
 
@@ -536,9 +557,6 @@ impl CachedFilesystem {
 
         resource::arc_mut().take_context(context);
         resource::search_mut().take_context(search_context);
-
-        panic!("Process mods took {}ms (old average 27633ms)", now.elapsed().as_millis());
-
     }
 
     /// Gets the global mod config
@@ -551,8 +569,12 @@ impl CachedFilesystem {
         let ApiCallResult { hash, path, size } = Self::handle_panding_api_call(self.loader.virt_mut(), call);
 
         self.hash_lookup.insert(hash, path);
+
+        let arc = resource::arc_mut();
+        let region = config::region();
+
         if let Some(size) = size {
-            if let Some(old_size) = self.patch_file(hash, size) {
+            if let Some(old_size) = self.patch_file(arc, region, hash, size) {
                 if let Some(size_mut) = self.hash_size_cache.get_mut(&hash) {
                     if *size_mut > old_size {
                         *size_mut = old_size;
@@ -576,7 +598,7 @@ impl CachedFilesystem {
 
 pub enum GlobalFilesystem {
     Uninitialized,
-    Promised(std::thread::JoinHandle<LaunchPad<StandardLoader>>),
+    Promised(std::thread::JoinHandle<LaunchPad<ArcStandardLoader>>),
     Initialized(Box<CachedFilesystem>),
 }
 

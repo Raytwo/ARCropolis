@@ -267,8 +267,14 @@ fn initial_loading(_ctx: &InlineCtx) {
     api::event::send_event(Event::ArcFilesystemMounted);
     replacement::lookup::initialize(Some(arc));
     let mut filesystem = GLOBAL_FILESYSTEM.write();
+    let now = std::time::Instant::now();
+
     *filesystem = filesystem.take().finish(arc).unwrap();
+    println!("Filesystem finish took {}ms (old average 54733ms)", now.elapsed().as_millis());
+
+    let now = std::time::Instant::now();
     filesystem.process_mods();
+    println!("Process mods took {}ms (old average 27633ms)", now.elapsed().as_millis());
     filesystem.share_hashes();
     filesystem.patch_files();
 
@@ -489,7 +495,7 @@ pub fn main() {
                 let curr_thread = nn::os::GetCurrentThread();
                 nn::os::ChangeThreadPriority(curr_thread, 0);
             }
-            std::thread::sleep(std::time::Duration::from_millis(5000));
+            // std::thread::sleep(std::time::Duration::from_millis(5000));
             fs::perform_discovery()
         })
         .unwrap();

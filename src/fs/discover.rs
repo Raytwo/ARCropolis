@@ -10,7 +10,11 @@ use smash_arc::Hash40;
 
 use crate::{chainloader::*, config, utils};
 
-pub fn perform_discovery() -> LaunchPad<StandardLoader> {
+use super::ArcStandardLoader;
+
+pub fn perform_discovery() -> LaunchPad<ArcStandardLoader> {
+    let now = std::time::Instant::now();
+
     let is_emulator = utils::env::is_emulator();
 
     if is_emulator {
@@ -141,7 +145,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         }
     };
 
-    let mut launchpad = LaunchPad::new(StandardLoader, ConflictHandler::NoRoot);
+    let mut launchpad = LaunchPad::new(ArcStandardLoader, ConflictHandler::NoRoot);
 
     launchpad.collecting(collect);
     launchpad.ignoring(ignore);
@@ -178,7 +182,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             "During file discovery, ARCropolis encountered file conflicts.<br>Do you want to run it again to list all file conflicts?",
         )
     {
-        let mut launchpad = LaunchPad::new(StandardLoader, ConflictHandler::First);
+        let mut launchpad = LaunchPad::new(ArcStandardLoader, ConflictHandler::First);
 
         launchpad.collecting(collect);
         launchpad.ignoring(ignore);
@@ -244,6 +248,9 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     }
 
     load_and_run_plugins(launchpad.collected_paths());
+
+    println!("Discovery took {}ms (old average 10523ms)", now.elapsed().as_millis());
+
 
     launchpad
 }

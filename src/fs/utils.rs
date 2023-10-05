@@ -32,26 +32,23 @@ where
             return;
         }
 
-        if let Some(size) = tree.query_filesize(node.get_local()) {
-            match node.get_local().smash_hash() {
-                Ok(hash) => {
-                    if regional_overrides.contains(&hash) {
-                        return;
-                    }
+        let local_path = node.get_local();
 
-                    let is_regional_variant = if let Some(node) = node.get_local().to_str() { node.contains('+') } else { false };
+        let hash = local_path.smash_hash().unwrap();
 
-                    size_map.insert(hash, size);
-                    path_map.insert(hash, node.get_local().to_path_buf());
+        if regional_overrides.contains(&hash) {
+            return;
+        }
 
-                    if is_regional_variant {
-                        regional_overrides.insert(hash);
-                    }
-                },
-                Err(e) => error!("Failed to get hash for {}. Reason: {:?}", node.get_local().display(), e),
-            }
-        } else {
-            error!("Failed to stat file {}. This file may have issues.", node.full_path().display());
+        let size = tree.query_filesize(local_path).expect("file tree should be able to query the filesize");
+
+        let is_regional_variant = if let Some(node) = local_path.to_str() { node.contains('+') } else { false };
+
+        size_map.insert(hash, size);
+        path_map.insert(hash, local_path.to_path_buf());
+        
+        if is_regional_variant {
+            regional_overrides.insert(hash);
         }
     });
 
