@@ -40,15 +40,45 @@ pub enum DirectoryAdditionError {
 }
 
 #[derive(Debug, Error)]
+pub enum OutOfBounds {
+    #[error("File Paths index out of bounds - Index: {0}")]
+    FilePath(usize),
+    #[error("File Info Indices index out of bounds - Index: {0}")]
+    FileInfoIndex(usize),
+    #[error("File Infos index out of bounds - Index: {0}")]
+    FileInfo(usize),
+    #[error("Info to Data index out of bounds - Index: {0}")]
+    InfoToData(usize),
+    #[error("File Data index out of bounds - Index: {0}")]
+    FileData(usize),
+    #[error("File Infos range out of bounds - min: {0}, max: {1}")]
+    FileInfos(usize, usize),
+}
+
+#[derive(Debug, Error)]
+pub enum FolderAddition {
+    #[error("folder has no parent")]
+    NoParent,
+    #[error("folder has no name")]
+    NoName,
+    #[error("hashing error - {0}")]
+    Hash(#[from] HashingError),
+}
+
+#[derive(Debug, Error)]
 pub enum FileAdditionError {
     #[error("path has no parent")]
     MissingParent,
-    #[error("hashing error")]
+    #[error("hashing error - {0}")]
     Hash(#[from] HashingError),
-    #[error("lookup error")]
+    #[error("lookup error - {0}")]
     Lookup(#[from] LookupError),
-    #[error("directory addition error")]
-    Directory(#[from] DirectoryAdditionError) // lol, lmao
+    #[error("directory addition error - {0}")]
+    Directory(#[from] DirectoryAdditionError), // lol, lmao
+    #[error("folder addition error - {0}")]
+    Folder(#[from] FolderAddition), // lol, lmao
+    #[error("out of bounds error - {0}")]
+    OutOfBounds(#[from] OutOfBounds),
 }
 
 pub fn add_file(ctx: &mut AdditionContext, path: &Path) -> Result<(), FilePathError> {
@@ -96,96 +126,52 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
     Ok(())
 }
 
-fn add_searchable_folder_by_folder(ctx: &mut SearchContext, folder: &Folder) -> bool {
-    // begin by simply checking if this folder's parent exists
-    // eventually up the chain we should be able to find an existing folder to add our tree into
-    let Some(parent) = folder.parent.as_ref() else {
-        error!("Cannot add folder recursively because it has no parent");
-        return false;
-    };
+pub fn add_shared_searchable_file(ctx: &mut SearchContext, new_file: &File) -> Result<(), FileAdditionError> {
+    ctx.add_shared_searchable_file(new_file)
+    // match ctx.get_folder_path(new_file.parent.full_path.to_smash_arc()) {
+    //     Some(mut parent) => {
+    //         let mut new_file = PathListEntry::from_file(new_file);
+    //         ctx.add_new_search_path_with_parent(new_file, &mut parent);
+    //         Ok(())
+    //     },
+    //     None => {
+    //         add_searchable_folder_by_folder(ctx, &new_file.parent)?;
+    //         add_shared_searchable_file(ctx, new_file)
+    //     },
+    // }
 
-    // do a similar check to the file to see if the parent exists, and if not then we want to add it
-    let has_parent = ctx.get_folder_path_mut(parent.full_path.to_smash_arc()).is_some();
+        // new_file.path.set_index(parent.get_first_child_index() as u32);
+        // // Set the file as the head of the linked list
+        // parent.set_first_child_index(path_list_indices_len as u32);
+        // ctx.new_paths.insert(new_file.path.hash40(), ctx.path_list_indices.len());
+        // ctx.path_list_indices.push(ctx.paths.len() as u32);
+        // ctx.paths.push(new_file);
 
-    // if we can't find or add anything, just jump out and let the user die
-    if !has_parent && !add_searchable_folder_by_folder(ctx, parent) {
-        error!("Cannot add folder recursively because we failed to find/add its parent");
-        return false;
-    }
+    // // if it isn't there, then we are going to recursively add it's parent, returning out if it's not possible
+    // if !has_parent && !add_searchable_folder_by_folder(ctx, &new_file.parent).is_ok() {
+    //     // error!("Cannot add shared file to search section because we could not add it's parents");
+    //     return Err(FileAdditionError::Folder(FolderAddition::NoParent));
+    // }
 
-    // quick check on the fields of folder to ensure that we can actually do this
-    if folder.name.is_none() {
-        error!("Cannot add folder with no name");
-        return false;
-    }
+    // // we get the length here because we are about to acquire a mutable reference
+    // // to the parent folder, and we cannot get the length via immutable reference
+    // // if that one is active
+    // let path_list_indices_len = ctx.path_list_indices.len();
 
-    let path_list_indices_len = ctx.path_list_indices.len();
-
-    // get the parent, we can't *really* fail here, and if we do then something is broken in the ctx impl
-    let Some(parent) = ctx.get_folder_path_mut(parent.full_path.to_smash_arc()) else {
-        error!("Failed to get parent after ensuring that it exists");
-        return false;
-    };
-
-    let mut new_folder = FolderPathListEntry::from_folder(folder);
-    // Create a new directory that does not have child directories
-    new_folder.set_first_child_index(0xFF_FFFF);
-    // Create a new search path
-    let mut new_path = new_folder.as_path_entry();
-    // Set the previous head of the linked list as the child of the new path
-    new_path.path.set_index(parent.get_first_child_index() as u32);
-    // Set the next path as the first element of the linked list
-    parent.set_first_child_index(path_list_indices_len as u32);
-    ctx.new_folder_paths.insert(new_folder.path.hash40(), ctx.folder_paths.len());
-    ctx.new_paths.insert(new_path.path.hash40(), ctx.path_list_indices.len());
-    ctx.path_list_indices.push(ctx.paths.len() as u32);
-    ctx.folder_paths.push(new_folder);
-    ctx.paths.push(new_path);
-
-    true
+    // let Some(parent) = ctx.get_folder_path_mut(new_file.parent.full_path.to_smash_arc()) else {
+    //     error!("Cannot add shared file to search section because its parent does not exist");
+    //     return Err(FileAdditionError::Folder(FolderAddition::NoParent));
+    // };
+    
+    // Ok(())
 }
 
-pub fn add_shared_searchable_file(ctx: &mut SearchContext, new_file: &File) {
-    // yes this is complex
-    // yes I apologize
-    // but for this feature to be complete it should be able to add new files which don't have parents
-    // in a search folder
-    // I either do it now while I'm thinking about it or never do it at all
+pub fn add_searchable_file(ctx: &mut SearchContext, path: &Path) -> Result<(), FileAdditionError> {
+    // let parent: &Path = path.parent().unwrap_or_else(|| panic!("Failed to get the parent for path '{}'", path.display()));
 
-    // first, we try and just get the raw parent
-    // we have to evaluate this into a boolean because of references
-    // I am working on a better file addition implementation that doesn't have this dogshit
-    // workaround but it will take some time
-    let has_parent = ctx.get_folder_path_mut(new_file.parent.full_path.to_smash_arc()).is_some();
-
-    // if it isn't there, then we are going to recursively add it's parent, returning out if it's not possible
-    if !has_parent && !add_searchable_folder_by_folder(ctx, &new_file.parent) {
-        error!("Cannot add shared file to search section because we could not add it's parents");
-        return;
-    }
-
-    // we get the length here because we are about to acquire a mutable reference
-    // to the parent folder, and we cannot get the length via immutable reference
-    // if that one is active
-    let path_list_indices_len = ctx.path_list_indices.len();
-
-    let Some(parent) = ctx.get_folder_path_mut(new_file.parent.full_path.to_smash_arc()) else {
-        error!("Cannot add shared file to search section because its parent does not exist");
-        return;
+    let Some(parent) = path.parent() else {
+        return Err(FileAdditionError::MissingParent);
     };
-
-    let mut new_file = PathListEntry::from_file(new_file);
-
-    new_file.path.set_index(parent.get_first_child_index() as u32);
-    // Set the file as the head of the linked list
-    parent.set_first_child_index(path_list_indices_len as u32);
-    ctx.new_paths.insert(new_file.path.hash40(), ctx.path_list_indices.len());
-    ctx.path_list_indices.push(ctx.paths.len() as u32);
-    ctx.paths.push(new_file);
-}
-
-pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) -> Result<(), FileAdditionError> {
-    let parent = path.parent().unwrap_or_else(|| panic!("Failed to get the parent for path '{}'", path.display()));
 
     // If the parent is empty, then just return
     if parent == Path::new("") {
@@ -221,8 +207,10 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) -> Re
 
     // Try getting the file from the path after adding the folders
     let mut new_file = PathListEntry::from_path(path)?; // error!("Failed to add folder {}!", path.display());
+    
     // Set the previous head of the linked list as the child of the new file
     new_file.path.set_index(parent.get_first_child_index() as u32);
+    
     // Set the file as the head of the linked list
     parent.set_first_child_index(current_path_list_indices_len as u32);
     ctx.new_paths.insert(new_file.path.hash40(), ctx.path_list_indices.len());
@@ -232,108 +220,78 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) -> Re
     Ok(())
 }
 
-pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, files: HashSet<Hash40>) -> Result<(), LookupError> {
-    // Get the file info range of the directory that was passed in
-    let file_info_range = ctx.get_dir_info_from_hash_ctx(directory).map(|dir| dir.file_info_range())?;
+pub fn set_file_info_for_dir_insertion(ctx: &mut AdditionContext, file_info: &mut FileInfo, file_path_idx: &FilePathIdx) -> Result<(), FileAdditionError> {
+    if !file_info.flags.new_shared_file() {
+        let info_to_data = &mut ctx.get_file_info_to_file_data_from_fileinfo(&file_info)?;
+        info_to_data.folder_offset_index = 0x0;
 
-    // Create new Vec with the size of the file count of the specified dir + the count of the files passed in
-    let mut file_infos = Vec::with_capacity(file_info_range.len() + files.len());
+        let file_data = &mut ctx.get_file_data_from_file_data_index(&info_to_data.file_data_index)?;
+        ctx.reset_file_data(file_data);
+    }
+
+    file_info.file_path_index = *file_path_idx;
+    file_info.flags.set_standalone_file(true);
+
+    Ok(())
+}
+
+pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, files: HashSet<Hash40>) -> Result<(), FileAdditionError> {
+    // Get the file info range for the dir info that was passed in
+    let file_info_range = ctx.get_dir_info_from_hash_ctx(directory)?.file_info_range();
 
     // Create new HashSet for the current files in the specified dir
     let mut contained_files = HashSet::new();
 
-    // Loop through all files in the file_infos at the directory position
-    for file_info in ctx.file_infos[file_info_range.clone()].iter() {
-        // Insert directory file hash40 to the contained files set
-        contained_files.insert(ctx.filepaths[usize::from(file_info.file_path_index)].path.hash40());
+    // Create new Vec with the size of the file count of the specified dir + the count of the files passed in
+    let mut new_file_infos = Vec::with_capacity(file_info_range.len() + files.len());
 
-        // If the file_info_range has an entry for the FileInfoIndex for the current file, then update the FileInfoIdx
-        // with a new FileInfoIdx that takes the context file_infos length + the length of the current file_infos (don't know why this is done)
-        if file_info_range.contains(&usize::from(ctx.get_file_info_idx_by_filepath_idx(file_info.file_path_index))) {
-            let fileinfoindice_idx = ctx.get_filepath_by_idx(file_info.file_path_index).path.index() as usize;
-            // Can't use the util method here because it's being indexed ... Needs a get/get_mut or something
-            ctx.file_info_indices[fileinfoindice_idx].file_info_index = FileInfoIdx((ctx.file_infos.len() + file_infos.len()) as u32);
-        }
+    // Get all the previous file_infos associated with the dir info
 
-        // Add file_info to the file_infos vector created earlier
-        file_infos.push(*file_info);
+    match ctx.get_file_infos_from_range(&file_info_range) {
+        // If the directory already has a file info range, then we get the previous ones and add them to the vec
+        Ok(file_infos) => {
+            // Go through all the previous file infos and add them to the new file infos
+            file_infos.iter().try_for_each(|file_info| -> Result<(), FileAdditionError> {
+                let filepath = ctx.get_filepath_from_file_path_idx(&file_info.file_path_index)?;
+                let file_info_index = &mut ctx.get_file_info_index_from_filepath(&filepath)?;
+
+                contained_files.insert(filepath.path.hash40());
+
+                if file_info_range.contains(&usize::from(file_info_index.file_info_index)) {
+                    file_info_index.file_info_index = FileInfoIdx((ctx.file_infos.len() + new_file_infos.len()) as u32);
+                }
+
+                new_file_infos.push(*file_info);
+
+                Ok(())
+            })?;
+        },
+        Err(err) => {}
     }
 
-    for file in files {
-        // If the file passed in is already exists, then just skip it
-        if contained_files.contains(&file) {
-            continue;
-        }
+    // Filter for new files that have an index
+    let new_file_path_idxs = files.iter()
+        .filter(|file| !contained_files.contains(&file))
+        .filter_map(|file| ctx.get_path_idx(file))
+        .collect::<Vec<_>>();
 
-        // Get the FilePathIdx from the context
-        if let Some(file_index) = ctx.get_path_index_from_hash(file) {
-            // Get the FileInfo from the context FileInfos with the FileInfoIndex with the file_index gotten
-            // earlier
-            let mut file_info = ctx.file_infos[usize::from(ctx.get_file_info_idx_by_filepath_idx(file_index))];
+    // Add new files indexes to the new_files_info vec    
+    new_file_path_idxs.iter().try_for_each(|file_idx| -> Result<(), FileAdditionError> {
+        let filepath = ctx.get_filepath_from_file_path_idx(&file_idx)?;
+        
+        let file_info_index = &mut ctx.get_file_info_index_from_filepath(&filepath)?;
+        file_info_index.file_info_index = FileInfoIdx((ctx.file_infos.len() + new_file_infos.len()) as u32);
 
-            // only change the file linkage/file datas if we aren't a new shared file
-            // changing those things has unintended/cataclysmic behavior lmfao
-            if !file_info.flags.new_shared_file() {
-                let fileinfo_idx = usize::from(ctx.get_file_info_idx_by_filepath_idx(file_index));
-                // Get the FileInfoToData from the InfoToData array context
-                let info_to_data = &mut ctx.info_to_datas[usize::from(ctx.file_infos[fileinfo_idx].info_to_data_index)];
-
-                // Set the folder offset index to 0
-                info_to_data.folder_offset_index = 0x0;
-
-                // Get the data index from the info -> data
-                let data_idx = info_to_data.file_data_index;
-
-                // Get the FileData from the FileDatas with the FileDataIdx gotten earlier
-                let file_data = &mut ctx.file_datas[usize::from(data_idx)];
-
-                // Set the compressed and decompressed size to 0x100 (256) (The decompressed size will change later
-                // when patched by ARCropolis)
-                file_data.comp_size = 0x100;
-                file_data.decomp_size = 0x100;
-
-                // Set the FileData offset in folder to 0 so it at least has a value
-                file_data.offset_in_folder = 0x0;
-
-                // Set the flags to not be compressed and not use zstd
-                file_data.flags = FileDataFlags::new().with_compressed(false).with_use_zstd(false);
-            }
-
-            file_info.file_path_index = file_index;
-            file_info.flags.set_standalone_file(true);
-
-            // Set the file info index to the current context file infos size + the current length of the
-            // file_infos vector created earlier
-            if !file_info.flags.new_shared_file() {
-                let file_info_indice_idx = ctx.get_filepath_by_idx(file_index).path.index() as usize;
-
-                ctx.file_info_indices[file_info_indice_idx].file_info_index =
-                    FileInfoIdx((ctx.file_infos.len() + file_infos.len()) as u32);
-            }
-
-            // Push the modified file_info to the file_infos vector
-            file_infos.push(file_info);
-        } else {
-            error!("Cannot get file path index for '{}' ({:#x})", hashes::find(file), file.0);
-        }
-    }
-
-    // Get the new start index by getting the length of the context file_infos (so we're changing the start
-    // position of the directory to be at the end of the old file_infos)
+        let file_info = &mut ctx.get_file_info_from_file_info_index(&file_info_index)?;
+        set_file_info_for_dir_insertion(ctx, file_info, &file_idx)?;
+        
+        new_file_infos.push(*file_info);
+        Ok(())
+    })?;
+    
     let file_start_index = ctx.file_infos.len() as u32;
-
-    // Take our newly generated file_infos and append it to the context file_infos
-    ctx.file_infos.extend_from_slice(&file_infos);
-
-    // Get the directory from the context
-    let dir_info = ctx
-        .get_dir_info_from_hash_ctx_mut(directory)
-        .expect("Failed to get directory after confirming it exists");
-
-    // Modify the directory start index and the file count
-    dir_info.file_info_start_index = file_start_index;
-    dir_info.file_count = file_infos.len() as u32;
-    // info!("Added files to {} ({:#x})", hashes::find(directory), directory.0);
+    let file_count = new_file_infos.len() as u32;
+    ctx.update_directory_info_files(directory, file_start_index, file_count)?;
 
     Ok(())
 }

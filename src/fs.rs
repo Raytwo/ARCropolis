@@ -496,7 +496,7 @@ impl CachedFilesystem {
 
             replacement::addition::add_file(&mut context, node.get_local()).unwrap();
 
-            replacement::addition::add_searchable_file_recursive(&mut search_context, node.get_local()).unwrap();
+            replacement::addition::add_searchable_file(&mut search_context, node.get_local()).unwrap();
         });
 
         // Don't unshare any files in the unshare blacklist (nus3audio handled during filesystem finish)
@@ -518,7 +518,9 @@ impl CachedFilesystem {
                     if let Err(err) = replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc()) {
                         println!("Could not find FileInfoIndiceIdx for {}, reason: {}", hashes::find(hash.to_smash_arc()), err);
                     }
-                    replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
+                    if let Err(err) = replacement::addition::add_shared_searchable_file(&mut search_context, new_file) {
+                        println!("Could not add shared searchable file for {}, reason: {}", hashes::find(hash.to_smash_arc()), err);
+                    }
                 }
             }
         }
@@ -535,7 +537,9 @@ impl CachedFilesystem {
                     replacement::unshare::reshare_file(&mut context, new_file.full_path.to_smash_arc(), hash.to_smash_arc());
                 } else {
                     replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc()).unwrap();
-                    replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
+                    if let Err(err) = replacement::addition::add_shared_searchable_file(&mut search_context, new_file) {
+                        println!("Could not add shared searchable file for {}, reason: {}", hashes::find(hash.to_smash_arc()), err);
+                    }
                 }
             }
         }
@@ -543,7 +547,9 @@ impl CachedFilesystem {
         println!("Adding files to dir infos...");
         // Add new files to the dir infos
         for (hash, files) in self.config.new_dir_files.iter() {
-            replacement::addition::add_files_to_directory(&mut context, hash.to_smash_arc(), files.iter().map(|hash| hash.to_smash_arc()).collect());
+            if let Err(err) = replacement::addition::add_files_to_directory(&mut context, hash.to_smash_arc(), files.iter().map(|hash| hash.to_smash_arc()).collect()) {
+                println!("Could not add files to directory {}, reason: {}", hashes::find(hash.to_smash_arc()), err);
+            }
         }
 
         resource::arc_mut().take_context(context);
