@@ -165,7 +165,7 @@ pub fn add_prc_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>,
 pub fn add_msbt_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>, phys_root: P, local: Q) -> Option<Hash40> {
     let local = local.as_ref();
     let base_local = local.with_extension("msbt"); // patch files have different extensions
-    let mut current_region = true;
+    let mut is_current_region = true;
 
     let base_local = if let Some(name) = base_local.file_name().and_then(|os_str| os_str.to_str()) {
         if let Some(idx) = name.find('+') {
@@ -190,7 +190,7 @@ pub fn add_msbt_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>
                 hashes::add(local);
             }
             if let Some(base_local) = base_local.to_str() {
-                if current_region {
+                if is_current_region {
                     hashes::add(base_local);
                 }
             }
