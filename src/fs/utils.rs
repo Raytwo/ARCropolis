@@ -169,7 +169,7 @@ pub fn add_msbt_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>
 
     let base_local = if let Some(name) = base_local.file_name().and_then(|os_str| os_str.to_str()) {
         if let Some(idx) = name.find('+') {
-            current_region = (&name[idx + 1..idx + 6] == format!("{}", config::region())); //Check if XMSBT's region is current region
+            is_current_region = (&name[idx + 1..idx + 6] == format!("{}", config::region())); //Check if XMSBT's region is current region
             let mut new_name = name.to_string();
             new_name.replace_range(idx..idx + 6, "");
             base_local.with_file_name(new_name)
