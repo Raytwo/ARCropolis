@@ -1,4 +1,5 @@
 #![allow(incomplete_features)] // for if_let_guard
+#![allow(invalid_reference_casting)] // for the wild lua code
 #![feature(proc_macro_hygiene)]
 #![feature(if_let_guard)]
 #![feature(map_try_insert)] // for not overwriting previously stored hashes
