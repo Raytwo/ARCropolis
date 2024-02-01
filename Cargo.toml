@@ -48,7 +48,7 @@ arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api" }
 arc-config = { git = "https://github.com/blu-dev/arc-config", features = ["runtime"] }
 # For arc:/ and mods:/
 nn-fuse = { git = "https://github.com/Raytwo/nn-fuse" }
-prcx = { git = "https://github.com/blu-dev/prcx", branch = "xml-style" }
+prcx = { git = "https://github.com/zrksyd/prcx", branch = "xml-style-zrksyd" }
 # For xmsbt
 xml-rs = "0.8.15"
 serde-xml-rs = "0.6.0"
