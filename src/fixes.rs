@@ -116,7 +116,7 @@ fn install_lazy_loading_patches() {
     pub fn get_ui_chara_path_from_hash_color_and_type(ui_chara_hash: u64, color_slot: u32, ui_type: u32) -> u64;
 
     // This takes the character_database and the ui_chara_hash to get the color_num
-    #[from_offset(0x3262110)]
+    #[from_offset(0x32384a0)]
     pub fn get_color_num_from_hash(character_database: u64, ui_chara_hash: u64) -> u8;
 
     // This takes the character_database and the ui_chara_hash to get the chara's respective echo (for loading it at the same time)
