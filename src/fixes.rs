@@ -49,7 +49,7 @@ fn install_added_color_patches() {
       same code with minor changes over and over.
       Format: (offset, instruction)
     */
-    // OFFSETS ARE CURRENTLY HARDCODED TO VERSION 13.0.1
+    // OFFSETS ARE CURRENTLY HARDCODED TO VERSION 13.0.2
     static ADDED_COLOR_PATCHES: &[(usize, u32)] = &[
         (0x18355dc, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
         (0x183529c, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
