@@ -49,27 +49,27 @@ fn install_added_color_patches() {
       same code with minor changes over and over.
       Format: (offset, instruction)
     */
-    // OFFSETS ARE CURRENTLY HARDCODED TO VERSION 13.0.1
+    // OFFSETS ARE CURRENTLY HARDCODED TO VERSION 13.0.2
     static ADDED_COLOR_PATCHES: &[(usize, u32)] = &[
-        (0x1834b0c, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
-        (0x18347bc, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
-        (0x1834b28, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
-        (0x1834ef8, 0xF10402FF), // cmp x23, #256 (Issue related to Aegis)
-        (0x183538c, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
-        (0x1835ae4, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
-        (0x1835e00, 0xF104013F), // cmp  x9, #256 (Issue related to Aegis)
-        (0x1a1c2f0, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
-        (0x1a1c334, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
-        (0x14de340, 0x7104013F), // cmp  w9, #256 (Issue related to Terry)
-        (0x14e1410, 0x710402FF), // cmp w23, #256 (Issue related to Terry)
-        (0x14e159c, 0x7104011F), // cmp  w8, #256 (Issue related to Terry)
-        (0x1a55584, 0x52800020), // mov  w0, #1   (Issue related to Tourney Mode Crash)
-        (0x1a556b4, 0xF104011F), // cmp  x8, #256 (Issue related to Tourney Mode Crash)
-        (0x1a54f74, 0x7104015F), // cmp w10, #256 (Issue related to Tourney Mode Crash)
-        (0x1a5500c, 0x7104001F), // cmp  w0, #256 (Issue related to Tourney Mode Crash)
-        (0x1a55038, 0xF104001F), // cmp  x0, #256 (Issue related to Tourney Mode Crash)
-        (0x1a54fa0, 0xF104001F), // cmp  x0, #256 (Issue related to Tourney Mode Crash)
-        (0x1a54fd4, 0x7104017F), // cmp w11, #256 (Issue related to Tourney Mode Crash)
+        (0x18355dc, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
+        (0x183529c, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
+        (0x18355f8, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
+        (0x18359c8, 0xF10402FF), // cmp x23, #256 (Issue related to Aegis)
+        (0x1835e5c, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
+        (0x18365b4, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
+        (0x18368d0, 0xF104013F), // cmp  x9, #256 (Issue related to Aegis)
+        (0x1a1cdd0, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
+        (0x1a1ce14, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
+        (0x14de31c, 0x7104013F), // cmp  w9, #256 (Issue related to Terry)
+        (0x14e1624, 0x710402FF), // cmp w23, #256 (Issue related to Terry)
+        (0x14e17b0, 0x7104011F), // cmp  w8, #256 (Issue related to Terry)
+        (0x1a56064, 0x52800020), // mov  w0, #1   (Issue related to Tourney Mode Crash)
+        (0x1a56194, 0xF104011F), // cmp  x8, #256 (Issue related to Tourney Mode Crash)
+        (0x1a55a54, 0x7104015F), // cmp w10, #256 (Issue related to Tourney Mode Crash)
+        (0x1a55aec, 0x7104001F), // cmp  w0, #256 (Issue related to Tourney Mode Crash)
+        (0x1a55b18, 0xF104001F), // cmp  x0, #256 (Issue related to Tourney Mode Crash)
+        (0x1a55a80, 0xF104001F), // cmp  x0, #256 (Issue related to Tourney Mode Crash)
+        (0x1a55ab4, 0x7104017F), // cmp w11, #256 (Issue related to Tourney Mode Crash)
     ];
 
     for entry in ADDED_COLOR_PATCHES {
@@ -116,7 +116,7 @@ fn install_lazy_loading_patches() {
     pub fn get_ui_chara_path_from_hash_color_and_type(ui_chara_hash: u64, color_slot: u32, ui_type: u32) -> u64;
 
     // This takes the character_database and the ui_chara_hash to get the color_num
-    #[from_offset(offsets::get_color_num_from_hash())]
+    #[from_offset(0x32384a0)]
     pub fn get_color_num_from_hash(character_database: u64, ui_chara_hash: u64) -> u8;
 
     // This takes the character_database and the ui_chara_hash to get the chara's respective echo (for loading it at the same time)
