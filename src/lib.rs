@@ -1,4 +1,5 @@
 #![allow(incomplete_features)] // for if_let_guard
+#![allow(invalid_reference_casting)] // for the wild lua code
 #![feature(proc_macro_hygiene)]
 #![feature(if_let_guard)]
 #![feature(map_try_insert)] // for not overwriting previously stored hashes
@@ -6,6 +7,7 @@
 #![feature(string_remove_matches)]
 // #![feature(fs_try_exists)]
 #![feature(int_roundings)]
+#![feature(stdsimd)]
 
 use std::{
     collections::HashMap,
@@ -41,6 +43,7 @@ mod resource;
 #[cfg(feature = "online")]
 mod update;
 mod utils;
+mod lua;
 
 use fs::GlobalFilesystem;
 use smash_arc::{Hash40, Region};
@@ -435,9 +438,9 @@ pub fn main() {
         );
     }));
 
-    if utils::env::get_game_version() != semver::Version::new(13, 0, 1) {
+    if utils::env::get_game_version() != semver::Version::new(13, 0, 2) {
         skyline_web::DialogOk::ok(
-            "ARCropolis cannot currently run on a Smash version lower than 13.0.1<br/>Consider updating your game or uninstalling ARCropolis.",
+            "ARCropolis cannot currently run on a Smash version other than 13.0.2<br/>Consider updating your game or uninstalling ARCropolis.",
         );
         // Do not perform any of the hook installation and let the game proceed as normal.
         return;
@@ -515,6 +518,7 @@ pub fn main() {
 
     replacement::install();
     fixes::install();
+    lua::install();
 
     // Wait on hashes/lut to finish
     let _ = resources.join();

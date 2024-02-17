@@ -9,7 +9,7 @@ use orbits::{FileLoader, Tree};
 use smash_arc::Hash40;
 
 use super::{ApiCallback, ApiLoader};
-use crate::{hashes, PathExtension};
+use crate::{config, hashes, PathExtension};
 
 pub fn make_hash_maps<L: FileLoader>(tree: &Tree<L>) -> (HashMap<Hash40, usize>, HashMap<Hash40, PathBuf>)
 where
@@ -165,8 +165,11 @@ pub fn add_prc_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>,
 pub fn add_msbt_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>, phys_root: P, local: Q) -> Option<Hash40> {
     let local = local.as_ref();
     let base_local = local.with_extension("msbt"); // patch files have different extensions
+    let mut is_current_region = true;
+
     let base_local = if let Some(name) = base_local.file_name().and_then(|os_str| os_str.to_str()) {
         if let Some(idx) = name.find('+') {
+            is_current_region = (&name[idx + 1..idx + 6] == format!("{}", config::region())); //Check if XMSBT's region is current region
             let mut new_name = name.to_string();
             new_name.replace_range(idx..idx + 6, "");
             base_local.with_file_name(new_name)
@@ -187,7 +190,9 @@ pub fn add_msbt_patch<P: AsRef<Path>, Q: AsRef<Path>>(tree: &mut Tree<ApiLoader>
                 hashes::add(local);
             }
             if let Some(base_local) = base_local.to_str() {
-                hashes::add(base_local);
+                if is_current_region {
+                    hashes::add(base_local);
+                }
             }
             Some(hash)
         },

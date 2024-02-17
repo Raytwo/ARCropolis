@@ -9,43 +9,14 @@ use std::{
 use log::{LevelFilter, Metadata, Record, SetLoggerError};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
-
+use skyline::nn::time;
 use crate::config;
 
 /// Since we can't rely on most time based libraries, this is a seconds -> date/time string based on the `chrono` crates implementation
-fn format_time_string(seconds: u64) -> String {
-    let leapyear = |year| -> bool { year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) };
+fn get_time_string() -> String {
+    let datetime: time::CalendarTime = time::get_calendar_time();
 
-    static YEAR_TABLE: [[u64; 12]; 2] = [
-        [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
-        [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31],
-    ];
-
-    let mut year = 1970;
-
-    let seconds_in_day = seconds % 86400;
-    let mut day_number = seconds / 86400;
-
-    let sec = seconds_in_day % 60;
-    let min = (seconds_in_day % 3600) / 60;
-    let hours = seconds_in_day / 3600;
-    loop {
-        let year_length = if leapyear(year) { 366 } else { 365 };
-
-        if day_number >= year_length {
-            day_number -= year_length;
-            year += 1;
-        } else {
-            break;
-        }
-    }
-    let mut month = 0;
-    while day_number >= YEAR_TABLE[if leapyear(year) { 1 } else { 0 }][month] {
-        day_number -= YEAR_TABLE[if leapyear(year) { 1 } else { 0 }][month];
-        month += 1;
-    }
-
-    format!("{:04}-{:02}-{:02}_{:02}-{:02}-{:02}", year, month + 1, day_number + 1, hours, min, sec)
+    format!("{:04}-{:02}-{:02}_{:02}-{:02}-{:02}", datetime.year, datetime.month, datetime.day, datetime.hour, datetime.minute, datetime.second)
 }
 
 static LOG_PATH: &str = "sd:/ultimate/arcropolis/logs";
@@ -74,7 +45,7 @@ static FILE_WRITER: Lazy<FileLogger> = Lazy::new(|| {
     let seconds = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("Clock may have gone backwards!");
-    let path = Path::new(LOG_PATH).join(format!("{}.log", format_time_string(seconds.as_secs())));
+    let path = Path::new(LOG_PATH).join(format!("{}.log", get_time_string()));
     let _ = std::fs::create_dir_all(LOG_PATH);
     std::fs::File::create(path).map_or_else(
         |_| {
