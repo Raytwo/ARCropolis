@@ -30,13 +30,11 @@ use skyline::{hooks::InlineCtx, libc::c_char, nn};
 
 mod api;
 mod chainloader;
-mod config;
 mod fixes;
 mod fs;
 mod fuse;
 mod hashes;
 mod logging;
-mod menus;
 mod offsets;
 mod replacement;
 mod resource;
@@ -48,10 +46,9 @@ mod lua;
 use fs::GlobalFilesystem;
 use smash_arc::{Hash40, Region};
 
-use crate::{
-    config::{GLOBAL_CONFIG, REGION},
-    utils::save::{get_language_id_in_savedata, get_system_region_from_language_id, mount_save, unmount_save},
-};
+use crate::utils::save::{get_language_id_in_savedata, get_system_region_from_language_id, mount_save, unmount_save};
+
+use config::{GLOBAL_CONFIG, REGION};
 
 pub static GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = const_rwlock(GlobalFilesystem::Uninitialized);
 
@@ -139,7 +136,7 @@ impl PathExtension for Path {
         let mut path = self
             .as_os_str()
             .to_str()
-            .map_or(Err(InvalidOsStrError), Ok)?
+            .ok_or(InvalidOsStrError)?
             .to_lowercase()
             .replace(';', ":")
             .replace(".mp4", ".webm")
@@ -218,7 +215,7 @@ fn check_input_on_boot() {
     if !crate::utils::env::is_emulator() {
         // Open the ARCropolis menu if Minus is held before mod discovery
         if ninput::any::is_down(ninput::Buttons::PLUS) {
-            crate::menus::show_main_menu();
+            menus::show_main_menu();
         }
     }
 }
@@ -269,10 +266,17 @@ fn initial_loading(_ctx: &InlineCtx) {
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
     replacement::lookup::initialize(Some(arc));
+    println!("Before filesystem");
     let mut filesystem = GLOBAL_FILESYSTEM.write();
     *filesystem = filesystem.take().finish(arc).unwrap();
+    println!("Before process mods");
+
     filesystem.process_mods();
+    println!("Before share hashes");
+
     filesystem.share_hashes();
+    println!("Before patch files");
+
     filesystem.patch_files();
 
     if config::debug_enabled() {

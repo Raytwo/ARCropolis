@@ -5,7 +5,7 @@ use smash_arc::*;
 
 use super::{extensions::*, lookup};
 use crate::{
-    config, hashes,
+    hashes,
     resource::{self, LoadedData, LoadedFilepath},
 };
 

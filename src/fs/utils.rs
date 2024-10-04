@@ -9,7 +9,7 @@ use orbits::{FileLoader, Tree};
 use smash_arc::Hash40;
 
 use super::{ApiCallback, ApiLoader};
-use crate::{config, hashes, PathExtension};
+use crate::{hashes, PathExtension};
 
 pub fn make_hash_maps<L: FileLoader>(tree: &Tree<L>) -> (HashMap<Hash40, usize>, HashMap<Hash40, PathBuf>)
 where

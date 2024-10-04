@@ -4,22 +4,22 @@ pub mod workspaces;
 pub use workspaces::*;
 pub mod config;
 pub use config::*;
-#[cfg(feature = "online")]
 pub mod changelog;
-#[cfg(feature = "online")]
 pub use changelog::*;
 pub mod files;
 pub use files::*;
 use skyline_web::Webpage;
 
+mod utils;
+
 pub fn show_main_menu() {
     let response = std::boxed::Box::new(
         Webpage::new()
             .htdocs_dir("contents")
-            .file("index.html", &crate::menus::files::MENU_HTML_TEXT)
-            .file("menu.css", &crate::menus::files::MENU_CSS_TEXT)
-            .file("menu.js", &crate::menus::files::MENU_JAVASCRIPT_TEXT)
-            .file("common.js", &crate::menus::files::COMMON_JAVASCRIPT_TEXT)
+            .file("index.html", &crate::files::MENU_HTML_TEXT)
+            .file("menu.css", &crate::files::MENU_CSS_TEXT)
+            .file("menu.js", &crate::files::MENU_JAVASCRIPT_TEXT)
+            .file("common.js", &crate::files::COMMON_JAVASCRIPT_TEXT)
             .background(skyline_web::Background::Default)
             .boot_display(skyline_web::BootDisplay::Default)
             .open()
@@ -36,7 +36,7 @@ pub fn show_main_menu() {
                 show_workspaces();
             },
             "http://localhost/config" => {
-                show_config_editor(&mut crate::config::GLOBAL_CONFIG.lock().unwrap());
+                show_config_editor(&mut ::config::GLOBAL_CONFIG.lock().unwrap());
             },
             _ => {},
         },

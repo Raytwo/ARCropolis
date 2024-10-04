@@ -8,7 +8,7 @@ use orbits::{ConflictHandler, ConflictKind, FileLoader, LaunchPad, StandardLoade
 use skyline::nn::{self, ro::*};
 use smash_arc::Hash40;
 
-use crate::{chainloader::*, config, utils};
+use crate::{chainloader::*, utils};
 
 pub fn perform_discovery() -> LaunchPad<StandardLoader> {
     let is_emulator = utils::env::is_emulator();
@@ -21,7 +21,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     let legacy_discovery = config::legacy_discovery();
 
-    let mut presets = crate::config::presets::get_active_preset().unwrap();
+    let mut presets = config::presets::get_active_preset().unwrap();
 
     // Emulators can't use presets, so don't run this logic
     if !is_emulator && !legacy_discovery {
@@ -68,7 +68,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     // If the user edited their mods again, we'll have to reload them here. This is obviously bad and inefficient but it wouldn't be ARCropolis if it wasn't.
     // Consider loading the active presets in a static RwLock so everything can manipulate them without reloading
-    let presets = crate::config::presets::get_active_preset().unwrap();
+    let presets = config::presets::get_active_preset().unwrap();
 
     let filter = |path: &Path| {
         // If we're not running on emulator

@@ -17,7 +17,7 @@ use thiserror::Error;
 // pub mod api;
 // mod event;
 use crate::{
-    api, config, get_path_from_hash, hashes,
+    api, get_path_from_hash, hashes,
     replacement::{self, LoadedArcEx, SearchEx},
     resource, PathExtension,
 };

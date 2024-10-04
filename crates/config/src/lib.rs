@@ -4,6 +4,7 @@ use std::{
     sync::Mutex,
 };
 
+use log::info;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
 use semver::Version;
@@ -13,6 +14,9 @@ use smash_arc::{Hash40, Region};
 use walkdir::WalkDir;
 
 use crate::utils::env::get_arcropolis_version;
+
+mod utils;
+mod offsets;
 
 pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| {
     let mut storage = StorageHolder::new(ArcStorage::new());

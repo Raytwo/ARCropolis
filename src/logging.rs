@@ -10,7 +10,6 @@ use log::{LevelFilter, Metadata, Record, SetLoggerError};
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use skyline::nn::time;
-use crate::config;
 
 /// Since we can't rely on most time based libraries, this is a seconds -> date/time string based on the `chrono` crates implementation
 fn get_time_string() -> String {

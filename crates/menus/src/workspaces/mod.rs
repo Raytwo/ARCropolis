@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use ::config::GLOBAL_CONFIG;
 use serde::{Deserialize, Serialize};
 use skyline_web::Webpage;
 use smash_arc::Hash40;
@@ -24,7 +25,7 @@ pub enum WorkspacesMessage {
 }
 
 pub fn show_workspaces() {
-    let mut storage = config::GLOBAL_CONFIG.lock().unwrap();
+    let mut storage = GLOBAL_CONFIG.lock().unwrap();
     let mut active_workspace: String = storage.get_field("workspace").unwrap_or_else(|_| "Default".to_string());
     let prev_set_workspace: String = active_workspace.clone();
     let mut workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
@@ -38,11 +39,11 @@ pub fn show_workspaces() {
 
     let session = Webpage::new()
         .htdocs_dir("contents")
-        .file("index.html", &crate::menus::files::WORKSPACES_HTML_TEXT)
-        .file("workspaces.css", &crate::menus::files::WORKSPACES_CSS_TEXT)
-        .file("workspaces.js", &crate::menus::files::WORKSPACES_JAVASCRIPT_TEXT)
-        .file("check.svg", &crate::menus::files::CHECK_SVG)
-        .file("common.js", &crate::menus::files::COMMON_JAVASCRIPT_TEXT)
+        .file("index.html", &crate::files::WORKSPACES_HTML_TEXT)
+        .file("workspaces.css", &crate::files::WORKSPACES_CSS_TEXT)
+        .file("workspaces.js", &crate::files::WORKSPACES_JAVASCRIPT_TEXT)
+        .file("check.svg", &crate::files::CHECK_SVG)
+        .file("common.js", &crate::files::COMMON_JAVASCRIPT_TEXT)
         .file("workspaces.json", &serde_json::to_string(&info).unwrap())
         .background(skyline_web::Background::Default)
         .boot_display(skyline_web::BootDisplay::Default)
@@ -106,14 +107,14 @@ pub fn show_workspaces() {
 
     if let Some(s) = workspace_to_edit {
         println!("Opening ARCadia from workspaces.rs...");
-        crate::menus::arcadia::show_arcadia(Some(s))
+        crate::arcadia::show_arcadia(Some(s))
     }
 
     if active_workspace.ne(&prev_set_workspace) {
-        if let Some(_filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
+        // if let Some(_filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
             if skyline_web::Dialog::yes_no(format!("Your active workspace has successfully been changed to {}!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?", active_workspace)) {
                 unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
             }
-        }
+        // }
     }
 }

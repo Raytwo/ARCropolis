@@ -2,6 +2,7 @@
 
 use std::{collections::HashSet, path::Path};
 
+use log::{debug, error};
 use serde::{Deserialize, Serialize};
 use skyline_web::Webpage;
 use smash_arc::Hash40;
@@ -38,7 +39,7 @@ pub enum ArcadiaMessage {
 
 pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
     let mut id: u32 = 0;
-    let use_folder_name = config::use_folder_name();
+    let use_folder_name = ::config::use_folder_name();
     std::fs::read_dir(utils::paths::mods())
         .unwrap()
         .enumerate()
@@ -103,9 +104,9 @@ pub fn show_arcadia(workspace: Option<String>) {
         return;
     }
     let workspace_name: String =
-        workspace.unwrap_or_else(|| config::workspaces::get_active_workspace_name().unwrap_or_else(|_| String::from("Default")));
+        workspace.unwrap_or_else(|| ::config::workspaces::get_active_workspace_name().unwrap_or_else(|_| String::from("Default")));
 
-    let presets = config::presets::get_preset(&workspace_name).unwrap();
+    let presets = ::config::presets::get_preset(&workspace_name).unwrap();
     let mut new_presets = presets.clone();
 
     let mods: Information = Information {
@@ -135,15 +136,15 @@ pub fn show_arcadia(workspace: Option<String>) {
 
     let session = Webpage::new()
         .htdocs_dir("contents")
-        .file("index.html", &crate::menus::files::ARCADIA_HTML_TEXT)
-        .file("arcadia.js", &crate::menus::files::ARCADIA_JS_TEXT)
-        .file("common.js", &crate::menus::files::COMMON_JAVASCRIPT_TEXT)
-        .file("arcadia.css", &crate::menus::files::ARCADIA_CSS_TEXT)
-        .file("common.css", &crate::menus::files::COMMON_CSS_TEXT)
-        .file("pagination.min.js", &crate::menus::files::PAGINATION_JS)
-        .file("jquery.marquee.min.js", &crate::menus::files::MARQUEE_JS)
-        .file("check.svg", &crate::menus::files::CHECK_SVG)
-        .file("missing.webp", &crate::menus::files::MISSING_WEBP)
+        .file("index.html", &crate::files::ARCADIA_HTML_TEXT)
+        .file("arcadia.js", &crate::files::ARCADIA_JS_TEXT)
+        .file("common.js", &crate::files::COMMON_JAVASCRIPT_TEXT)
+        .file("arcadia.css", &crate::files::ARCADIA_CSS_TEXT)
+        .file("common.css", &crate::files::COMMON_CSS_TEXT)
+        .file("pagination.min.js", &crate::files::PAGINATION_JS)
+        .file("jquery.marquee.min.js", &crate::files::MARQUEE_JS)
+        .file("check.svg", &crate::files::CHECK_SVG)
+        .file("missing.webp", &crate::files::MISSING_WEBP)
         .file("mods.json", &serde_json::to_string(&mods).unwrap())
         .files(&images)
         .background(skyline_web::Background::Default)
@@ -197,8 +198,8 @@ pub fn show_arcadia(workspace: Option<String>) {
                 println!("session says: {}", message);
             },
             ArcadiaMessage::GetModSize => {
-                let size = crate::GLOBAL_FILESYSTEM.try_read().map_or(0, |lock| lock.get_sum_size().unwrap_or(0));
-                session.send(format!("{{ \"mod_size\": {} }}", size).as_str());
+                // let size = crate::GLOBAL_FILESYSTEM.try_read().map_or(0, |lock| lock.get_sum_size().unwrap_or(0));
+                session.send(format!("{{ \"mod_size\": {} }}", 69420).as_str());
             },
             ArcadiaMessage::Closure => {
                 session.exit();
@@ -208,15 +209,15 @@ pub fn show_arcadia(workspace: Option<String>) {
         }
     }
 
-    let active_workspace = config::workspaces::get_active_workspace_name().unwrap();
-    config::presets::replace_preset(&workspace_name, &new_presets).unwrap();
+    let active_workspace = ::config::workspaces::get_active_workspace_name().unwrap();
+    ::config::presets::replace_preset(&workspace_name, &new_presets).unwrap();
 
     if new_presets != presets {
         // Acquire the filesystem so we can check if it's already finished or not (for boot-time mod manager)
-        if let Some(_filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
+        // if let Some(_filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
             if active_workspace.eq(&workspace_name) && skyline_web::Dialog::yes_no("Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?") {
                 unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
             }
-        }
+        // }
     }
 }

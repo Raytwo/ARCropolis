@@ -4,7 +4,7 @@ use smash_arc::{ArcLookup, Hash40};
 
 use super::FileInfoFlagsExt;
 use crate::{
-    config, hashes, offsets, reg_w, reg_x,
+    hashes, offsets, reg_w, reg_x,
     resource::{self, InflateFile, LoadInfo, LoadType},
     GLOBAL_FILESYSTEM,
 };

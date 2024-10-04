@@ -52,7 +52,7 @@ impl FileSystemAccessor for ArcFuse {
         let write = mode >> 1 & 1;
         let append = mode >> 2 & 1;
         debug!("Path: {}, read: {}, write: {}, append: {}", path.display(), read, write, append);
-        let mut file_region = crate::config::region();
+        let mut file_region = config::region();
         let mut new_path = path.display().to_string();
         for region in crate::REGIONS.iter() {
             if new_path.contains(region) {

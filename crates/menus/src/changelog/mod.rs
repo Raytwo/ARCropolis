@@ -122,7 +122,7 @@ pub struct MainEntry {
 }
 
 pub fn build_html(info: &MainEntry) -> String {
-    let mut rendered = crate::menus::files::CHANGELOG_HTML_TEXT.to_string();
+    let mut rendered = crate::files::CHANGELOG_HTML_TEXT.to_string();
     rendered = rendered.replace("{{title}}", &info.title);
     rendered = rendered.replace("{{date}}", &info.date);
     rendered = rendered.replace("{{description}}", &info.description);
@@ -282,7 +282,7 @@ pub fn display_update_page(info: &MainEntry) -> bool {
     let session = Webpage::new()
         .htdocs_dir("contents")
         .file("index.html", &build_html(info))
-        .file("notes.png", &crate::menus::files::CHANGELOG_IMAGE_BYTES)
+        .file("notes.png", &crate::files::CHANGELOG_IMAGE_BYTES)
         .files(&user_images)
         .background(skyline_web::Background::Default)
         .boot_display(skyline_web::BootDisplay::Default)
