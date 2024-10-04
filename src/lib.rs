@@ -14,6 +14,7 @@ use std::{
     collections::HashMap, fmt, io::{BufWriter, Write}, path::{Path, PathBuf}, str::FromStr, sync::{LazyLock, RwLock}
 };
 
+use api::file;
 use arcropolis_api::Event;
 use log::LevelFilter;
 use thiserror::Error;
@@ -21,7 +22,6 @@ use thiserror::Error;
 #[macro_use]
 extern crate log;
 
-// use parking_lot::const_rwlock;
 use skyline::{hooks::InlineCtx, libc::c_char, nn};
 
 mod api;
@@ -38,7 +38,6 @@ mod resource;
 mod update;
 mod utils;
 mod lua;
-mod loader;
 
 use fs::GlobalFilesystem;
 use smash_arc::{Hash40, Region};
@@ -237,8 +236,8 @@ fn check_for_update() {
 
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
-    // #[cfg(feature = "online")]
-    // check_for_changelog();
+    #[cfg(feature = "online")]
+    check_for_changelog();
 
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
     #[cfg(feature = "online")]
@@ -261,34 +260,13 @@ fn initial_loading(_ctx: &InlineCtx) {
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
     replacement::lookup::initialize(Some(arc));
-    println!("Before filesystem");
+    
     let mut filesystem = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
-
-    // let discovery = std::thread::Builder::new()
-    //     .stack_size(0x10000)
-    //     .spawn(|| {
-    //         unsafe {
-    //             let curr_thread = nn::os::GetCurrentThread();
-    //             nn::os::ChangeThreadPriority(curr_thread, 0);
-    //         }
-    //         std::thread::sleep(std::time::Duration::from_millis(5000));
-    //         fs::perform_discovery()
-    //     })
-    //     .unwrap();
-
-    println!("Before promise");
-
-    println!("Before take");
-    *filesystem = GlobalFilesystem::Initialized(Box::new(fs::CachedFilesystem::make_from_promise(fs::perform_discovery())));
-    // *filesystem = GlobalFilesystem::Promised(discovery).take().finish(arc).unwrap();
-    println!("Before process mods");
+    
+    *filesystem = filesystem.take().finish(arc).unwrap();
 
     filesystem.process_mods();
-    println!("Before share hashes");
-
     filesystem.share_hashes();
-    println!("Before patch files");
-
     filesystem.patch_files();
 
     if config::debug_enabled() {
@@ -305,7 +283,9 @@ fn initial_loading(_ctx: &InlineCtx) {
             }
         });
     }
+
     drop(filesystem);
+
     fuse::mods::install_mod_fs();
     api::event::send_event(Event::ModFilesystemMounted);
 
@@ -499,24 +479,21 @@ pub fn main() {
     }
 
     // Acquire the filesystem and promise it to the initial_loading hook
-    println!("Before acquire");
-    // let mut filesystem = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
+    let mut filesystem = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
 
-    // let discovery = std::thread::Builder::new()
-    //     .stack_size(0x10000)
-    //     .spawn(|| {
-    //         unsafe {
-    //             let curr_thread = nn::os::GetCurrentThread();
-    //             nn::os::ChangeThreadPriority(curr_thread, 0);
-    //         }
-    //         std::thread::sleep(std::time::Duration::from_millis(5000));
-    //         fs::perform_discovery()
-    //     })
-    //     .unwrap();
+    let discovery = std::thread::Builder::new()
+        .stack_size(0x10000)
+        .spawn(|| {
+            unsafe {
+                let curr_thread = nn::os::GetCurrentThread();
+                nn::os::ChangeThreadPriority(curr_thread, 0);
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5000));
+            fs::perform_discovery()
+        })
+        .unwrap();
 
-    // println!("Before promise");
-
-    // *filesystem = GlobalFilesystem::Promised(discovery);
+    *filesystem = GlobalFilesystem::Promised(discovery);
 
     let resources = std::thread::Builder::new()
         .stack_size(0x10000)
