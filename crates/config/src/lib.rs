@@ -11,7 +11,6 @@ use semver::Version;
 use skyline::nn;
 use skyline_config::*;
 use smash_arc::{Hash40, Region};
-use walkdir::WalkDir;
 
 use crate::utils::env::get_arcropolis_version;
 
@@ -61,34 +60,6 @@ fn generate_default_config<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) -
 
     storage.set_field_json("workspace_list", &default_workspace)?;
     storage.set_field("workspace", "Default")
-}
-
-fn convert_legacy_to_presets() -> HashSet<Hash40> {
-    let mut presets: HashSet<Hash40> = HashSet::new();
-
-    // TODO: Turn this into a map and use Collect
-    for entry in WalkDir::new(crate::utils::paths::mods()).max_depth(1).into_iter().flatten() {
-        let path = entry.path();
-
-        // If the mod isn't disabled, add it to the preset
-        if path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .map(|name| !name.starts_with('.'))
-            .unwrap_or(false)
-        {
-            presets.insert(Hash40::from(path.to_str().unwrap()));
-        } else {
-            // TODO: Check if the destination already exists, because it'll definitely happen, and when someone opens an issue about it and you'll realize you knew ahead of time, you'll feel dumb. But right this moment, you decided not to do anything.
-            std::fs::rename(
-                path,
-                format!("{}/{}", crate::utils::paths::mods(), &path.file_name().unwrap().to_str().unwrap()[1..]),
-            )
-            .unwrap();
-        }
-    }
-
-    presets
 }
 
 pub fn auto_update_enabled() -> bool {

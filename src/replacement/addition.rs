@@ -636,7 +636,7 @@ pub fn add_dir_info_with_base(ctx: &mut AdditionContext, path: &Path, base: &Pat
     let base_dir_info = *ctx.get_dir_info_from_hash_ctx(base_dir_info_path.path.hash40()).unwrap();
 
     // Get the newly added dirinfo
-    let mut dir_info = ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.path.hash40()).unwrap();
+    let dir_info = ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.path.hash40()).unwrap();
 
     // Set dir_info values to the base dirinfo
     dir_info.path.set_index(base_dir_info.path.index());

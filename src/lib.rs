@@ -14,7 +14,6 @@ use std::{
     collections::HashMap, fmt, io::{BufWriter, Write}, path::{Path, PathBuf}, str::FromStr, sync::{LazyLock, RwLock}
 };
 
-use api::file;
 use arcropolis_api::Event;
 use log::LevelFilter;
 use thiserror::Error;
