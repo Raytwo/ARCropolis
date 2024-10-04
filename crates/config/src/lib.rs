@@ -1,12 +1,12 @@
+#![feature(lazy_cell)]
+
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
-    sync::Mutex,
+    sync::{LazyLock, Mutex, RwLock},
 };
 
 use log::info;
-use once_cell::sync::Lazy;
-use parking_lot::RwLock;
 use semver::Version;
 use skyline::nn;
 use skyline_config::*;
@@ -16,9 +16,8 @@ use walkdir::WalkDir;
 use crate::utils::env::get_arcropolis_version;
 
 mod utils;
-mod offsets;
 
-pub static GLOBAL_CONFIG: Lazy<Mutex<StorageHolder<ArcStorage>>> = Lazy::new(|| {
+pub static GLOBAL_CONFIG: LazyLock<Mutex<StorageHolder<ArcStorage>>> = LazyLock::new(|| {
     let mut storage = StorageHolder::new(ArcStorage::new());
     let version: Result<Version, _> = storage.get_field("version");
 
@@ -115,7 +114,7 @@ pub fn skip_title_scene() -> bool {
 pub static REGION: RwLock<Region> = RwLock::new(Region::UsEnglish);
 
 pub fn region() -> Region {
-    *REGION.read()
+    *REGION.read().unwrap()
 }
 
 pub fn logger_level() -> String {

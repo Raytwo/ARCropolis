@@ -1,12 +1,10 @@
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs, sync::{LazyLock, RwLock}};
 
-use once_cell::sync::Lazy;
-use parking_lot::RwLock;
 use smash_arc::Hash40;
 
 static HASH_FILEPATH: &str = "sd:/ultimate/arcropolis/hashes.txt";
 
-static HASHES: Lazy<RwLock<HashMap<Hash40, &'static str>>> = Lazy::new(|| {
+static HASHES: LazyLock<RwLock<HashMap<Hash40, &'static str>>> = LazyLock::new(|| {
     let mut hashes = HashMap::default();
 
     let str_path = "sd:/ultimate/arcropolis/hashes.txt";
@@ -34,7 +32,7 @@ fn string_to_static_str(s: String) -> &'static str {
 }
 
 pub fn try_find(hash: Hash40) -> Option<&'static str> {
-    let hashes = HASHES.read();
+    let hashes = HASHES.read().unwrap();
     hashes.get(&hash).copied()
 }
 
@@ -44,10 +42,10 @@ pub fn find(hash: Hash40) -> &'static str {
 
 pub fn add<S: AsRef<str>>(new_hash: S) {
     let new_hash = new_hash.as_ref();
-    let mut hashes = HASHES.write();
+    let mut hashes = HASHES.write().unwrap();
     let _ = hashes.try_insert(Hash40::from(new_hash), string_to_static_str(new_hash.to_string()));
 }
 
 pub fn init() {
-    Lazy::force(&HASHES);
+    LazyLock::force(&HASHES);
 }

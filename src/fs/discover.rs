@@ -25,10 +25,6 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     // Emulators can't use presets, so don't run this logic
     if !is_emulator && !legacy_discovery {
-        if std::path::PathBuf::from("rom:/arc").exists() {
-            skyline_web::DialogOk::ok("Support for mods stored in `sd:/atmosphere/contents/01006A800016E000/romfs/arc/` has been deprecated<br/>Please consider reworking your modpack to use the newer methods<br/><br/>This message will keep displaying until the directory is removed");
-        }
-
         // Get the mod cache from last run
         let mod_cache: HashSet<Hash40> = config::get_mod_cache().unwrap_or_default();
 
@@ -52,7 +48,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
             .collect();
 
         // We found hashes that weren't in the cache
-        if !new_mods.is_empty() && skyline_web::Dialog::yes_no("New mods have been detected.\nWould you like to enable them?") {
+        if !new_mods.is_empty() {
             // Add the new mods to the presets file
             presets.extend(new_mods);
             // Save it back
@@ -148,7 +144,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
 
     let conflicts = launchpad.discover_roots(&mods_path, 1, filter);
 
-    let should_prompt = !conflicts.is_empty();
+    let has_conflicts = !conflicts.is_empty();
 
     for conflict in conflicts.into_iter() {
         match conflict {
@@ -173,11 +169,8 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         }
     }
 
-    if should_prompt
-        && skyline_web::Dialog::yes_no(
-            "During file discovery, ARCropolis encountered file conflicts.<br>Do you want to run it again to list all file conflicts?",
-        )
-    {
+    // Removed the prompt for checking conflicts, since we shouldn't have to run this twice to begin with and this needs fixing.
+    if has_conflicts {
         let mut launchpad = LaunchPad::new(StandardLoader, ConflictHandler::First);
 
         launchpad.collecting(collect);

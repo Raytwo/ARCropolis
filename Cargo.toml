@@ -18,19 +18,16 @@ semver = { version = "1", features = ["serde"] }
 num-derive = "0.4.0"
 num-traits = "0.2.15"
 walkdir = "2.3.3"
-parking_lot = "0.12.1"
-once_cell = "1.18.0"
+# parking_lot = "0.12.1"
 thiserror = "1.0.43"
-minreq = { version = "2", features = ["https-native", "json-using-serde"], optional = true }
 camino = "1"
 # Switch utilities
 skyline = { git = "https://github.com/Raytwo/skyline-rs", branch="preview" }
-skyline-web = "0.1"
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
-skyline-communicate = { git = "https://github.com/blu-dev/skyline-communicate" }
 # For the updater
 zip = { version = "0.6", default-features = false, features = ["deflate"], optional = true }
 gh-updater = { git = "https://github.com/blu-dev/gh-updater", default-features = false, features = ["native-tls"], optional = true }
+minreq = { version = "2", features = ["https-native", "json-using-serde"], optional = true }
 # For offset caching and legacy configuration
 toml = "0.5.11"
 serde = { version = "1", features = ["derive"] }
@@ -66,7 +63,7 @@ ninput = { git = "https://github.com/blu-dev/ninput" }
 # For Offset Searching
 lazysimd = { git = "https://github.com/Raytwo/lazysimd" }
 config = { path = "crates/config" }
-menus = { path = "crates/menus" }
+menus = { path = "crates/menus", optional = true }
 
 [patch.crates-io]
 nnsdk = { git = "https://github.com/ultimate-research/nnsdk-rs"}
@@ -75,8 +72,9 @@ native-tls = { git = "https://github.com/skyline-rs/rust-native-tls", rev = "f20
 crc32fast = { git = "https://github.com/srijs/rust-crc32fast", rev = "e9c65bd" }
 
 [features]
-default = ["online"]
+default = ["online", "ui"]
 online = ["zip", "gh-updater", "minreq"]
+ui = ["menus"]
 
 [profile.dev]
 panic = "abort"

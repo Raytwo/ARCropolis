@@ -5,7 +5,7 @@ use crate::offsets;
 
 #[skyline::hook(offset = offsets::lookup_stream_hash())]
 fn lookup_stream_hash(out_path: *mut c_char, loaded_arc: &LoadedArc, size_out: &mut usize, offset_out: &mut u64, hash: Hash40) {
-    let fs = crate::GLOBAL_FILESYSTEM.read();
+    let fs = unsafe { crate::GLOBAL_FILESYSTEM.read().unwrap() };
     if let Some(local_path) = fs.local_hash(hash) {
         // restrictions by the stream API require us to be able to load this file via std::fs
         // therefore, it is fair to use the StandardLoader to query both its existence and the filesize

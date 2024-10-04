@@ -1,7 +1,7 @@
+use std::sync::{LazyLock, Mutex};
+
 use arcropolis_api::{CallbackFn, StreamCallbackFn};
-use once_cell::sync::Lazy;
 use owo_colors::OwoColorize;
-use parking_lot::Mutex;
 use smash_arc::Hash40;
 
 use crate::{fs::*, hashes};
@@ -14,7 +14,7 @@ pub enum PendingApiCall {
 unsafe impl Send for PendingApiCall {}
 unsafe impl Sync for PendingApiCall {}
 
-pub static PENDING_CALLBACKS: Lazy<Mutex<Vec<PendingApiCall>>> = Lazy::new(|| Mutex::new(Vec::new()));
+pub static PENDING_CALLBACKS: LazyLock<Mutex<Vec<PendingApiCall>>> = LazyLock::new(|| Mutex::new(Vec::new()));
 
 #[no_mangle]
 pub extern "C" fn arcrop_register_callback(hash: Hash40, max_size: usize, cb: CallbackFn) {
@@ -30,10 +30,10 @@ pub extern "C" fn arcrop_register_callback(hash: Hash40, max_size: usize, cb: Ca
         callback: cb,
     };
 
-    let mut pending_calls = PENDING_CALLBACKS.lock();
+    let mut pending_calls = PENDING_CALLBACKS.lock().unwrap();
 
     if GlobalFilesystem::is_init() {
-        crate::GLOBAL_FILESYSTEM.write().handle_api_request(request);
+        unsafe { crate::GLOBAL_FILESYSTEM.write().unwrap().handle_api_request(request) };
     } else {
         pending_calls.push(request);
     }
@@ -49,10 +49,10 @@ pub extern "C" fn arcrop_register_callback_with_path(hash: Hash40, cb: StreamCal
 
     let request = PendingApiCall::StreamCallback { hash, callback: cb };
 
-    let mut pending_calls = PENDING_CALLBACKS.lock();
+    let mut pending_calls = PENDING_CALLBACKS.lock().unwrap();
 
     if GlobalFilesystem::is_init() {
-        crate::GLOBAL_FILESYSTEM.write().handle_api_request(request);
+        unsafe { crate::GLOBAL_FILESYSTEM.write().unwrap().handle_api_request(request) };
     } else {
         debug!("Pushing to pending calls!");
         pending_calls.push(request);

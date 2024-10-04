@@ -1,9 +1,8 @@
 use skyline::nn;
 
 pub mod env {
-    use once_cell::sync::Lazy;
     use semver::Version;
-    use std::str::FromStr;
+    use std::{str::FromStr, sync::LazyLock};
 
     use super::*;
 
@@ -13,7 +12,7 @@ pub mod env {
         Emulator,
     }
 
-    static PLATFORM: Lazy<RunEnvironment> = Lazy::new(|| {
+    static PLATFORM: LazyLock<RunEnvironment> = LazyLock::new(|| {
         let base_addr = unsafe { skyline::hooks::getRegionAddress(skyline::hooks::Region::Text) as u64 };
 
         if base_addr == 0x8004000 || base_addr == 0x8504000 {

@@ -1,14 +1,8 @@
 use std::{
-    fs::File,
-    io::{BufWriter, Write},
-    ops::Deref,
-    path::Path,
-    time::SystemTime,
+    fs::File, io::{BufWriter, Write}, ops::Deref, path::Path, sync::{LazyLock, Mutex}, time::SystemTime
 };
 
 use log::{LevelFilter, Metadata, Record, SetLoggerError};
-use once_cell::sync::Lazy;
-use parking_lot::Mutex;
 use skyline::nn::time;
 
 /// Since we can't rely on most time based libraries, this is a seconds -> date/time string based on the `chrono` crates implementation
@@ -33,14 +27,14 @@ impl Deref for FileLogger {
 impl FileLogger {
     pub fn write<T: AsRef<[u8]>>(&self, message: T) {
         if let Some(writer) = &self.0 {
-            let mut writer = writer.lock();
+            let mut writer = writer.lock().unwrap();
             let _ = writer.write(message.as_ref());
         }
     }
 }
 
 // Summon the file logger and create a file for it based on the current time (requires time to be initialized)
-static FILE_WRITER: Lazy<FileLogger> = Lazy::new(|| {
+static FILE_WRITER: LazyLock<FileLogger> = LazyLock::new(|| {
     let seconds = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .expect("Clock may have gone backwards!");
@@ -126,7 +120,7 @@ impl log::Log for ArcLogger {
     fn flush(&self) {
         if config::file_logging_enabled() {
             if let Some(writer) = &**FILE_WRITER {
-                if let Some(mut writer) = writer.try_lock() {
+                if let Ok(mut writer) = writer.try_lock() {
                     if let Err(err) = writer.flush() {
                         error!(target: "std", "Failed to flush file logger! Reason: {:?}", err)
                     }
