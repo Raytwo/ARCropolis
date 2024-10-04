@@ -1,6 +1,5 @@
-use std::{collections::HashSet, ops::Range};
+use std::{collections::HashSet, ops::Range, sync::LazyLock};
 
-use once_cell::sync::Lazy;
 use smash_arc::*;
 
 use super::{extensions::*, lookup};
@@ -9,7 +8,7 @@ use crate::{
     resource::{self, LoadedData, LoadedFilepath},
 };
 
-pub static SHARED_FILE_INDEX: Lazy<u32> = Lazy::new(|| resource::arc().get_shared_data_index());
+pub static SHARED_FILE_INDEX: LazyLock<u32> = LazyLock::new(|| resource::arc().get_shared_data_index());
 
 fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: Hash40) {
     info!("Attempting to reshare files dependent on '{}' ({:#x})", hashes::find(hash), hash.0);

@@ -1,26 +1,25 @@
 use skyline::{hook, install_hooks};
-use once_cell::sync::Lazy;
-use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::sync::{LazyLock, RwLock};
 
 
 pub mod lua;
 use crate::lua::lua::{lua_state, luaL_Reg, luaL_Reg_container};
 use crate::offsets;
 
-static LUA_MENU_MANAGERS: Lazy<RwLock<HashMap<&'static str, Vec<luaL_Reg_container>>>> = Lazy::new(|| RwLock::new(HashMap::new()));
-static LUA_INGAME_MANAGERS: Lazy<RwLock<HashMap<&'static str, Vec<luaL_Reg_container>>>> = Lazy::new(|| RwLock::new(HashMap::new()));
+static LUA_MENU_MANAGERS: LazyLock<RwLock<HashMap<&'static str, Vec<luaL_Reg_container>>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
+static LUA_INGAME_MANAGERS: LazyLock<RwLock<HashMap<&'static str, Vec<luaL_Reg_container>>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
-static INSTALLED_MENU_MANAGERS: Lazy<RwLock<Vec<u64>>> = Lazy::new(|| RwLock::new(Vec::new()));
-static INSTALLED_INGAME_MANAGERS: Lazy<RwLock<Vec<u64>>> = Lazy::new(|| RwLock::new(Vec::new()));
+static INSTALLED_MENU_MANAGERS: LazyLock<RwLock<Vec<u64>>> = LazyLock::new(|| RwLock::new(Vec::new()));
+static INSTALLED_INGAME_MANAGERS: LazyLock<RwLock<Vec<u64>>> = LazyLock::new(|| RwLock::new(Vec::new()));
 
-fn clean_managers(manager: &Lazy<RwLock<Vec<u64>>>){
+fn clean_managers(manager: &LazyLock<RwLock<Vec<u64>>>){
     unsafe {
-        for ptr in manager.read().iter() {
+        for ptr in manager.read().unwrap().iter() {
             let _ = CString::from_raw(*ptr as _);
         }
-        manager.write().clear();
+        manager.write().unwrap().clear();
     }
 }
 
@@ -29,7 +28,7 @@ fn string_to_static_str(s: String) -> &'static str {
 }
 
 pub fn add_lua_menu_manager(name: impl AsRef<str>, registry: Vec<luaL_Reg_container>) -> bool {
-    let mut lua_menu_managers = LUA_MENU_MANAGERS.write();
+    let mut lua_menu_managers = LUA_MENU_MANAGERS.write().unwrap();
     match lua_menu_managers.try_insert(string_to_static_str(name.as_ref().to_string()), registry) {
         Ok(_s) => true,
         Err(_err) => false
@@ -40,13 +39,13 @@ pub fn add_lua_menu_manager(name: impl AsRef<str>, registry: Vec<luaL_Reg_contai
 fn apply_ui2d_layout_bindings(lua_state: &mut lua_state) {
     clean_managers(&INSTALLED_MENU_MANAGERS);
     original!()(lua_state);
-    let lua_menu_managers = LUA_MENU_MANAGERS.read();
+    let lua_menu_managers = LUA_MENU_MANAGERS.read().unwrap();
     for (key, value) in lua_menu_managers.iter() {
         let mut functions = value.iter().map(|x| luaL_Reg {
             name: {
                 let c_str = CString::new(format!("{}", x.name)).expect(&format!("Failed to make a CString from {}!", x.name));
                 let raw = c_str.into_raw();
-                INSTALLED_MENU_MANAGERS.write().push(raw as _);
+                INSTALLED_MENU_MANAGERS.write().unwrap().push(raw as _);
                 raw as _
             },
             func: x.func,
@@ -65,7 +64,7 @@ fn apply_ui2d_layout_bindings(lua_state: &mut lua_state) {
 
 
 pub fn add_lua_ingame_manager(name: impl AsRef<str>, registry: Vec<luaL_Reg_container>) -> bool {
-    let mut lua_ingame_managers = LUA_INGAME_MANAGERS.write();
+    let mut lua_ingame_managers = LUA_INGAME_MANAGERS.write().unwrap();
     match lua_ingame_managers.try_insert(string_to_static_str(name.as_ref().to_string()), registry) {
         Ok(_s) => true,
         Err(_err) => false
@@ -76,13 +75,13 @@ pub fn add_lua_ingame_manager(name: impl AsRef<str>, registry: Vec<luaL_Reg_cont
 fn apply_ingame_bindings(lua_state: &mut lua_state) {
     clean_managers(&INSTALLED_INGAME_MANAGERS);
     original!()(lua_state);
-    let lua_ingame_managers = LUA_INGAME_MANAGERS.read();
+    let lua_ingame_managers = LUA_INGAME_MANAGERS.read().unwrap();
     for (key, value) in lua_ingame_managers.iter() {
         let functions = value.iter().map(|x| luaL_Reg {
             name: {
                 let c_str = CString::new(format!("{}", x.name)).expect(&format!("Failed to make a CString from {}!", x.name));
                 let raw = c_str.into_raw();
-                INSTALLED_INGAME_MANAGERS.write().push(raw as _);
+                INSTALLED_INGAME_MANAGERS.write().unwrap().push(raw as _);
                 raw as _
             },
             func: x.func,

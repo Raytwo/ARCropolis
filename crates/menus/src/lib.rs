@@ -1,3 +1,5 @@
+#![feature(lazy_cell)]
+
 pub mod arcadia;
 pub use arcadia::*;
 pub mod workspaces;

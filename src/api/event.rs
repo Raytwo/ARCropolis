@@ -1,6 +1,6 @@
+use std::sync::{LazyLock, RwLock};
+
 use arcropolis_api::{Event, EventCallbackFn};
-use once_cell::sync::Lazy;
-use parking_lot::RwLock;
 
 pub struct EventCallbacks {
     arc_fs_mounted: Vec<EventCallbackFn>,
@@ -16,8 +16,8 @@ impl EventCallbacks {
     }
 }
 
-pub static EVENT_CALLBACKS: Lazy<RwLock<EventCallbacks>> = Lazy::new(|| RwLock::new(EventCallbacks::new()));
-pub static EVENT_QUEUE: Lazy<RwLock<Vec<Event>>> = Lazy::new(|| RwLock::new(Vec::new()));
+pub static EVENT_CALLBACKS: LazyLock<RwLock<EventCallbacks>> = LazyLock::new(|| RwLock::new(EventCallbacks::new()));
+pub static EVENT_QUEUE: LazyLock<RwLock<Vec<Event>>> = LazyLock::new(|| RwLock::new(Vec::new()));
 
 impl std::ops::Index<Event> for EventCallbacks {
     type Output = Vec<EventCallbackFn>;
@@ -41,7 +41,7 @@ impl std::ops::IndexMut<Event> for EventCallbacks {
 
 #[no_mangle]
 pub extern "C" fn arcrop_register_event_callback(ty: Event, callback: EventCallbackFn) {
-    let mut cbs = EVENT_CALLBACKS.write();
+    let mut cbs = EVENT_CALLBACKS.write().unwrap();
     cbs[ty].push(callback);
 }
 
@@ -49,11 +49,11 @@ fn event_loop() {
     loop {
         std::thread::sleep(std::time::Duration::from_millis(20));
         let mut events = Vec::new();
-        let mut full_events = EVENT_QUEUE.write();
+        let mut full_events = EVENT_QUEUE.write().unwrap();
         std::mem::swap(&mut events, &mut full_events);
         drop(full_events);
 
-        let cbs = EVENT_CALLBACKS.read();
+        let cbs = EVENT_CALLBACKS.read().unwrap();
 
         for e in events.into_iter() {
             for cb in cbs[e].iter() {
@@ -64,7 +64,7 @@ fn event_loop() {
 }
 
 pub fn send_event(e: Event) {
-    EVENT_QUEUE.write().push(e);
+    EVENT_QUEUE.write().unwrap().push(e);
 }
 
 pub fn setup() {

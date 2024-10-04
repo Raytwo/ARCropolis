@@ -184,7 +184,7 @@ impl CachedFilesystem {
     }
 
     /// Use the file information that was generated during file discovery to fill out a GlobalFilesystem struct
-    fn make_from_promise(launchpad: LaunchPad<StandardLoader>) -> CachedFilesystem {
+    pub fn make_from_promise(launchpad: LaunchPad<StandardLoader>) -> CachedFilesystem {
         let arc = resource::arc();
         // Provide the discovered tree and get two hashmaps, one of the sizes of each file discovered (for patching)
         // and also get hash40 -> PathBuf lookup, since it's going to be a lot faster when the game is loading
@@ -244,7 +244,7 @@ impl CachedFilesystem {
         }
 
         // Lock the pending callbacks and then swap the memory so that we can release lock on callbacks
-        let mut pending_calls = api::PENDING_CALLBACKS.lock();
+        let mut pending_calls = api::PENDING_CALLBACKS.lock().unwrap();
         let mut calls = Vec::new();
         std::mem::swap(&mut *pending_calls, &mut calls);
         drop(pending_calls);
@@ -531,8 +531,11 @@ impl CachedFilesystem {
             replacement::addition::add_files_to_directory(&mut context, hash.to_smash_arc(), files.iter().map(|hash| hash.to_smash_arc()).collect());
         }
 
+        println!("Before take context");
         resource::arc_mut().take_context(context);
+        println!("Before search mut");
         resource::search_mut().take_context(search_context);
+        println!("After search");
     }
 
     /// Gets the global mod config

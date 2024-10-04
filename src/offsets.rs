@@ -1,11 +1,10 @@
-use std::fmt::Write;
+use std::{fmt::Write, sync::LazyLock};
 
 use lazysimd;
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use skyline::hooks::{getRegionAddress, Region};
 
-static OFFSETS: Lazy<Offsets> = Lazy::new(|| {
+static OFFSETS: LazyLock<Offsets> = LazyLock::new(|| {
     let path = crate::utils::paths::cache().join("offsets.toml");
     let offsets = match std::fs::read_to_string(&path) {
         Ok(string) => match toml::de::from_str(string.as_str()) {

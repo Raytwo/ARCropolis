@@ -8,13 +8,10 @@
 // #![feature(fs_try_exists)]
 #![feature(int_roundings)]
 #![feature(stdsimd)]
+#![feature(lazy_cell)]
 
 use std::{
-    collections::HashMap,
-    fmt,
-    io::{BufWriter, Write},
-    path::{Path, PathBuf},
-    str::FromStr,
+    collections::HashMap, fmt, io::{BufWriter, Write}, path::{Path, PathBuf}, str::FromStr, sync::{LazyLock, RwLock}
 };
 
 use arcropolis_api::Event;
@@ -24,8 +21,7 @@ use thiserror::Error;
 #[macro_use]
 extern crate log;
 
-use once_cell::sync::Lazy;
-use parking_lot::{const_rwlock, RwLock};
+// use parking_lot::const_rwlock;
 use skyline::{hooks::InlineCtx, libc::c_char, nn};
 
 mod api;
@@ -42,6 +38,7 @@ mod resource;
 mod update;
 mod utils;
 mod lua;
+mod loader;
 
 use fs::GlobalFilesystem;
 use smash_arc::{Hash40, Region};
@@ -50,9 +47,9 @@ use crate::utils::save::{get_language_id_in_savedata, get_system_region_from_lan
 
 use config::{GLOBAL_CONFIG, REGION};
 
-pub static GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = const_rwlock(GlobalFilesystem::Uninitialized);
+pub static mut GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = RwLock::new(GlobalFilesystem::Uninitialized);
 
-static mut NEWS_DATA: Lazy<HashMap<String, String>> = Lazy::new(HashMap::new);
+static mut NEWS_DATA: LazyLock<RwLock<HashMap<String, String>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 #[macro_export]
 macro_rules! reg_x {
@@ -70,16 +67,10 @@ macro_rules! reg_w {
 
 /// Basic code for displaying an ARCropolis dialog error informing the user to check their logs, or enable them if they don't currently.
 fn dialog_error<S: AsRef<str>>(msg: S) {
-    if utils::env::is_emulator() {
-        if config::file_logging_enabled() {
-            error!("{}<br>See the latest log for more information.", msg.as_ref());
-        } else {
-            error!("{}<br>Enable file logging and run again for more information.", msg.as_ref());
-        }
-    } else if config::file_logging_enabled() {
-        skyline_web::DialogOk::ok(format!("{}<br>See the latest log for more information.", msg.as_ref()));
+    if config::file_logging_enabled() {
+        skyline::error::show_error(69, "ARCropolis error, press Details.\0", &format!("{}\nSee the latest log for more information.\0", msg.as_ref()));
     } else {
-        skyline_web::DialogOk::ok(format!("{}<br>Enable file logging and run again for more information.", msg.as_ref()));
+        skyline::error::show_error(69, "ARCropolis error, press Details.\0", &format!("{}\nEnable file logging and run again for more information.\0", msg.as_ref()));
     }
 }
 
@@ -203,7 +194,7 @@ fn get_news_data() {
     skyline::install_hook!(msbt_text);
     match minreq::get("https://coolsonickirby.com/arc/news").send() {
         Ok(resp) => match resp.json::<HashMap<String, String>>() {
-            Ok(info) => unsafe { NEWS_DATA.extend(info) },
+            Ok(info) => unsafe { NEWS_DATA.write().unwrap().extend(info) },
             Err(err) => println!("{:?}", err),
         },
         Err(err) => println!("{:?}", err),
@@ -254,6 +245,10 @@ fn initial_loading(_ctx: &InlineCtx) {
     let _updater = std::thread::Builder::new()
         .stack_size(0x10000)
         .spawn(|| {
+            unsafe {
+                let curr_thread = nn::os::GetCurrentThread();
+                nn::os::ChangeThreadPriority(curr_thread, 16);
+            }
             check_for_update();
         })
         .unwrap();
@@ -267,8 +262,25 @@ fn initial_loading(_ctx: &InlineCtx) {
     api::event::send_event(Event::ArcFilesystemMounted);
     replacement::lookup::initialize(Some(arc));
     println!("Before filesystem");
-    let mut filesystem = GLOBAL_FILESYSTEM.write();
-    *filesystem = filesystem.take().finish(arc).unwrap();
+    let mut filesystem = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
+
+    // let discovery = std::thread::Builder::new()
+    //     .stack_size(0x10000)
+    //     .spawn(|| {
+    //         unsafe {
+    //             let curr_thread = nn::os::GetCurrentThread();
+    //             nn::os::ChangeThreadPriority(curr_thread, 0);
+    //         }
+    //         std::thread::sleep(std::time::Duration::from_millis(5000));
+    //         fs::perform_discovery()
+    //     })
+    //     .unwrap();
+
+    println!("Before promise");
+
+    println!("Before take");
+    *filesystem = GlobalFilesystem::Initialized(Box::new(fs::CachedFilesystem::make_from_promise(fs::perform_discovery())));
+    // *filesystem = GlobalFilesystem::Promised(discovery).take().finish(arc).unwrap();
     println!("Before process mods");
 
     filesystem.process_mods();
@@ -337,6 +349,8 @@ fn show_eshop() {
     // stop_all_bgm();
     // let instance = (*(offsets::offset_to_addr(0x532d8d0) as *const u64));
     // play_bgm(instance as _, 0xd9ffff202a04c55b, false);
+
+    #[cfg(feature = "ui")]
     menus::show_main_menu();
     // play_menu_bgm();
 }
@@ -345,8 +359,8 @@ fn show_eshop() {
 unsafe fn msbt_text(ctx: &mut InlineCtx) {
     let msbt_label = skyline::from_c_str((ctx as *const InlineCtx as *const u8).add(0x100).add(224));
 
-    if NEWS_DATA.contains_key(&msbt_label) {
-        let mut text = NEWS_DATA.get(&msbt_label).unwrap().as_str().to_string();
+    if NEWS_DATA.read().unwrap().contains_key(&msbt_label) {
+        let mut text = NEWS_DATA.read().unwrap().get(&msbt_label).unwrap().as_str().to_string();
 
         text.push('\0');
 
@@ -443,9 +457,7 @@ pub fn main() {
     }));
 
     if utils::env::get_game_version() != semver::Version::new(13, 0, 2) {
-        skyline_web::DialogOk::ok(
-            "ARCropolis cannot currently run on a Smash version other than 13.0.2<br/>Consider updating your game or uninstalling ARCropolis.",
-        );
+        skyline::error::show_error(69, "Smash Ultimate requires an update.\0", "ARCropolis cannot currently run on a Smash version other than 13.0.2\n\nConsider updating your game or uninstalling ARCropolis.\0");
         // Do not perform any of the hook installation and let the game proceed as normal.
         return;
     }
@@ -466,7 +478,7 @@ pub fn main() {
 
     // Scope to drop the lock
     {
-        let mut region = REGION.write();
+        let mut region = REGION.write().unwrap();
         mount_save("save\0");
         let language_id = get_language_id_in_savedata();
         unmount_save("save\0");
@@ -479,7 +491,7 @@ pub fn main() {
     }
 
     // Force the configuration to be initialized right away, so we can be sure default files exist (hopefully)
-    Lazy::force(&GLOBAL_CONFIG);
+    LazyLock::force(&GLOBAL_CONFIG);
 
     // Attempt to initialize the logger, and if we fail we will just do a regular println
     if let Err(err) = logging::init(LevelFilter::from_str(&config::logger_level()).unwrap_or(LevelFilter::Warn)) {
@@ -487,21 +499,24 @@ pub fn main() {
     }
 
     // Acquire the filesystem and promise it to the initial_loading hook
-    let mut filesystem = GLOBAL_FILESYSTEM.write();
+    println!("Before acquire");
+    // let mut filesystem = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
 
-    let discovery = std::thread::Builder::new()
-        .stack_size(0x10000)
-        .spawn(|| {
-            unsafe {
-                let curr_thread = nn::os::GetCurrentThread();
-                nn::os::ChangeThreadPriority(curr_thread, 0);
-            }
-            std::thread::sleep(std::time::Duration::from_millis(5000));
-            fs::perform_discovery()
-        })
-        .unwrap();
+    // let discovery = std::thread::Builder::new()
+    //     .stack_size(0x10000)
+    //     .spawn(|| {
+    //         unsafe {
+    //             let curr_thread = nn::os::GetCurrentThread();
+    //             nn::os::ChangeThreadPriority(curr_thread, 0);
+    //         }
+    //         std::thread::sleep(std::time::Duration::from_millis(5000));
+    //         fs::perform_discovery()
+    //     })
+    //     .unwrap();
 
-    *filesystem = GlobalFilesystem::Promised(discovery);
+    // println!("Before promise");
+
+    // *filesystem = GlobalFilesystem::Promised(discovery);
 
     let resources = std::thread::Builder::new()
         .stack_size(0x10000)
@@ -511,7 +526,10 @@ pub fn main() {
         })
         .unwrap();
 
-    skyline::install_hooks!(initial_loading, change_version_string, show_eshop, online_slot_spoof, change_fighter_color_l, change_fighter_color_r);
+    skyline::install_hooks!(initial_loading, change_version_string, online_slot_spoof, change_fighter_color_l, change_fighter_color_r);
+
+    #[cfg(feature = "ui")]
+    skyline::install_hook!(show_eshop);
 
     // If we skip the title scene, we obviously skip the opening cutscene with it. Well, actually not necessarily but in this case we do.
     if config::skip_title_scene() {

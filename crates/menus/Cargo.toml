@@ -16,8 +16,6 @@ smash-arc = { git = "https://github.com/jam1garner/smash-arc" }
 skyline = { git = "https://github.com/Raytwo/skyline-rs", branch="preview" }
 config = { path = "../config" }
 semver = { version = "1", features = ["serde"] }
-once_cell = "1.18.0"
-parking_lot = "0.12.1"
 camino = "1"
 minreq = { version = "2", features = ["https-native", "json-using-serde"] }
 

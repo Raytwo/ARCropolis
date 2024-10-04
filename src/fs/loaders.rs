@@ -547,7 +547,7 @@ impl ApiLoader {
     }
 
     pub fn handle_load_base_file(local: &Path) -> Result<Vec<u8>, ApiLoaderError> {
-        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
         let cached = filesystem.get();
 
         if cached.get_patch_entry_type(local).is_ok() {
@@ -558,35 +558,35 @@ impl ApiLoader {
     }
 
     pub fn get_prc_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
-        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
         let cached = filesystem.get();
 
         cached.virt().loader.param_patches.get(&hash)
     }
 
     pub fn get_msbt_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
-        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
         let cached = filesystem.get();
 
         cached.virt().loader.msbt_patches.get(&hash)
     }
 
     pub fn get_nus3audio_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
-        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
         let cached = filesystem.get();
 
         cached.virt().loader.nus3audio_patches.get(&hash)
     }
 
     pub fn get_motionlist_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
-        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
         let cached = filesystem.get();
 
         cached.virt().loader.motionlist_patches.get(&hash)
     }
 
     pub fn get_bgm_property_patches_for_hash(hash: Hash40) -> Option<&'static Vec<PathBuf>> {
-        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
+        let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
         let cached = filesystem.get();
 
         cached.virt().loader.bgm_property_patches.get(&hash)

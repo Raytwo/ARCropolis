@@ -1,7 +1,6 @@
-use std::{cmp::Ordering, fmt, io::{self, Seek, Read}, mem::MaybeUninit, ops::Deref, path::Path};
+use std::{cmp::Ordering, fmt, io::{self, Read, Seek}, mem::MaybeUninit, ops::Deref, path::Path, sync::LazyLock};
 
 use nn::ro::{self, Module, NrrHeader, RegistrationInfo};
-use once_cell::sync::Lazy;
 use skyline::{libc, nn};
 
 macro_rules! align_up {
@@ -65,7 +64,7 @@ pub struct NrrBuilder {
     hashes: Vec<Sha256Hash>,
 }
 
-static ORIGINAL_GAME_NRO_HASHES: Lazy<Vec<Sha256Hash>> = Lazy::new(|| { 
+static ORIGINAL_GAME_NRO_HASHES: LazyLock<Vec<Sha256Hash>> = LazyLock::new(|| { 
     let mut out = Vec::new();
     let read_dir = std::fs::read_dir("rom:/.nrr/").unwrap();
     for entry in read_dir {
@@ -111,7 +110,7 @@ impl NrrBuilder {
 
     pub fn add_module(&mut self, data: &[u8]) {
         let hash = Sha256Hash::new(data);
-        let original_hashes = Lazy::force(&ORIGINAL_GAME_NRO_HASHES);
+        let original_hashes = LazyLock::force(&ORIGINAL_GAME_NRO_HASHES);
         if !original_hashes.contains(&hash) {
             self.hashes.push(hash);
         }

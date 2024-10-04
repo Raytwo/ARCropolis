@@ -30,7 +30,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
         hashes::find(path_hash).bright_yellow()
     );
 
-    let mut fs = GLOBAL_FILESYSTEM.write();
+    let mut fs = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
 
     let should_add = if let Some(path) = fs.hash(path_hash) {
         info!("Added file '{}' to the queue.", path.display().yellow());
@@ -58,7 +58,7 @@ fn inflate_dir_file(arg: u64, out_decomp_data: &mut InflateFile, comp_data: &Inf
 
     if result == 0x0 {
         // returns 0x0 on the very last read, since they can be read in chunks
-        let hash = crate::GLOBAL_FILESYSTEM.write().get_incoming();
+        let hash = unsafe { crate::GLOBAL_FILESYSTEM.write().unwrap().get_incoming() };
         if let Some(hash) = hash {
             handle_file_replace(hash);
         }
@@ -105,7 +105,7 @@ pub fn handle_file_replace(hash: Hash40) {
         return;
     }
 
-    let mut fs = crate::GLOBAL_FILESYSTEM.write();
+    let mut fs = unsafe { crate::GLOBAL_FILESYSTEM.write().unwrap() };
 
     let buffer = unsafe {
         std::slice::from_raw_parts_mut(
