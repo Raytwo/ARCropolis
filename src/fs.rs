@@ -531,11 +531,8 @@ impl CachedFilesystem {
             replacement::addition::add_files_to_directory(&mut context, hash.to_smash_arc(), files.iter().map(|hash| hash.to_smash_arc()).collect());
         }
 
-        println!("Before take context");
         resource::arc_mut().take_context(context);
-        println!("Before search mut");
         resource::search_mut().take_context(search_context);
-        println!("After search");
     }
 
     /// Gets the global mod config
