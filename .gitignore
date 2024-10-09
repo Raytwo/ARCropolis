@@ -13,4 +13,7 @@ Cargo.lock
 
 # Ignore a folder and script I'm using for testing web stuff
 /resources/testing
-/resources/copy.py
+/resources/copy.py/resources/copy.py
+
+# Mac moment
+**/.DS_Store
