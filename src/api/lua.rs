@@ -2,7 +2,7 @@ use crate::lua::lua::{lua_state, luaL_Reg_container, luaL_Reg_from_api};
 use std::ffi::CString;
 
 #[no_mangle]
-pub extern "C" fn arcorp_add_lua_menu_manager(name: *mut u8, reg_vec_ptr: *mut luaL_Reg_from_api, reg_vec_size: usize, reg_vec_cap: usize) -> bool {
+pub extern "C" fn arcorp_add_lua_menu_manager(name: *mut i8, reg_vec_ptr: *mut luaL_Reg_from_api, reg_vec_size: usize, reg_vec_cap: usize) -> bool {
     debug!("arcorp_add_lua_menu_manager -> Function called");
     unsafe {
         match CString::from_raw(name).to_str() {
@@ -28,7 +28,7 @@ pub extern "C" fn arcorp_add_lua_menu_manager(name: *mut u8, reg_vec_ptr: *mut l
 }
 
 #[no_mangle]
-pub extern "C" fn arcorp_add_lua_ingame_manager(name: *mut u8, reg_vec_ptr: *mut luaL_Reg_from_api, reg_vec_size: usize, reg_vec_cap: usize) -> bool {
+pub extern "C" fn arcorp_add_lua_ingame_manager(name: *mut i8, reg_vec_ptr: *mut luaL_Reg_from_api, reg_vec_size: usize, reg_vec_cap: usize) -> bool {
     debug!("arcorp_add_lua_ingame_manager -> Function called");
     unsafe {
         match CString::from_raw(name).to_str() {
@@ -95,7 +95,7 @@ pub extern "C" fn arcrop_lua_state_push_nil(lua_state: &mut lua_state) {
 }
 
 #[no_mangle]
-pub extern "C" fn arcrop_lua_state_push_string(lua_state: &mut lua_state, str: *mut u8) {
+pub extern "C" fn arcrop_lua_state_push_string(lua_state: &mut lua_state, str: *mut i8) {
     debug!("arcrop_lua_state_push_string -> Function called");
     unsafe { lua_state.push_string(CString::from_raw(str).to_str().expect("Failed to get string from str pointer!")); }
 }

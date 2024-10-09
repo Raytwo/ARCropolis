@@ -112,7 +112,7 @@ pub fn show_workspaces() {
 
     if active_workspace.ne(&prev_set_workspace) {
         // if let Some(_filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
-            if skyline_web::Dialog::yes_no(format!("Your active workspace has successfully been changed to {}!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?", active_workspace)) {
+            if skyline_web::dialog::Dialog::yes_no(format!("Your active workspace has successfully been changed to {}!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?", active_workspace)) {
                 unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
             }
         // }

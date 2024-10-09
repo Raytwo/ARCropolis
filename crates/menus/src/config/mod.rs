@@ -131,7 +131,7 @@ pub fn show_config_editor<CS: ConfigStorage>(storage: &mut StorageHolder<CS>) {
     storage.flush();
 
     if reboot_required {
-        skyline_web::DialogOk::ok(
+        skyline_web::dialog_ok::DialogOk::ok(
             "Some important fields in the configuration have been changed. <br>Smash will now reboot to reload ARCropolis with the new changes.",
         );
         unsafe { skyline::nn::oe::RequestToRelaunchApplication() };

@@ -84,7 +84,7 @@ pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
                     description: Some(res.description.unwrap_or_default().replace('\n', "<br />")),
                 },
                 Err(e) => {
-                    skyline_web::DialogOk::ok(format!("The following info.toml is not valid: \n\n* '{}'\n\nError: {}", folder_name, e,));
+                    skyline_web::dialog_ok::DialogOk::ok(format!("The following info.toml is not valid: \n\n* '{}'\n\nError: {}", folder_name, e,));
                     default_entry
                 },
             };
@@ -100,7 +100,7 @@ pub fn show_arcadia(workspace: Option<String>) {
     let umm_path = utils::paths::mods();
 
     if !umm_path.exists() {
-        skyline_web::DialogOk::ok("It seems the directory specified in your configuration does not exist.");
+        skyline_web::dialog_ok::DialogOk::ok("It seems the directory specified in your configuration does not exist.");
         return;
     }
     let workspace_name: String =
@@ -215,7 +215,7 @@ pub fn show_arcadia(workspace: Option<String>) {
     if new_presets != presets {
         // Acquire the filesystem so we can check if it's already finished or not (for boot-time mod manager)
         // if let Some(_filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
-            if active_workspace.eq(&workspace_name) && skyline_web::Dialog::yes_no("Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?") {
+            if active_workspace.eq(&workspace_name) && skyline_web::dialog::Dialog::yes_no("Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?") {
                 unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
             }
         // }
