@@ -72,7 +72,7 @@ pub struct luaL_Reg_container {
 #[repr(C)]
 #[derive(Debug)]
 pub struct luaL_Reg_from_api {
-    pub name: *mut u8,
+    pub name: *mut i8,
     pub func: LuaCfunction,
 }
 

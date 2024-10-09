@@ -7,7 +7,6 @@
 #![feature(string_remove_matches)]
 // #![feature(fs_try_exists)]
 #![feature(int_roundings)]
-#![feature(stdsimd)]
 #![feature(lazy_cell)]
 
 use std::{
