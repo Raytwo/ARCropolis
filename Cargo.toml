@@ -1,6 +1,6 @@
 [package]
 name = "arcropolis"
-version = "4.0.3"
+version = "4.0.4"
 authors = ["Raytwo <raytwo@arcropolis.com>, blujay <the.blu.dev@gmail.com>, jam1garner <jam@jam1.re>, CoolSonicKirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
@@ -22,7 +22,7 @@ walkdir = "2.3.3"
 thiserror = "1.0.43"
 camino = "1"
 # Switch utilities
-skyline = { git = "https://github.com/Raytwo/skyline-rs", branch="preview" }
+skyline = { git = "https://github.com/ultimate-research/skyline-rs" }
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 # For the updater
 zip = { version = "0.6", default-features = false, features = ["deflate"], optional = true }
@@ -70,7 +70,7 @@ menus = { path = "crates/menus", optional = true }
 native-tls = { git = "https://github.com/skyline-rs/rust-native-tls", rev = "f202fca"  }
 
 [features]
-default = ["online", "ui"]
+default = ["ui"]
 online = ["zip", "gh-updater", "minreq"]
 ui = ["menus"]
 
@@ -80,3 +80,9 @@ panic = "abort"
 [profile.release]
 panic = "abort"
 lto = true
+opt-level = 1
+incremental = true
+debug = 1
+
+[profile.release.package."*"]
+opt-level = 3

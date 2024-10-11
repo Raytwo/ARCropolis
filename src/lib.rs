@@ -7,7 +7,6 @@
 #![feature(string_remove_matches)]
 // #![feature(fs_try_exists)]
 #![feature(int_roundings)]
-#![feature(lazy_cell)]
 
 use std::{
     collections::HashMap, fmt, io::{BufWriter, Write}, path::{Path, PathBuf}, str::FromStr, sync::{LazyLock, RwLock}
@@ -238,17 +237,17 @@ fn initial_loading(_ctx: &InlineCtx) {
     check_for_changelog();
 
     // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
-    #[cfg(feature = "online")]
-    let _updater = std::thread::Builder::new()
-        .stack_size(0x10000)
-        .spawn(|| {
-            unsafe {
-                let curr_thread = nn::os::GetCurrentThread();
-                nn::os::ChangeThreadPriority(curr_thread, 16);
-            }
-            check_for_update();
-        })
-        .unwrap();
+    // #[cfg(feature = "online")]
+    // let _updater = std::thread::Builder::new()
+    //     .stack_size(0x10000)
+    //     .spawn(|| {
+    //         unsafe {
+    //             let curr_thread = nn::os::GetCurrentThread();
+    //             nn::os::ChangeThreadPriority(curr_thread, 16);
+    //         }
+    //         check_for_update();
+    //     })
+    //     .unwrap();
 
     // Commented out until we get an actual news server
     // #[cfg(feature = "online")]
@@ -287,8 +286,8 @@ fn initial_loading(_ctx: &InlineCtx) {
     fuse::mods::install_mod_fs();
     api::event::send_event(Event::ModFilesystemMounted);
 
-    #[cfg(feature = "online")]
-    _updater.join().unwrap();
+    // #[cfg(feature = "online")]
+    // _updater.join().unwrap();
 }
 
 #[skyline::hook(offset = offsets::title_screen_version())]
