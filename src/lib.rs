@@ -197,7 +197,7 @@ fn get_news_data() {
     }
 }
 
-#[cfg(feature = "online")]
+#[cfg(feature = "ui")]
 fn check_input_on_boot() {
     if !crate::utils::env::is_emulator() {
         // Open the ARCropolis menu if Minus is held before mod discovery

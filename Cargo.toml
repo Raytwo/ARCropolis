@@ -72,7 +72,7 @@ native-tls = { git = "https://github.com/skyline-rs/rust-native-tls", rev = "f20
 [features]
 default = ["ui"]
 online = ["zip", "gh-updater", "minreq"]
-ui = ["menus"]
+ui = ["dep:menus"]
 
 [profile.dev]
 panic = "abort"

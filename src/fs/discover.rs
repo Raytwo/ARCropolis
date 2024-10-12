@@ -59,7 +59,7 @@ pub fn perform_discovery() -> LaunchPad<StandardLoader> {
         config::set_mod_cache(&new_cache).unwrap();
     }
 
-    #[cfg(feature = "online")]
+    #[cfg(feature = "ui")]
     crate::check_input_on_boot();
 
     // If the user edited their mods again, we'll have to reload them here. This is obviously bad and inefficient but it wouldn't be ARCropolis if it wasn't.
