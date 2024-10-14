@@ -1,6 +1,6 @@
 [package]
 name = "arcropolis"
-version = "4.0.5"
+version = "4.0.6"
 authors = ["Raytwo <raytwo@arcropolis.com>, blujay <the.blu.dev@gmail.com>, jam1garner <jam@jam1.re>, CoolSonicKirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
