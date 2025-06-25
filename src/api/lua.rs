@@ -5,14 +5,14 @@ use std::ffi::CString;
 pub extern "C" fn arcorp_add_lua_menu_manager(name: *mut i8, reg_vec_ptr: *mut luaL_Reg_from_api, reg_vec_size: usize, reg_vec_cap: usize) -> bool {
     debug!("arcorp_add_lua_menu_manager -> Function called");
     unsafe {
-        match CString::from_raw(name).to_str() {
+        match CString::from_raw(name as _).to_str() {
             Ok(s) => {
                 let name = s.to_string();
                 let registry = Vec::from_raw_parts(reg_vec_ptr, reg_vec_size, reg_vec_cap);
                 
                 let functions = registry.iter().map(|x| {
                     luaL_Reg_container {
-                        name: CString::from_raw(x.name).to_str().unwrap().to_string(),
+                        name: CString::from_raw(x.name as _).to_str().unwrap().to_string(),
                         func: x.func
                     }
                 }).collect::<Vec<luaL_Reg_container>>();
@@ -31,14 +31,14 @@ pub extern "C" fn arcorp_add_lua_menu_manager(name: *mut i8, reg_vec_ptr: *mut l
 pub extern "C" fn arcorp_add_lua_ingame_manager(name: *mut i8, reg_vec_ptr: *mut luaL_Reg_from_api, reg_vec_size: usize, reg_vec_cap: usize) -> bool {
     debug!("arcorp_add_lua_ingame_manager -> Function called");
     unsafe {
-        match CString::from_raw(name).to_str() {
+        match CString::from_raw(name as _).to_str() {
             Ok(s) => {
                 let name = s.to_string();
                 let registry = Vec::from_raw_parts(reg_vec_ptr, reg_vec_size, reg_vec_cap);
                 
                 let functions = registry.iter().map(|x| {
                     luaL_Reg_container {
-                        name: CString::from_raw(x.name).to_str().unwrap().to_string(),
+                        name: CString::from_raw(x.name as _).to_str().unwrap().to_string(),
                         func: x.func
                     }
                 }).collect::<Vec<luaL_Reg_container>>();
@@ -97,5 +97,5 @@ pub extern "C" fn arcrop_lua_state_push_nil(lua_state: &mut lua_state) {
 #[no_mangle]
 pub extern "C" fn arcrop_lua_state_push_string(lua_state: &mut lua_state, str: *mut i8) {
     debug!("arcrop_lua_state_push_string -> Function called");
-    unsafe { lua_state.push_string(CString::from_raw(str).to_str().expect("Failed to get string from str pointer!")); }
+    unsafe { lua_state.push_string(CString::from_raw(str as _).to_str().expect("Failed to get string from str pointer!")); }
 }
