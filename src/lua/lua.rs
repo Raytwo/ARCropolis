@@ -27,13 +27,13 @@ fn lua_getfield(lua_state: &mut lua_state, lua_registry: *const TValue, name: *c
 #[from_offset(offsets::lua_setmetatable())]
 fn lua_setmetatable(lua_state: &mut lua_state, obj_idx: i32);
 
-#[from_offset(0x38f68d0)]
+#[from_offset(0x38f6cb0)]
 fn lua_tonumberx(lua_state: &mut lua_state, idx: i32, unk: *const u64) -> f32;
 
-#[from_offset(0x38f3c20)]
+#[from_offset(0x38f4000)]
 fn lua_tointegerx(lua_state: &mut lua_state, idx: i32, unk: *const u64) -> u64;
 
-#[from_offset(0x38f3da0)]
+#[from_offset(0x38f4180)]
 fn lua_tolstring(lua_state: &mut lua_state, idx: i32, unk: *const u64) -> *const u8;
 
 #[from_offset(offsets::declare_namespace())]
