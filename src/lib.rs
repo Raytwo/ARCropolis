@@ -50,14 +50,14 @@ static mut NEWS_DATA: LazyLock<RwLock<HashMap<String, String>>> = LazyLock::new(
 #[macro_export]
 macro_rules! reg_x {
     ($ctx:ident, $no:expr) => {
-        unsafe { *$ctx.registers[$no].x.as_ref() }
+        $ctx.registers[$no].x()
     };
 }
 
 #[macro_export]
 macro_rules! reg_w {
     ($ctx:ident, $no:expr) => {
-        unsafe { *$ctx.registers[$no].w.as_ref() }
+        $ctx.registers[$no].w()
     };
 }
 
@@ -342,13 +342,13 @@ unsafe fn msbt_text(ctx: &mut InlineCtx) {
         text.push('\0');
 
         let text_vec: Vec<u16> = text.encode_utf16().collect();
-        *ctx.registers[0].x.as_mut() = text_vec.as_ptr() as u64;
+        ctx.registers[0].set_x(text_vec.as_ptr() as u64);
     }
 }
 
 #[skyline::hook(offset = offsets::packet_send(), inline)]
 unsafe fn online_slot_spoof(ctx: &InlineCtx) {
-    let data = *ctx.registers[3].x.as_ref() as *mut u8;
+    let data = ctx.registers[3].x() as *mut u8;
 
     if data.is_null() {
         return;
@@ -371,9 +371,9 @@ pub fn is_online() -> bool {
 unsafe fn change_fighter_color_r(ctx: &mut skyline::hooks::InlineCtx) {
     if is_online() {
         unsafe {
-            if *ctx.registers[8].w.as_ref() >= 8 {
-                *ctx.registers[8].w.as_mut() = 0; // Actual color
-                *ctx.registers[3].w.as_mut() = 0; // UI
+            if ctx.registers[8].w() >= 8 {
+                ctx.registers[8].set_w(0); // Actual color
+                ctx.registers[3].set_w(0); // UI
             }
         }
     }
@@ -383,10 +383,10 @@ unsafe fn change_fighter_color_r(ctx: &mut skyline::hooks::InlineCtx) {
 unsafe fn change_fighter_color_l(ctx: &mut skyline::hooks::InlineCtx) {
     if is_online() {
         unsafe {
-            if *ctx.registers[8].w.as_ref() >= 8 {
+            if ctx.registers[8].w() >= 8 {
                 // Assuming that if they can change a character's color then that means a character has at least a set of 8 colors
-                *ctx.registers[8].w.as_mut() = 7; // Actual color
-                *ctx.registers[3].w.as_mut() = 7; // UI
+                ctx.registers[8].set_w(7); // Actual color
+                ctx.registers[3].set_w(7); // UI
             }
         }
     }
@@ -394,22 +394,19 @@ unsafe fn change_fighter_color_l(ctx: &mut skyline::hooks::InlineCtx) {
 
 #[skyline::hook(offset = offsets::skip_opening(), inline)]
 unsafe fn skip_opening_cutscene(ctx: &mut InlineCtx) {
-    let data = ctx.registers[8].x.as_mut();
-    *data = 0;
+    ctx.registers[8].set_x(0);
 }
 
 // Change the next callback for the TitleSceneInfo::callbacks::Enter from "DisplayOpeningCutscene" to "HowToPlay"
 #[skyline::hook(offset = offsets::title_scene_play_opening(), inline)]
 unsafe fn title_scene_play_opening(ctx: &mut InlineCtx) {
-    let data = ctx.registers[9].x.as_mut();
-    *data = 1;
+    ctx.registers[9].set_x(1);
 }
 
 // Pretend the state for another state handler (OpeningCutsceneLayout?) is set to 5
 #[skyline::hook(offset = offsets::title_scene_how_to_play(), inline)]
 unsafe fn title_scene_show_how_to_play_fake_state_index(ctx: &mut InlineCtx) {
-    let data = ctx.registers[8].x.as_mut();
-    *data = 5;
+    ctx.registers[8].set_x(5);
 }
 
 #[skyline::main(name = "arcropolis")]

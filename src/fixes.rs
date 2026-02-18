@@ -5,8 +5,8 @@ use skyline::{from_offset, hook, hooks::InlineCtx, install_hooks, patching::{Pat
 fn install_inkling_patches() {
     #[skyline::hook(offset = offsets::clear_ink_patch(), inline)]
     unsafe fn clear_ink_patch(ctx: &mut InlineCtx) {
-        let res = (*ctx.registers[24].w.as_ref() as u32) % 8;
-        *ctx.registers[24].w.as_mut() = res;
+        let res = ctx.registers[24].w() % 8;
+        ctx.registers[24].set_w(res);
     }
 
     // Inkling Patches here nop some branches so it can work with more than c08+
@@ -39,7 +39,7 @@ fn install_added_color_patches() {
 
     #[hook(offset = offsets::set_global_color_for_classic_mode(), inline)]
     pub unsafe fn set_global_color_for_classic_mode(ctx: &mut InlineCtx) {
-        *(ctx.registers[9].w.as_mut()) = *(ctx.registers[9].w.as_ref()) % 8;
+        ctx.registers[9].set_w(ctx.registers[9].w() % 8);
     }
 
     skyline::install_hook!(set_global_color_for_classic_mode);
@@ -126,8 +126,8 @@ fn install_lazy_loading_patches() {
     #[hook(offset = offsets::load_chara_1_for_all_costumes(), inline)]
     pub unsafe fn original_load_chara_1_ui_for_all_colors(ctx: &mut InlineCtx) {
         // Save the first and fourth parameter for reference when we load the file ourselves
-        PARAM_1 = *ctx.registers[0].x.as_ref();
-        PARAM_4 = *ctx.registers[3].x.as_ref();
+        PARAM_1 = ctx.registers[0].x();
+        PARAM_4 = ctx.registers[3].x();
     }
 
     #[hook(offset = offsets::load_stock_icon_for_portrait_menu(), inline)]
@@ -137,8 +137,8 @@ fn install_lazy_loading_patches() {
           CharaSelectMenu, which means we should be pretty safe loading the CSPs
         */
         if PARAM_1 != 0 && PARAM_4 != 0 {
-            let ui_chara_hash = *ctx.registers[1].x.as_ref();
-            let color = *ctx.registers[2].w.as_ref();
+            let ui_chara_hash = ctx.registers[1].x();
+            let color = ctx.registers[2].w();
             let path = get_ui_chara_path_from_hash_color_and_type(ui_chara_hash, color, 1);
             load_ui_file(PARAM_1 as *const u64, &path, 0, PARAM_4);
         }

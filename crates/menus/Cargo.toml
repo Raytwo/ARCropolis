@@ -13,7 +13,7 @@ skyline-web = { git = "https://github.com/skyline-rs/skyline-web" }
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 log = "0.4.19"
 smash-arc = { git = "https://github.com/jam1garner/smash-arc" }
-skyline = { git = "https://github.com/Raytwo/skyline-rs", branch="preview" }
+skyline = "0.6"
 config = { path = "../config" }
 semver = { version = "1", features = ["serde"] }
 camino = "1"
