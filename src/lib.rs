@@ -8,6 +8,8 @@
 // #![feature(fs_try_exists)]
 #![feature(int_roundings)]
 
+#![feature(lazy_cell)]
+
 use std::{
     collections::HashMap, fmt, io::{BufWriter, Write}, path::{Path, PathBuf}, str::FromStr, sync::{LazyLock, RwLock}
 };
