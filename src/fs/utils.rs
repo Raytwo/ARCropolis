@@ -11,87 +11,73 @@ use smash_arc::Hash40;
 use super::{ApiCallback, ApiLoader};
 use crate::{hashes, PathExtension};
 
-pub fn make_hash_maps<L: FileLoader>(tree: &Tree<L>) -> (HashMap<Hash40, usize>, HashMap<Hash40, PathBuf>)
+/// Single tree walk that builds hash maps (size + path) and collects nus3bank dependencies.
+///
+/// Regional variant priority: if a regional file (containing '+') is found, it takes priority
+/// over the non-regional variant. See original comment by blujay for details.
+pub fn make_hash_maps_and_nus3bank_deps<L: FileLoader>(
+    tree: &Tree<L>,
+    unshare_blacklist: &[hash40::Hash40],
+) -> (HashMap<Hash40, usize>, HashMap<Hash40, PathBuf>, HashSet<PathBuf>)
 where
     <L as FileLoader>::ErrorType: Debug,
 {
-    // This defines the previously undefined behavior of what happens when you have two files that overlap each other due to
-    // regional things
-    // I.E.: ui/message/msg_menu.msbt and ui/message/msg_menu+us_en.msbt
-    // The regional variant should take priority. Since there can only be one regional file, there are only two situations which need to be handled:
-    // 1.) ui/message/msg_menu.msbt is found and then ui/message/msg_menu+us_en.msbt is found. ui/message/msg_menu+us_en.msbt should overwrite the previous file
-    // 2.) ui/message/msg_menu+us_en.msbt is found first, and when ui/message/msg_menu.msbt is found it should be discarded
-    // To solve this I store the hash of every file which has a regional variant which has been found, and then if a non-regional variant is found
-    // it is ignored
-    // - blujay
     let mut regional_overrides = HashSet::new();
     let mut size_map = HashMap::new();
     let mut path_map = HashMap::new();
-    tree.walk_paths(|node, ty| {
-        if !ty.is_file() {
-            return;
-        }
-
-        if let Some(size) = tree.query_filesize(node.get_local()) {
-            match node.get_local().smash_hash() {
-                Ok(hash) => {
-                    if regional_overrides.contains(&hash) {
-                        return;
-                    }
-
-                    let is_regional_variant = if let Some(node) = node.get_local().to_str() { node.contains('+') } else { false };
-
-                    size_map.insert(hash, size);
-                    path_map.insert(hash, node.get_local().to_path_buf());
-
-                    if is_regional_variant {
-                        regional_overrides.insert(hash);
-                    }
-                },
-                Err(e) => error!("Failed to get hash for {}. Reason: {:?}", node.get_local().display(), e),
-            }
-        } else {
-            error!("Failed to stat file {}. This file may have issues.", node.full_path().display());
-        }
-    });
-
-    (size_map, path_map)
-}
-
-pub fn get_required_nus3banks<L: FileLoader>(tree: &Tree<L>, unshare_blacklist: &[hash40::Hash40]) -> HashSet<PathBuf>
-where
-    <L as FileLoader>::ErrorType: Debug,
-{
     let mut nus3audio_deps = HashSet::new();
     let mut nus3banks_found = HashSet::new();
+
     tree.walk_paths(|node, ty| {
         if !ty.is_file() {
             return;
         }
 
         let local = node.get_local();
-        if local.is_stream() {
-            return;
+
+        // Collect nus3bank dependency info for non-stream files
+        if !local.is_stream() {
+            if local.has_extension("nus3audio") {
+                if let Ok(hash) = local.smash_hash() {
+                    if !unshare_blacklist.contains(&hash.to_external()) {
+                        nus3audio_deps.insert(local.with_extension("nus3bank"));
+                    }
+                }
+            } else if local.has_extension("nus3bank") {
+                nus3banks_found.insert(local.to_path_buf());
+            }
         }
 
-        if local.has_extension("nus3audio") {
+        // Use cached size from discovery (falls back to loader if not cached)
+        if let Some(size) = tree.query_filesize(local) {
             match local.smash_hash() {
-                Ok(hash) if !unshare_blacklist.contains(&hash.to_external()) => {
-                    nus3audio_deps.insert(local.with_extension("nus3bank"));
+                Ok(hash) => {
+                    if regional_overrides.contains(&hash) {
+                        return;
+                    }
+
+                    let is_regional_variant = if let Some(node) = local.to_str() { node.contains('+') } else { false };
+
+                    size_map.insert(hash, size);
+                    path_map.insert(hash, local.to_path_buf());
+
+                    if is_regional_variant {
+                        regional_overrides.insert(hash);
+                    }
                 },
-                Err(e) => error!("Failed to get hash for path {}. Reason: {:?}", local.display(), e),
-                _ => {},
+                Err(e) => error!("Failed to get hash for {}. Reason: {:?}", local.display(), e),
             }
-        } else if local.has_extension("nus3bank") {
-            nus3banks_found.insert(local.to_path_buf());
+        } else {
+            error!("Failed to stat file {}. This file may have issues.", node.full_path().display());
         }
     });
 
+    // Remove nus3bank deps that have actual nus3bank files present
     for bank in nus3banks_found.into_iter() {
         nus3audio_deps.remove(&bank);
     }
 
-    nus3audio_deps
+    (size_map, path_map, nus3audio_deps)
 }
 
 pub fn add_file_to_api_tree<P: AsRef<Path>, Q: AsRef<Path>>(

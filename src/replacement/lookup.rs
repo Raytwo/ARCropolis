@@ -206,10 +206,61 @@ pub fn initialize(arc: Option<&LoadedArc>) {
     initialize_share(arc);
 }
 
+impl UnshareLookup {
+    pub fn get_dir_entry_for_file<H: Into<Hash40>>(&self, hash: H) -> Option<(Hash40, usize)> {
+        self.get(&hash.into()).copied()
+    }
+}
+
+impl ShareLookup {
+    pub fn is_shared_file<H: Into<Hash40>>(&self, hash: H) -> bool {
+        self.is_shared_search.contains(&hash.into())
+    }
+
+    pub fn add_shared_file<H: Into<Hash40>>(&mut self, hash: H, shared_to: H) {
+        let shared_to = shared_to.into();
+        let hash = hash.into();
+        self.is_shared_search.insert(shared_to);
+        self.is_shared_search.insert(hash);
+
+        if let Some(list) = self.shared_file_lookup.get_mut(&shared_to) {
+            list.push(hash);
+        } else {
+            self.shared_file_lookup.insert(shared_to, vec![hash]);
+        }
+    }
+
+    pub fn remove_shared_file<H: Into<Hash40>>(&mut self, hash: H) -> bool {
+        self.is_shared_search.remove(&hash.into())
+    }
+
+    pub fn get_shared_file_count<H: Into<Hash40>>(&self, hash: H) -> usize {
+        self.shared_file_lookup.get(&hash.into()).map_or(0, |hashes| hashes.len())
+    }
+
+    pub fn get_shared_file<H: Into<Hash40>>(&self, hash: H, index: usize) -> Option<Hash40> {
+        self.shared_file_lookup.get(&hash.into()).and_then(|hashes| hashes.get(index).copied())
+    }
+}
+
+pub fn with_lookups<F>(f: F)
+where
+    F: FnOnce(&mut UnshareLookup, &mut ShareLookup),
+{
+    let mut unshare = UNSHARE_LOOKUP.write().unwrap();
+    let mut share = SHARE_LOOKUP.write().unwrap();
+    match (&mut *unshare, &mut *share) {
+        (UnshareLookupState::Generated(unshare_lut), ShareLookupState::Generated(share_lut)) => f(unshare_lut, share_lut),
+        _ => {
+            warn!("Lookup tables are not initialized");
+        },
+    }
+}
+
 pub fn get_dir_entry_for_file<H: Into<Hash40>>(hash: H) -> Option<(Hash40, usize)> {
     let lut = UNSHARE_LOOKUP.read().unwrap();
     match &*lut {
-        UnshareLookupState::Generated(lut) => lut.get(&hash.into()).copied(),
+        UnshareLookupState::Generated(lut) => lut.get_dir_entry_for_file(hash),
         _ => None,
     }
 }
@@ -217,7 +268,7 @@ pub fn get_dir_entry_for_file<H: Into<Hash40>>(hash: H) -> Option<(Hash40, usize
 pub fn is_shared_file<H: Into<Hash40>>(hash: H) -> bool {
     let lut = SHARE_LOOKUP.read().unwrap();
     match &*lut {
-        ShareLookupState::Generated(lut) => lut.is_shared_search.contains(&hash.into()),
+        ShareLookupState::Generated(lut) => lut.is_shared_file(hash),
         _ => false,
     }
 }
@@ -225,23 +276,14 @@ pub fn is_shared_file<H: Into<Hash40>>(hash: H) -> bool {
 pub fn add_shared_file<H: Into<Hash40>>(hash: H, shared_to: H) {
     let mut lut = SHARE_LOOKUP.write().unwrap();
     if let ShareLookupState::Generated(lut) = &mut *lut {
-        let shared_to = shared_to.into();
-        let hash = hash.into();
-        lut.is_shared_search.insert(shared_to);
-        lut.is_shared_search.insert(hash);
-
-        if let Some(list) = lut.shared_file_lookup.get_mut(&shared_to) {
-            list.push(hash);
-        } else {
-            lut.shared_file_lookup.insert(shared_to, vec![hash]);
-        }
+        lut.add_shared_file(hash, shared_to);
     }
 }
 
 pub fn remove_shared_file<H: Into<Hash40>>(hash: H) -> bool {
     let mut lut = SHARE_LOOKUP.write().unwrap();
     match &mut *lut {
-        ShareLookupState::Generated(lut) => lut.is_shared_search.remove(&hash.into()),
+        ShareLookupState::Generated(lut) => lut.remove_shared_file(hash),
         _ => false,
     }
 }
@@ -249,7 +291,7 @@ pub fn remove_shared_file<H: Into<Hash40>>(hash: H) -> bool {
 pub fn get_shared_file_count<H: Into<Hash40>>(hash: H) -> usize {
     let lut = SHARE_LOOKUP.read().unwrap();
     match &*lut {
-        ShareLookupState::Generated(lut) => lut.shared_file_lookup.get(&hash.into()).map_or_else(|| 0, |hashes| hashes.len()),
+        ShareLookupState::Generated(lut) => lut.get_shared_file_count(hash),
         _ => 0,
     }
 }
@@ -257,10 +299,7 @@ pub fn get_shared_file_count<H: Into<Hash40>>(hash: H) -> usize {
 pub fn get_shared_file<H: Into<Hash40>>(hash: H, index: usize) -> Option<Hash40> {
     let lut = SHARE_LOOKUP.read().unwrap();
     match &*lut {
-        ShareLookupState::Generated(lut) => lut
-            .shared_file_lookup
-            .get(&hash.into())
-            .map_or_else(|| None, |hashes| hashes.get(index).copied()),
+        ShareLookupState::Generated(lut) => lut.get_shared_file(hash, index),
         _ => None,
     }
 }

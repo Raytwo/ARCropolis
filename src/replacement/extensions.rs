@@ -18,6 +18,9 @@ use crate::{
     PathExtension,
 };
 
+pub const NO_CHILD: u32 = 0xFF_FFFF;
+pub const INVALID_INDEX: u32 = 0xFFFF_FFFF;
+
 /// Used to keep track of added DirInfo children.
 #[derive(Debug)]
 pub struct InterDir {
@@ -50,6 +53,8 @@ pub struct AdditionContext {
     pub dir_hash_to_info_idx: CppVector<HashToIndex>,
     pub folder_offsets_vec: CppVector<DirectoryOffset>,
     pub folder_children_hashes: CppVector<HashToIndex>,
+
+    dir_info_cache: HashMap<Hash40, usize>,
 }
 
 pub struct SearchContext {
@@ -101,53 +106,22 @@ impl AdditionContext {
     }
 
     pub fn get_dir_info_from_hash_ctx(&self, hash: Hash40) -> Result<&DirInfo, LookupError> {
-        let dir_hash_to_info_index = self.dir_hash_to_info_idx.iter().collect::<Vec<_>>();
-
-        let mut index: Option<usize> = None;
-
-        for i in 0..dir_hash_to_info_index.len() {
-            if dir_hash_to_info_index[i].hash40() == hash {
-                index = Some(i);
-                break;
-            }
-        }
-
-        match index {
-            Some(dir_index) => Ok(&self.dir_infos_vec[dir_index]),
+        match self.dir_info_cache.get(&hash) {
+            Some(&index) => Ok(&self.dir_infos_vec[index]),
             None => Err(LookupError::Missing),
         }
-
-        // let index = dir_hash_to_info_index
-        //     .binary_search_by_key(&hash, |dir| dir.hash40())
-        //     .map(|index| dir_hash_to_info_index[index].index() as usize)
-        //     .map_err(|_| LookupError::Missing)?;
-
-        // Ok(&self.dir_infos_vec[index])
     }
 
     pub fn get_dir_info_from_hash_ctx_mut(&mut self, hash: Hash40) -> Result<&mut DirInfo, LookupError> {
-        let dir_hash_to_info_index = self.dir_hash_to_info_idx.iter().collect::<Vec<_>>();
-
-        let mut index: Option<usize> = None;
-
-        for i in 0..dir_hash_to_info_index.len() {
-            if dir_hash_to_info_index[i].hash40() == hash {
-                index = Some(i);
-                break;
-            }
-        }
-
-        match index {
-            Some(dir_index) => Ok(&mut self.dir_infos_vec[dir_index]),
+        match self.dir_info_cache.get(&hash).copied() {
+            Some(index) => Ok(&mut self.dir_infos_vec[index]),
             None => Err(LookupError::Missing),
         }
+    }
 
-        // let index = dir_hash_to_info_index
-        //     .binary_search_by_key(&hash, |dir| dir.hash40())
-        //     .map(|index| dir_hash_to_info_index[index].index() as usize)
-        //     .map_err(|_| LookupError::Missing)?;
-
-        // Ok(&mut self.dir_infos_vec[index])
+    pub fn cache_dir_info(&mut self, hash: Hash40) {
+        let index = self.dir_hash_to_info_idx.len() - 1;
+        self.dir_info_cache.insert(hash, index);
     }
 
     // for resharing super shared files
@@ -155,7 +129,7 @@ impl AdditionContext {
         if dir_info.flags.redirected() {
             let directory_index = self.folder_offsets_vec[dir_info.path.index() as usize].directory_index;
 
-            if directory_index != 0xFFFFFF {
+            if directory_index != NO_CHILD {
                 if dir_info.flags.is_symlink() {
                     Some(RedirectionType::Symlink(self.dir_infos_vec[directory_index as usize]))
                 } else {
@@ -276,6 +250,13 @@ impl LoadedArcEx for LoadedArc {
         let folder_children_hashes =
             unsafe { CppVector::from_slice(std::slice::from_raw_parts(arc.folder_child_hashes, header.hash_folder_count as usize)) };
 
+        // Build the dir_info_cache for O(1) lookups by hash
+        let dir_info_cache: HashMap<Hash40, usize> = dir_hash_to_info_idx
+            .iter()
+            .enumerate()
+            .map(|(i, entry)| (entry.hash40(), i))
+            .collect();
+
         AdditionContext {
             arc,
             filesystem_info,
@@ -297,6 +278,8 @@ impl LoadedArcEx for LoadedArc {
             dir_hash_to_info_idx,
             folder_offsets_vec,
             folder_children_hashes,
+
+            dir_info_cache,
         }
     }
 
@@ -316,6 +299,8 @@ impl LoadedArcEx for LoadedArc {
             mut dir_hash_to_info_idx,
             mut folder_offsets_vec,
             mut folder_children_hashes,
+
+            dir_info_cache,
             ..
         } = ctx;
 
@@ -334,7 +319,14 @@ impl LoadedArcEx for LoadedArc {
         let (loaded_directories, loaded_directory_len) = (loaded_directories.as_mut_ptr(), loaded_directories.len());
 
         for (dir_name, info) in &ctx.inter_dirs {
-            let mut dir_info = *dir_infos_vec.iter().find(|x| x.path.hash40() == *dir_name).unwrap();
+            let dir_idx = match dir_info_cache.get(dir_name) {
+                Some(&idx) => idx,
+                None => {
+                    error!("Failed to find DirInfo for hash {:#x} in take_context", dir_name.0);
+                    continue;
+                },
+            };
+            let mut dir_info = dir_infos_vec[dir_idx];
             if info.modifies_original {
                 let current_folder_children_hashes_len = folder_children_hashes.len() as u32;
 
@@ -348,30 +340,29 @@ impl LoadedArcEx for LoadedArc {
                 dir_info.child_dir_start_index = current_folder_children_hashes_len;
                 dir_info.child_dir_count += info.children.len() as u32;
 
-                // Update the dir info
-                *dir_infos_vec.iter_mut().find(|x| x.path.hash40() == *dir_name).unwrap() = dir_info;
+                dir_infos_vec[dir_idx] = dir_info;
 
                 // Reserve space at the end of the folder_children_hashes vector for our new children.
                 let reserved_hashes: Vec<HashToIndex> = std::iter::repeat(HashToIndex::new()).take(info.children.len()).collect();
                 folder_children_hashes.extend_from_slice(&reserved_hashes);
 
-                add_children_to_dir_info(&mut dir_infos_vec, &mut folder_children_hashes, &dir_info, &info, &ctx.inter_dirs);
+                add_children_to_dir_info(&dir_info_cache, &mut dir_infos_vec, &mut folder_children_hashes, &dir_info, info, &ctx.inter_dirs);
             } else {
                 dir_info.child_dir_start_index = folder_children_hashes.len() as u32;
                 dir_info.child_dir_count = info.children.len() as u32;
 
-                // Update the dir info
-                *dir_infos_vec.iter_mut().find(|x| x.path.hash40() == *dir_name).unwrap() = dir_info;
+                dir_infos_vec[dir_idx] = dir_info;
 
                 // Reserve space at the end of the folder_children_hashes vector for our new children.
                 let reserved_hashes: Vec<HashToIndex> = std::iter::repeat(HashToIndex::new()).take(info.children.len()).collect();
                 folder_children_hashes.extend_from_slice(&reserved_hashes);
 
-                add_children_to_dir_info(&mut dir_infos_vec, &mut folder_children_hashes, &dir_info, &info, &ctx.inter_dirs);
+                add_children_to_dir_info(&dir_info_cache, &mut dir_infos_vec, &mut folder_children_hashes, &dir_info, info, &ctx.inter_dirs);
             }
         }
 
         fn add_children_to_dir_info(
+            cache: &HashMap<Hash40, usize>,
             dir_infos_vec: &mut CppVector<DirInfo>,
             folder_children_hashes: &mut CppVector<HashToIndex>,
             dir: &DirInfo,
@@ -380,22 +371,26 @@ impl LoadedArcEx for LoadedArc {
         ) {
             let mut base_index = dir.child_dir_start_index as usize + dir.child_dir_count as usize - info.children.len();
             for child in &info.children {
-                // If we have an intermediate directory for the child, then start adding its children
                 if let Some(child_inter_dir) = inter_dirs.get(&child.hash40()) {
-                    let mut child_dir_info = *dir_infos_vec.iter().find(|x| x.path.hash40() == child.hash40()).unwrap();
+                    let child_idx = match cache.get(&child.hash40()) {
+                        Some(&idx) => idx,
+                        None => {
+                            error!("Failed to find child DirInfo for hash {:#x} in add_children_to_dir_info", child.hash40().0);
+                            continue;
+                        },
+                    };
+                    let mut child_dir_info = dir_infos_vec[child_idx];
 
                     child_dir_info.child_dir_start_index = folder_children_hashes.len() as u32;
                     child_dir_info.child_dir_count = child_inter_dir.children.len() as u32;
 
-                    // Update the dir info
-                    *dir_infos_vec.iter_mut().find(|x| x.path.hash40() == child.hash40()).unwrap() = child_dir_info;
+                    dir_infos_vec[child_idx] = child_dir_info;
 
-                    // Reserve space at the end of the dir info vector for our new children.
                     let reserved_dirs: Vec<HashToIndex> = std::iter::repeat(HashToIndex::new())
                         .take(child_inter_dir.children.len() as usize)
                         .collect();
                     folder_children_hashes.extend_from_slice(&reserved_dirs);
-                    add_children_to_dir_info(dir_infos_vec, folder_children_hashes, &child_dir_info, child_inter_dir, inter_dirs);
+                    add_children_to_dir_info(cache, dir_infos_vec, folder_children_hashes, &child_dir_info, child_inter_dir, inter_dirs);
                 }
 
                 folder_children_hashes[base_index] = *child;
@@ -463,7 +458,8 @@ impl LoadedArcEx for LoadedArc {
         static NEEDS_FREE: AtomicBool = AtomicBool::new(false);
         let bucket_count = unsafe { (*self.file_info_buckets).count as usize };
 
-        let mut buckets = vec![Vec::with_capacity(0x50_0000); bucket_count];
+        let avg_per_bucket = self.get_file_paths().len() / bucket_count + 1;
+        let mut buckets: Vec<Vec<HashToIndex>> = (0..bucket_count).map(|_| Vec::with_capacity(avg_per_bucket)).collect();
 
         for (idx, file_path) in self.get_file_paths().iter().enumerate() {
             let bucket_idx = (file_path.path.hash40().as_u64() as usize) % bucket_count;
@@ -490,8 +486,6 @@ impl LoadedArcEx for LoadedArc {
         let tmp = self.file_hash_to_path_index as _;
 
         self.file_hash_to_path_index = new_hash_to_index.leak().as_ptr();
-
-        std::thread::sleep(std::time::Duration::from_millis(100));
 
         for (idx, _) in start_count.iter().enumerate().take(bucket_count) {
             unsafe {
@@ -534,7 +528,7 @@ pub trait SearchEx: SearchLookup {
 
     fn get_folder_path_entry_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut FolderPathListEntry, LookupError> {
         let index = *self.get_folder_path_index_from_hash(hash)?;
-        if index.index() != 0xFF_FFFF {
+        if index.index() != NO_CHILD {
             Ok(&mut self.get_folder_path_list_mut()[index.index() as usize])
         } else {
             Err(LookupError::Missing)
@@ -551,7 +545,7 @@ pub trait SearchEx: SearchLookup {
 
     fn get_path_list_index_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut u32, LookupError> {
         let index = *self.get_path_index_from_hash(hash)?;
-        if index.index() != 0xFF_FFFF {
+        if index.index() != NO_CHILD {
             Ok(&mut self.get_path_list_indices_mut()[index.index() as usize])
         } else {
             Err(LookupError::Missing)
@@ -560,7 +554,7 @@ pub trait SearchEx: SearchLookup {
 
     fn get_path_list_entry_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut PathListEntry, LookupError> {
         let index = self.get_path_list_index_from_hash(hash)?;
-        if index != 0xFF_FFFF {
+        if index != NO_CHILD {
             Ok(&mut self.get_path_list_mut()[index as usize])
         } else {
             Err(LookupError::Missing)
@@ -571,12 +565,12 @@ pub trait SearchEx: SearchLookup {
         let folder_path = self.get_folder_path_entry_from_hash(hash)?;
         let index_idx = folder_path.get_first_child_index();
 
-        if index_idx == 0xFF_FFFF {
+        if index_idx == NO_CHILD as usize {
             return Err(LookupError::Missing);
         }
 
         let path_entry_index = self.get_path_list_indices()[index_idx];
-        if path_entry_index != 0xFF_FFFF {
+        if path_entry_index != NO_CHILD {
             Ok(&mut self.get_path_list_mut()[path_entry_index as usize])
         } else {
             Err(LookupError::Missing)
@@ -585,12 +579,12 @@ pub trait SearchEx: SearchLookup {
 
     fn get_next_child_in_folder_mut(&mut self, current_child: &PathListEntry) -> Result<&mut PathListEntry, LookupError> {
         let index_idx = current_child.path.index() as usize;
-        if index_idx == 0xFF_FFFF {
+        if index_idx == NO_CHILD as usize {
             return Err(LookupError::Missing);
         }
 
         let path_entry_index = self.get_path_list_indices()[index_idx];
-        if path_entry_index != 0xFF_FFFF {
+        if path_entry_index != NO_CHILD {
             Ok(&mut self.get_path_list_mut()[path_entry_index as usize])
         } else {
             Err(LookupError::Missing)
@@ -668,7 +662,7 @@ impl SearchEx for LoadedSearchSection {
         let paths = self.get_path_list();
         let mut index_link = HashMap::new();
         for (idx, index) in self.get_path_list_indices().iter().enumerate() {
-            if *index != 0xFFFF_FFFF && *index != 0xFF_FFFF {
+            if *index != INVALID_INDEX && *index != NO_CHILD {
                 index_link.insert(paths[*index as usize].path.hash40(), idx);
             }
         }
@@ -680,7 +674,7 @@ impl SearchEx for LoadedSearchSection {
             if let Some(idx) = index_link.get(&path.path.hash40()) {
                 index.set_index(*idx as u32);
             } else {
-                index.set_index(0xFF_FFFF);
+                index.set_index(NO_CHILD);
             }
             indices.push(index);
         }
@@ -863,8 +857,8 @@ impl FromSearchableFolder for FolderPathListEntry {
 
         result.path.set_hash(folder.full_path.crc());
         result.path.set_length(folder.full_path.str_len());
-        result.path.set_index(0xFF_FFFF);
-        result.ext.set_hash(0xFFFF_FFFF);
+        result.path.set_index(NO_CHILD);
+        result.ext.set_hash(INVALID_INDEX);
         result.file_name.set_hash(name.crc());
         result.file_name.set_length(name.str_len());
         result.parent.set_hash(parent.crc());
@@ -951,8 +945,8 @@ impl FromPathExt for FolderPathListEntry {
 
         result.path.set_hash(path_hash.crc32());
         result.path.set_length(path_hash.len());
-        result.path.set_index(0xFF_FFFF);
-        result.ext.set_hash(0xFFFF_FFFF);
+        result.path.set_index(NO_CHILD);
+        result.ext.set_hash(INVALID_INDEX);
         result.file_name.set_hash(name_hash.crc32());
         result.file_name.set_length(name_hash.len());
         result.parent.set_hash(parent_hash.crc32());

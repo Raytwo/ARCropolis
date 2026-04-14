@@ -55,105 +55,143 @@ pub struct CachedFilesystem {
 }
 
 impl CachedFilesystem {
-    /// Load all configs that were found during discovery and join them into a singular config
-    fn load_remaining_configs(current: &mut ModConfig, launchpad: &LaunchPad<StandardLoader>) {
-        for (root, local) in launchpad.collected_paths().iter() {
-            let full_path = root.join(local);
-            if !full_path.exists() {
-                warn!("Collected path at {} does not exist.", full_path.display());
-                continue;
-            }
+    /// Load all configs and initialize all patch types from collected paths.
+    fn process_collected_paths(
+        config: &mut ModConfig,
+        launchpad: &LaunchPad<StandardLoader>,
+        api_tree: &mut Tree<ApiLoader>,
+    ) -> HashSet<Hash40> {
+        let mut hashes = HashSet::new();
+        let mut counts = [0u32; 7]; // config, prc, msbt, nus3audio, motionlist, bgm, other
+        let mut durations = [std::time::Duration::ZERO; 7];
+        let mut config_paths: Vec<(PathBuf, usize)> = Vec::new();
 
-            if !full_path.ends_with("config.json") {
-                trace!("Skipping path {} while loading all configs", full_path.display());
-                continue;
-            }
-
-            // Read the file data and map it to a json. If that fails, just skip this current JSON.
-            let cfg = ModConfig::from_file_json(&full_path).ok();
-
-            if let Some(cfg) = cfg {
-                current.merge(cfg);
-            } else {
-                warn!("Could not read/parse JSON data from file {}", full_path.display());
-            }
-        }
-    }
-
-    /// Get a list of all PRC patch files and add them to the virtual tree
-    fn initialize_prc_patches(launchpad: &LaunchPad<StandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
-        let mut set = HashSet::new();
-        for (root, path) in launchpad.collected_paths().iter() {
-            // The collected paths gives us everything so we only want these extensions
-            if path.has_extension("prcx")
+        let collected = launchpad.collected_paths();
+        let collected_sizes = launchpad.collected_sizes();
+        for (i, (root, path)) in collected.iter().enumerate() {
+            let size = collected_sizes.get(i).copied().unwrap_or(0);
+            if path.ends_with("config.json") {
+                let t = std::time::Instant::now();
+                config_paths.push((root.join(path), size));
+                counts[0] += 1;
+                durations[0] += t.elapsed();
+            // PRC patch files
+            } else if path.has_extension("prcx")
                 || path.has_extension("prcxml")
                 || path.has_extension("stdatx")
                 || path.has_extension("stdatxml")
                 || path.has_extension("stprmx")
                 || path.has_extension("stprmxml")
             {
+                let t = std::time::Instant::now();
                 if let Some(hash) = utils::add_prc_patch(api_tree, root, path) {
-                    set.insert(hash);
+                    hashes.insert(hash);
                 }
-            }
-        }
-        set
-    }
-
-    /// Get a list of all MSBT patch files and add them to the virtual tree
-    fn initialize_msbt_patches(launchpad: &LaunchPad<StandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
-        let mut set = HashSet::new();
-        for (root, path) in launchpad.collected_paths().iter() {
-            // The collected paths gives us everything so we only want these extensions
-            if path.has_extension("xmsbt") {
+                counts[1] += 1;
+                durations[1] += t.elapsed();
+            // MSBT patch files
+            } else if path.has_extension("xmsbt") {
+                let t = std::time::Instant::now();
                 if let Some(hash) = utils::add_msbt_patch(api_tree, root, path) {
-                    set.insert(hash);
+                    hashes.insert(hash);
                 }
-            }
-        }
-        set
-    }
-
-    /// Get a list of all nus3audio patch files and add them to the virtual tree
-    fn initialize_nus3audio_patches(launchpad: &LaunchPad<StandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
-        let mut set = HashSet::new();
-        for (root, path) in launchpad.collected_paths().iter() {
-            // The collected paths gives us everything so we only want these extensions
-            if path.has_extension("patch3audio") {
+                counts[2] += 1;
+                durations[2] += t.elapsed();
+            // NUS3AUDIO patch files
+            } else if path.has_extension("patch3audio") {
+                let t = std::time::Instant::now();
                 if let Some(hash) = utils::add_nus3audio_patch(api_tree, root, path) {
-                    set.insert(hash);
+                    hashes.insert(hash);
                 }
-            }
-        }
-        set
-    }
-
-    /// Get a list of all motion list patch files and add them to the virtual tree
-    fn initialize_motionlist_patches(launchpad: &LaunchPad<StandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
-        let mut set = HashSet::new();
-        for (root, path) in launchpad.collected_paths().iter() {
-            // The collected paths gives us everything so we only want these extensions
-            if path.has_extension("motdiff") || path.ends_with("motion_list.yml") {
+                counts[3] += 1;
+                durations[3] += t.elapsed();
+            // Motion list patch files
+            } else if path.has_extension("motdiff") || path.ends_with("motion_list.yml") {
+                let t = std::time::Instant::now();
                 if let Some(hash) = utils::add_motionlist_patch(api_tree, root, path) {
-                    set.insert(hash);
+                    hashes.insert(hash);
                 }
+                counts[4] += 1;
+                durations[4] += t.elapsed();
+            // BGM property patch files
+            } else if path.file_name() == Path::new("bgm_property.bin").file_name() {
+                let t = std::time::Instant::now();
+                if let Some(hash) = utils::add_bgm_property_patch(api_tree, root, path) {
+                    hashes.insert(hash);
+                }
+                counts[5] += 1;
+                durations[5] += t.elapsed();
+            } else {
+                counts[6] += 1;
             }
         }
-        set
+
+        // Try to use a cached merged config to skip loading all the mod configs.
+        // The key is built from (path, file size) of every config.json
+        // if any config is added, removed, or changes size, the cache is invalidated
+        let t_cache = std::time::Instant::now();
+        let cache_key = Self::compute_config_cache_key(&config_paths);
+        let used_cache = if let Some(cached) = Self::load_cached_merged_config(&cache_key) {
+            *config = cached;
+            true
+        } else {
+            for (path, _size) in &config_paths {
+                match ModConfig::from_file_json(path) {
+                    Ok(cfg) => config.merge(cfg),
+                    Err(_) => warn!("Could not read json from file {}", path.display()),
+                }
+            }
+            Self::save_cached_merged_config(&cache_key, config);
+            false
+        };
+
+        hashes
     }
 
-    /// Get a list of all bgm_property files and add them to the virtual tree
-    fn initialize_bgm_property_patches(launchpad: &LaunchPad<StandardLoader>, api_tree: &mut Tree<ApiLoader>) -> HashSet<Hash40> {
-        let mut set = HashSet::new();
-        for (root, path) in launchpad.collected_paths().iter() {
-            // The collected paths gives us everything so we only want these extensions
-            if path.file_name() == Path::new("bgm_property.bin").file_name() {
-                if let Some(hash) = utils::add_bgm_property_patch(api_tree, root, path) {
-                    set.insert(hash);
-                }
-            }
+    /// Make a cache from the sorted list of (path, file size) for every config.json
+    /// Sizes come from orbits' walkdir pass during discovery
+    fn compute_config_cache_key(config_paths: &[(PathBuf, usize)]) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut entries: Vec<&(PathBuf, usize)> = config_paths.iter().collect();
+        entries.sort();
+
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        // Include the ARCropolis version so default-config changes invalidate the cache
+        env!("CARGO_PKG_VERSION").hash(&mut hasher);
+        entries.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    fn cache_path() -> PathBuf {
+        crate::utils::paths::cache().join("config_merged.cache").into()
+    }
+
+    fn load_cached_merged_config(key: &u64) -> Option<ModConfig> {
+        let bytes = std::fs::read(Self::cache_path()).ok()?;
+        if bytes.len() < 8 {
+            return None;
         }
-        set
+        let mut key_bytes = [0u8; 8];
+        key_bytes.copy_from_slice(&bytes[..8]);
+        let stored_key = u64::from_le_bytes(key_bytes);
+        if stored_key != *key {
+            return None;
+        }
+        bincode::deserialize::<ModConfig>(&bytes[8..]).ok()
+    }
+
+    fn save_cached_merged_config(key: &u64, config: &ModConfig) {
+        let mut bytes = key.to_le_bytes().to_vec();
+        match bincode::serialize(config) {
+            Ok(serialized) => bytes.extend_from_slice(&serialized),
+            Err(e) => {
+                warn!("Failed to serialize merged config for caching: {:?}", e);
+                return;
+            },
+        }
+        if let Err(e) = std::fs::write(Self::cache_path(), &bytes) {
+            warn!("Failed to write merged config cache: {:?}", e);
+        }
     }
 
     /// Parse a pending API call and add it to the API tree. This function returns the hash, as well as the size (if needed)
@@ -186,18 +224,6 @@ impl CachedFilesystem {
     /// Use the file information that was generated during file discovery to fill out a GlobalFilesystem struct
     pub fn make_from_promise(launchpad: LaunchPad<StandardLoader>) -> CachedFilesystem {
         let arc = resource::arc();
-        // Provide the discovered tree and get two hashmaps, one of the sizes of each file discovered (for patching)
-        // and also get hash40 -> PathBuf lookup, since it's going to be a lot faster when the game is loading
-        // individual files
-        let (mut hashed_sizes, mut hashed_paths) = utils::make_hash_maps(launchpad.tree());
-
-        // Add the discovered paths to the global hashes, so that when a file is loading that *we have discovered* we can guarantee
-        // that we are printing the real path in the logger.
-        for (_hash, path) in hashed_paths.iter() {
-            if let Some(string) = path.to_str() {
-                hashes::add(string);
-            }
-        }
 
         // Load the default config, which we will then join with the other configs
         let mut config = match ModConfig::from_json(DEFAULT_CONFIG) {
@@ -208,23 +234,20 @@ impl CachedFilesystem {
             },
         };
 
-        // Load all of the user configs into the main config
-        Self::load_remaining_configs(&mut config, &launchpad);
-
-        // Collect all of the NUS3BANK dependencies that audio files have in order to be unshared
-        // Note that we pass the unshare blacklist because if the NUS3AUDIO files are blacklisted then we shouldn't unshare the
-        // actual nus3bank either
-        let nus3audio_deps = utils::get_required_nus3banks(launchpad.tree(), &config.unshare_blacklist);
-
-        // Create the API file tree and start adding things to it
+        // Create the API file tree
         let mut api_tree = Tree::new(ApiLoader::default());
 
-        // Set up the API tree with all of the patch files
-        let mut hashes = Self::initialize_prc_patches(&launchpad, &mut api_tree);
-        hashes.extend(Self::initialize_msbt_patches(&launchpad, &mut api_tree));
-        hashes.extend(Self::initialize_nus3audio_patches(&launchpad, &mut api_tree));
-        hashes.extend(Self::initialize_motionlist_patches(&launchpad, &mut api_tree));
-        hashes.extend(Self::initialize_bgm_property_patches(&launchpad, &mut api_tree));
+        let t = std::time::Instant::now();
+        let hashes = Self::process_collected_paths(&mut config, &launchpad, &mut api_tree);
+
+        let t = std::time::Instant::now();
+        let (mut hashed_sizes, mut hashed_paths, nus3audio_deps) =
+            utils::make_hash_maps_and_nus3bank_deps(launchpad.tree(), &config.unshare_blacklist);
+
+        // Add the discovered paths to the global hashes, so that when a file is loading that *we have discovered* we can guarantee
+        // that we are printing the real path in the logger.
+        let t = std::time::Instant::now();
+        hashes::add_all(hashed_paths.values().filter_map(|path| path.to_str()));
 
         // Add the hash files and set the new size to 10x the original files
         for hash in hashes {
@@ -426,18 +449,24 @@ impl CachedFilesystem {
     pub fn reshare_files(&mut self) {
         let arc = resource::arc();
         let file_paths = arc.get_file_paths();
-        let mut old_map = HashMap::new();
-        std::mem::swap(&mut self.hash_lookup, &mut old_map);
-        self.hash_lookup = old_map
-            .into_iter()
-            .map(|(hash, path)| {
-                (
-                    arc.get_file_info_from_hash(hash)
-                        .map_or_else(|_| hash, |info| file_paths[info.file_path_index].path.hash40()),
-                    path,
-                )
+
+        // Collect only the entries that need remapping
+        let remaps: Vec<(Hash40, Hash40)> = self
+            .hash_lookup
+            .keys()
+            .filter_map(|&hash| {
+                arc.get_file_info_from_hash(hash).ok().and_then(|info| {
+                    let canonical = file_paths[info.file_path_index].path.hash40();
+                    if canonical != hash { Some((hash, canonical)) } else { None }
+                })
             })
             .collect();
+
+        for (old_hash, new_hash) in remaps {
+            if let Some(path) = self.hash_lookup.remove(&old_hash) {
+                self.hash_lookup.insert(new_hash, path);
+            }
+        }
     }
 
     /// Goes through and performs the required file manipulation in order to load mods
@@ -487,43 +516,60 @@ impl CachedFilesystem {
         });
 
         // Don't unshare any files in the unshare blacklist (nus3audio handled during filesystem finish)
-        let files = self.hash_lookup.iter().filter_map(
-            |(hash, _path)| {
+        let files: Vec<Hash40> = self
+            .hash_lookup
+            .iter()
+            .filter_map(|(hash, _path)| {
                 if self.config.unshare_blacklist.contains(&hash.to_external()) {
                     None
                 } else {
                     Some(*hash)
                 }
-            },
-        );
+            })
+            .collect();
 
-        for (hash, new_file_set) in self.config.share_to_vanilla.iter() {
-            for new_file in new_file_set.0.iter() {
-                if context.contains_file(new_file.full_path.to_smash_arc()) {
-                    replacement::unshare::reshare_file(&mut context, new_file.full_path.to_smash_arc(), hash.to_smash_arc());
-                } else {
-                    replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc());
-                    replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
+        // Acquire both lookup table locks once for the entire sharing/unsharing phase
+        replacement::lookup::with_lookups(|unshare_lut, share_lut| {
+            for (hash, new_file_set) in self.config.share_to_vanilla.iter() {
+                for new_file in new_file_set.0.iter() {
+                    if context.contains_file(new_file.full_path.to_smash_arc()) {
+                        replacement::unshare::reshare_file(
+                            &mut context,
+                            new_file.full_path.to_smash_arc(),
+                            hash.to_smash_arc(),
+                            unshare_lut,
+                            share_lut,
+                        );
+                    } else {
+                        replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc(), share_lut);
+                        replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
+                    }
                 }
             }
-        }
 
-        // Reshare any files that depend on files in file groups, as we need to get rid of those else we crash.
-        replacement::unshare::reshare_file_groups(&mut context);
+            // Reshare any files that depend on files in file groups, as we need to get rid of those else we crash.
+            replacement::unshare::reshare_file_groups(&mut context);
 
-        replacement::unshare::unshare_files(&mut context, hash_ignore, files);
+            replacement::unshare::unshare_files(&mut context, hash_ignore, files.into_iter(), unshare_lut, share_lut);
 
-        // Add new shared files to added files
-        for (hash, new_file_set) in self.config.share_to_added.iter() {
-            for new_file in new_file_set.0.iter() {
-                if context.contains_file(new_file.full_path.to_smash_arc()) {
-                    replacement::unshare::reshare_file(&mut context, new_file.full_path.to_smash_arc(), hash.to_smash_arc());
-                } else {
-                    replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc());
-                    replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
+            // Add new shared files to added files
+            for (hash, new_file_set) in self.config.share_to_added.iter() {
+                for new_file in new_file_set.0.iter() {
+                    if context.contains_file(new_file.full_path.to_smash_arc()) {
+                        replacement::unshare::reshare_file(
+                            &mut context,
+                            new_file.full_path.to_smash_arc(),
+                            hash.to_smash_arc(),
+                            unshare_lut,
+                            share_lut,
+                        );
+                    } else {
+                        replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc(), share_lut);
+                        replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
+                    }
                 }
             }
-        }
+        });
 
         println!("Adding files to dir infos...");
         // Add new files to the dir infos

@@ -2,7 +2,7 @@ use owo_colors::OwoColorize;
 use skyline::{hook, hooks::InlineCtx};
 use smash_arc::{ArcLookup, Hash40};
 
-use super::FileInfoFlagsExt;
+use super::{FileInfoFlagsExt, NO_CHILD};
 use crate::{
     hashes, offsets, reg_w, reg_x,
     resource::{self, InflateFile, LoadInfo, LoadType},
@@ -190,7 +190,7 @@ fn res_loop_common() {
             service.res_lists[idx].insert(LoadInfo {
                 ty: LoadType::File,
                 filepath_index: path_idx.0,
-                directory_index: 0xFF_FFFF,
+                directory_index: NO_CHILD,
                 files_to_load: 0,
             });
         }

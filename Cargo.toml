@@ -1,6 +1,6 @@
 [package]
 name = "arcropolis"
-version = "4.0.6"
+version = "4.0.7"
 authors = ["Raytwo <raytwo@arcropolis.com>, blujay <the.blu.dev@gmail.com>, jam1garner <jam@jam1.re>, CoolSonicKirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
@@ -38,7 +38,7 @@ owo-colors = "3.5.0"
 strip-ansi-escapes = "0.1.1"
 bincode = "1.3.3"
 # To manage mods
-orbits = { git = "https://github.com/blu-dev/orbits" }
+orbits = { git = "https://github.com/Raytwo/orbits" }
 smash-arc = { git = "https://github.com/jam1garner/smash-arc", features = ["smash-runtime", "rust-zstd", "serialize"] }
 hash40 = "1.3"
 arcropolis-api = { git = "https://github.com/Raytwo/arcropolis_api" }

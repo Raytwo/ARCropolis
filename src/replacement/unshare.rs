@@ -2,7 +2,10 @@ use std::{collections::HashSet, ops::Range, sync::LazyLock};
 
 use smash_arc::*;
 
-use super::{extensions::*, lookup};
+use super::{
+    extensions::*,
+    lookup::{ShareLookup, UnshareLookup},
+};
 use crate::{
     hashes,
     resource::{self, LoadedData, LoadedFilepath},
@@ -10,7 +13,13 @@ use crate::{
 
 pub static SHARED_FILE_INDEX: LazyLock<u32> = LazyLock::new(|| resource::arc().get_shared_data_index());
 
-fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: Hash40) {
+fn reshare_dependent_files(
+    ctx: &mut AdditionContext,
+    hash_ignore: &HashSet<Hash40>,
+    hash: Hash40,
+    unshare_lut: &UnshareLookup,
+    share_lut: &ShareLookup,
+) {
     info!("Attempting to reshare files dependent on '{}' ({:#x})", hashes::find(hash), hash.0);
     // First, I need to create a unique filepath which will not conflict with any other path
     // in the game (this is important for later when we resort the HashToIndex based off of the filepaths)
@@ -32,7 +41,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
     // If you read in `unshare_file`, you'll see that we remove files we unshare from the shared file cache, this is where that comes into play
     // If we unshare files ourselves, they won't pop up in here. It's fine if we reshare some files and then unshare them again, it just means that
     // at runtime the file tables will be a little messy but nothing the game can't handle
-    let shared_file_count = lookup::get_shared_file_count(hash);
+    let shared_file_count = share_lut.get_shared_file_count(hash);
     if shared_file_count == 0 {
         warn!(
             "Attempted to reshare dependent files on file '{}' ({:#x}), which has no shared files!",
@@ -59,7 +68,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
 
     // Create a new FileInfoIndex with a directory offset that doesn't matter and a file info index that we are pointing to
     ctx.file_info_indices.push(FileInfoIndex {
-        dir_offset_index: 0xFF_FFFF,
+        dir_offset_index: NO_CHILD,
         file_info_index: new_info_idx,
     });
 
@@ -103,8 +112,8 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
     // Only get the shared files as well, this is a secondary check to confirm that we aren't
     // resharing files that we have already unshared
     for dependent_hash in (0..shared_file_count).filter_map(|x| {
-        let hash = lookup::get_shared_file(hash, x).unwrap();
-        if lookup::is_shared_file(hash) {
+        let hash = share_lut.get_shared_file(hash, x).unwrap();
+        if share_lut.is_shared_file(hash) {
             Some(hash)
         } else {
             None
@@ -116,7 +125,7 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
             continue;
         }
         // Get the DirInfo and the child index of the dependent hash, if it doesn't exist... then just move on to the next one ig
-        let (dir_hash, child_idx) = match lookup::get_dir_entry_for_file(dependent_hash) {
+        let (dir_hash, child_idx) = match unshare_lut.get_dir_entry_for_file(dependent_hash) {
             Some(entry) => entry,
             None => {
                 // instead of doing it via dir info (which should be accurate), we are going to just do it to the filepath
@@ -181,14 +190,20 @@ fn reshare_dependent_files(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash
     ctx.loaded_datas.push(LoadedData::new());
 }
 
-fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: Hash40) {
+fn unshare_file(
+    ctx: &mut AdditionContext,
+    hash_ignore: &HashSet<Hash40>,
+    hash: Hash40,
+    unshare_lut: &UnshareLookup,
+    share_lut: &mut ShareLookup,
+) {
     // Ignore the provided hash if it is contained in our list of ignored files
     if hash_ignore.contains(&hash) {
         return;
     }
 
     // Check if the file is stored in our lookup table (the `is_shared_search` field)
-    if !lookup::is_shared_file(hash) {
+    if !share_lut.is_shared_file(hash) {
         trace!("File '{}' ({:#x}) did not need to be unshared.", hashes::find(hash), hash.0);
         return;
     }
@@ -212,7 +227,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     .file_path_index;
 
     // Grab the directory file info entry from our unsharing lookup, if it's missing then early return
-    let (dir_hash, idx) = match lookup::get_dir_entry_for_file(hash) {
+    let (dir_hash, idx) = match unshare_lut.get_dir_entry_for_file(hash) {
         Some(val) => val,
         None => {
             warn!(
@@ -242,7 +257,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     // To reshare all of the files which depend on it
     match ctx.get_file_path_index_from_hash(hash) {
         Ok(current_path_index) if current_path_index == shared_file => {
-            reshare_dependent_files(ctx, hash_ignore, hash);
+            reshare_dependent_files(ctx, hash_ignore, hash, unshare_lut, share_lut);
             let file_info = &mut ctx.file_infos
                 [usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(current_path_index)].path.index() as usize].file_info_index)];
             file_info.flags.set_standalone_file(true);
@@ -334,7 +349,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     // to modify its `standalone_file` flag (this is one that ARCropolis adds)
     // This isn't technically necessary but since we are here anyways it does help. This information is also stored in one of the
     // cache files
-    if idx != 0xFF_FFFF {
+    if idx != NO_CHILD as usize {
         let mut dir_file_info = ctx.file_infos[dir_info.file_info_range()][idx];
 
         dir_file_info.file_info_indice_index = new_info_indice_idx;
@@ -348,7 +363,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     ctx.file_infos.push(new_file_info);
 
     ctx.file_info_indices.push(FileInfoIndex {
-        dir_offset_index: 0xFF_FFFF,
+        dir_offset_index: NO_CHILD,
         file_info_index: new_info_idx,
     });
 
@@ -365,7 +380,7 @@ fn unshare_file(ctx: &mut AdditionContext, hash_ignore: &HashSet<Hash40>, hash: 
     // when we come across c03's, we would "reshare it" (basically generate and add a new file to share it against so we can properly unshare c03)
     // and would kill the unsharing and cause undefined behavior. If it's unshared properly, then *we* should consider it as such and not have to keep
     // track of it
-    lookup::remove_shared_file(hash);
+    share_lut.remove_shared_file(hash);
     ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(shared_file)].path.index() as usize].file_info_index)]
         .flags
         .set_standalone_file(true);
@@ -419,7 +434,7 @@ pub fn reshare_file_groups(ctx: &mut AdditionContext) {
         .iter()
         .filter_map(|dir_info| {
             if let Some(RedirectionType::Shared(file_group)) = ctx.get_directory_dependency_ctx(dir_info) {
-                if file_group.directory_index != 0xFF_FFFF {
+                if file_group.directory_index != NO_CHILD {
                     Some((dir_info.file_info_range(), file_group.range(), dir_info.path.index() as usize))
                 } else {
                     None
@@ -432,17 +447,29 @@ pub fn reshare_file_groups(ctx: &mut AdditionContext) {
 
     for (file_info_range, file_group_range, dir_offset_index) in ranges {
         reshare_file_group(ctx, file_info_range, file_group_range);
-        ctx.folder_offsets_vec[dir_offset_index].directory_index = 0xFF_FFFF;
+        ctx.folder_offsets_vec[dir_offset_index].directory_index = NO_CHILD;
     }
 }
 
-pub fn unshare_files(ctx: &mut AdditionContext, hash_ignore: HashSet<Hash40>, hashes: impl Iterator<Item = Hash40>) {
+pub fn unshare_files(
+    ctx: &mut AdditionContext,
+    hash_ignore: HashSet<Hash40>,
+    hashes: impl Iterator<Item = Hash40>,
+    unshare_lut: &UnshareLookup,
+    share_lut: &mut ShareLookup,
+) {
     for hash in hashes {
-        unshare_file(ctx, &hash_ignore, hash);
+        unshare_file(ctx, &hash_ignore, hash, unshare_lut, share_lut);
     }
 }
 
-pub fn reshare_file(ctx: &mut AdditionContext, dst: Hash40, reshare_to: Hash40) {
+pub fn reshare_file(
+    ctx: &mut AdditionContext,
+    dst: Hash40,
+    reshare_to: Hash40,
+    unshare_lut: &UnshareLookup,
+    share_lut: &mut ShareLookup,
+) {
     // When we are here, it is because the user has provided a file in `share-to-added` or `share-to-vanilla`
     // that was already present in the filesystem, so we are breaking the old path -> info linkage
 
@@ -476,7 +503,7 @@ pub fn reshare_file(ctx: &mut AdditionContext, dst: Hash40, reshare_to: Hash40) 
 
     // perform this modification to the directory file info if we find it, since the way
     // that arcropolis knows when to load added files is by looking at the directory's FileInfo's flags
-    if let Some((dir_hash, file_index)) = lookup::get_dir_entry_for_file(dst) {
+    if let Some((dir_hash, file_index)) = unshare_lut.get_dir_entry_for_file(dst) {
         let Ok(dir_info) = ctx.get_dir_info_from_hash_ctx(dir_hash).copied() else {
             error!("Could not get the DirInfo for '{}' ({:#x})", hashes::find(dir_hash), dir_hash.0);
             return;
@@ -503,5 +530,5 @@ pub fn reshare_file(ctx: &mut AdditionContext, dst: Hash40, reshare_to: Hash40) 
         .path
         .set_index(reshared_file_info.file_info_indice_index.0);
 
-    lookup::add_shared_file(dst, reshare_to);
+    share_lut.add_shared_file(dst, reshare_to);
 }

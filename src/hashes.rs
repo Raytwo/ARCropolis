@@ -46,6 +46,18 @@ pub fn add<S: AsRef<str>>(new_hash: S) {
     let _ = hashes.try_insert(Hash40::from(new_hash), string_to_static_str(new_hash.to_string()));
 }
 
+pub fn add_all<I, S>(items: I)
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let mut hashes = HASHES.write().unwrap();
+    for item in items {
+        let s = item.as_ref();
+        let _ = hashes.try_insert(Hash40::from(s), string_to_static_str(s.to_string()));
+    }
+}
+
 pub fn init() {
     LazyLock::force(&HASHES);
 }

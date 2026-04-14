@@ -7,7 +7,6 @@ use camino::Utf8Path;
 use orbits::{ConflictHandler, ConflictKind, FileLoader, LaunchPad, StandardLoader, Tree};
 use skyline::nn::{self, ro::*};
 use smash_arc::Hash40;
-
 use crate::{chainloader::*, utils};
 
 pub fn perform_discovery() -> LaunchPad<StandardLoader> {

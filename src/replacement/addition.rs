@@ -6,7 +6,7 @@ use arc_config::{
 };
 use smash_arc::*;
 
-use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, InterDir, SearchContext};
+use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, InterDir, SearchContext, NO_CHILD};
 use crate::{
     hashes,
     replacement::FileInfoFlagsExt,
@@ -43,7 +43,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
 
     // Create a new FileInfoIndex with the created file_info_idx above and a dir offset index of
     let new_info_indice_idx = FileInfoIndex {
-        dir_offset_index: 0xFF_FFFF,
+        dir_offset_index: NO_CHILD,
         file_info_index: file_info_idx,
     };
 
@@ -99,7 +99,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
     info!("Added file '{}' ({:#x})", path.display(), file_path.path.hash40().0);
 }
 
-pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Hash40) {
+pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Hash40, share_lut: &mut lookup::ShareLookup) {
     // Get the target shared FileInfoIndice index
     let info_indice_idx = if let Ok(info) = ctx.get_file_info_from_hash(shared_to) {
         info.file_info_indice_index.0
@@ -138,7 +138,7 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
     .hash40();
 
     // Add the shared file to the lookup
-    lookup::add_shared_file(
+    share_lut.add_shared_file(
         new_file.full_path.to_smash_arc(), // we can unwrap because of FilePath::from_path being successful
         shared_to.to_smash_arc(),
     );
@@ -149,7 +149,7 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
         Some(parent) if parent == Path::new("") => {
             if let Some(mut new_folder_path) = FolderPathListEntry::from_path(path) {
                 let new_path = new_folder_path.as_path_entry();
-                new_folder_path.set_first_child_index(0xFF_FFFF);
+                new_folder_path.set_first_child_index(NO_CHILD);
                 ctx.new_folder_paths.insert(new_folder_path.path.hash40(), ctx.folder_paths.len());
                 ctx.new_paths.insert(new_path.path.hash40(), ctx.path_list_indices.len());
                 ctx.path_list_indices.push(ctx.paths.len() as u32);
@@ -192,7 +192,7 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
 
     if let Some(mut new_folder) = FolderPathListEntry::from_path(path) {
         // Create a new directory that does not have child directories
-        new_folder.set_first_child_index(0xFF_FFFF);
+        new_folder.set_first_child_index(NO_CHILD);
         // Create a new search path
         let mut new_path = new_folder.as_path_entry();
         // Set the previous head of the linked list as the child of the new path
@@ -242,7 +242,7 @@ fn add_searchable_folder_by_folder(ctx: &mut SearchContext, folder: &Folder) -> 
 
     let mut new_folder = FolderPathListEntry::from_folder(folder);
     // Create a new directory that does not have child directories
-    new_folder.set_first_child_index(0xFF_FFFF);
+    new_folder.set_first_child_index(NO_CHILD);
     // Create a new search path
     let mut new_path = new_folder.as_path_entry();
     // Set the previous head of the linked list as the child of the new path
@@ -599,15 +599,17 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
         size: 0,
         file_start_index: dir_info.file_info_start_index,
         file_count: dir_info.file_count,
-        directory_index: 0xFF_FFFF,
+        directory_index: NO_CHILD,
     };
 
     dir_info.path.set_index(ctx.folder_offsets_vec.len() as u32);
     // --------------------- END FOLDER OFFSETS --------------------- //
 
     // --------------------- PUSH TO CONTEXT DONE HERE --------------------- //
+    let dir_hash = dir_hash_to_info_idx.hash40();
     ctx.dir_infos_vec.push(dir_info);
     ctx.dir_hash_to_info_idx.push(dir_hash_to_info_idx);
+    ctx.cache_dir_info(dir_hash);
     ctx.folder_offsets_vec.push(new_dir_offset);
     ctx.loaded_directories.push(LoadedDirectory::default());
     // --------------------- END PUSH TO CONTEXT --------------------- //
