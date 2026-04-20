@@ -28,6 +28,7 @@ mod fs;
 mod fuse;
 mod hashes;
 mod logging;
+mod modfs;
 mod offsets;
 mod replacement;
 mod resource;
@@ -233,61 +234,55 @@ fn check_for_update() {
 
 #[skyline::hook(offset = offsets::initial_loading(), inline)]
 fn initial_loading(_ctx: &InlineCtx) {
+
     #[cfg(feature = "online")]
     check_for_changelog();
 
-    // Begin checking if there is an update to do. We do this in a separate thread so that we can install the hooks while we are waiting on GitHub response
-    // #[cfg(feature = "online")]
-    // let _updater = std::thread::Builder::new()
-    //     .stack_size(0x10000)
-    //     .spawn(|| {
-    //         unsafe {
-    //             let curr_thread = nn::os::GetCurrentThread();
-    //             nn::os::ChangeThreadPriority(curr_thread, 16);
-    //         }
-    //         check_for_update();
-    //     })
-    //     .unwrap();
-
-    // Commented out until we get an actual news server
-    // #[cfg(feature = "online")]
-    // get_news_data();
+    #[cfg(feature = "online")]
+    let _updater = std::thread::Builder::new()
+        .stack_size(0x10000)
+        .spawn(|| {
+            unsafe {
+                let curr_thread = nn::os::GetCurrentThread();
+                nn::os::ChangeThreadPriority(curr_thread, 16);
+            }
+            check_for_update();
+        })
+        .unwrap();
 
     let arc = resource::arc();
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
-    replacement::lookup::initialize(Some(arc));
-    
-    let mut filesystem = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
-    
-    *filesystem = filesystem.take().finish(arc).unwrap();
 
+    replacement::lookup::initialize(Some(arc));
+
+    let pending = {
+        let mut filesystem = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
+        filesystem.take()
+    };
+    let ready = pending.finish(arc).unwrap();
+
+    let mut filesystem = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
+    *filesystem = ready;
     filesystem.process_mods();
     filesystem.share_hashes();
     filesystem.patch_files();
 
     if config::debug_enabled() {
         let mut output = BufWriter::new(std::fs::File::create("sd:/ultimate/arcropolis/filesystem_dump.txt").unwrap());
-        filesystem.get().walk_patch(|node, entry_type| {
-            let depth = node.get_local().components().count() - 1;
+        for (local, entry) in filesystem.modfs().patch().iter_files() {
+            let depth = local.components().count().saturating_sub(1);
             for _ in 0..depth {
                 let _ = write!(output, "    ");
             }
-            if entry_type.is_dir() {
-                let _ = writeln!(output, "{}", node.get_local().display());
-            } else {
-                let _ = writeln!(output, "{}", node.full_path().display());
-            }
-        });
+            let _ = writeln!(output, "{}", entry.full_path(local).display());
+        }
     }
 
     drop(filesystem);
 
     fuse::mods::install_mod_fs();
     api::event::send_event(Event::ModFilesystemMounted);
-
-    // #[cfg(feature = "online")]
-    // _updater.join().unwrap();
 }
 
 #[skyline::hook(offset = offsets::title_screen_version())]
@@ -369,26 +364,18 @@ pub fn is_online() -> bool {
 // Thanks to blujay for these two function hooks
 #[skyline::hook(offset = offsets::change_color_r(), inline)]
 unsafe fn change_fighter_color_r(ctx: &mut skyline::hooks::InlineCtx) {
-    if is_online() {
-        unsafe {
-            if ctx.registers[8].w() >= 8 {
-                ctx.registers[8].set_w(0); // Actual color
-                ctx.registers[3].set_w(0); // UI
-            }
-        }
+    if is_online() && ctx.registers[8].w() >= 8 {
+        ctx.registers[8].set_w(0); // Actual color
+        ctx.registers[3].set_w(0); // UI
     }
 }
 
 #[skyline::hook(offset = offsets::change_color_l(), inline)]
 unsafe fn change_fighter_color_l(ctx: &mut skyline::hooks::InlineCtx) {
-    if is_online() {
-        unsafe {
-            if ctx.registers[8].w() >= 8 {
-                // Assuming that if they can change a character's color then that means a character has at least a set of 8 colors
-                ctx.registers[8].set_w(7); // Actual color
-                ctx.registers[3].set_w(7); // UI
-            }
-        }
+    if is_online() && ctx.registers[8].w() >= 8 {
+        // Assuming that if they can change a character's color then that means a character has at least a set of 8 colors
+        ctx.registers[8].set_w(7); // Actual color
+        ctx.registers[3].set_w(7); // UI
     }
 }
 

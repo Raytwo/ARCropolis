@@ -42,19 +42,10 @@ pub fn find(hash: Hash40) -> &'static str {
 
 pub fn add<S: AsRef<str>>(new_hash: S) {
     let new_hash = new_hash.as_ref();
+    let key = Hash40::from(new_hash);
     let mut hashes = HASHES.write().unwrap();
-    let _ = hashes.try_insert(Hash40::from(new_hash), string_to_static_str(new_hash.to_string()));
-}
-
-pub fn add_all<I, S>(items: I)
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    let mut hashes = HASHES.write().unwrap();
-    for item in items {
-        let s = item.as_ref();
-        let _ = hashes.try_insert(Hash40::from(s), string_to_static_str(s.to_string()));
+    if !hashes.contains_key(&key) {
+        hashes.insert(key, string_to_static_str(new_hash.to_string()));
     }
 }
 

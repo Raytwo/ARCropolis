@@ -26,10 +26,6 @@ pub mod env {
         &PLATFORM
     }
 
-    pub fn is_hardware() -> bool {
-        matches!(get_running_env(), RunEnvironment::Switch)
-    }
-
     pub fn is_emulator() -> bool {
         matches!(get_running_env(), RunEnvironment::Emulator)
     }

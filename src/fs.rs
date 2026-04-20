@@ -1,28 +1,25 @@
 use std::{
-    cell::UnsafeCell,
     collections::{HashMap, HashSet},
     fmt,
     io::Write,
-    ops::Deref,
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
 };
 
 use arc_config::{Config as ModConfig, ToExternal, ToSmashArc};
-use orbits::{orbit::LaunchPad, Error, FileEntryType, FileLoader, Orbit, StandardLoader, Tree};
+use discover::DiscoveryResult;
 use owo_colors::OwoColorize;
-use smash_arc::{ArcLookup, Hash40, LoadedArc, LoadedSearchSection, LookupError, SearchLookup};
-use thiserror::Error;
+use smash_arc::{ArcLookup, Hash40, LoadedArc, LoadedSearchSection};
 
-// pub mod api;
-// mod event;
 use crate::{
     api, get_path_from_hash, hashes,
     replacement::{self, LoadedArcEx, SearchEx},
     resource, PathExtension,
 };
 
+mod cache;
 mod discover;
+pub mod inference;
 mod utils;
 pub use discover::*;
 pub mod loaders;
@@ -30,9 +27,6 @@ pub use loaders::*;
 
 static DEFAULT_CONFIG: &str = include_str!("../resources/override.json");
 static IS_INIT: AtomicBool = AtomicBool::new(false);
-// pub type ApiLoader = StandardLoader; // temporary until an actual ApiLoader is implemented
-
-pub type ArcropolisOrbit = Orbit<ArcLoader, StandardLoader, ApiLoader>;
 
 pub struct FilesystemUninitializedError;
 
@@ -43,7 +37,7 @@ impl fmt::Debug for FilesystemUninitializedError {
 }
 
 pub struct CachedFilesystem {
-    loader: ArcropolisOrbit,
+    modfs: crate::modfs::ModFs,
     config: ModConfig,
     hash_lookup: HashMap<Hash40, PathBuf>,
     hash_size_cache: HashMap<Hash40, usize>,
@@ -55,174 +49,41 @@ pub struct CachedFilesystem {
 }
 
 impl CachedFilesystem {
-    /// Load all configs and initialize all patch types from collected paths.
-    fn process_collected_paths(
-        config: &mut ModConfig,
-        launchpad: &LaunchPad<StandardLoader>,
-        api_tree: &mut Tree<ApiLoader>,
-    ) -> HashSet<Hash40> {
-        let mut hashes = HashSet::new();
-        let mut counts = [0u32; 7]; // config, prc, msbt, nus3audio, motionlist, bgm, other
-        let mut durations = [std::time::Duration::ZERO; 7];
-        let mut config_paths: Vec<(PathBuf, usize)> = Vec::new();
-
-        let collected = launchpad.collected_paths();
-        let collected_sizes = launchpad.collected_sizes();
-        for (i, (root, path)) in collected.iter().enumerate() {
-            let size = collected_sizes.get(i).copied().unwrap_or(0);
-            if path.ends_with("config.json") {
-                let t = std::time::Instant::now();
-                config_paths.push((root.join(path), size));
-                counts[0] += 1;
-                durations[0] += t.elapsed();
-            // PRC patch files
-            } else if path.has_extension("prcx")
-                || path.has_extension("prcxml")
-                || path.has_extension("stdatx")
-                || path.has_extension("stdatxml")
-                || path.has_extension("stprmx")
-                || path.has_extension("stprmxml")
-            {
-                let t = std::time::Instant::now();
-                if let Some(hash) = utils::add_prc_patch(api_tree, root, path) {
-                    hashes.insert(hash);
-                }
-                counts[1] += 1;
-                durations[1] += t.elapsed();
-            // MSBT patch files
-            } else if path.has_extension("xmsbt") {
-                let t = std::time::Instant::now();
-                if let Some(hash) = utils::add_msbt_patch(api_tree, root, path) {
-                    hashes.insert(hash);
-                }
-                counts[2] += 1;
-                durations[2] += t.elapsed();
-            // NUS3AUDIO patch files
-            } else if path.has_extension("patch3audio") {
-                let t = std::time::Instant::now();
-                if let Some(hash) = utils::add_nus3audio_patch(api_tree, root, path) {
-                    hashes.insert(hash);
-                }
-                counts[3] += 1;
-                durations[3] += t.elapsed();
-            // Motion list patch files
-            } else if path.has_extension("motdiff") || path.ends_with("motion_list.yml") {
-                let t = std::time::Instant::now();
-                if let Some(hash) = utils::add_motionlist_patch(api_tree, root, path) {
-                    hashes.insert(hash);
-                }
-                counts[4] += 1;
-                durations[4] += t.elapsed();
-            // BGM property patch files
-            } else if path.file_name() == Path::new("bgm_property.bin").file_name() {
-                let t = std::time::Instant::now();
-                if let Some(hash) = utils::add_bgm_property_patch(api_tree, root, path) {
-                    hashes.insert(hash);
-                }
-                counts[5] += 1;
-                durations[5] += t.elapsed();
-            } else {
-                counts[6] += 1;
-            }
-        }
-
-        // Try to use a cached merged config to skip loading all the mod configs.
-        // The key is built from (path, file size) of every config.json
-        // if any config is added, removed, or changes size, the cache is invalidated
-        let t_cache = std::time::Instant::now();
-        let cache_key = Self::compute_config_cache_key(&config_paths);
-        let used_cache = if let Some(cached) = Self::load_cached_merged_config(&cache_key) {
-            *config = cached;
-            true
-        } else {
-            for (path, _size) in &config_paths {
-                match ModConfig::from_file_json(path) {
-                    Ok(cfg) => config.merge(cfg),
-                    Err(_) => warn!("Could not read json from file {}", path.display()),
-                }
-            }
-            Self::save_cached_merged_config(&cache_key, config);
-            false
-        };
-
-        hashes
-    }
-
-    /// Make a cache from the sorted list of (path, file size) for every config.json
-    /// Sizes come from orbits' walkdir pass during discovery
-    fn compute_config_cache_key(config_paths: &[(PathBuf, usize)]) -> u64 {
-        use std::hash::{Hash, Hasher};
-        let mut entries: Vec<&(PathBuf, usize)> = config_paths.iter().collect();
-        entries.sort();
-
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        // Include the ARCropolis version so default-config changes invalidate the cache
-        env!("CARGO_PKG_VERSION").hash(&mut hasher);
-        entries.hash(&mut hasher);
-        hasher.finish()
-    }
-
-    fn cache_path() -> PathBuf {
-        crate::utils::paths::cache().join("config_merged.cache").into()
-    }
-
-    fn load_cached_merged_config(key: &u64) -> Option<ModConfig> {
-        let bytes = std::fs::read(Self::cache_path()).ok()?;
-        if bytes.len() < 8 {
-            return None;
-        }
-        let mut key_bytes = [0u8; 8];
-        key_bytes.copy_from_slice(&bytes[..8]);
-        let stored_key = u64::from_le_bytes(key_bytes);
-        if stored_key != *key {
-            return None;
-        }
-        bincode::deserialize::<ModConfig>(&bytes[8..]).ok()
-    }
-
-    fn save_cached_merged_config(key: &u64, config: &ModConfig) {
-        let mut bytes = key.to_le_bytes().to_vec();
-        match bincode::serialize(config) {
-            Ok(serialized) => bytes.extend_from_slice(&serialized),
-            Err(e) => {
-                warn!("Failed to serialize merged config for caching: {:?}", e);
-                return;
-            },
-        }
-        if let Err(e) = std::fs::write(Self::cache_path(), &bytes) {
-            warn!("Failed to write merged config cache: {:?}", e);
-        }
-    }
 
     /// Parse a pending API call and add it to the API tree. This function returns the hash, as well as the size (if needed)
     /// so that the caller can insert those into the global structs depending on the time that this call is handled
-    fn handle_panding_api_call(api_tree: &mut Tree<ApiLoader>, pending: api::PendingApiCall) -> ApiCallResult {
+    fn handle_panding_api_call(pending: &api::PendingApiCall) -> ApiCallResult {
         use api::PendingApiCall;
 
         match pending {
-            PendingApiCall::GenericCallback { hash, max_size, callback } => {
-                let path = get_path_from_hash(hash);
-
-                utils::add_file_to_api_tree(api_tree, "api:/generic-cb", &path, ApiCallback::GenericCallback(callback));
-
-                ApiCallResult {
-                    hash,
-                    path,
-                    size: Some(max_size),
-                }
+            PendingApiCall::GenericCallback { hash, max_size, .. } => ApiCallResult {
+                hash: *hash,
+                path: get_path_from_hash(*hash),
+                size: Some(*max_size),
             },
-            PendingApiCall::StreamCallback { hash, callback } => {
-                let path = get_path_from_hash(hash);
-
-                utils::add_file_to_api_tree(api_tree, "api:/stream-cb", &path, ApiCallback::StreamCallback(callback));
-
-                ApiCallResult { hash, path, size: None }
+            PendingApiCall::StreamCallback { hash, .. } => ApiCallResult {
+                hash: *hash,
+                path: get_path_from_hash(*hash),
+                size: None,
             },
         }
     }
 
+    fn register_virtual_from_call(virt: &mut crate::modfs::VirtualLayer, call: &api::PendingApiCall) {
+        use api::PendingApiCall;
+
+        use crate::modfs::VirtualEntry;
+        let (hash, callback, max_size) = match call {
+            PendingApiCall::GenericCallback { hash, max_size, callback } => {
+                (*hash, ApiCallback::GenericCallback(*callback), *max_size)
+            },
+            PendingApiCall::StreamCallback { hash, callback } => (*hash, ApiCallback::StreamCallback(*callback), 0x100),
+        };
+        virt.register(hash, VirtualEntry { callback, max_size });
+    }
+
     /// Use the file information that was generated during file discovery to fill out a GlobalFilesystem struct
-    pub fn make_from_promise(launchpad: LaunchPad<StandardLoader>) -> CachedFilesystem {
+    pub fn make_from_promise(discovery: DiscoveryResult) -> CachedFilesystem {
         let arc = resource::arc();
 
         // Load the default config, which we will then join with the other configs
@@ -234,35 +95,29 @@ impl CachedFilesystem {
             },
         };
 
-        // Create the API file tree
-        let mut api_tree = Tree::new(ApiLoader::default());
+        let mut modfs = Self::build_modfs(&discovery.entries, &mut config);
+        modfs.finalize(&mut config);
 
-        let t = std::time::Instant::now();
-        let hashes = Self::process_collected_paths(&mut config, &launchpad, &mut api_tree);
+        inference::merge_into_config(&discovery.entries, &mut config);
 
-        let t = std::time::Instant::now();
-        let (mut hashed_sizes, mut hashed_paths, nus3audio_deps) =
-            utils::make_hash_maps_and_nus3bank_deps(launchpad.tree(), &config.unshare_blacklist);
+        drop(discovery);
 
-        // Add the discovered paths to the global hashes, so that when a file is loading that *we have discovered* we can guarantee
-        // that we are printing the real path in the logger.
-        let t = std::time::Instant::now();
-        hashes::add_all(hashed_paths.values().filter_map(|path| path.to_str()));
+        let nus3audio_deps = utils::collect_nus3bank_deps(modfs.patch(), &config.unshare_blacklist);
+        let mut hashed_paths: HashMap<Hash40, PathBuf> = HashMap::new();
+        let mut hashed_sizes: HashMap<Hash40, usize> = HashMap::new();
 
-        // Add the hash files and set the new size to 10x the original files
-        for hash in hashes {
+        for hash in modfs.handlers().bound_hashes() {
             if let Ok(data) = arc.get_file_data_from_hash(hash, config::region()) {
+                let multiplier = modfs.handlers().size_multiplier_for_hash(hash).max(10) as usize;
                 hashed_paths.insert(hash, get_path_from_hash(hash));
-                hashed_sizes.insert(hash, (data.decomp_size as usize) * 10);
+                hashed_sizes.insert(hash, (data.decomp_size as usize) * multiplier);
             }
         }
 
-        // Add all of the NUS3BANKs that our NUS3AUDIOs depend on to the API tree
         for dep in nus3audio_deps {
-            let hash = utils::add_file_to_api_tree(&mut api_tree, "api:/patch-nus3bank", &dep, ApiCallback::None);
-            if let Some(hash) = hash {
+            if let Ok(hash) = crate::PathExtension::smash_hash(dep.as_path()) {
                 hashed_paths.insert(hash, dep);
-                hashed_sizes.insert(hash, 0); // We want to use vanilla size because we are only editing the content
+                hashed_sizes.insert(hash, 0);
             }
         }
 
@@ -272,10 +127,9 @@ impl CachedFilesystem {
         std::mem::swap(&mut *pending_calls, &mut calls);
         drop(pending_calls);
 
-        // Go through each API call, insert it into the api tree, and then insert it's info into the global data
         for call in calls {
-            let ApiCallResult { hash, path, size } = Self::handle_panding_api_call(&mut api_tree, call);
-
+            Self::register_virtual_from_call(modfs.virt_mut(), &call);
+            let ApiCallResult { hash, path, size } = Self::handle_panding_api_call(&call);
             hashed_paths.insert(hash, path);
             if let Some(size) = size {
                 hashed_sizes.insert(hash, size);
@@ -285,9 +139,8 @@ impl CachedFilesystem {
         // Set the global flag that we are initialized (referenced by API)
         IS_INIT.store(true, Ordering::SeqCst);
 
-        // Construct a CachedFilesystem
         CachedFilesystem {
-            loader: launchpad.launch(ArcLoader(arc), api_tree),
+            modfs,
             config,
             hash_lookup: hashed_paths,
             hash_size_cache: hashed_sizes,
@@ -297,6 +150,12 @@ impl CachedFilesystem {
             nus3banks: HashMap::new(),
             total_size: 0,
         }
+    }
+
+    fn build_modfs(entries: &[(PathBuf, PathBuf, usize)], config: &mut ModConfig) -> crate::modfs::ModFs {
+        let mut modfs = crate::modfs::ModFs::new();
+        modfs.populate_from(entries, config);
+        modfs
     }
 
     /// Patches a file in the LoadedArc
@@ -335,49 +194,26 @@ impl CachedFilesystem {
         }
     }
 
-    // Search the provided hash for a PathBuf in the hash lookup
-    pub fn local_hash(&self, hash: Hash40) -> Option<&PathBuf> {
-        self.hash_lookup.get(&hash)
+    pub fn local_hash(&self, hash: Hash40) -> Option<PathBuf> {
+        if let Some(path) = self.hash_lookup.get(&hash) {
+            return Some(path.clone());
+        }
+        self.modfs
+            .patch()
+            .entry_for_hash(hash)
+            .map(|(local, _)| local.to_path_buf())
     }
 
-    // Get the "actual path" for a file hash
-    pub fn hash(&self, hash: Hash40) -> Option<PathBuf> {
-        self.local_hash(hash).and_then(|x| self.loader.query_actual_path(x))
-    }
-
-    // Load the file data from the Orbits filesystem
     pub fn load(&self, hash: Hash40) -> Option<Vec<u8>> {
-        let path = if let Some(path) = self.hash_lookup.get(&hash) {
-            path
-        } else {
-            error!(
-                "Failed to load data for '{}' ({:#x}) because the filesystem does not contain it!",
-                hashes::find(hash),
-                hash.0
-            );
-            return None;
-        };
-
-        match self.loader.load(path) {
+        match self.modfs.read_by_hash(hash) {
             Ok(data) => Some(data),
-            Err(Error::Virtual(ApiLoaderError::NoVirtFile)) => {
-                if let Ok(data) = self.loader.load_patch(path) {
-                    Some(data)
-                } else if let Ok(data) = ArcLoader(resource::arc()).load_path(Path::new(""), path) {
-                    Some(data)
-                } else {
-                    error!("Failed to load data for {} because all load paths failed.", path.display());
-                    None
-                }
-            },
             Err(e) => {
-                error!("Failed to load data for {}. Reason: {:?}", path.display(), e);
+                debug!("Failed to load '{}' ({:#x}): {:?}", hashes::find(hash), hash.0, e);
                 None
             },
         }
     }
 
-    // Load the file data from the Orbits filesystem into a pre-allocated buffer
     pub fn load_into(&self, hash: Hash40, mut buffer: &mut [u8]) -> Option<usize> {
         if let Some(data) = self.load(hash) {
             if buffer.len() < data.len() {
@@ -399,7 +235,7 @@ impl CachedFilesystem {
     // Sets the incoming file to be loaded
     pub fn set_incoming(&mut self, hash: Option<Hash40>) {
         if let Some(hash) = self.incoming_load.take() {
-            warn!(
+            debug!(
                 "Removing file '{}' ({:#x}) from incoming load before using it.",
                 hashes::find(hash),
                 hash.0
@@ -407,10 +243,17 @@ impl CachedFilesystem {
         }
         self.incoming_load = hash;
         if let Some(hash) = hash {
-            self.bytes_remaining = *self.hash_size_cache.get(&hash).unwrap_or(&0);
+            self.bytes_remaining = self.size_for_hash(hash).unwrap_or(0);
         } else {
             self.bytes_remaining = 0;
         }
+    }
+
+    fn size_for_hash(&self, hash: Hash40) -> Option<usize> {
+        if let Some(&size) = self.hash_size_cache.get(&hash) {
+            return Some(size);
+        }
+        self.modfs.patch().entry_for_hash(hash).map(|(_, e)| e.size)
     }
 
     // Gets the incoming file to be loaded
@@ -430,10 +273,10 @@ impl CachedFilesystem {
         }
     }
 
-    // Patch all files in the hash size cache
     pub fn patch_files(&mut self) {
-        let mut hash_cache = HashMap::new();
         let mut sum_size = 0;
+
+        let mut hash_cache = HashMap::new();
         std::mem::swap(&mut hash_cache, &mut self.hash_size_cache);
         for (hash, size) in hash_cache.iter_mut() {
             sum_size += *size;
@@ -442,16 +285,32 @@ impl CachedFilesystem {
             }
         }
         self.hash_size_cache = hash_cache;
+
+        let patches: Vec<(Hash40, usize)> = self
+            .modfs
+            .patch()
+            .iter_files()
+            .filter_map(|(local, entry)| {
+                if local.is_stream() {
+                    return None;
+                }
+                let hash = local.smash_hash().ok()?;
+                Some((hash, entry.size))
+            })
+            .collect();
+        for (hash, size) in patches {
+            sum_size += size;
+            let _ = self.patch_file(hash, size);
+        }
+
         self.total_size = sum_size;
     }
 
-    // Reshares all hashes that still need to be shared, so that we don't get fake one-slot behavior
     pub fn reshare_files(&mut self) {
         let arc = resource::arc();
         let file_paths = arc.get_file_paths();
 
-        // Collect only the entries that need remapping
-        let remaps: Vec<(Hash40, Hash40)> = self
+        let special_remaps: Vec<(Hash40, Hash40)> = self
             .hash_lookup
             .keys()
             .filter_map(|&hash| {
@@ -461,8 +320,7 @@ impl CachedFilesystem {
                 })
             })
             .collect();
-
-        for (old_hash, new_hash) in remaps {
+        for (old_hash, new_hash) in special_remaps {
             if let Some(path) = self.hash_lookup.remove(&old_hash) {
                 self.hash_lookup.insert(new_hash, path);
             }
@@ -492,41 +350,47 @@ impl CachedFilesystem {
         }
 
         // Add new dir infos that use a base before adding the files
-        for (new, base) in self.config.new_dir_infos_base.iter() {
+        let mut base_pairs: Vec<(&String, &String)> = self.config.new_dir_infos_base.iter().collect();
+        base_pairs.sort_by(|a, b| a.0.cmp(b.0));
+        for (new, base) in base_pairs {
             replacement::addition::add_dir_info_with_base(&mut context, Path::new(new), Path::new(base));
         }
 
+        let expected = self.modfs.patch().num_entries();
+        context.reserve_additions(expected);
+        search_context.reserve_additions(expected);
+
         // Go through and add any files that were not found in the data.arc
-        self.loader.walk_patch(|node, ty| {
-            if node.get_local().is_stream() || !ty.is_file() {
-                return;
+        for (local, _entry) in self.modfs.patch().iter_files() {
+            if local.is_stream() {
+                continue;
             }
-
-            let _hash = if let Ok(hash) = node.get_local().smash_hash() {
-                if context.contains_file(hash) {
-                    return;
-                }
-                hash
-            } else {
-                return;
+            let hash = match local.smash_hash() {
+                Ok(h) => h,
+                Err(_) => continue,
             };
-
-            replacement::addition::add_file(&mut context, node.get_local());
-            replacement::addition::add_searchable_file_recursive(&mut search_context, node.get_local());
-        });
+            if context.contains_file(hash) {
+                continue;
+            }
+            replacement::addition::add_file(&mut context, local);
+            replacement::addition::add_searchable_file_recursive(&mut search_context, local);
+        }
 
         // Don't unshare any files in the unshare blacklist (nus3audio handled during filesystem finish)
-        let files: Vec<Hash40> = self
-            .hash_lookup
-            .iter()
-            .filter_map(|(hash, _path)| {
-                if self.config.unshare_blacklist.contains(&hash.to_external()) {
-                    None
-                } else {
-                    Some(*hash)
+        let mut files_set: HashSet<Hash40> = HashSet::new();
+        for (&hash, _) in self.hash_lookup.iter() {
+            if !self.config.unshare_blacklist.contains(&hash.to_external()) {
+                files_set.insert(hash);
+            }
+        }
+        for (local, _) in self.modfs.patch().iter_files() {
+            if let Ok(hash) = local.smash_hash() {
+                if !self.config.unshare_blacklist.contains(&hash.to_external()) {
+                    files_set.insert(hash);
                 }
-            })
-            .collect();
+            }
+        }
+        let files: Vec<Hash40> = files_set.into_iter().collect();
 
         // Acquire both lookup table locks once for the entire sharing/unsharing phase
         replacement::lookup::with_lookups(|unshare_lut, share_lut| {
@@ -572,8 +436,9 @@ impl CachedFilesystem {
         });
 
         println!("Adding files to dir infos...");
-        // Add new files to the dir infos
-        for (hash, files) in self.config.new_dir_files.iter() {
+        let mut dir_entries: Vec<(&hash40::Hash40, &Vec<hash40::Hash40>)> = self.config.new_dir_files.iter().collect();
+        dir_entries.sort_by_key(|(k, _)| k.0);
+        for (hash, files) in dir_entries {
             replacement::addition::add_files_to_directory(&mut context, hash.to_smash_arc(), files.iter().map(|hash| hash.to_smash_arc()).collect());
         }
 
@@ -586,9 +451,14 @@ impl CachedFilesystem {
         &self.config
     }
 
+    pub fn modfs(&self) -> &crate::modfs::ModFs {
+        &self.modfs
+    }
+
     /// Handles late API calls
     pub fn handle_late_api_call(&mut self, call: api::PendingApiCall) {
-        let ApiCallResult { hash, path, size } = Self::handle_panding_api_call(self.loader.virt_mut(), call);
+        Self::register_virtual_from_call(self.modfs.virt_mut(), &call);
+        let ApiCallResult { hash, path, size } = Self::handle_panding_api_call(&call);
 
         self.hash_lookup.insert(hash, path);
         if let Some(size) = size {
@@ -604,9 +474,8 @@ impl CachedFilesystem {
         }
     }
 
-    /// Gets the cached size
     pub fn get_cached_size(&self, hash: Hash40) -> Option<usize> {
-        self.hash_size_cache.get(&hash).copied()
+        self.size_for_hash(hash)
     }
 
     pub fn get_sum_size(&self) -> usize {
@@ -616,7 +485,7 @@ impl CachedFilesystem {
 
 pub enum GlobalFilesystem {
     Uninitialized,
-    Promised(std::thread::JoinHandle<LaunchPad<StandardLoader>>),
+    Promised(std::thread::JoinHandle<DiscoveryResult>),
     Initialized(Box<CachedFilesystem>),
 }
 
@@ -631,7 +500,7 @@ impl GlobalFilesystem {
         match self {
             Self::Uninitialized => Err(FilesystemUninitializedError),
             Self::Promised(promise) => match promise.join() {
-                Ok(launchpad) => Ok(Self::Initialized(Box::new(CachedFilesystem::make_from_promise(launchpad)))),
+                Ok(discovery) => Ok(Self::Initialized(Box::new(CachedFilesystem::make_from_promise(discovery)))),
                 Err(_) => Err(FilesystemUninitializedError),
             },
             Self::Initialized(filesystem) => Ok(Self::Initialized(filesystem)),
@@ -648,28 +517,14 @@ impl GlobalFilesystem {
         out
     }
 
-    pub fn get(&self) -> &ArcropolisOrbit {
+    pub fn modfs(&self) -> &crate::modfs::ModFs {
         match self {
-            Self::Initialized(fs) => &fs.loader,
+            Self::Initialized(fs) => fs.modfs(),
             _ => panic!("Global Filesystem is not initialized!"),
         }
     }
 
-    pub fn get_mut(&mut self) -> &mut ArcropolisOrbit {
-        match self {
-            Self::Initialized(fs) => &mut fs.loader,
-            _ => panic!("Global Filesystem is not initialized!"),
-        }
-    }
-
-    pub fn hash(&self, hash: Hash40) -> Option<PathBuf> {
-        match self {
-            Self::Initialized(fs) => fs.hash(hash),
-            _ => None,
-        }
-    }
-
-    pub fn local_hash(&self, hash: Hash40) -> Option<&PathBuf> {
+    pub fn local_hash(&self, hash: Hash40) -> Option<PathBuf> {
         match self {
             Self::Initialized(fs) => fs.local_hash(hash),
             _ => None,

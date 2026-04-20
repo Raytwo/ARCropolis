@@ -20,7 +20,7 @@ fn inflate_incoming(ctx: &InlineCtx) {
     let file_path = &arc.get_file_paths()[file_info.file_path_index];
     let path_hash = file_path.path.hash40();
 
-    info!(
+    debug!(
         target: "no-mod-path",
         "[ResInflateThread::inflate_incoming | #{:#08X} | Type: {} | {:>3} / {:>3}] Incoming '{}'",
         usize::from(file_info.file_path_index).green(),
@@ -32,8 +32,8 @@ fn inflate_incoming(ctx: &InlineCtx) {
 
     let mut fs = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
 
-    let should_add = if let Some(path) = fs.hash(path_hash) {
-        info!("Added file '{}' to the queue.", path.display().yellow());
+    let should_add = if let Some(local) = fs.local_hash(path_hash) {
+        debug!("Added file '{}' to the queue.", local.display().yellow());
         true
     } else {
         false
@@ -129,7 +129,7 @@ pub fn handle_file_replace(hash: Hash40) {
                 }
             }
         }
-        info!(
+        debug!(
             "Replaced file '{}' ({:#x}) with buffer size {:#x} and file size {:#x}. Game buffer size: {:#x}",
             hashes::find(hash),
             hash.0,

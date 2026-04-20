@@ -252,14 +252,6 @@ impl lua_state {
         }
     }
 
-    pub fn get_string_arg(&mut self) -> String {
-        unsafe {
-            let string = skyline::from_c_str(lua_tolstring(self, -1, std::ptr::null()));
-            self.decrement_top_address();
-            string
-        }
-    }
-
     pub fn get_number_arg(&mut self) -> f32 {
         unsafe {
             let num = lua_tonumberx(self, -1, std::ptr::null());

@@ -20,7 +20,7 @@ fn reshare_dependent_files(
     unshare_lut: &UnshareLookup,
     share_lut: &ShareLookup,
 ) {
-    info!("Attempting to reshare files dependent on '{}' ({:#x})", hashes::find(hash), hash.0);
+    debug!("Attempting to reshare files dependent on '{}' ({:#x})", hashes::find(hash), hash.0);
     // First, I need to create a unique filepath which will not conflict with any other path
     // in the game (this is important for later when we resort the HashToIndex based off of the filepaths)
     // To do this, we simply set its length to a length impossible to find in the base data.arc
@@ -28,7 +28,7 @@ fn reshare_dependent_files(
     let shared_file_path_index = match ctx.get_file_path_index_from_hash(hash) {
         Ok(idx) => idx,
         Err(_) => {
-            error!(
+            debug!(
                 "Failed to find the path index when resharing dependent files on '{}' ({:#x}). This will probably cause infinite loads.",
                 hashes::find(hash),
                 hash.0
@@ -43,7 +43,7 @@ fn reshare_dependent_files(
     // at runtime the file tables will be a little messy but nothing the game can't handle
     let shared_file_count = share_lut.get_shared_file_count(hash);
     if shared_file_count == 0 {
-        warn!(
+        debug!(
             "Attempted to reshare dependent files on file '{}' ({:#x}), which has no shared files!",
             hashes::find(hash),
             hash.0
@@ -137,7 +137,7 @@ fn reshare_dependent_files(
                         .set_index(new_info_indice_idx.0);
                     continue;
                 }
-                error!(
+                debug!(
                     "Failed to find directory entry for file '{}' ({:#x}) while trying to reshare it to a new file, separate from '{}' ({:#x}). This file will cause infinite loads.",
                     hashes::find(dependent_hash),
                     dependent_hash.0,
@@ -152,7 +152,7 @@ fn reshare_dependent_files(
         let child_info_range = match ctx.get_dir_info_from_hash_ctx(dir_hash) {
             Ok(info) => info.file_info_range(),
             Err(_) => {
-                error!(
+                debug!(
                     "Failed to find the directory containing file '{}' ({:#x}) while trying to separate it from '{}' ({:#x}). This file will infinite load.",
                     hashes::find(dependent_hash),
                     dependent_hash.0,
@@ -170,7 +170,7 @@ fn reshare_dependent_files(
         let dependent_filepath_index = dependent_info.file_path_index;
         dependent_info.file_info_indice_index = new_info_indice_idx;
         dependent_info.flags.set_standalone_file(true);
-        info!(
+        debug!(
             "Reshared file '{}' ({:#x}), which depended on '{}' ({:#x})",
             hashes::find(dependent_hash),
             dependent_hash.0,
@@ -211,7 +211,7 @@ fn unshare_file(
     let filepath_idx = match ctx.get_file_path_index_from_hash(hash) {
         Ok(filepath_idx) => filepath_idx,
         Err(_) => {
-            warn!(
+            debug!(
                 "Failed to find filepath index for '{}' ({:#x}). This file will not be unshared.",
                 hashes::find(hash),
                 hash.0
@@ -230,7 +230,7 @@ fn unshare_file(
     let (dir_hash, idx) = match unshare_lut.get_dir_entry_for_file(hash) {
         Some(val) => val,
         None => {
-            warn!(
+            debug!(
                 "Failed to find '{}' ({:#x}) in the unsharing lookup. This file will not be unshared.",
                 hashes::find(hash),
                 hash.0
@@ -243,7 +243,7 @@ fn unshare_file(
     let dir_info = match ctx.get_dir_info_from_hash_ctx(dir_hash) {
         Ok(dir) => *dir,
         Err(_) => {
-            warn!(
+            debug!(
                 "Failed to find directory for '{}' ({:#x}). This file will not be unshared in the directory.",
                 hashes::find(hash),
                 hash.0
@@ -267,7 +267,7 @@ fn unshare_file(
         },
         Ok(_) => {},
         Err(_) => {
-            warn!(
+            debug!(
                 "Failed to find path index for file '{}' ({:#x}) when attempting to unshare it. This file will not be unshared.",
                 hashes::find(hash),
                 hash.0
@@ -385,7 +385,7 @@ fn unshare_file(
         .flags
         .set_standalone_file(true);
     let shared_hash = ctx.filepaths[usize::from(shared_file)].path.hash40();
-    info!(
+    debug!(
         "Unshared file '{}' ({:#x}) from '{}' ({:#x})",
         hashes::find(hash),
         hash.0,
@@ -484,7 +484,7 @@ pub fn reshare_file(
             *index
         } else {
             // it isn't in the vanilla filesyste and we didn't add it
-            error!(
+            debug!(
                 "Could not get the file path index for '{}' ({:#x})",
                 hashes::find(reshare_to),
                 reshare_to.0
@@ -505,7 +505,7 @@ pub fn reshare_file(
     // that arcropolis knows when to load added files is by looking at the directory's FileInfo's flags
     if let Some((dir_hash, file_index)) = unshare_lut.get_dir_entry_for_file(dst) {
         let Ok(dir_info) = ctx.get_dir_info_from_hash_ctx(dir_hash).copied() else {
-            error!("Could not get the DirInfo for '{}' ({:#x})", hashes::find(dir_hash), dir_hash.0);
+            debug!("Could not get the DirInfo for '{}' ({:#x})", hashes::find(dir_hash), dir_hash.0);
             return;
         };
 
@@ -521,7 +521,7 @@ pub fn reshare_file(
     // it causes a real problem? Might be worth looking at in the future but for now it appears to be
     // ok
     let Ok(file_path_index) = ctx.get_file_path_index_from_hash(dst) else {
-        error!("Could not get the file path index for '{}' ({:#x})", hashes::find(dst), dst.0);
+        debug!("Could not get the file path index for '{}' ({:#x})", hashes::find(dst), dst.0);
         return;
     };
 

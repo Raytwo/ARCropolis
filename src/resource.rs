@@ -29,10 +29,6 @@ pub fn arc_mut() -> &'static mut LoadedArc {
     filesystem_info_mut().path_info.arc
 }
 
-pub fn search() -> &'static LoadedSearchSection {
-    filesystem_info().path_info.search
-}
-
 pub fn search_mut() -> &'static mut LoadedSearchSection {
     filesystem_info_mut().path_info.search
 }

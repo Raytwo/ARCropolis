@@ -1,7 +1,8 @@
 use std::{io::Write, path::PathBuf};
 
 use nn_fuse::*;
-use orbits::FileEntryType;
+
+use crate::modfs::{EntryType, ModFsError};
 
 pub struct ModFileAccessor(PathBuf);
 
@@ -9,58 +10,62 @@ pub struct ModDirAccessor(PathBuf);
 
 pub struct ModFsAccessor;
 
+fn map_read_err(err: ModFsError, path: &std::path::Path) -> AccessorResult {
+    if let ModFsError::Io(ref io_err) = err {
+        if io_err.kind() == std::io::ErrorKind::NotFound {
+            warn!(target: "std", "mods:/ stale patch entry (on-disk file gone): {}", path.display());
+            return AccessorResult::PathNotFound;
+        }
+    }
+    AccessorResult::Unexpected
+}
+
 impl FileAccessor for ModFileAccessor {
     fn read(&mut self, mut buffer: &mut [u8], offset: usize) -> Result<usize, AccessorResult> {
         debug!(target: "no-mod-path", "ModFileAccessor::read - Buffer length: {:#x}", buffer.len());
 
         let fs = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
-        let file = fs.get().load(&self.0).map_err(|_| AccessorResult::Unexpected)?;
-        buffer.write(&file.as_slice()[offset..]).map_err(|_| AccessorResult::Unexpected)
+        let bytes = fs.modfs().read(&self.0).map_err(|e| map_read_err(e, &self.0))?;
+        buffer.write(&bytes[offset..]).map_err(|_| AccessorResult::Unexpected)
     }
 
     fn get_size(&mut self) -> Result<usize, AccessorResult> {
         let fs = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
-        let size = fs.get().query_max_filesize(&self.0).map_or_else(|| Err(AccessorResult::Unexpected), Ok);
-        if let Ok(size) = size {
-            debug!(target: "no-mod-path", "ModFileAccessor::get_size - Size: {:#x}", size);
-        } else {
-            debug!(target: "no-mod-path", "ModFileAccessor::get_size - Size not found");
+        match fs.modfs().size(&self.0) {
+            Some(size) => {
+                debug!(target: "no-mod-path", "ModFileAccessor::get_size - Size: {:#x}", size);
+                Ok(size)
+            },
+            None => {
+                debug!(target: "no-mod-path", "ModFileAccessor::get_size - Size not found");
+                Err(AccessorResult::PathNotFound)
+            },
         }
-        size
     }
 }
 
 impl DirectoryAccessor for ModDirAccessor {
     fn read(&mut self, buffer: &mut [DirectoryEntry]) -> Result<usize, AccessorResult> {
         let fs = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
-        let children = fs.get().get_children(&self.0);
+        let modfs = fs.modfs();
+        let children = modfs.read_dir(&self.0);
         for (idx, path) in children.iter().enumerate() {
             if idx >= buffer.len() {
                 break;
             }
 
             buffer[idx].path = path.to_path_buf();
-            let ty = match fs.get().get_virtual_entry_type(path) {
-                Err(_) => match fs.get().get_patch_entry_type(path) {
-                    Ok(ty) => ty,
-                    Err(_) => return Err(AccessorResult::PathNotFound),
-                },
-                Ok(ty) => ty,
+            buffer[idx].ty = match modfs.entry_type(path).ok_or(AccessorResult::PathNotFound)? {
+                EntryType::File => DirectoryEntryType::File(modfs.size(path).unwrap_or(0) as i64),
+                EntryType::Directory => DirectoryEntryType::Directory,
             };
-            match ty {
-                FileEntryType::File => match fs.get().query_max_filesize(path) {
-                    Some(size) => buffer[idx].ty = DirectoryEntryType::File(size as i64),
-                    None => return Err(AccessorResult::Unexpected),
-                },
-                FileEntryType::Directory => buffer[idx].ty = DirectoryEntryType::Directory,
-            }
         }
         Ok(children.len())
     }
 
     fn get_entry_count(&mut self) -> Result<usize, AccessorResult> {
         let fs = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
-        Ok(fs.get().get_children(&self.0).len())
+        Ok(fs.modfs().read_dir(&self.0).len())
     }
 }
 
@@ -69,18 +74,10 @@ impl FileSystemAccessor for ModFsAccessor {
         debug!(target: "no-mod-path", "ModFsAccessor::get_entry_type - Path: {}", path.display());
 
         let fs = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
-        match fs.get().get_virtual_entry_type(path) {
-            Err(_) => match fs.get().get_patch_entry_type(path) {
-                Ok(ty) => match ty {
-                    FileEntryType::File => Ok(FsEntryType::File),
-                    FileEntryType::Directory => Ok(FsEntryType::Directory),
-                },
-                Err(_) => Err(AccessorResult::PathNotFound),
-            },
-            Ok(ty) => match ty {
-                FileEntryType::File => Ok(FsEntryType::File),
-                FileEntryType::Directory => Ok(FsEntryType::Directory),
-            },
+        match fs.modfs().entry_type(path) {
+            Some(EntryType::File) => Ok(FsEntryType::File),
+            Some(EntryType::Directory) => Ok(FsEntryType::Directory),
+            None => Err(AccessorResult::PathNotFound),
         }
     }
 
@@ -91,25 +88,32 @@ impl FileSystemAccessor for ModFsAccessor {
 
         debug!(target: "no-mod-path", "ModFsAccessor::open_file - Path: {} | Read: {} | Write: {} | Append: {}", path.display(), read, write, append);
 
-        let fs = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
-
         if write || append {
             return Err(AccessorResult::Unsupported);
         }
 
-        if fs.get().contains(path) {
-            Ok(FAccessor::new(ModFileAccessor(PathBuf::from(path)), mode))
-        } else {
-            Err(AccessorResult::PathNotFound)
+        let fs = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
+        let modfs = fs.modfs();
+        if !modfs.exists(path) {
+            return Err(AccessorResult::PathNotFound);
         }
+
+        if let Some(entry) = modfs.patch().get(path) {
+            let full = entry.full_path(path);
+            if !full.is_file() {
+                warn!(target: "std", "mods:/ stale patch entry (on-disk file gone): {}", path.display());
+                return Err(AccessorResult::PathNotFound);
+            }
+        }
+
+        Ok(FAccessor::new(ModFileAccessor(PathBuf::from(path)), mode))
     }
 
     fn open_directory(&self, path: &std::path::Path, _mode: skyline::nn::fs::OpenDirectoryMode) -> Result<*mut DAccessor, AccessorResult> {
         debug!(target: "no-mod-path", "ModFsAccessor::open_directory - Path: {}", path.display());
 
         let fs = unsafe { &*crate::GLOBAL_FILESYSTEM.get_mut().unwrap() };
-
-        if fs.get().contains(path) {
+        if fs.modfs().exists(path) {
             Ok(DAccessor::new(ModDirAccessor(PathBuf::from(path))))
         } else {
             Err(AccessorResult::PathNotFound)

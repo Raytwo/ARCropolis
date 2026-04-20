@@ -14,7 +14,7 @@ use smash_arc::{
 
 use crate::{
     get_smash_hash, hashes,
-    resource::{self, CppVector, FilesystemInfo, LoadedData, LoadedDirectory, LoadedFilepath},
+    resource::{self, CppVector, LoadedData, LoadedDirectory, LoadedFilepath},
     PathExtension,
 };
 
@@ -32,7 +32,6 @@ pub struct InterDir {
 
 pub struct AdditionContext {
     pub arc: &'static mut LoadedArc,
-    pub filesystem_info: &'static FilesystemInfo,
 
     pub added_files: HashMap<Hash40, FilePathIdx>,
 
@@ -96,6 +95,17 @@ impl DerefMut for SearchContext {
 }
 
 impl AdditionContext {
+    pub fn reserve_additions(&mut self, additional: usize) {
+        self.filepaths.reserve(additional);
+        self.file_info_indices.reserve(additional);
+        self.file_infos.reserve(additional);
+        self.info_to_datas.reserve(additional);
+        self.file_datas.reserve(additional);
+        self.loaded_filepaths.reserve(additional);
+        self.loaded_datas.reserve(additional);
+        self.added_files.reserve(additional);
+    }
+
     pub fn get_shared_info_index(&self, current_index: FileInfoIdx) -> FileInfoIdx {
         let shared_idx = self.file_info_indices[usize::from(self.file_infos[usize::from(current_index)].file_info_indice_index)].file_info_index;
         if shared_idx == current_index {
@@ -154,6 +164,14 @@ impl SearchContext {
             },
         }
     }
+
+    pub fn reserve_additions(&mut self, additional: usize) {
+        self.folder_paths.reserve(additional);
+        self.path_list_indices.reserve(additional);
+        self.paths.reserve(additional);
+        self.new_folder_paths.reserve(additional);
+        self.new_paths.reserve(additional);
+    }
 }
 
 pub trait LoadedArcEx {
@@ -191,7 +209,7 @@ impl LoadedArcEx for LoadedArc {
     fn patch_filedata(&mut self, hash: Hash40, size: u32, region: Region) -> Result<u32, LookupError> {
         let file_info = *self.get_file_info_from_hash(hash)?;
         let region = if file_info.flags.is_regional() {
-            info!(
+            debug!(
                 "Patching file '{}' ({:#x}) and it is regional. Patching region {:?}",
                 hashes::find(hash),
                 hash.0,
@@ -259,7 +277,6 @@ impl LoadedArcEx for LoadedArc {
 
         AdditionContext {
             arc,
-            filesystem_info,
 
             added_files: HashMap::new(),
             inter_dirs: HashMap::new(),
