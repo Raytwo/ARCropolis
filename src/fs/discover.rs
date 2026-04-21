@@ -182,28 +182,23 @@ pub fn perform_discovery() -> DiscoveryResult {
     let mut claimed_tree_files: HashMap<PathBuf, PathBuf> = HashMap::new();
     let mut conflict_map: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
 
-    let mut active_roots: Vec<PathBuf> = match std::fs::read_dir(&mods_path) {
+    let all_dirs: Vec<PathBuf> = match std::fs::read_dir(&mods_path) {
         Ok(iter) => iter
             .filter_map(|e| e.ok())
             .filter(|e| matches!(e.file_type(), Ok(ft) if ft.is_dir()))
             .map(|e| e.path())
-            .filter(|p| is_active_root(p))
             .collect(),
         Err(e) => {
             error!("Could not read mods directory {}: {:?}", mods_path, e);
             return DiscoveryResult { entries, collected };
         },
     };
+    let mut active_roots: Vec<PathBuf> = all_dirs.iter().filter(|p| is_active_root(p)).cloned().collect();
     active_roots.sort();
 
     super::cache::ensure_cache_dir();
     let cache_key = super::cache::discovery_key(&active_roots);
     if let Some(cached) = super::cache::load_discovery(cache_key) {
-        info!(
-            "discovery cache hit ({} entries, {} collected) — skipping walk",
-            cached.entries.len(),
-            cached.collected.len()
-        );
         let DiscoveryResult { entries, collected } = cached;
 
         match mount_prebuilt_nrr(&entries) {
@@ -230,20 +225,14 @@ pub fn perform_discovery() -> DiscoveryResult {
         .collect();
 
     for (mod_root, RootWalk { staged_tree, staged_collected }) in walked {
-        let conflict_local = staged_tree.iter().find_map(|(local, _)| {
-            claimed_tree_files.get(local).map(|first| (local.clone(), first.clone()))
-        });
-
-        if let Some((local, first_root)) = conflict_local {
-            conflict_map
-                .entry(local)
-                .or_insert_with(|| vec![first_root])
-                .push(mod_root.clone());
-            warn!("Mod root '{}' was rejected due to a file conflict during discovery.", mod_root.display());
-            continue;
-        }
-
         for (local, size) in staged_tree {
+            if let Some(first_root) = claimed_tree_files.get(&local).cloned() {
+                conflict_map
+                    .entry(local.clone())
+                    .or_insert_with(|| vec![first_root])
+                    .push(mod_root.clone());
+                continue;
+            }
             claimed_tree_files.insert(local.clone(), mod_root.clone());
             entries.push((mod_root.clone(), local, size));
         }
@@ -303,9 +292,6 @@ pub fn perform_discovery() -> DiscoveryResult {
     load_and_run_plugins(&collected);
 
     let result = DiscoveryResult { entries, collected };
-    // Persist the fresh walk under the key we computed up front. Any mod
-    // root change (add/remove/rename) flips that key, so the next boot
-    // will skip the cache and regenerate here.
     super::cache::save_discovery(cache_key, &result);
     result
 }
@@ -330,25 +316,38 @@ fn mount_prebuilt_nrr(entries: &[(PathBuf, PathBuf, usize)]) -> Result<Option<Re
 pub fn load_and_run_plugins(plugins: &[(PathBuf, PathBuf)]) {
     let mut plugin_nrr = NrrBuilder::new();
 
-    let modules: Vec<(PathBuf, NroBuilder)> = plugins
+    let plugin_candidates: Vec<&(PathBuf, PathBuf)> = plugins
         .iter()
         .filter(|(_, local)| local.file_name().and_then(|n| n.to_str()) == Some("plugin.nro"))
+        .collect();
+    warn!(
+        target: "std",
+        "[diag] chainload: {} plugin.nro candidates from {} collected entries",
+        plugin_candidates.len(),
+        plugins.len(),
+    );
+    for (root, local) in &plugin_candidates {
+        warn!(target: "std", "[diag] chainload candidate: root={}, local={}", root.display(), local.display());
+    }
+
+    let modules: Vec<(PathBuf, NroBuilder)> = plugin_candidates
+        .into_iter()
         .filter_map(|(root, local)| {
             let full_path = root.join(local);
 
             if !full_path.exists() {
-                error!("Plugin file '{}' does not exist.", full_path.display());
+                warn!(target: "std", "[diag] chainload: file missing '{}'", full_path.display());
                 return None;
             }
 
             match NroBuilder::open(&full_path) {
                 Ok(builder) => {
-                    debug!("Loaded plugin at '{}' for chainloading.", full_path.display());
+                    warn!(target: "std", "[diag] chainload: loaded '{}' for chainloading.", full_path.display());
                     plugin_nrr.add_module(&builder);
                     Some((full_path, builder))
                 },
                 Err(e) => {
-                    error!("Failed to load plugin at '{}'. {:?}", full_path.display(), e);
+                    warn!(target: "std", "[diag] chainload: failed to load '{}'. {:?}", full_path.display(), e);
                     None
                 },
             }
@@ -356,49 +355,46 @@ pub fn load_and_run_plugins(plugins: &[(PathBuf, PathBuf)]) {
         .collect();
 
     if modules.is_empty() {
-        info!("No plugins found for chainloading.");
+        warn!(target: "std", "[diag] chainload: no plugins queued");
         return;
     }
 
     let mut registration_info = match plugin_nrr.register() {
         Ok(Some(info)) => info,
-        Ok(_) => return,
+        Ok(_) => {
+            warn!(target: "std", "[diag] chainload: NRR register returned None");
+            return;
+        },
         Err(e) => {
-            error!("{:?}", e);
+            warn!(target: "std", "[diag] chainload: NRR register failed: {:?}", e);
             crate::dialog_error("ARCropolis failed to register plugin module info.");
             return;
         },
     };
 
-    // we have to do it this way
-    // i'm sorry ray, but it literally does not work without collecting here
-    // i don't know
-    // i didn't write hos
     let modules: Vec<(PathBuf, Module)> = modules
         .into_iter()
         .filter_map(|(path, x)| match x.mount() {
             Ok(module) => Some((path, module)),
             Err(e) => {
-                error!("Failed to mount chainloaded plugin '{}'. {:?}", path.display(), e);
+                warn!(target: "std", "[diag] chainload: failed to mount '{}': {:?}", path.display(), e);
                 None
             },
         })
         .collect();
 
     unsafe {
-        // Unfortunately, without unregistering this it will cause the game to crash, cause is unknown, but likely due to page alignment I'd guess
-        // It does not matter if we use only one NRR for both the prebuilt modules and the plugins, it will still cause a crash
         nn::ro::UnregisterModuleInfo(&mut registration_info);
     }
 
-    info!("Successfully chainloaded all collected plugins.");
+    warn!(target: "std", "[diag] chainload: mounted {} plugin module(s); invoking main", modules.len());
 
     for (path, module) in modules {
         let callable = unsafe {
             let mut sym_loc = 0usize;
             let rc = nn::ro::LookupModuleSymbol(&mut sym_loc, &module, "main\0".as_ptr() as _);
             if rc != 0 {
-                warn!("Failed to find symbol 'main' in chainloaded plugin '{}'.", path.display());
+                warn!(target: "std", "[diag] chainload: no 'main' symbol in '{}'", path.display());
                 None
             } else {
                 Some(std::mem::transmute::<usize, extern "C" fn()>(sym_loc))
@@ -406,7 +402,9 @@ pub fn load_and_run_plugins(plugins: &[(PathBuf, PathBuf)]) {
         };
 
         if let Some(entrypoint) = callable {
+            warn!(target: "std", "[diag] chainload: entering '{}' main", path.display());
             entrypoint();
+            warn!(target: "std", "[diag] chainload: exited '{}' main", path.display());
         }
     }
 }

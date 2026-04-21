@@ -165,7 +165,7 @@ impl CachedFilesystem {
         let decomp_size = match arc.get_file_data_from_hash(hash, region) {
             Ok(data) => data.decomp_size as usize,
             Err(_) => {
-                warn!(
+                debug!(
                     "Failed to patch '{}' ({:#x}) filesize! It should be {:#x}.",
                     hashes::find(hash).bright_yellow(),
                     hash.0,
@@ -360,9 +360,25 @@ impl CachedFilesystem {
         context.reserve_additions(expected);
         search_context.reserve_additions(expected);
 
+        fn is_handler_consumed(local: &std::path::Path) -> bool {
+            let Some(name) = local.file_name().and_then(|n| n.to_str()) else {
+                return false;
+            };
+            matches!(name, "config.json" | "plugin.nro" | "bgm_property.bin")
+                || [
+                    "prcx", "prcxml", "stdatx", "stdatxml", "stprmx", "stprmxml",
+                    "xmsbt", "patch3audio", "motdiff", "yml",
+                ]
+                .iter()
+                .any(|ext| name.ends_with(ext))
+        }
+
         // Go through and add any files that were not found in the data.arc
         for (local, _entry) in self.modfs.patch().iter_files() {
             if local.is_stream() {
+                continue;
+            }
+            if is_handler_consumed(local) {
                 continue;
             }
             let hash = match local.smash_hash() {
@@ -384,6 +400,12 @@ impl CachedFilesystem {
             }
         }
         for (local, _) in self.modfs.patch().iter_files() {
+            if local.is_stream() {
+                continue;
+            }
+            if is_handler_consumed(local) {
+                continue;
+            }
             if let Ok(hash) = local.smash_hash() {
                 if !self.config.unshare_blacklist.contains(&hash.to_external()) {
                     files_set.insert(hash);
@@ -392,48 +414,33 @@ impl CachedFilesystem {
         }
         let files: Vec<Hash40> = files_set.into_iter().collect();
 
-        // Acquire both lookup table locks once for the entire sharing/unsharing phase
-        replacement::lookup::with_lookups(|unshare_lut, share_lut| {
-            for (hash, new_file_set) in self.config.share_to_vanilla.iter() {
-                for new_file in new_file_set.0.iter() {
-                    if context.contains_file(new_file.full_path.to_smash_arc()) {
-                        replacement::unshare::reshare_file(
-                            &mut context,
-                            new_file.full_path.to_smash_arc(),
-                            hash.to_smash_arc(),
-                            unshare_lut,
-                            share_lut,
-                        );
-                    } else {
-                        replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc(), share_lut);
-                        replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
-                    }
+        for (hash, new_file_set) in self.config.share_to_vanilla.iter() {
+            for new_file in new_file_set.0.iter() {
+                if context.contains_file(new_file.full_path.to_smash_arc()) {
+                    replacement::unshare::reshare_file(&mut context, new_file.full_path.to_smash_arc(), hash.to_smash_arc());
+                } else {
+                    replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc());
+                    replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
                 }
             }
+        }
 
-            // Reshare any files that depend on files in file groups, as we need to get rid of those else we crash.
-            replacement::unshare::reshare_file_groups(&mut context);
+        // Reshare any files that depend on files in file groups, as we need to get rid of those else we crash.
+        replacement::unshare::reshare_file_groups(&mut context);
 
-            replacement::unshare::unshare_files(&mut context, hash_ignore, files.into_iter(), unshare_lut, share_lut);
+        replacement::unshare::unshare_files(&mut context, hash_ignore, files.into_iter());
 
-            // Add new shared files to added files
-            for (hash, new_file_set) in self.config.share_to_added.iter() {
-                for new_file in new_file_set.0.iter() {
-                    if context.contains_file(new_file.full_path.to_smash_arc()) {
-                        replacement::unshare::reshare_file(
-                            &mut context,
-                            new_file.full_path.to_smash_arc(),
-                            hash.to_smash_arc(),
-                            unshare_lut,
-                            share_lut,
-                        );
-                    } else {
-                        replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc(), share_lut);
-                        replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
-                    }
+        // Add new shared files to added files
+        for (hash, new_file_set) in self.config.share_to_added.iter() {
+            for new_file in new_file_set.0.iter() {
+                if context.contains_file(new_file.full_path.to_smash_arc()) {
+                    replacement::unshare::reshare_file(&mut context, new_file.full_path.to_smash_arc(), hash.to_smash_arc());
+                } else {
+                    replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc());
+                    replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
                 }
             }
-        });
+        }
 
         println!("Adding files to dir infos...");
         let mut dir_entries: Vec<(&hash40::Hash40, &Vec<hash40::Hash40>)> = self.config.new_dir_files.iter().collect();

@@ -6,7 +6,7 @@ use arc_config::{
 };
 use smash_arc::*;
 
-use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, InterDir, SearchContext, NO_CHILD};
+use super::{lookup, AdditionContext, FromPathExt, FromSearchableFile, FromSearchableFolder, InterDir, SearchContext};
 use crate::{
     hashes,
     replacement::FileInfoFlagsExt,
@@ -43,7 +43,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
 
     // Create a new FileInfoIndex with the created file_info_idx above and a dir offset index of
     let new_info_indice_idx = FileInfoIndex {
-        dir_offset_index: NO_CHILD,
+        dir_offset_index: 0xFF_FFFF,
         file_info_index: file_info_idx,
     };
 
@@ -99,7 +99,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
     debug!("Added file '{}' ({:#x})", path.display(), file_path.path.hash40().0);
 }
 
-pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Hash40, share_lut: &mut lookup::ShareLookup) {
+pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Hash40) {
     // Get the target shared FileInfoIndice index
     let info_indice_idx = if let Ok(info) = ctx.get_file_info_from_hash(shared_to) {
         info.file_info_indice_index.0
@@ -138,7 +138,7 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
     .hash40();
 
     // Add the shared file to the lookup
-    share_lut.add_shared_file(
+    lookup::add_shared_file(
         new_file.full_path.to_smash_arc(), // we can unwrap because of FilePath::from_path being successful
         shared_to.to_smash_arc(),
     );
@@ -149,7 +149,7 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
         Some(parent) if parent == Path::new("") => {
             if let Some(mut new_folder_path) = FolderPathListEntry::from_path(path) {
                 let new_path = new_folder_path.as_path_entry();
-                new_folder_path.set_first_child_index(NO_CHILD);
+                new_folder_path.set_first_child_index(0xFF_FFFF);
                 ctx.new_folder_paths.insert(new_folder_path.path.hash40(), ctx.folder_paths.len());
                 ctx.new_paths.insert(new_path.path.hash40(), ctx.path_list_indices.len());
                 ctx.path_list_indices.push(ctx.paths.len() as u32);
@@ -192,7 +192,7 @@ pub fn add_searchable_folder_recursive(ctx: &mut SearchContext, path: &Path) {
 
     if let Some(mut new_folder) = FolderPathListEntry::from_path(path) {
         // Create a new directory that does not have child directories
-        new_folder.set_first_child_index(NO_CHILD);
+        new_folder.set_first_child_index(0xFF_FFFF);
         // Create a new search path
         let mut new_path = new_folder.as_path_entry();
         // Set the previous head of the linked list as the child of the new path
@@ -242,7 +242,7 @@ fn add_searchable_folder_by_folder(ctx: &mut SearchContext, folder: &Folder) -> 
 
     let mut new_folder = FolderPathListEntry::from_folder(folder);
     // Create a new directory that does not have child directories
-    new_folder.set_first_child_index(NO_CHILD);
+    new_folder.set_first_child_index(0xFF_FFFF);
     // Create a new search path
     let mut new_path = new_folder.as_path_entry();
     // Set the previous head of the linked list as the child of the new path
@@ -350,6 +350,13 @@ pub fn add_searchable_file_recursive(ctx: &mut SearchContext, path: &Path) {
 
     // Try getting the file from the path after adding the folders
     if let Some(mut new_file) = PathListEntry::from_path(path) {
+        // debug!(
+        //     "Adding file '{}' ({:#}) to folder '{}' ({:#x})",
+        //     hashes::find(new_file.path.hash40()),
+        //     new_file.path.hash40().0,
+        //     hashes::find(parent.path.hash40()),
+        //     parent.path.hash40().0
+        // );
         // Set the previous head of the linked list as the child of the new file
         new_file.path.set_index(parent.get_first_child_index() as u32);
         // Set the file as the head of the linked list
@@ -380,76 +387,106 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
         },
     };
 
-    let file_start_index = ctx.file_infos.len() as u32;
-    ctx.file_infos.reserve(file_info_range.len() + files.len());
+    // Create new Vec with the size of the file count of the specified dir + the count of the files passed in
+    let mut file_infos = Vec::with_capacity(file_info_range.len() + files.len());
 
+    // Create new HashSet for the current files in the specified dir
     let mut contained_files = HashSet::new();
 
-    for idx in file_info_range.clone() {
-        let file_info = ctx.file_infos[idx];
-        let path_idx = file_info.file_path_index;
-        contained_files.insert(ctx.filepaths[usize::from(path_idx)].path.hash40());
+    // Loop through all files in the file_infos at the directory position
+    for file_info in ctx.file_infos[file_info_range.clone()].iter() {
+        // Insert directory file hash40 to the contained files set
+        contained_files.insert(ctx.filepaths[usize::from(file_info.file_path_index)].path.hash40());
 
-        let indice_idx = ctx.filepaths[usize::from(path_idx)].path.index() as usize;
-        if file_info_range.contains(&usize::from(ctx.file_info_indices[indice_idx].file_info_index)) {
-            ctx.file_info_indices[indice_idx].file_info_index = FileInfoIdx(ctx.file_infos.len() as u32);
+        // If the file_info_range has an entry for the FileInfoIndex for the current file, then update the FileInfoIdx
+        // with a new FileInfoIdx that takes the context file_infos length + the length of the current file_infos (don't know why this is done)
+        if file_info_range.contains(&usize::from(
+            ctx.file_info_indices[ctx.filepaths[usize::from(file_info.file_path_index)].path.index() as usize].file_info_index,
+        )) {
+            ctx.file_info_indices[ctx.filepaths[usize::from(file_info.file_path_index)].path.index() as usize].file_info_index =
+                FileInfoIdx((ctx.file_infos.len() + file_infos.len()) as u32);
         }
-        ctx.file_infos.push(file_info);
+
+        // Add file_info to the file_infos vector created earlier
+        file_infos.push(*file_info);
     }
 
-    let mut sorted_files: Vec<Hash40> = files.into_iter().collect();
-    sorted_files.sort_by_key(|h| h.as_u64());
-    for file in sorted_files {
+    for file in files {
+        // If the file passed in is already exists, then just skip it
         if contained_files.contains(&file) {
             continue;
         }
 
+        // Get the FilePathIdx from the context
         if let Some(file_index) = get_path_idx(ctx, file) {
-            let indice_idx = ctx.filepaths[usize::from(file_index)].path.index() as usize;
-            let src_info_idx = ctx.file_info_indices[indice_idx].file_info_index;
-            let mut file_info = ctx.file_infos[usize::from(src_info_idx)];
+            // Get the FileInfo from the context FileInfos with the FileInfoIndex with the file_index gotten
+            // earlier
+            let mut file_info =
+                ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index)];
 
             // only change the file linkage/file datas if we aren't a new shared file
             // changing those things has unintended/cataclysmic behavior lmfao
             if !file_info.flags.new_shared_file() {
-                let info_to_data = &mut ctx.info_to_datas[usize::from(file_info.info_to_data_index)];
+                // Get the FileInfoToData from the InfoToData array context
+                let info_to_data = &mut ctx.info_to_datas[usize::from(
+                    ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index)]
+                        .info_to_data_index,
+                )];
+
+                // Set the folder offset index to 0
                 info_to_data.folder_offset_index = 0x0;
 
+                // Get the data index from the info -> data
                 let data_idx = info_to_data.file_data_index;
+
+                // Get the FileData from the FileDatas with the FileDataIdx gotten earlier
                 let file_data = &mut ctx.file_datas[usize::from(data_idx)];
+
+                // Set the compressed and decompressed size to 0x100 (256) (The decompressed size will change later
+                // when patched by ARCropolis)
                 file_data.comp_size = 0x100;
                 file_data.decomp_size = 0x100;
+
+                // Set the FileData offset in folder to 0 so it at least has a value
                 file_data.offset_in_folder = 0x0;
+
+                // Set the flags to not be compressed and not use zstd
                 file_data.flags = FileDataFlags::new().with_compressed(false).with_use_zstd(false);
             }
 
             file_info.file_path_index = file_index;
             file_info.flags.set_standalone_file(true);
 
+            // Set the file info index to the current context file infos size + the current length of the
+            // file_infos vector created earlier
             if !file_info.flags.new_shared_file() {
-                ctx.file_info_indices[indice_idx].file_info_index = FileInfoIdx(ctx.file_infos.len() as u32);
+                ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index =
+                    FileInfoIdx((ctx.file_infos.len() + file_infos.len()) as u32);
             }
-            ctx.file_infos.push(file_info);
+
+            // Push the modified file_info to the file_infos vector
+            file_infos.push(file_info);
         } else {
             debug!("Cannot get file path index for '{}' ({:#x})", hashes::find(file), file.0);
         }
     }
 
-    let new_count = ctx.file_infos.len() as u32 - file_start_index;
+    // Get the new start index by getting the length of the context file_infos (so we're changing the start
+    // position of the directory to be at the end of the old file_infos)
+    let file_start_index = ctx.file_infos.len() as u32;
+
+    // Take our newly generated file_infos and append it to the context file_infos
+    ctx.file_infos.extend_from_slice(&file_infos);
 
     // Get the directory from the context
     let dir_info = ctx
         .get_dir_info_from_hash_ctx_mut(directory)
         .expect("Failed to get directory after confirming it exists");
 
+    // Modify the directory start index and the file count
     dir_info.file_info_start_index = file_start_index;
-    dir_info.file_count = new_count;
-    let folder_offset_idx = dir_info.path.index() as usize;
-
-    if folder_offset_idx < ctx.folder_offsets_vec.len() {
-        ctx.folder_offsets_vec[folder_offset_idx].file_start_index = file_start_index;
-        ctx.folder_offsets_vec[folder_offset_idx].file_count = new_count;
-    }
+    dir_info.file_count = file_infos.len() as u32;
+    // debug!("Added files to {} ({:#x})", hashes::find(directory), directory.0);
 }
 
 // Right now this will take up a bit of memory if adding multiple dirs to the same dirinfo, so gonna have to change it to take a vec instead ig
@@ -472,7 +509,6 @@ pub fn add_dir_info_to_parent(ctx: &mut AdditionContext, parent_dir_info: &mut D
 }
 
 pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
-    // Create a FolderPathListEntry from the path that's passed in
     let dir_info_path = if let Some(dir_info_path) = FolderPathListEntry::from_path(path) {
         dir_info_path
     } else {
@@ -480,15 +516,33 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
         return;
     };
 
-    // Get a base
+    if ctx.get_dir_info_from_hash_ctx(dir_info_path.path.hash40()).is_ok() {
+        return;
+    }
+
+    if dir_info_path.parent.hash40().as_u64() != 0x0
+        && ctx.get_dir_info_from_hash_ctx(dir_info_path.parent.hash40()).is_err()
+    {
+        if let Some(parent) = path.parent() {
+            add_dir_info(ctx, parent);
+        }
+        if ctx.get_dir_info_from_hash_ctx(dir_info_path.parent.hash40()).is_err() {
+            debug!(
+                "Failed to build parent chain for {} (parent hash {:#x} missing); skipping",
+                path.display(),
+                dir_info_path.parent.hash40().as_u64()
+            );
+            return;
+        }
+    }
+
     let mut dir_info = *ctx.get_dir_info_from_hash_ctx(Hash40::from("fighter/luigi/c00")).unwrap();
 
-    let mut dir_hash_to_info_idx = HashToIndex::new()
+    let dir_hash_to_info_idx = HashToIndex::new()
         .with_hash(dir_info_path.path.hash())
         .with_length(dir_info_path.path.length())
         .with_index(ctx.dir_infos_vec.len() as u32);
 
-    // Set dir_info values to our new dir_info info
     dir_info.path = dir_info_path.path;
     dir_info.name = dir_info_path.file_name.hash40();
     dir_info.parent = dir_info_path.parent.hash40();
@@ -496,86 +550,32 @@ pub fn add_dir_info(ctx: &mut AdditionContext, path: &Path) {
     dir_info.file_count = 0;
     dir_info.child_dir_start_index = 0;
     dir_info.child_dir_count = 0;
-    // dir_info.flags =  DirInfoFlags::new().with_unk1(0).with_redirected(false).with_unk2(false).with_is_symlink(false).with_unk3(0);
 
-    // If we already have the dir added, we can return early
-    if let Ok(_dir) = ctx.get_dir_info_from_hash_ctx(dir_info_path.path.hash40()) {
-        return;
-    }
-
-    // --------------------- FOLDER CHILD HASHES DONE HERE --------------------- //
-    // Check to see if parent actually exists
     if dir_info_path.parent.hash40().as_u64() != 0x0 {
-        // If so, try getting the parent dir info
-        match ctx.get_dir_info_from_hash_ctx(dir_info_path.parent.hash40()) {
-            // If successful, add the current dir info the parent
-            Ok(parent_dir_info) => {
-                // Clone the parent dir info so we can make it mutable
-                let mut parent_dir_info_mut = *parent_dir_info;
-                add_dir_info_to_parent(ctx, &mut parent_dir_info_mut, &dir_hash_to_info_idx);
-
-                // We can unwrap directly because if we're here, the parent does exist
-                *ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.parent.hash40()).unwrap() = parent_dir_info_mut;
-            },
-            // Else, just say you failed at getting the parent dirinfo and say why
-            Err(_err) => {
-                match path.parent() {
-                    // If a parent does exist in the path but parent doesn't exist in the DirInfos,
-                    // add it
-                    Some(parent) => {
-                        add_dir_info(ctx, parent);
-
-                        // Since we just added a dirinfo, we need to update our new dir_hash_to_info_idx so when the parent/child structure is
-                        // resolved it doesnt end up pointing back to itself.
-                        dir_hash_to_info_idx.set_index(ctx.dir_infos_vec.len() as u32);
-
-                        // After adding it, go ahead and try the logic from above again
-                        match ctx.get_dir_info_from_hash_ctx(dir_info_path.parent.hash40()) {
-                            Ok(parent_dir_info) => {
-                                let mut parent_dir_info_mut = *parent_dir_info;
-                                add_dir_info_to_parent(ctx, &mut parent_dir_info_mut, &dir_hash_to_info_idx);
-                                *ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.parent.hash40()).unwrap() = parent_dir_info_mut;
-                            },
-                            Err(err) => {
-                                println!(
-                                    "Failed getting DirInfo Parent ({:#x})! Reason: {:?}",
-                                    dir_info_path.parent.hash40().as_u64(),
-                                    err
-                                );
-                            },
-                        }
-                    },
-                    None => {
-                        println!("Could not get parent of {:?}!", path);
-                        return;
-                    },
-                }
-            },
+        if let Ok(parent_dir_info) = ctx.get_dir_info_from_hash_ctx(dir_info_path.parent.hash40()) {
+            let mut parent_dir_info_mut = *parent_dir_info;
+            add_dir_info_to_parent(ctx, &mut parent_dir_info_mut, &dir_hash_to_info_idx);
+            *ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.parent.hash40()).unwrap() = parent_dir_info_mut;
         }
     }
-    // --------------------- END FOLDER CHILD HASHES --------------------- //
 
-    // --------------------- FOLDER OFFSETS DONE HERE (FIGURE OUT STUFF ABOUT THIS LATER IF IT DOESN'T WORK) --------------------- //
     let new_dir_offset = DirectoryOffset {
         offset: 0,
         decomp_size: 0,
         size: 0,
         file_start_index: dir_info.file_info_start_index,
         file_count: dir_info.file_count,
-        directory_index: NO_CHILD,
+        directory_index: 0xFF_FFFF,
     };
 
     dir_info.path.set_index(ctx.folder_offsets_vec.len() as u32);
-    // --------------------- END FOLDER OFFSETS --------------------- //
 
-    // --------------------- PUSH TO CONTEXT DONE HERE --------------------- //
     let dir_hash = dir_hash_to_info_idx.hash40();
     ctx.dir_infos_vec.push(dir_info);
     ctx.dir_hash_to_info_idx.push(dir_hash_to_info_idx);
     ctx.cache_dir_info(dir_hash);
     ctx.folder_offsets_vec.push(new_dir_offset);
     ctx.loaded_directories.push(LoadedDirectory::default());
-    // --------------------- END PUSH TO CONTEXT --------------------- //
 }
 
 pub fn add_dir_info_with_base(ctx: &mut AdditionContext, path: &Path, base: &Path) {
@@ -595,13 +595,27 @@ pub fn add_dir_info_with_base(ctx: &mut AdditionContext, path: &Path, base: &Pat
         return;
     };
 
+    let base_dir_info = match ctx.get_dir_info_from_hash_ctx(base_dir_info_path.path.hash40()) {
+        Ok(info) => *info,
+        Err(_) => {
+            debug!(
+                "base dir_info missing for {} (base {}); skipping add_dir_info_with_base",
+                path.display(),
+                base.display()
+            );
+            return;
+        },
+    };
+
     add_dir_info(ctx, path);
 
-    // Get the base
-    let base_dir_info = *ctx.get_dir_info_from_hash_ctx(base_dir_info_path.path.hash40()).unwrap();
-
-    // Get the newly added dirinfo
-    let dir_info = ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.path.hash40()).unwrap();
+    let dir_info = match ctx.get_dir_info_from_hash_ctx_mut(dir_info_path.path.hash40()) {
+        Ok(info) => info,
+        Err(_) => {
+            debug!("add_dir_info failed for {}; skipping base link", path.display());
+            return;
+        },
+    };
 
     // Set dir_info values to the base dirinfo
     dir_info.path.set_index(base_dir_info.path.index());

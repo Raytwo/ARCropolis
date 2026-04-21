@@ -122,7 +122,9 @@ pub fn merge_into_config(entries: &[(PathBuf, PathBuf, usize)], config: &mut Mod
                 .entry(new_key)
                 .or_insert(base_val);
         }
+
     }
+
 
     let arc = resource::arc();
     let mut stages_emitted = 0usize;
@@ -157,7 +159,7 @@ pub fn merge_into_config(entries: &[(PathBuf, PathBuf, usize)], config: &mut Mod
     config.new_dir_infos.sort();
     config.new_dir_infos.dedup();
 
-    info!(
+    warn!(
         target: "std",
         "inference: {} costume clone(s), {} new stage dir(s) ({} vanilla-existing stage dirs skipped), \
          {} file memberships across {} top-level dirs; replaced config.json-provided entries \
@@ -295,10 +297,9 @@ fn classify_effect_new_dir(local: &Path) -> Option<String> {
 }
 
 fn is_slot_token(s: &str) -> bool {
-    s.len() == 3
+    (s.len() == 3 || s.len() == 4)
         && s.as_bytes()[0] == b'c'
-        && s.as_bytes()[1].is_ascii_digit()
-        && s.as_bytes()[2].is_ascii_digit()
+        && s.as_bytes()[1..].iter().all(|b| b.is_ascii_digit())
 }
 
 fn parse_fighter_dir_info(s: &str) -> Option<CostumeClone> {
@@ -350,11 +351,11 @@ fn parse_sound_bank_stem(stem: &str) -> Option<(String, String)> {
 }
 
 fn is_noncanonical_slot_lenient(s: &str) -> bool {
-    if s.len() != 3 {
+    if s.len() < 3 || s.len() > 4 {
         return false;
     }
     let bytes = s.as_bytes();
-    bytes[0] == b'c' && bytes[1].is_ascii_digit() && bytes[2].is_ascii_digit()
+    bytes[0] == b'c' && bytes[1..].iter().all(|b| b.is_ascii_digit())
 }
 
 fn classify_stage_parent(local: &Path) -> Option<String> {
@@ -415,14 +416,14 @@ fn find_slot<'a>(comps: &[&'a str]) -> Option<(usize, &'a str)> {
 }
 
 fn is_noncanonical_slot(s: &str) -> bool {
-    if s.len() != 3 {
+    if s.len() < 3 || s.len() > 4 {
         return false;
     }
     let bytes = s.as_bytes();
     if bytes[0] != b'c' {
         return false;
     }
-    if !bytes[1].is_ascii_digit() || !bytes[2].is_ascii_digit() {
+    if !bytes[1..].iter().all(|b| b.is_ascii_digit()) {
         return false;
     }
     !CANONICAL_SLOTS.iter().any(|&canon| canon == s)
