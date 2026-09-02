@@ -51,13 +51,13 @@ fn install_added_color_patches() {
     */
     // OFFSETS ARE CURRENTLY HARDCODED TO VERSION 13.0.2
     static ADDED_COLOR_PATCHES: &[(usize, u32)] = &[
-        (0x18355fc - 0x40, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
-        (0x18352bc - 0x40, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
-        (0x1835618 - 0x40, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
-        (0x18359e8 - 0x40, 0xF10402FF), // cmp x23, #256 (Issue related to Aegis)
-        (0x1835e7c - 0x40, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
-        (0x18365d4 - 0x40, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
-        (0x18368f0 - 0x40, 0xF104013F), // cmp  x9, #256 (Issue related to Aegis)
+        (0x18355bc, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
+        (0x183527c, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
+        (0x18355d8, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
+        (0x18359a8, 0xF10402FF), // cmp x23, #256 (Issue related to Aegis)
+        (0x1835e3c, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
+        (0x1836594, 0xF104027F), // cmp x19, #256 (Issue related to Aegis)
+        (0x18368b0, 0xF104013F), // cmp  x9, #256 (Issue related to Aegis)
         (0x1a1cdf0, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
         (0x1a1ce34, 0xF104011F), // cmp  x8, #256 (Issue related to Aegis)
         (0x14de31c, 0x7104013F), // cmp  w9, #256 (Issue related to Terry)
