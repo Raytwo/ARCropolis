@@ -257,9 +257,9 @@ fn initial_loading(_ctx: &InlineCtx) {
     fuse::arc::install_arc_fs();
     api::event::send_event(Event::ArcFilesystemMounted);
     replacement::lookup::initialize(Some(arc));
-    
+
     let mut filesystem = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
-    
+
     *filesystem = filesystem.take().finish(arc).unwrap();
 
     filesystem.process_mods();
@@ -430,7 +430,7 @@ pub fn main() {
         );
     }));
 
-    if utils::env::get_game_version() != semver::Version::new(13, 0, 4) {
+    if utils::env::get_game_version() != semver::Version::new(13, 0, 5) {
         skyline::error::show_error(69, "Smash Ultimate requires an update.\0", "ARCropolis cannot currently run on a Smash version other than 13.0.4\n\nConsider updating your game or uninstalling ARCropolis.\0");
         // Do not perform any of the hook installation and let the game proceed as normal.
         return;
