@@ -38,5 +38,11 @@ fn lookup_stream_hash(out_path: *mut c_char, loaded_arc: &LoadedArc, size_out: &
 }
 
 pub fn install() {
+    let base = offsets::load_stream();
+
+    skyline::patching::Patch::in_text(base + 0x84).nop().unwrap();  // Patch out first `offset_out == 0` check
+    skyline::patching::Patch::in_text(base + 0x154).nop().unwrap(); // Patch out second `offset_out == 0` check
+    skyline::patching::Patch::in_text(base + 0x230).nop().unwrap(); // Patch out third `offfset_out == 0` check
+
     skyline::install_hooks!(lookup_stream_hash);
 }

@@ -1,3 +1,5 @@
+#![feature(lazy_cell)]
+
 use std::{
     collections::{HashMap, HashSet},
     path::PathBuf,
