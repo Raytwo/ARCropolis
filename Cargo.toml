@@ -1,6 +1,6 @@
 [package]
 name = "arcropolis"
-version = "4.0.8"
+version = "4.0.9"
 authors = ["Raytwo <raytwo@arcropolis.com>, blujay <the.blu.dev@gmail.com>, jam1garner <jam@jam1.re>, CoolSonicKirby <alihussain2001@gmail.com>"]
 edition = "2018"
 
@@ -82,3 +82,6 @@ lto = true
 opt-level = 3
 incremental = true
 debug = 1
+
+[profile.release.package."*"]
+opt-level = 3
