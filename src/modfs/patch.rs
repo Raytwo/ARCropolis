@@ -111,6 +111,19 @@ impl PatchLayer {
         self.conflicts.push(conflict);
     }
 
+    pub fn add_alias(&mut self, alias: Hash40, existing: Hash40) -> bool {
+        if self.index.contains_key(&alias) {
+            return false;
+        }
+        match self.index.get(&existing) {
+            Some(&idx) => {
+                self.index.insert(alias, idx);
+                true
+            },
+            None => false,
+        }
+    }
+
     pub fn get(&self, local: &Path) -> Option<FileEntryRef<'_>> {
         let idx = *self.index.get(&Self::path_key(local))?;
         Some(self.to_ref(idx))

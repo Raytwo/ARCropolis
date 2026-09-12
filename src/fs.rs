@@ -325,6 +325,35 @@ impl CachedFilesystem {
                 self.hash_lookup.insert(new_hash, path);
             }
         }
+
+        let patch_remaps: Vec<(Hash40, Hash40)> = self
+            .modfs
+            .patch()
+            .iter_files()
+            .filter_map(|(local, _)| {
+                if local.is_stream() {
+                    return None;
+                }
+                let hash = local.smash_hash().ok()?;
+                let info = arc.get_file_info_from_hash(hash).ok()?;
+                let canonical = file_paths[info.file_path_index].path.hash40();
+                (canonical != hash).then_some((canonical, hash))
+            })
+            .collect();
+
+        let mut aliased = 0usize;
+        let mut skipped = 0usize;
+        for (canonical, authored) in patch_remaps {
+            if self.modfs.patch_mut().add_alias(canonical, authored) {
+                aliased += 1;
+            } else {
+                skipped += 1;
+            }
+        }
+
+        if aliased > 0 || skipped > 0 {
+            info!(target: "std", "source-slot aliases: {} added, {} skipped (hash already claimed)", aliased, skipped);
+        }
     }
 
     /// Goes through and performs the required file manipulation in order to load mods
