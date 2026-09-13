@@ -300,7 +300,9 @@ impl CachedFilesystem {
             .collect();
         for (hash, size) in patches {
             sum_size += size;
-            let _ = self.patch_file(hash, size);
+            if let Some(old_size) = self.patch_file(hash, size) {
+                self.hash_size_cache.insert(hash, old_size);
+            }
         }
 
         self.total_size = sum_size;

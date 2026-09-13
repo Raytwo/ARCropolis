@@ -47,7 +47,6 @@ pub fn merge_into_config(entries: &[(PathBuf, PathBuf, usize)], config: &mut Mod
 
     let mut clones: HashSet<CostumeClone> = HashSet::new();
     let mut stage_candidate_dirs: HashSet<String> = HashSet::new();
-    let mut effect_candidate_dirs: HashSet<String> = HashSet::new();
     let mut files_emitted = 0usize;
 
     for (_root, local, _size) in entries {
@@ -55,9 +54,6 @@ pub fn merge_into_config(entries: &[(PathBuf, PathBuf, usize)], config: &mut Mod
             clones.insert(clone);
         } else if let Some(stage_dir) = classify_stage_parent(local) {
             stage_candidate_dirs.insert(stage_dir);
-        }
-        if let Some(effect_dir) = classify_effect_new_dir(local) {
-            effect_candidate_dirs.insert(effect_dir);
         }
         if let Some(top_level) = classify_file_membership(local) {
             if let Ok(hash) = local.smash_hash() {
@@ -138,16 +134,6 @@ pub fn merge_into_config(entries: &[(PathBuf, PathBuf, usize)], config: &mut Mod
         if existing_infos.insert(d.clone()) {
             config.new_dir_infos.push(d);
             stages_emitted += 1;
-        }
-    }
-
-    for d in effect_candidate_dirs {
-        let hash = Hash40::from(d.as_str());
-        if arc.get_dir_info_from_hash(hash).is_ok() {
-            continue;
-        }
-        if existing_infos.insert(d.clone()) {
-            config.new_dir_infos.push(d);
         }
     }
 
@@ -255,7 +241,7 @@ fn classify_file_membership(local: &Path) -> Option<String> {
             let maybe_trail = comps[3];
             if let Some(slot) = maybe_trail.strip_prefix("trail_") {
                 if is_slot_token(slot) {
-                    return Some(format!("effect/fighter/{}/{}", fighter, maybe_trail));
+                    return Some(format!("fighter/{}/{}", fighter, slot));
                 }
             }
         }
@@ -266,7 +252,7 @@ fn classify_file_membership(local: &Path) -> Option<String> {
             if let Some(rest) = filename.strip_prefix(&prefix) {
                 if let Some((slot, _ext)) = rest.split_once('.') {
                     if is_slot_token(slot) {
-                        return Some(format!("effect/fighter/{}", fighter));
+                        return Some(format!("fighter/{}/{}", fighter, slot));
                     }
                 }
             }
@@ -274,26 +260,6 @@ fn classify_file_membership(local: &Path) -> Option<String> {
     }
 
     None
-}
-
-fn classify_effect_new_dir(local: &Path) -> Option<String> {
-    let s = local.to_str()?;
-    let comps: Vec<&str> = s.split('/').collect();
-    if comps.len() < 4 || comps[0] != "effect" || comps[1] != "fighter" {
-        return None;
-    }
-    let fighter = comps[2];
-
-    if comps.len() >= 5 {
-        let maybe_trail = comps[3];
-        if let Some(slot) = maybe_trail.strip_prefix("trail_") {
-            if is_slot_token(slot) {
-                return Some(format!("effect/fighter/{}/{}", fighter, maybe_trail));
-            }
-        }
-    }
-
-    Some(format!("effect/fighter/{}", fighter))
 }
 
 fn is_slot_token(s: &str) -> bool {
