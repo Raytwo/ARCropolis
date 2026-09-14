@@ -8,7 +8,6 @@
     }
 }
 
-
 * {
     font-family: Arial, Helvetica, sans-serif;
     font-weight: bold;
@@ -25,6 +24,7 @@ body {
     width: 90%;
     position: relative;
     top: 84px;
+    transition: opacity 0.2s;
 }
 
 .header table {

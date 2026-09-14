@@ -250,80 +250,6 @@
             font-weight: bold !important;
             font-size: 1.8rem !important;
         }
-        /* 
-        Code below was generated with http://csscheckbox.com/ and modified to fit Smash's Style
-        */
-        
-        .css-checkbox {
-            position: absolute;
-            overflow: hidden;
-            clip: rect(0 0 0 0);
-            height: 1px;
-            width: 1px;
-            margin: -1px;
-            padding: 5px;
-            border: 0;
-            transition: 0.2s;
-        }
-        
-        .css-checkbox+label {
-            position: relative;
-            font-size: 14px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            height: 26px;
-            color: rgb(0, 0, 0);
-        }
-        
-        .css-checkbox+label::before {
-            content: " ";
-            display: inline-block;
-            vertical-align: middle;
-            margin-right: 3px;
-            width: 18px;
-            height: 18px;
-            background-color: #9B9E9F;
-            border-width: 4px;
-            border-style: solid;
-            border-color: transparent;
-            border-radius: 2px;
-            box-shadow: none;
-        }
-        /* Fix this stuff since switch browser doesn't support :before and :after */
-        
-        .css-checkbox+label:focus::before,
-        .css-checkbox+label:hover::before {
-            border: 4px solid #E1E3E7;
-        }
-        
-        .css-checkbox+label:focus::after,
-        .css-checkbox+label:hover::after {
-            border: 4px solid #E1E3E7;
-            height: 18px !important;
-            width: 18px !important;
-        }
-        
-        .css-checkbox:checked+label::after {
-            content: " ";
-            background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjZmZmZmZmIiBkPSJNMTczLjg5OCA0MzkuNDA0bC0xNjYuNC0xNjYuNGMtOS45OTctOS45OTctOS45OTctMjYuMjA2IDAtMzYuMjA0bDM2LjIwMy0zNi4yMDRjOS45OTctOS45OTggMjYuMjA3LTkuOTk4IDM2LjIwNCAwTDE5MiAzMTIuNjkgNDMyLjA5NSA3Mi41OTZjOS45OTctOS45OTcgMjYuMjA3LTkuOTk3IDM2LjIwNCAwbDM2LjIwMyAzNi4yMDRjOS45OTcgOS45OTcgOS45OTcgMjYuMjA2IDAgMzYuMjA0bC0yOTQuNCAyOTQuNDAxYy05Ljk5OCA5Ljk5Ny0yNi4yMDcgOS45OTctMzYuMjA0LS4wMDF6Ii8+PC9zdmc+");
-            background-repeat: no-repeat;
-            background-size: 10px 10px;
-            background-position: center center;
-            position: absolute;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-left: 0px;
-            left: 0px;
-            top: 0px;
-            text-align: center;
-            background-color: transparent;
-            font-size: 10px;
-            height: 26px;
-            width: 26px;
-            background-color: rgb(252, 135, 2);
-        }
     </style>
 </head>
 
@@ -356,37 +282,7 @@
         <br>
         <br>
 
-        <!-- {{#entries}}
-            <div class="section">
-                <h2 class="section-header">
-                    <div>{{{section_title}}}</div>
-                </h2>
-                <div>
-                    {{{contents}}}
-                </div>
-            </div>
-        {{/entries}} -->
-
         {{entries}}
-
-        <!-- <div class="section">
-            <h2 class="section-header">
-                <div>Contributors</div>
-            </h2>
-            <div>
-                <ul class="contributors-holder">
-                    <li class="contributor">
-                        <div class="contributor-image" style="background-image: url('https://avatars.githubusercontent.com/u/18125485');"></div>
-                        <ul class="contributor-detail">
-                            <li class="contributor-name">Test</li>
-                            <li class="contributor-twitter">Twitter: @coolsonickirby2</li>
-                            <li class="contributor-blog">Blog: https://coolsonickirby.com/blog</li>
-                            <li class="contributor-bio">Aspiring Game Developer.</li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div> -->
     </div>
 
 
@@ -407,12 +303,6 @@
                 </button>
             </td>
         </tr>
-        <!-- <tr>
-            <td colspan="2">
-                <input type="checkbox" id="prompt" class="css-checkbox" onclick="submitPromptState(this.checked)">
-                <label for="prompt">Don't Ask Again</label>
-            </td>
-        </tr> -->
     </table>
     <br>
     <br>
@@ -434,14 +324,6 @@
                 }
             }));
             window.nx.sendMessage(JSON.stringify("Closure"));
-        }
-
-        function submitPromptState(state) {
-            window.nx.sendMessage(JSON.stringify({
-                "Prompt": {
-                    "state": state
-                }
-            }));
         }
     </script>
 

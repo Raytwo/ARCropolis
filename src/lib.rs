@@ -176,7 +176,9 @@ fn check_for_changelog() {
             match toml::from_str(&changelog) {
                 Ok(changelog) => {
                     menus::display_update_page(&changelog);
-                    std::fs::remove_file("sd:/ultimate/arcropolis/changelog.toml").unwrap();
+                    if let Err(err) = std::fs::remove_file("sd:/ultimate/arcropolis/changelog.toml") {
+                        warn!("Could not delete the changelog file, it will show again on the next boot: {}", err);
+                    }
                 },
                 Err(_) => {
                     warn!("Changelog could not be parsed. Is the file malformed?");

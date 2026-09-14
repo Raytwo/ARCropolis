@@ -38,7 +38,7 @@ fn compare_tags(current: &str, target: &str) -> Result<Option<VersionDifference>
 pub fn check_for_updates<F>(beta_enabled: bool, f: F)
 where
     // Version, Date, and Description
-    F: Fn(&str, String, &String) -> bool,
+    F: Fn(&str, String, &str) -> bool,
 {
     let release = ReleaseFinderConfig::new("ARCropolis")
         .with_author("Raytwo")
@@ -85,20 +85,22 @@ where
     };
 
     if version_difference.is_some() {
-        let date = {
-            let published_at = &release.data["published_at"].to_string();
-            let split = published_at.split("-").collect::<Vec<&str>>();
-            let year = &split[0][1..];
-            let month = split[1];
-            let day = &split[2][..2];
-            format!("{}/{}/{}", month, day, year)
-        };
+        let date = release.data["published_at"]
+            .as_str()
+            .and_then(|published_at| {
+                let mut parts = published_at.split('-');
+                let year = parts.next()?;
+                let month = parts.next()?;
+                let day = parts.next()?.get(..2)?;
+                Some(format!("{}/{}/{}", month, day, year))
+            })
+            .unwrap_or_default();
         let header_text = format!(
             "{} ({})",
             release.get_release_tag().trim_start_matches('v'),
-            &release.data["name"].to_string().trim_matches('\"')
+            release.data["name"].as_str().unwrap_or_default()
         );
-        if !f(&header_text, date, &release.data["body"].to_string()) {
+        if !f(&header_text, date, release.data["body"].as_str().unwrap_or_default()) {
             return;
         }
         if let Some(release) = release.get_asset_by_name("release.zip") {

@@ -1,318 +1,252 @@
-const WORKSPACES_CONTROL = "&#xe000 Set Active &nbsp; &#xe002 Duplicate Workspace &nbsp; &#xe003 Show Options";
-const WORKSPACE_CONTROL = "&#xe000 Select Option";
+
+var WORKSPACES_CONTROL = "&#xe000 Set Active &nbsp; &#xe002 Duplicate Workspace &nbsp; &#xe003 Show Options";
+var WORKSPACE_CONTROL = "&#xe000 Select Option";
 
 var workspaces = [];
-var selected_workspace = 0;
-var active_workspace = "";
+var activeWorkspace = "";
+var selected = 0;
+var currentPanel = "workspaces";
+var dom = {};
 
-window.addEventListener("DOMContentLoaded", (e) => {
-    if (!isNx) {
-        for (var i = 0; i < 10; i++) {
-            workspaces.push(`Workspace #${i + 1}`);
-            setupWorkspaces();
-        }
+function selectedName() {
+    return workspaces[selected];
+}
 
-    } else {
+function focusedIndex() {
+    var focused = focusedButton();
+    var id = focused ? parseInt(focused.getAttribute("data-id"), 10) : NaN;
+    return isNaN(id) ? -1 : id;
+}
 
-        $.ajax({
-            dataType: "json",
-            url: "workspaces.json",
-            success: (data) => {
-                workspaces = data["workspaces"];
-                active_workspace = data["active_workspace"];
-                setupWorkspaces();
-            }
-        });
+function renderWorkspaces() {
+    workspaces.sort(function(a, b) {
+        return a.localeCompare(b);
+    });
 
-        // window.nx.sendMessage(JSON.stringify({
-        //     "WriteItDown": {
-        //         "text": JSON.stringify(Object.getOwnPropertyNames(window.nx).filter(function(p) {
-        //             return typeof window.nx[p] === 'function';
-        //         }).map(x => ({
-        //             "function": x,
-        //             "parametersCount": window.nx[x].length
-        //         })))
-        //     }
-        // }));
-
-        window.nx.footer.setAssign("A", "", () => {
-            if ($(".is-focused").length <= 0) {
-                $("button:visible").get(0).focus();
-            } else {
-                $(".is-focused").get(0).click();
-            }
-        });
-        window.nx.footer.setAssign("B", "", () => {
-            goBack();
-        });
-        window.nx.footer.setAssign("X", "", () => {
-            if (getCurrentActiveContainer().attr('id') == "workspaces") {
-                selected_workspace = parseInt($(".is-focused").attr('data-id'));
-                if (selected_workspace == undefined || isNaN(selected_workspace) || selected_workspace == null) {
-                    return;
-                }
-
-                if (duplicateWorkspace()) {
-                    changeDivFromTo('workspaces', 'workspaces');
-                }
-            }
-        });
-        window.nx.footer.setAssign("Y", "", () => {
-            if (getCurrentActiveContainer().attr('id') == "workspaces") {
-                selected_workspace = parseInt($(".is-focused").attr('data-id'));
-                if (selected_workspace == undefined || isNaN(selected_workspace) || selected_workspace == null) {
-                    return;
-                }
-                showWorkspace(selected_workspace);
-            }
-        });
+    dom.container.innerHTML = "";
+    for (var i = 0; i < workspaces.length; i++) {
+        var button = document.createElement("button");
+        button.className = "flex-item";
+        button.setAttribute("data-id", i);
+        button.innerHTML =
+            '<div class="icon-background"><img class="abstract-icon is-appear" src="check.svg" /></div>' +
+            '<div class="item-container"><h2></h2></div>';
+        button.querySelector("img").style.display = workspaces[i] === activeWorkspace ? "block" : "none";
+        button.querySelector("h2").textContent = workspaces[i];
+        button.onclick = pickAndActivate;
+        dom.container.appendChild(button);
     }
 
-    // Listen to the keydown event and prevent the default
-    window.addEventListener('keydown', function(e) {
-        if (e.keyCode == UP) {
-            var target = document.querySelector(".is-focused").previousElementSibling;
-            if (target != undefined) {
-                getCurrentActiveContainer()[0].scrollTop = target.offsetTop + 50;
-                target.focus();
-            }
-        } else if (e.keyCode == DOWN) {
-            var target = document.querySelector(".is-focused").nextElementSibling;
-            if (target != undefined) {
-                getCurrentActiveContainer()[0].scrollTop = target.offsetTop - 50;
-                target.focus();
-            }
-        }
-    });
-});
+    var create = document.createElement("button");
+    create.className = "flex-item";
+    create.innerHTML = '<div class="icon-background"></div><div class="item-container"><h2>Create Workspace</h2></div>';
+    create.onclick = createWorkspace;
+    dom.container.appendChild(create);
+}
+
+function pickAndActivate() {
+    selected = parseInt(this.getAttribute("data-id"), 10);
+    setActive();
+}
 
 function goBack() {
-    if (getCurrentActiveContainer().attr('id') == "workspaceOption") {
-        changeDivFromTo('workspaceOption', 'workspaces', selected_workspace);
+    if (currentPanel === "workspaceOption") {
+        showList();
     } else {
         exit();
     }
 }
 
 function exit() {
-    window.nx.sendMessage(JSON.stringify("ClosureRequest"));
+    send("ClosureRequest");
     window.location.href = "http://localhost/quit";
 }
 
-function getCurrentActiveContainer() {
-    if ($("#workspaces").is(":visible")) {
-        return $("#workspaces");
-    } else if ($("#workspaceOption").is(":visible")) {
-        return $("#workspaceOption");
-    }
-}
-
-function changeDivFromTo(from, to) {
-    if (to == "workspaceOption") {
-        $("#workspaceArrow").show();
-        $("#workspace").html(workspaces[selected_workspace]);
-        $("#workspace").show();
-        $("#message").html(WORKSPACE_CONTROL);
-    } else if (to == "workspaces") {
-        $("#workspaceArrow").hide();
-        $("#workspace").hide();
-        $("#message").html(WORKSPACES_CONTROL);
-    }
-
-    $(`#${from}`).fadeOut(200);
-    $(`#${from}`).promise().done(function() {
-        $(`#${to}`).fadeIn(200);
-        if (to == "workspaces") {
-            setupWorkspaces();
-            $(`#${to}`).find("button:visible").get(parseInt(selected_workspace)).focus();
-        } else {
-            $(`#${to}`).find("button:visible").get(0).focus();
-        }
+function showList() {
+    dom.arrow.style.display = "none";
+    dom.workspace.style.display = "none";
+    dom.message.innerHTML = WORKSPACES_CONTROL;
+    switchPanel(dom.optionPanel, dom.listPanel, function() {
+        currentPanel = "workspaces";
+        renderWorkspaces();
+        focusButton(dom.listPanel, selected);
     });
 }
 
-function setupWorkspaces() {
-    workspaces.sort(function(a, b) {
-        return a.localeCompare(b);
+function showWorkspace(index) {
+    selected = index;
+    var isDefault = selectedName() === "Default";
+    dom.removeButton.style.display = isDefault ? "none" : "";
+    dom.renameButton.style.display = isDefault ? "none" : "";
+    dom.activeCheck.style.display = selectedName() === activeWorkspace ? "block" : "none";
+
+    dom.arrow.style.display = "";
+    dom.workspace.textContent = selectedName();
+    dom.workspace.style.display = "";
+    dom.message.innerHTML = WORKSPACE_CONTROL;
+    switchPanel(dom.listPanel, dom.optionPanel, function() {
+        currentPanel = "workspaceOption";
+        focusButton(dom.optionPanel, 0);
     });
-    var htmlText = "";
-    for (var i = 0; i < workspaces.length; i++) {
-        var display = workspaces[i] == active_workspace ? 'block' : 'none';
-        htmlText += `<button onclick="selected_workspace = ${i}; setActive();" data-id='${i}' class="flex-item">
-        <div class="icon-background"><img class="abstract-icon is-appear" style="display: ${display}" src="check.svg" /></div>
-        <div class="item-container">
-            <h2>${workspaces[i]}</h2>
-        </div>
-    </button>`;
-    }
-
-    document.getElementById("workspacesContainer").innerHTML = htmlText + `
-    <button onclick="createWorkspace()" class="flex-item">
-        <div class="icon-background"></div>
-        <div class="item-container">
-            <h2>Create Workspace</h2>
-        </div>
-    </button>
-    `;
-
-    var buttons = document.querySelectorAll('button');
-
-    [].forEach.call(buttons, function(btn) {
-        btn.addEventListener("focus", () => {
-            btn.classList.add("is-focused");
-        });
-
-        btn.addEventListener("focusout", () => {
-            btn.classList.remove("is-focused");
-        });
-    });
-
-    $("#workspacesContainer>button:first-child").get(0).focus();
-}
-
-function showWorkspace(idx) {
-    selected_workspace = idx;
-    if (workspaces[selected_workspace] == "Default") {
-        $("#removeWorkspace").hide();
-        $("#renameWorkspace").hide();
-    } else {
-        $("#removeWorkspace").show();
-        $("#renameWorkspace").show();
-    }
-
-    if (workspaces[selected_workspace] == active_workspace) {
-        $("#is-active img").show();
-    } else {
-        $("#is-active img").hide();
-    }
-
-    changeDivFromTo('workspaces', 'workspaceOption', idx);
 }
 
 function setActive() {
-    active_workspace = workspaces[selected_workspace];
-    if (getCurrentActiveContainer().attr('id') == "workspaceOption") {
-        $("#is-active img").show();
+    activeWorkspace = selectedName();
+    if (currentPanel === "workspaceOption") {
+        dom.activeCheck.style.display = "block";
     } else {
-        $("button:visible img").hide();
-        $(`button:visible[data-id='${selected_workspace}'] img`).show();
+        var buttons = dom.container.querySelectorAll("button[data-id]");
+        for (var i = 0; i < buttons.length; i++) {
+            buttons[i].querySelector("img").style.display = i === selected ? "block" : "none";
+        }
     }
+    send({ "SetActive": { "name": activeWorkspace } });
+}
 
-    if (isNx) {
-        window.nx.sendMessage(JSON.stringify({
-            "SetActive": {
-                "name": active_workspace
-            }
-        }));
-    }
+function nameTaken(name) {
+    return workspaces.indexOf(name) >= 0;
 }
 
 function renameWorkspace() {
-    if (workspaces[selected_workspace] == "Default") { return; }
-
-    var res = prompt("Rename workspace", workspaces[selected_workspace]);
-    if (res == null || res == undefined) { return; }
-
-    if (workspaces.includes(res)) {
+    if (selectedName() === "Default") {
+        return;
+    }
+    var name = prompt("Rename workspace", selectedName());
+    if (name === null || name === undefined || name === "") {
+        return;
+    }
+    if (nameTaken(name)) {
         alert("Workspace with that name already exists!");
         return;
     }
 
-    sourceName = workspaces[selected_workspace];
-    targetName = res;
-
-    workspaces[selected_workspace] = targetName;
-
-    $("#workspace").html(workspaces[selected_workspace]);
-
-    if (isNx) {
-        window.nx.sendMessage(JSON.stringify({
-            "Rename": {
-                "source_name": sourceName,
-                "target_name": targetName,
-            }
-        }));
-
-        if (active_workspace == sourceName) {
-            setActive();
-        }
+    var sourceName = selectedName();
+    workspaces[selected] = name;
+    dom.workspace.textContent = name;
+    send({ "Rename": { "source_name": sourceName, "target_name": name } });
+    if (activeWorkspace === sourceName) {
+        setActive();
     }
 }
 
 function duplicateWorkspace() {
-    var res = prompt("Name for duplicated workspace", workspaces[selected_workspace]);
-    if (res == null || res == undefined) { return false; }
-
-    if (workspaces.includes(res)) {
+    var name = prompt("Name for duplicated workspace", selectedName());
+    if (name === null || name === undefined || name === "") {
+        return false;
+    }
+    if (nameTaken(name)) {
         alert("Workspace with that name already exists!");
         return false;
     }
 
-    sourceName = workspaces[selected_workspace];
-    targetName = res;
-
-    workspaces.push(targetName);
-
-    if (isNx) {
-        window.nx.sendMessage(JSON.stringify({
-            "Duplicate": {
-                "source_name": sourceName,
-                "target_name": targetName,
-            }
-        }));
-    }
-
+    send({ "Duplicate": { "source_name": selectedName(), "target_name": name } });
+    workspaces.push(name);
     return true;
 }
 
-function removeWorkspace() {
-    if (workspaces[selected_workspace] == "Default") { return; }
-
-    if (confirm(`Do you really want to delete workspace ${workspaces[selected_workspace]}?`)) {
-        if (confirm(`Are you really sure you want to delete workspace ${workspaces[selected_workspace]}?`)) {
-            if (isNx) {
-                window.nx.sendMessage(JSON.stringify({
-                    "Remove": {
-                        "name": workspaces[selected_workspace],
-                    }
-                }));
-            }
-
-            workspaces.splice(selected_workspace, 1);
-            changeDivFromTo('workspaceOption', 'workspaces', 0);
-        }
+function duplicateFromList() {
+    var index = focusedIndex();
+    if (index < 0) {
+        return;
+    }
+    selected = index;
+    var source = selectedName();
+    if (duplicateWorkspace()) {
+        renderWorkspaces();
+        selected = workspaces.indexOf(source);
+        focusButton(dom.listPanel, selected);
     }
 }
 
-function createWorkspace() {
-    var res = prompt("Enter new workspace name");
-    if (res == null || res == undefined) { return; }
+function removeWorkspace() {
+    if (selectedName() === "Default") {
+        return;
+    }
+    if (!confirm("Do you really want to delete workspace " + selectedName() + "?")) {
+        return;
+    }
+    if (!confirm("Are you really sure you want to delete workspace " + selectedName() + "?")) {
+        return;
+    }
+    send({ "Remove": { "name": selectedName() } });
+    workspaces.splice(selected, 1);
+    selected = 0;
+    showList();
+}
 
-    if (workspaces.includes(res)) {
+function createWorkspace() {
+    var name = prompt("Enter new workspace name");
+    if (name === null || name === undefined || name === "") {
+        return;
+    }
+    if (nameTaken(name)) {
         alert("Workspace with that name already exists!");
         return;
     }
 
-    workspaces.push(res);
-    // send nx message
-    if (isNx) {
-        window.nx.sendMessage(JSON.stringify({
-            "Create": {
-                "name": res
-            }
-        }));
-    }
-    selected_workspace = workspaces.length - 1;
-    changeDivFromTo('workspaces', 'workspaces');
+    workspaces.push(name);
+    send({ "Create": { "name": name } });
+    renderWorkspaces();
+    selected = workspaces.indexOf(name);
+    focusButton(dom.listPanel, selected);
 }
 
 function editWorkspace() {
+    send({ "Edit": { "name": selectedName() } });
     if (isNx) {
-        window.nx.sendMessage(JSON.stringify({
-            "Edit": {
-                "name": workspaces[selected_workspace]
-            }
-        }));
         window.location.href = "http://localhost/quit";
     }
 }
+
+window.addEventListener("DOMContentLoaded", function() {
+    dom.listPanel = document.getElementById("workspaces");
+    dom.optionPanel = document.getElementById("workspaceOption");
+    dom.container = document.getElementById("workspacesContainer");
+    dom.arrow = document.getElementById("workspaceArrow");
+    dom.workspace = document.getElementById("workspace");
+    dom.message = document.getElementById("message");
+    dom.activeCheck = document.querySelector("#is-active img");
+    dom.renameButton = document.getElementById("renameWorkspace");
+    dom.removeButton = document.getElementById("removeWorkspace");
+
+    if (typeof WORKSPACES_DATA !== "undefined") {
+        workspaces = WORKSPACES_DATA.workspaces;
+        activeWorkspace = WORKSPACES_DATA.active_workspace;
+    } else {
+        for (var i = 0; i < 10; i++) {
+            workspaces.push("Workspace #" + (i + 1));
+        }
+        activeWorkspace = workspaces[0];
+    }
+
+    trackButtonFocus();
+    installListNavigation();
+
+    if (isNx) {
+        window.nx.footer.setAssign("A", "", function() {
+            var focused = focusedButton();
+            if (focused) {
+                focused.click();
+            } else {
+                focusButton(currentPanel === "workspaces" ? dom.listPanel : dom.optionPanel, 0);
+            }
+        });
+        window.nx.footer.setAssign("B", "", goBack);
+        window.nx.footer.setAssign("X", "", function() {
+            if (currentPanel === "workspaces") {
+                duplicateFromList();
+            }
+        });
+        window.nx.footer.setAssign("Y", "", function() {
+            if (currentPanel === "workspaces") {
+                var index = focusedIndex();
+                if (index >= 0) {
+                    showWorkspace(index);
+                }
+            }
+        });
+    }
+
+    renderWorkspaces();
+    focusButton(dom.listPanel, 0);
+});

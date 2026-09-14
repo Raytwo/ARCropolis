@@ -1,90 +1,92 @@
-var selected_workspace = 0;
 
-window.addEventListener("DOMContentLoaded", (e) => {
-    var buttons = document.querySelectorAll('button');
+var panels = {};
+var currentPanel = "settings";
 
-    [].forEach.call(buttons, function(btn) {
-        btn.addEventListener("focus", () => {
-            btn.classList.add("is-focused");
-        });
+function setCheck(id, on) {
+    var img = document.getElementById(id);
+    if (!img) {
+        return;
+    }
+    if (on) {
+        img.classList.remove("hidden");
+    } else {
+        img.classList.add("hidden");
+    }
+}
 
-        btn.addEventListener("focusout", () => {
-            btn.classList.remove("is-focused");
-        });
-    });
+function applyData() {
+    var flags = CONFIG_DATA.flags;
+    for (var name in flags) {
+        if (flags.hasOwnProperty(name)) {
+            setCheck(name, flags[name]);
+        }
+    }
+    setCheck(CONFIG_DATA.logging_level, true);
+}
 
-    window.addEventListener('keydown', function(e) {
-        if (e.keyCode == UP) {
-            var target = document.querySelector(".is-focused").previousElementSibling;
-            if (target != undefined) {
-                getCurrentActiveContainer()[0].scrollTop = target.offsetTop + 50;
-                target.focus();
-            }
-        } else if (e.keyCode == DOWN) {
-            var target = document.querySelector(".is-focused").nextElementSibling;
-            if (target != undefined) {
-                getCurrentActiveContainer()[0].scrollTop = target.offsetTop - 50;
-                target.focus();
-            }
+function toggleFlag(name) {
+    CONFIG_DATA.flags[name] = !CONFIG_DATA.flags[name];
+    setCheck(name, CONFIG_DATA.flags[name]);
+    send({ "ToggleFlag": { "name": name } });
+}
+
+function setLoggingLevel(level) {
+    if (level === CONFIG_DATA.logging_level) {
+        return;
+    }
+    setCheck(CONFIG_DATA.logging_level, false);
+    CONFIG_DATA.logging_level = level;
+    setCheck(level, true);
+    send({ "SetLoggingLevel": { "level": level } });
+}
+
+function showLogging() {
+    switchPanel(panels.settings, panels.logging, function() {
+        currentPanel = "logging";
+        var current = panels.logging.querySelector('button[data-level="' + CONFIG_DATA.logging_level + '"]');
+        if (current) {
+            current.focus();
+        } else {
+            focusButton(panels.logging, 0);
         }
     });
+}
 
-    if ($(".is-focused").length <= 0) {
-        getCurrentActiveContainer().find("button").get(0).focus();
+function showSettings() {
+    switchPanel(panels.logging, panels.settings, function() {
+        currentPanel = "settings";
+        focusButton(panels.settings, 0);
+    });
+}
+
+function exit() {
+    send("Closure");
+    window.location.href = "http://localhost/quit";
+}
+
+window.addEventListener("DOMContentLoaded", function() {
+    panels.settings = document.getElementById("settings");
+    panels.logging = document.getElementById("logging");
+
+    if (typeof CONFIG_DATA === "undefined") {
+        window.CONFIG_DATA = { "flags": { "auto_update": true }, "logging_level": "Warn" };
+    }
+    applyData();
+
+    trackButtonFocus();
+    installListNavigation();
+
+    if (isNx) {
+        window.nx.footer.setAssign("X", "", function() {});
+        window.nx.footer.setAssign("Y", "", function() {});
+        window.nx.footer.setAssign("B", "", function() {
+            if (currentPanel === "logging") {
+                showSettings();
+            } else {
+                exit();
+            }
+        });
     }
 
-    window.nx.addEventListener("message", function(e) {
-        document.getElementById(e.data).classList.toggle("hidden");
-    });
-
-    window.nx.footer.setAssign("X", "", () => {});
-    window.nx.footer.setAssign("Y", "", () => {});
-
-    // Code to handle this session wasn't made to detect a closure by button
-    window.nx.footer.setAssign("B", "", () => {
-        if (getCurrentActiveContainer().attr("id") != "workspaces") {
-            changeDivFromTo('logging', 'workspaces', `0`);
-        } else {
-            submit(`exit`, `true`);
-        }
-    });
-
-    window.nx.sendMessage("loaded");
+    focusButton(panels.settings, 0);
 });
-
-function getCurrentActiveContainer() {
-    if ($("#workspaces").is(":visible")) {
-        return $("#workspaces");
-    } else if ($("#logging").is(":visible")) {
-        return $("#logging");
-    }
-}
-
-function changeDivFromTo(from, to, workspace) {
-    current_page = to;
-    if (from == "workspaces") {
-        selected_workspace = workspace;
-    }
-
-    $(`#${from}`).fadeOut(200);
-    $(`#${from}`).promise().done(function() {
-        $(`#${to}`).fadeIn(200);
-        if (to == "workspaces") {
-            $(`#${to}`).find($("button")[parseInt(selected_workspace)]).get(0).focus();
-        } else {
-            $(`#${to}`).find("button").get(0).focus();
-        }
-        // document.getElementById("test").innerHTML = $(`#${to}`).find("button").length;
-    });
-}
-
-function submit(cat, type) {
-    var result = {
-        category: cat,
-        value: type,
-    };
-    window.nx.sendMessage(JSON.stringify(result));
-
-    //var result = `${type}|${selected_workspace}`;
-    //location.href = `http://localhost/${result}`;
-}

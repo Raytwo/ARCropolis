@@ -114,6 +114,22 @@ table.main td {
     display: block !important;
 }
 
+.abstract-button-text .marquee-text {
+    display: inline-block !important;
+    position: static !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    white-space: nowrap !important;
+    text-overflow: clip !important;
+    -webkit-transition-property: -webkit-transform, transform;
+    transition-property: -webkit-transform, transform;
+    -webkit-transition-timing-function: linear;
+    transition-timing-function: linear;
+    will-change: transform;
+}
+
 .l-sidebar {
     position: initial;
     background: transparent;
@@ -312,7 +328,6 @@ table.main td {
     }
 }
 
-
 /* Firefox < 16 */
 
 @-moz-keyframes fadein {
@@ -323,7 +338,6 @@ table.main td {
         opacity: 1;
     }
 }
-
 
 /* Safari, Chrome and Opera > 12.1 */
 
@@ -336,7 +350,6 @@ table.main td {
     }
 }
 
-
 /* Internet Explorer */
 
 @-ms-keyframes fadein {
@@ -347,7 +360,6 @@ table.main td {
         opacity: 1;
     }
 }
-
 
 /* Opera < 12.1 */
 

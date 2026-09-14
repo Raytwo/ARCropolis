@@ -1,463 +1,517 @@
-const MOD_MENU = "modMenu";
-const SUB_MENU = "subMenu";
-const categories = [
-    "All",
-    "Fighter",
-    "Stage",
-    "Effects",
-    "UI",
-    "Param",
-    "Audio",
-    "Misc",
-];
-var categoriesToUse = [];
 
-var currentState = MOD_MENU;
+var MOD_MENU = "modMenu";
+var SUB_MENU = "subMenu";
+var PAGE_SIZE = 7;
+var KEY_UP = 38;
+var KEY_DOWN = 40;
+var PREVIEW_DELAY = 120;
+var MARQUEE_SPEED = 80;
+var DESC_SCROLL_STEP = 14;
+var STICK_DEAD_ZONE = 0.15;
 
-var currentDescHeight = 0; // Used for the current position of the description (modified by the R-Stick Y Value).
-var currentActiveDescription // For reference to the current active description.
-var activeDescHeight = 0; // The height for the current active description so it can't be scrolled out of bounds.
+var isNx = typeof window.nx !== "undefined";
 
 var mods = [];
-var currentMods = [];
-var modSize = 0;
-var pageCount = 0;
+var order = [];
+var page = 0;
+var state = MOD_MENU;
+var buttons = [];
+var focusedButton = null;
+var previewTimer = null;
+var descScroll = 0;
+var descMax = 0;
+var dom = {};
 
-function createMod(mod_id) {
-    var hidden = mods[mod_id]['is_disabled'] ? "hidden" : "";
-    return `<button id="btn-mods-${mod_id}" data-mod-index="${mod_id}" tabindex="0" class="flex-button abstract-button All ${mods[mod_id]['category']}" nx-se-disabled="">
-    <div class="abstract-icon-back-decoration"></div>
-    <div class="abstract-button-border">
-        <div class="abstract-button-inner">
-            <div class="abstract-icon-wrapper">
-                <div class="img-check ${hidden}">
-                    <img class="abstract-icon is-appear" src="check.svg" />
-                </div>
-            </div>
-            <div class="abstract-button-text f-u-bold mod-name"
-                style="display: block; font-size: 26px; text-indent: 10px; margin-top: 8px;" data-display_name="${mods[mod_id]['display_name']}">
-                <span class="marquee" data-msgid="textbox_id-4-1">${mods[mod_id]['display_name']}</span>
-            </div>
-        </div>
-    </div>
-</button>`;
-}
-
-function createMods(mods) {
-    var res = "";
-    for (var i = 0; i < mods.length; i++) {
-        res += createMod(mods[i], i);
+function send(message) {
+    if (isNx) {
+        window.nx.sendMessage(JSON.stringify(message));
     }
-    return res;
 }
 
-function toggleMod() {
-    var index = parseInt($(".is-focused").attr("data-mod-index"));
-    var checkContainer = $(".is-focused .img-check");
-    checkContainer.toggleClass("hidden");
-    var enabled = !checkContainer.hasClass("hidden");
-    mods[index]["is_disabled"] = !enabled;
-    // Send mod index and status
-    window.nx.sendMessage(JSON.stringify({
-        "ToggleMod": {
-            "id": index,
-            "state": enabled
+function plural(count, word) {
+    return count + " " + word + (count == 1 ? "" : "s");
+}
+
+function pageCount() {
+    return Math.ceil(order.length / PAGE_SIZE);
+}
+
+function visibleCount() {
+    return Math.min(PAGE_SIZE, order.length - page * PAGE_SIZE);
+}
+
+function buildButton(slot) {
+    var el = document.createElement("button");
+    el.className = "flex-button abstract-button";
+    el.tabIndex = 0;
+    el.setAttribute("nx-se-disabled", "");
+    el.innerHTML =
+        '<div class="abstract-icon-back-decoration"></div>' +
+        '<div class="abstract-button-border"><div class="abstract-button-inner">' +
+        '<div class="abstract-icon-wrapper"><div class="img-check"><img class="abstract-icon is-appear" src="check.svg" /></div></div>' +
+        '<div class="abstract-button-text f-u-bold mod-name" style="display: block; font-size: 26px; text-indent: 10px; margin-top: 8px;">' +
+        '<span class="marquee"><div class="marquee-text"></div></span>' +
+        '</div></div></div>';
+
+    var button = {
+        el: el,
+        slot: slot,
+        id: -1,
+        check: el.querySelector(".img-check"),
+        marquee: el.querySelector(".marquee"),
+        text: el.querySelector(".marquee-text"),
+        marqueeToken: 0
+    };
+    el.arcadiaSlot = slot;
+    var ended = function() {
+        onMarqueeEnd(button);
+    };
+    button.text.addEventListener("transitionend", ended);
+    button.text.addEventListener("webkitTransitionEnd", ended);
+    return button;
+}
+
+function buttonFor(target) {
+    while (target && target !== dom.mods) {
+        if (target.arcadiaSlot !== undefined) {
+            return buttons[target.arcadiaSlot];
         }
-    }));
-}
-
-function updateCurrentDesc() {
-    // Reset current description height
-    currentDescHeight = 0;
-
-    // Assign the currently active description element to the global active description variable for use later
-    currentActiveDescription = $('.l-main-content:not(.is-hidden)').eq(0).find(".l-description").eq(0);
-    // Subtract 146 from the description scroll height to match the paragarph overflow
-    activeDescHeight = currentActiveDescription[0].scrollHeight - 146;
-
-    // Check to see if overflow occured and if so, enable the R-Stick Icon
-    if (checkOverflow(currentActiveDescription[0])) {
-        document.getElementById("r-stick-desc-icon").style.visibility = "visible";
-    } else {
-        document.getElementById("r-stick-desc-icon").style.visibility = "hidden";
+        target = target.parentNode;
     }
+    return null;
 }
 
-function checkGamepad(index, gamepad) {
-    var axisX = gamepad.axes[0];
-    var axisY = gamepad.axes[1];
+function setCheck(button, mod) {
+    button.check.className = mod.is_disabled ? "img-check hidden" : "img-check";
+}
 
-    if (currentState == MOD_MENU) {
-        var RStickYValue = gamepad.axes[3].toFixed(2);
-
-        RStickYValue = (((RStickYValue - 0) * (20 - 0)) / (1 - 0)) + 0;
-        currentDescHeight += RStickYValue;
-
-        if (currentDescHeight < 0) {
-            currentDescHeight = 0;
-        } else if (currentDescHeight > activeDescHeight) {
-            currentDescHeight = activeDescHeight;
+function renderPage() {
+    var start = page * PAGE_SIZE;
+    for (var slot = 0; slot < PAGE_SIZE; slot++) {
+        var button = buttons[slot];
+        var id = start + slot < order.length ? order[start + slot] : -1;
+        button.id = id;
+        stopMarquee(button);
+        if (id < 0) {
+            button.el.style.display = "none";
+            continue;
         }
-        currentActiveDescription.scrollTop(currentDescHeight);
+        var mod = mods[id];
+        button.el.style.display = "";
+        button.el.className = "flex-button abstract-button All " + mod.category + (button === focusedButton ? " is-focused" : "");
+        setCheck(button, mod);
+        button.text.textContent = mod.display_name;
     }
+    var total = pageCount();
+    dom.pageInfo.textContent = total > 0 ? (page + 1) + " of " + total : "";
 }
 
-function moveUp() {
-    var source = document.querySelector("#mods>button.is-focused");
-    var target = document.querySelector("#mods>button.is-focused").previousElementSibling;
+function focusSlot(slot) {
+    var button = buttons[slot];
+    button.el.focus();
+    onFocus(button);
+}
 
-    if (source == undefined) {
-        target = document.querySelector("#mods>button:first-child");
-    }
-
-    if (target == undefined) {
-        prevPage();
-        target = document.querySelector("#mods>button:last-child");
-        move(document.querySelector("#mods>button.is-focused"), target);
+function onFocus(button) {
+    if (button.id < 0) {
         return;
     }
+    if (focusedButton && focusedButton !== button) {
+        onBlur(focusedButton);
+    }
+    focusedButton = button;
+    button.el.classList.add("is-focused");
 
-    move(source, target);
+    var mod = mods[button.id];
+    dom.version.textContent = mod.version;
+    dom.authors.textContent = mod.authors;
+    dom.description.innerHTML = mod.description;
+    resetDescription();
+    startMarquee(button);
+    schedulePreview(mod);
 }
 
-function moveDown() {
-    var source = document.querySelector("#mods>button.is-focused");
-    var target = document.querySelector("#mods>button.is-focused").nextElementSibling;
-
-    if (source == undefined) {
-        target = document.querySelector("#mods>button:first-child");
+function onBlur(button) {
+    if (focusedButton === button) {
+        focusedButton = null;
     }
+    button.el.classList.remove("is-focused");
+    stopMarquee(button);
+}
 
-    if (target == undefined) {
-        nextPage();
-        target = document.querySelector("#mods>button:first-child");
-        move(document.querySelector("#mods>button.is-focused"), target);
+function clearDetails() {
+    dom.version.textContent = "";
+    dom.authors.textContent = "";
+    dom.description.innerHTML = "";
+    resetDescription();
+    schedulePreview(null);
+}
+
+function schedulePreview(mod) {
+    if (previewTimer !== null) {
+        clearTimeout(previewTimer);
+    }
+    previewTimer = setTimeout(function() {
+        previewTimer = null;
+        var src = mod && mod.image ? mod.image : "missing.webp";
+        if (dom.preview.getAttribute("src") !== src) {
+            dom.preview.setAttribute("src", src);
+        }
+    }, PREVIEW_DELAY);
+}
+
+function resetDescription() {
+    descScroll = 0;
+    dom.descBox.scrollTop = 0;
+    descMax = Math.max(0, dom.descBox.scrollHeight - dom.descBox.clientHeight);
+    dom.descIcon.style.visibility = descMax > 0 ? "visible" : "hidden";
+}
+
+function textWidth(el) {
+    var width = Math.max(el.offsetWidth, el.scrollWidth);
+    if (document.createRange && el.firstChild) {
+        var range = document.createRange();
+        range.selectNodeContents(el);
+        var rect = range.getBoundingClientRect ? range.getBoundingClientRect() : null;
+        if (rect && rect.width > width) {
+            width = rect.width;
+        }
+    }
+    return width;
+}
+
+function startMarquee(button) {
+    var distance = Math.ceil(textWidth(button.text) - button.marquee.clientWidth);
+    if (distance <= 0) {
         return;
     }
-
-    move(source, target);
+    var token = ++button.marqueeToken;
+    button.marqueeDistance = distance;
+    setTimeout(function() {
+        if (button.marqueeToken === token) {
+            slideMarquee(button);
+        }
+    }, 500);
 }
 
-function move(source, target) {
-    if (source != undefined && target != undefined) {
-        if (source.id == target.id) {
+function setTransform(el, value, duration) {
+    el.style.webkitTransitionDuration = duration;
+    el.style.transitionDuration = duration;
+    el.style.webkitTransform = value;
+    el.style.transform = value;
+}
+
+function slideMarquee(button) {
+    setTransform(button.text, "translateX(" + (-button.marqueeDistance) + "px)", (button.marqueeDistance / MARQUEE_SPEED) + "s");
+}
+
+function onMarqueeEnd(button) {
+    var token = button.marqueeToken;
+    setTimeout(function() {
+        if (button.marqueeToken !== token) {
             return;
         }
+        setTransform(button.text, "translateX(0)", "0s");
+        setTimeout(function() {
+            if (button.marqueeToken === token) {
+                slideMarquee(button);
+            }
+        }, 1000);
+    }, 1000);
+}
+
+function stopMarquee(button) {
+    button.marqueeToken++;
+    setTransform(button.text, "", "0s");
+}
+
+function nextPage(focusLast) {
+    if (pageCount() > 1) {
+        page = (page + 1) % pageCount();
+        renderPage();
     }
+    focusSlot(focusLast ? visibleCount() - 1 : 0);
+}
 
-    if (source != undefined) {
-        source.classList.remove("is-focused");
-        var srcModName = $(source).find(".abstract-button-text");
-        srcModName.html(`<span class="marquee" data-msgid="textbox_id-4-1">${srcModName.attr('data-display_name')}</span>`);
+function prevPage(focusLast) {
+    if (pageCount() > 1) {
+        page = (page + pageCount() - 1) % pageCount();
+        renderPage();
     }
+    focusSlot(focusLast ? visibleCount() - 1 : 0);
+}
 
-    if (target != undefined) {
-        var tgtModName = $(target).find(".marquee");
+function toggleMod(button) {
+    if (button.id < 0) {
+        return;
+    }
+    var mod = mods[button.id];
+    mod.is_disabled = !mod.is_disabled;
+    setCheck(button, mod);
+    send({ "ToggleMod": { "id": button.id, "state": !mod.is_disabled } });
+}
 
-        if (checkOverflow(tgtModName[0])) {
-            $(tgtModName).marquee({
-                //speed milliseconds
-                duration: 5000,
-                //gap in pixels between the tickers
-                gap: 400,
-                //time in milliseconds before the marquee will start animating
-                delayBeforeStart: 300,
-                //'left' or 'right'
-                direction: 'left',
-                //true or false - should the marquee be duplicated to show an effect of continues flow
-                duplicated: true,
-                // should the text be visible before starting
-                startVisible: true
-            });
+function selectedCategories() {
+    var boxes = document.querySelectorAll("#filters input:checked");
+    var categories = [];
+    for (var i = 0; i < boxes.length; i++) {
+        categories.push(boxes[i].id);
+    }
+    return categories;
+}
+
+function compareNames(a, b) {
+    var x = mods[a].display_name;
+    var y = mods[b].display_name;
+    return x < y ? -1 : (x > y ? 1 : 0);
+}
+
+function sortOrder() {
+    var type = dom.sortOptions.value;
+    if (type == "alphabetical") {
+        order.sort(compareNames);
+    } else {
+        var disabledLast = type == "enabled" ? 1 : -1;
+        order.sort(function(a, b) {
+            var da = mods[a].is_disabled;
+            var db = mods[b].is_disabled;
+            if (da !== db) {
+                return (da ? 1 : -1) * disabledLast;
+            }
+            return compareNames(a, b);
+        });
+    }
+    if (dom.descending.checked) {
+        order.reverse();
+    }
+}
+
+function refresh() {
+    var categories = selectedCategories();
+    order = [];
+    for (var i = 0; i < mods.length; i++) {
+        if (categories.length == 0 || categories.indexOf(mods[i].category) >= 0) {
+            order.push(i);
         }
-        target.classList.add("is-focused");
-        target.focus();
-        var mod = mods[target.getAttribute("data-mod-index")];
-        $("#description").html(mod["description"]);
-        $("#version").html(mod["version"]);
-        $("#authors").html(mod["authors"]);
-        $("#preview").attr("src", `img/${mod['id']}`);
-        updateCurrentDesc();
     }
-}
+    sortOrder();
+    page = Math.min(page, Math.max(0, pageCount() - 1));
+    renderPage();
 
-function nextPage() {
-
-    if ($('#mods').pagination("getTotalPage") <= 1) { return; }
-
-    if ($('#mods').pagination("getSelectedPageNum") == $('#mods').pagination("getTotalPage")) {
-        $('#mods').pagination("go", 1);
+    if (order.length > 0) {
+        focusSlot(0);
     } else {
-        $('#mods').pagination("next");
+        clearDetails();
+        dom.description.innerHTML = categories.length > 0 ? "No mods found under:<br />" + categories.join("<br />") : "No mods found";
     }
 }
 
-function prevPage() {
-
-    if ($('#mods').pagination("getTotalPage") <= 1) { return; }
-
-    if ($('#mods').pagination("getSelectedPageNum") == 1) {
-        $('#mods').pagination("go", $('#mods').pagination("getTotalPage"));
-    } else {
-        $('#mods').pagination("previous");
+function updateCounts() {
+    var active = 0;
+    for (var i = 0; i < mods.length; i++) {
+        if (!mods[i].is_disabled) {
+            active++;
+        }
     }
-}
-
-// yoinked from here https://stackoverflow.com/questions/143815/determine-if-an-html-elements-content-overflows
-function checkOverflow(el) {
-    var curOverflow = el.style.overflow;
-
-    if (!curOverflow || curOverflow === "visible") {
-        el.style.overflow = "hidden";
-    }
-
-    var isOverflowing = el.clientWidth < el.scrollWidth ||
-        el.clientHeight < el.scrollHeight;
-
-    el.style.overflow = curOverflow;
-
-    return isOverflowing;
-}
-
-function sizeToFormattedBytes(size) {
-    if ((size / 1024) < 1)
-        return `${size} bytes`;
-    size = size / 1024;
-
-    if ((size / 1024) < 1)
-        return `${size} kb`;
-    size = size / 1024;
-
-    if ((size / 1024) < 1)
-        return `${size} mb`;
-    size = size / 1024;
-
-    return `${size.toFixed(2)} gb`;
+    dom.modsCount.textContent = plural(mods.length, "mod");
+    dom.activeModsCount.textContent = plural(active, "active mod");
 }
 
 function showSubMenu() {
-    $("#modsCount").html(`${mods.length} mod${mods.length > 1 ? 's' : ''}`);
-    var activeMods = 0;
-    mods.forEach(mod => activeMods = mod["is_disabled"] ? activeMods : activeMods + 1);
-    $("#activeModsCount").html(`${activeMods} active mod${activeMods > 1 ? 's' : ''}`);
-    if (modSize == 0)
-        $("#modSize").html("")
-    else
-        $("#modSize").html(`${sizeToFormattedBytes(modSize)} of mods enabled`)
-
-    $("#submenu").css("display", "flex");
-    $("#Fighter").focus();
-    document.querySelector('meta[name="focus-ring-visibility"]').setAttribute("content", "");
-    currentState = SUB_MENU;
-}
-
-function updateCurrentModsWCategories() {
-    categoriesToUse = [];
-    $('#filters input:checkbox:checked').each(function(idx) {
-        categoriesToUse.push($(this).attr('id'));
-    });
-    currentMods = categoriesToUse.length == 0 ? mods.map(x => x["id"]) : mods.filter(mod => categoriesToUse.includes(mod["category"])).map(x => x["id"]);
+    updateCounts();
+    dom.submenu.style.display = "flex";
+    dom.focusRing.setAttribute("content", "");
+    document.getElementById("Fighter").focus();
+    state = SUB_MENU;
 }
 
 function showModMenu() {
-    $("#submenu").css("display", "none");
-    document.querySelector('meta[name="focus-ring-visibility"]').setAttribute("content", "hidden");
-    updateCurrentModsWCategories();
-    if (currentMods.length == 0) {
-        $("#description").html(`No mods found under:<br />${categoriesToUse.join("<br />")}`);
-    }
-    refreshCurrentMods();
-    currentState = MOD_MENU;
+    dom.submenu.style.display = "none";
+    dom.focusRing.setAttribute("content", "hidden");
+    state = MOD_MENU;
+    refresh();
 }
 
-function refreshCurrentMods() {
-    updateSort();
-    $('#mods').pagination({
-        dataSource: currentMods,
-        showPrevious: false,
-        showNext: false,
-        showPageNumbers: false,
-        pageSize: 7,
-        callback: function(data, pagination) {
-            $("#mods").html(createMods(data));
-            move(undefined, $("#mods>button").get(0));
-            pageCount = Math.ceil(pagination["totalNumber"] / pagination["pageSize"]);
-        },
-        afterPaging: function(activePage) {
-            Array.from(document.querySelectorAll('.abstract-button')).forEach(item => {
-                item.addEventListener('focus', event => {
-                    // item.classList.add("is-focused");
-                    move(undefined, item);
-                });
-                item.addEventListener('focusout', event => {
-                    move(item, undefined);
-                });
-                item.addEventListener("click", event => {
-                    toggleMod();
-                });
-            })
-            $("#pageInfo").html(`${activePage} of ${pageCount}`);
-        }
-    });
-}
-
-function setAllState(state, src) {
+function setAllState(enabled) {
     for (var i = 0; i < mods.length; i++) {
-        mods[i]["is_disabled"] = !state;
+        mods[i].is_disabled = !enabled;
     }
-    refreshCurrentMods();
-    src != undefined || src != null ? src.focus() : false;
-    window.nx.sendMessage(JSON.stringify({
-        "ChangeAll": {
-            "state": state
-        }
-    }));
+    updateCounts();
+    send({ "ChangeAll": { "state": enabled } });
 }
 
-function setCurrentModsState(state, src) {
-    updateCurrentModsWCategories();
-    for (var i = 0; i < currentMods.length; i++) {
-        mods[currentMods[i]]["is_disabled"] = !state;
-    }
-    refreshCurrentMods();
-    src != undefined || src != null ? src.focus() : false;
-    if (currentMods.length <= 0) { return; }
-    window.nx.sendMessage(JSON.stringify({
-        "ChangeIndexes": {
-            "state": state,
-            "indexes": currentMods
+function setCategoriesState(enabled) {
+    var categories = selectedCategories();
+    var touched = 0;
+    for (var i = 0; i < mods.length; i++) {
+        if (categories.length == 0 || categories.indexOf(mods[i].category) >= 0) {
+            mods[i].is_disabled = !enabled;
+            touched++;
         }
-    }));
+    }
+    updateCounts();
+    if (touched > 0) {
+        send({ "ChangeCategories": { "state": enabled, "categories": categories } });
+    }
 }
 
 function exit() {
-    window.nx.sendMessage(JSON.stringify("Closure"));
+    send("Closure");
     window.location.href = "http://localhost/quit";
 }
 
-function updateSort() {
-    var descending = document.getElementById('desc').checked;
-    var sortType = document.getElementById('sortOptions').value;
-
-    if (sortType == "alphabetical") {
-        currentMods = JSON.parse(JSON.stringify(currentMods)).sort((a, b) => {
-            if (mods[a]["display_name"] < mods[b]["display_name"]) { return -1; }
-            if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
-            return 0;
-        });
-    } else if (sortType == "enabled") {
-        currentMods = JSON.parse(JSON.stringify(currentMods)).sort((a, b) => {
-            if (!mods[a]["is_disabled"] != !mods[b]["is_disabled"]) {
-                return mods[b]["is_disabled"] ? -1 : 1;
-            } else {
-                if (mods[a]["display_name"] < mods[b]["display_name"]) { return -1; }
-                if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
-            }
-            return 0;
-        });
-    } else if (sortType == "disabled") {
-        currentMods = JSON.parse(JSON.stringify(currentMods)).sort((a, b) => {
-            if (!mods[a]["is_disabled"] != !mods[b]["is_disabled"]) {
-                return mods[b]["is_disabled"] ? 1 : -1;
-            } else {
-                if (mods[a]["display_name"] < mods[b]["display_name"]) { return -1; }
-                if (mods[a]["display_name"] > mods[b]["display_name"]) { return 1; }
-            }
-            return 0;
-        });
+function pollGamepad() {
+    if (state !== MOD_MENU || descMax === 0) {
+        return;
     }
+    var pads = navigator.getGamepads();
+    var pad = pads ? pads[0] : null;
+    if (!pad) {
+        return;
+    }
+    var y = pad.axes[3];
+    if (y > -STICK_DEAD_ZONE && y < STICK_DEAD_ZONE) {
+        return;
+    }
+    descScroll = Math.min(descMax, Math.max(0, descScroll + y * DESC_SCROLL_STEP));
+    dom.descBox.scrollTop = descScroll;
+}
 
-    if (descending) {
-        currentMods.reverse();
+function onKeyDown(e) {
+    if (state !== MOD_MENU || focusedButton === null) {
+        return;
+    }
+    if (e.keyCode == KEY_UP && focusedButton.slot == 0) {
+        e.preventDefault();
+        prevPage(true);
+    } else if (e.keyCode == KEY_DOWN && focusedButton.slot == visibleCount() - 1) {
+        e.preventDefault();
+        nextPage(false);
     }
 }
 
-window.nx.addEventListener("message", (e) => {
-    var info = JSON.parse(e.data);
-    if (!("mod_size" in info))
-        return;
+function loadSvgIcons() {
+    var containers = document.querySelectorAll(".svg-container");
+    for (var i = 0; i < containers.length; i++) {
+        (function(container) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", container.getAttribute("ref"), true);
+            xhr.onload = function() {
+                container.innerHTML = xhr.responseText;
+                container.classList.add("is-appear");
+            };
+            xhr.send();
+        })(containers[i]);
+    }
+}
 
-    modSize = info["mod_size"];
-});
+function dummyMods(count) {
+    var categories = ["Fighter", "Stage", "Effects", "UI", "Param", "Audio", "Misc"];
+    var list = [];
+    for (var i = 0; i < count; i++) {
+        list.push({
+            "id": i,
+            "display_name": (i % 5 == 0 ? "A very long mod name that needs to scroll to be read " : "Mod #") + i,
+            "version": (i + 3) + "." + (i + 2) + "." + i,
+            "is_disabled": i % 3 == 0,
+            "category": categories[i % categories.length],
+            "authors": "Coolsonickirby",
+            "description": "Hey guys! This is one of the coolest mods ever made! Mod #" + i + ". ".repeat(i % 9 + 1),
+            "image": null
+        });
+    }
+    return list;
+}
 
-window.addEventListener("DOMContentLoaded", (e) => {
-    if (!isNx) {
-        mods = [];
-        for (var i = 0; i < 9999; i++) {
-            mods.push({
-                "id": i,
-                "display_name": `Mod #${i}`,
-                "version": `${i + 3}.${i + 2}.${i}`,
-                "is_disabled": true,
-                "category": categories[i % categories.length],
-                "authors": `Coolsonickirby`,
-                "description": `Hey guys! This is one of the coolest mods ever made! Mod #${i}. Hey guys! This is one of the coolest mods ever made! Mod #${i}. Hey guys! This is one of the coolest mods ever made! Mod #${i}. Hey guys! This is one of the coolest mods ever made! Mod #${i}. Hey guys! This is one of the coolest mods ever made! Mod #${i}.`,
-            });
+window.addEventListener("DOMContentLoaded", function() {
+    dom.mods = document.getElementById("mods");
+    dom.pageInfo = document.getElementById("pageInfo");
+    dom.version = document.getElementById("version");
+    dom.authors = document.getElementById("authors");
+    dom.description = document.getElementById("description");
+    dom.descBox = document.querySelector("#about-mods .l-description");
+    dom.descIcon = document.getElementById("r-stick-desc-icon");
+    dom.preview = document.getElementById("preview");
+    dom.submenu = document.getElementById("submenu");
+    dom.sortOptions = document.getElementById("sortOptions");
+    dom.descending = document.getElementById("desc");
+    dom.modsCount = document.getElementById("modsCount");
+    dom.activeModsCount = document.getElementById("activeModsCount");
+    dom.workspace = document.getElementById("workspace");
+    dom.focusRing = document.querySelector('meta[name="focus-ring-visibility"]');
+
+    for (var slot = 0; slot < PAGE_SIZE; slot++) {
+        buttons.push(buildButton(slot));
+        dom.mods.appendChild(buttons[slot].el);
+    }
+
+    dom.mods.addEventListener("focus", function(e) {
+        var button = buttonFor(e.target);
+        if (button) {
+            onFocus(button);
         }
+    }, true);
+    dom.mods.addEventListener("blur", function(e) {
+        var button = buttonFor(e.target);
+        if (button) {
+            onBlur(button);
+        }
+    }, true);
+    dom.mods.addEventListener("click", function(e) {
+        var button = buttonFor(e.target);
+        if (button) {
+            toggleMod(button);
+        }
+    });
 
-        currentMods = mods.map(x => x["id"]);
-        refreshCurrentMods();
+    if (typeof ARCADIA_DATA !== "undefined") {
+        mods = ARCADIA_DATA.entries;
+        dom.workspace.textContent = ARCADIA_DATA.workspace;
     } else {
+        mods = dummyMods(300);
+    }
 
-        $.ajax({
-            dataType: "json",
-            url: "mods.json",
-            success: (data) => {
-                mods = data["entries"];
-                $("#workspace").html(data["workspace"]);
-                currentMods = mods.map(x => x["id"]);
-                refreshCurrentMods();
-            }
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("load", function() {
+        if (focusedButton !== null) {
+            startMarquee(focusedButton);
+        }
+    });
+
+    if (isNx) {
+        window.addEventListener("NXFirstPaintEndAfterLoad", function() {
+            setTimeout(loadSvgIcons, 0);
+        });
+        window.addEventListener("gamepadconnected", function() {
+            setInterval(pollGamepad, 100);
         });
 
-        // Listen to the keydown event and prevent the
-        // default
-        window.addEventListener('keydown', function(e) {
-            if (e.keyCode == UP) {
-                var target = document.querySelector("#mods>button.is-focused").previousElementSibling;
-                if (target == undefined) {
-                    move(document.querySelector("#mods>button.is-focused"), undefined);
-                    prevPage();
-                    target = document.querySelector("#mods>button:last-child");
-                    target.focus();
-                }
-            } else if (e.keyCode == DOWN) {
-                var target = document.querySelector("#mods>button.is-focused").nextElementSibling;
-
-                if (target == undefined) {
-                    move(document.querySelector("#mods>button.is-focused"), undefined);
-                    nextPage();
-                    target = document.querySelector("#mods>button:first-child");
-                    target.focus();
-                }
-            }
-        });
-
-        window.nx.footer.setAssign("X", "", () => {});
-        window.nx.footer.setAssign("B", "", () => {
-            if (currentState == SUB_MENU) {
+        window.nx.footer.setAssign("X", "", function() {});
+        window.nx.footer.setAssign("B", "", function() {
+            if (state == SUB_MENU) {
                 showModMenu();
             } else {
                 exit();
             }
         });
-        window.nx.footer.setAssign("Y", "", () => {
-            if (currentState == MOD_MENU) {
+        window.nx.footer.setAssign("Y", "", function() {
+            if (state == MOD_MENU) {
                 showSubMenu();
             }
         });
-        window.nx.footer.setAssign("L", "", () => {
-            if (currentState == MOD_MENU) {
-                prevPage();
+        window.nx.footer.setAssign("L", "", function() {
+            if (state == MOD_MENU) {
+                prevPage(false);
             }
         });
-        window.nx.footer.setAssign("R", "", () => {
-            if (currentState == MOD_MENU) {
-                nextPage();
+        window.nx.footer.setAssign("R", "", function() {
+            if (state == MOD_MENU) {
+                nextPage(false);
             }
         });
-        window.nx.sendMessage(JSON.stringify("GetModSize"));
+    } else {
+        setTimeout(loadSvgIcons, 0);
     }
-});
 
-// window.nx.sendMessage(JSON.stringify("GetModSize"));
+    refresh();
+});

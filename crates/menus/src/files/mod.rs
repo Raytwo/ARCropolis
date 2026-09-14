@@ -2,7 +2,6 @@ pub static COMMON_JAVASCRIPT_TEXT: &str = include_str!("../../resources/js/commo
 pub static COMMON_CSS_TEXT: &str = include_str!("../../resources/css/common.css");
 
 pub static MENU_HTML_TEXT: &str = include_str!("../../resources/templates/menu.html");
-pub static MENU_CSS_TEXT: &str = include_str!("../../resources/css/configurator.css");
 pub static MENU_JAVASCRIPT_TEXT: &str = include_str!("../../resources/js/menu.js");
 
 pub static ARCADIA_HTML_TEXT: &str = include_str!("../../resources/templates/arcadia.html");
@@ -22,6 +21,4 @@ pub static WORKSPACES_CSS_TEXT: &str = include_str!("../../resources/css/workspa
 pub static WORKSPACES_JAVASCRIPT_TEXT: &str = include_str!("../../resources/js/workspaces.js");
 
 pub static CHECK_SVG: &[u8] = include_bytes!("../../resources/img/check.svg");
-pub static MARQUEE_JS: &str = include_str!("../../resources/js/jquery.marquee.min.js");
-pub static PAGINATION_JS: &str = include_str!("../../resources/js/pagination.min.js");
 pub static MISSING_WEBP: &[u8] = include_bytes!("../../resources/img/missing.webp");

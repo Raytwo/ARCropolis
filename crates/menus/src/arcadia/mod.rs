@@ -1,25 +1,36 @@
-// #![feature(proc_macro_hygiene)]
+use std::{
+    collections::HashSet,
+    fs,
+    path::{Path, PathBuf},
+};
 
-use std::{collections::HashSet, path::Path};
-
-use log::{debug, error};
+use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
-use skyline_web::Webpage;
+use skyline_web::{dialog_ok::DialogOk, Webpage};
 use smash_arc::Hash40;
 
-use crate::utils;
+use crate::{page, utils};
 
 #[derive(Debug, Serialize)]
-pub struct Information {
-    entries: Vec<Entry>,
-    workspace: String,
+struct Information<'a> {
+    entries: &'a [Entry],
+    workspace: &'a str,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Debug, Serialize)]
 pub struct Entry {
-    id: Option<u32>,
-    folder_name: Option<String>,
-    is_disabled: Option<bool>,
+    id: u32,
+    display_name: String,
+    authors: String,
+    version: String,
+    description: String,
+    category: String,
+    is_disabled: bool,
+    image: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct ModInfo {
     display_name: Option<String>,
     authors: Option<String>,
     version: Option<String>,
@@ -27,80 +38,130 @@ pub struct Entry {
     category: Option<String>,
 }
 
+pub struct ModRoot {
+    hash: Hash40,
+    preview: Option<Preview>,
+}
+
+struct Preview {
+    source: PathBuf,
+    cached_name: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub enum ArcadiaMessage {
     ToggleMod { id: usize, state: bool },
     ChangeAll { state: bool },
-    ChangeIndexes { state: bool, indexes: Vec<usize> },
+    ChangeCategories { state: bool, categories: Vec<String> },
     DebugPrint { message: String },
-    GetModSize,
     Closure,
 }
 
-pub fn get_mods(presets: &HashSet<Hash40>) -> Vec<Entry> {
-    let mut id: u32 = 0;
+pub fn get_mods(presets: &HashSet<Hash40>) -> (Vec<Entry>, Vec<ModRoot>) {
     let use_folder_name = ::config::use_folder_name();
-    std::fs::read_dir(utils::paths::mods())
-        .unwrap()
-        .enumerate()
-        .filter_map(|(_i, path)| {
-            let path_to_be_used = path.unwrap().path();
+    let dir = match fs::read_dir(utils::paths::mods()) {
+        Ok(dir) => dir,
+        Err(err) => {
+            error!("Could not list the mods folder: {}", err);
+            return (Vec::new(), Vec::new());
+        },
+    };
 
-            if path_to_be_used.is_file() {
-                return None;
-            }
+    let mut entries = Vec::new();
+    let mut roots = Vec::new();
 
-            let disabled = !presets.contains(&Hash40::from(path_to_be_used.to_str().unwrap()));
+    for entry in dir.flatten() {
+        if !entry.file_type().map(|ty| ty.is_dir()).unwrap_or(false) {
+            continue;
+        }
 
-            let folder_name = Path::new(&path_to_be_used).file_name().unwrap().to_os_string().into_string().unwrap();
+        let path = entry.path();
+        let (Some(path_str), Ok(folder_name)) = (path.to_str(), entry.file_name().into_string()) else {
+            warn!("Skipping a mod folder whose name is not valid UTF-8");
+            continue;
+        };
 
-            let info_path = format!("{}/info.toml", path_to_be_used.display());
+        let hash = Hash40::from(path_str);
+        let info = read_info(&path, &folder_name);
+        let preview = find_preview(&path, hash);
 
-            let default_entry = Entry {
-                id: Some(id),
-                folder_name: Some(folder_name.clone()),
-                is_disabled: Some(disabled),
-                version: Some("???".to_string()),
-                // description: Some("".to_string()),
-                category: Some("Misc".to_string()),
-                ..Default::default()
-            };
+        let display_name = if use_folder_name { folder_name.clone() } else { info.display_name.unwrap_or_else(|| folder_name.clone()) };
 
-            let mod_info = match toml::from_str::<Entry>(&std::fs::read_to_string(info_path).unwrap_or_default()) {
-                Ok(res) => Entry {
-                    id: Some(id),
-                    folder_name: Some(folder_name.clone()),
-                    display_name: if use_folder_name { Some(folder_name) } else { res.display_name.or(Some(folder_name)) },
-                    authors: res.authors.or_else(|| Some(String::from("???"))),
-                    is_disabled: Some(disabled),
-                    version: res.version.or_else(|| Some(String::from("???"))),
-                    category: res.category.map_or(Some(String::from("Misc")), |cat| {
-                        if cat == "Music" {
-                            Some("Audio".to_string())
-                        } else {
-                            Some(cat)
-                        }
-                    }),
-                    description: Some(res.description.unwrap_or_default().replace('\n', "<br />")),
-                },
-                Err(e) => {
-                    skyline_web::dialog_ok::DialogOk::ok(format!("The following info.toml is not valid: \n\n* '{}'\n\nError: {}", folder_name, e,));
-                    default_entry
-                },
-            };
+        entries.push(Entry {
+            id: entries.len() as u32,
+            display_name,
+            authors: info.authors.unwrap_or_else(|| "???".to_string()),
+            version: info.version.unwrap_or_else(|| "???".to_string()),
+            description: info.description.unwrap_or_default().replace('\n', "<br />"),
+            category: match info.category {
+                Some(category) if category == "Music" => "Audio".to_string(),
+                Some(category) => category,
+                None => "Misc".to_string(),
+            },
+            is_disabled: !presets.contains(&hash),
+            image: preview.as_ref().map(|preview| format!("img/{}", preview.cached_name)),
+        });
+        roots.push(ModRoot { hash, preview });
+    }
 
-            id += 1;
+    (entries, roots)
+}
 
-            Some(mod_info)
-        })
-        .collect()
+fn read_info(mod_path: &Path, folder_name: &str) -> ModInfo {
+    let text = match fs::read_to_string(mod_path.join("info.toml")) {
+        Ok(text) => text,
+        Err(_) => return ModInfo::default(),
+    };
+
+    match toml::from_str(&text) {
+        Ok(info) => info,
+        Err(err) => {
+            DialogOk::ok(format!("The following info.toml is not valid: \n\n* '{}'\n\nError: {}", folder_name, err));
+            ModInfo::default()
+        },
+    }
+}
+
+fn find_preview(mod_path: &Path, hash: Hash40) -> Option<Preview> {
+    let source = mod_path.join("preview.webp");
+    let meta = fs::metadata(&source).ok()?;
+
+    Some(Preview {
+        source,
+        cached_name: format!("{:x}-{}.webp", hash.0, meta.len()),
+    })
+}
+
+fn sync_previews(roots: &[ModRoot]) {
+    let img_dir = page::path("img");
+    if let Err(err) = fs::create_dir_all(&img_dir) {
+        error!("Could not create the preview folder: {}", err);
+        return;
+    }
+
+    let mut stale: HashSet<String> = fs::read_dir(&img_dir)
+        .map(|dir| dir.flatten().filter_map(|entry| entry.file_name().into_string().ok()).collect())
+        .unwrap_or_default();
+
+    for preview in roots.iter().filter_map(|root| root.preview.as_ref()) {
+        if stale.remove(&preview.cached_name) {
+            continue;
+        }
+
+        let copied = fs::read(&preview.source).and_then(|bytes| fs::write(img_dir.join(&preview.cached_name), bytes));
+        if let Err(err) = copied {
+            error!("Could not copy '{}' for ARCadia: {}", preview.source.display(), err);
+        }
+    }
+
+    for name in stale {
+        let _ = fs::remove_file(img_dir.join(name));
+    }
 }
 
 pub fn show_arcadia(workspace: Option<String>) {
-    let umm_path = utils::paths::mods();
-
-    if !umm_path.exists() {
-        skyline_web::dialog_ok::DialogOk::ok("It seems the directory specified in your configuration does not exist.");
+    if !utils::paths::mods().exists() {
+        DialogOk::ok("It seems the directory specified in your configuration does not exist.");
         return;
     }
     let workspace_name: String =
@@ -109,97 +170,66 @@ pub fn show_arcadia(workspace: Option<String>) {
     let presets = ::config::presets::get_preset(&workspace_name).unwrap();
     let mut new_presets = presets.clone();
 
-    let mods: Information = Information {
-        entries: get_mods(&presets),
-        workspace: workspace_name.clone(),
-    };
+    let (entries, roots) = get_mods(&presets);
 
-    // region Setup Preview Images
-    let mut images: Vec<(String, Vec<u8>)> = Vec::new();
-    for item in &mods.entries {
-        let path = &umm_path.join(item.folder_name.as_ref().unwrap()).join("preview.webp");
-
-        if path.exists() {
-            images.push((format!("img/{}", item.id.unwrap()), std::fs::read(path).unwrap()));
-        };
-    }
-
-    let img_cache = "sd:/atmosphere/contents/01006A800016E000/manual_html/html-document/contents.htdocs/img";
-
-    if std::fs::metadata(img_cache).is_ok() {
-        let _ = std::fs::remove_dir_all(img_cache).map_err(|err| error!("Error occured in ARCadia-rs when trying to delete cache: {}", err));
-    };
-
-    std::fs::create_dir_all(img_cache).unwrap();
+    page::write_static_assets(
+        "arcadia",
+        &[
+            ("arcadia.html", crate::files::ARCADIA_HTML_TEXT.as_bytes()),
+            ("arcadia.js", crate::files::ARCADIA_JS_TEXT.as_bytes()),
+            ("arcadia.css", crate::files::ARCADIA_CSS_TEXT.as_bytes()),
+            ("common.css", crate::files::COMMON_CSS_TEXT.as_bytes()),
+            ("check.svg", crate::files::CHECK_SVG),
+            ("missing.webp", crate::files::MISSING_WEBP),
+        ],
+    );
+    let info = Information { entries: &entries, workspace: &workspace_name };
+    page::write_file("mods.js", page::data_script("ARCADIA_DATA", &info));
+    sync_previews(&roots);
 
     println!("Opening ARCadia...");
 
     let session = Webpage::new()
         .htdocs_dir("contents")
-        .file("index.html", &crate::files::ARCADIA_HTML_TEXT)
-        .file("arcadia.js", &crate::files::ARCADIA_JS_TEXT)
-        .file("common.js", &crate::files::COMMON_JAVASCRIPT_TEXT)
-        .file("arcadia.css", &crate::files::ARCADIA_CSS_TEXT)
-        .file("common.css", &crate::files::COMMON_CSS_TEXT)
-        .file("pagination.min.js", &crate::files::PAGINATION_JS)
-        .file("jquery.marquee.min.js", &crate::files::MARQUEE_JS)
-        .file("check.svg", &crate::files::CHECK_SVG)
-        .file("missing.webp", &crate::files::MISSING_WEBP)
-        .file("mods.json", &serde_json::to_string(&mods).unwrap())
-        .files(&images)
+        .start_page("arcadia.html")
         .background(skyline_web::Background::Default)
         .boot_display(skyline_web::BootDisplay::Default)
         .open_session(skyline_web::Visibility::Default)
         .unwrap();
 
-    while let Ok(message) = session.recv_json::<ArcadiaMessage>() {
-        match message {
-            ArcadiaMessage::ToggleMod { id, state } => {
-                let path = format!("{}/{}", umm_path, mods.entries[id].folder_name.as_ref().unwrap());
-                let hash = Hash40::from(path.as_str());
-                debug!("Setting {} to {}", path, state);
+    let mut set_enabled = |root: &ModRoot, state: bool| {
+        if state {
+            new_presets.insert(root.hash);
+        } else {
+            new_presets.remove(&root.hash);
+        }
+    };
 
-                if state {
-                    new_presets.insert(hash);
-                } else {
-                    new_presets.remove(&hash);
-                }
-
-                debug!("{} has been {}", path, state);
+    loop {
+        match page::next_message::<ArcadiaMessage>(&session) {
+            ArcadiaMessage::ToggleMod { id, state } => match roots.get(id) {
+                Some(root) => {
+                    debug!("Setting mod {} to {}", id, state);
+                    set_enabled(root, state);
+                },
+                None => error!("ARCadia asked to toggle mod {} which does not exist", id),
             },
             ArcadiaMessage::ChangeAll { state } => {
                 debug!("Changing all to {}", state);
-
-                if !state {
-                    new_presets.clear();
-                } else {
-                    for item in mods.entries.iter() {
-                        let path = format!("{}/{}", umm_path, item.folder_name.as_ref().unwrap());
-                        let hash = Hash40::from(path.as_str());
-
-                        new_presets.insert(hash);
-                    }
+                for root in &roots {
+                    set_enabled(root, state);
                 }
             },
-            ArcadiaMessage::ChangeIndexes { state, indexes } => {
-                for idx in indexes {
-                    let path = format!("{}/{}", umm_path, mods.entries[idx].folder_name.as_ref().unwrap());
-                    let hash = Hash40::from(path.as_str());
-                    debug!("Setting {} to {}", path, state);
-
-                    if state {
-                        new_presets.insert(hash);
-                    } else {
-                        new_presets.remove(&hash);
+            ArcadiaMessage::ChangeCategories { state, categories } => {
+                debug!("Changing {:?} to {}", categories, state);
+                for (entry, root) in entries.iter().zip(&roots) {
+                    if categories.is_empty() || categories.contains(&entry.category) {
+                        set_enabled(root, state);
                     }
                 }
             },
             ArcadiaMessage::DebugPrint { message } => {
                 println!("session says: {}", message);
-            },
-            ArcadiaMessage::GetModSize => {
-                // let size = crate::GLOBAL_FILESYSTEM.try_read().map_or(0, |lock| lock.get_sum_size().unwrap_or(0));
-                session.send(format!("{{ \"mod_size\": {} }}", 69420).as_str());
             },
             ArcadiaMessage::Closure => {
                 session.exit();
@@ -209,15 +239,21 @@ pub fn show_arcadia(workspace: Option<String>) {
         }
     }
 
-    let active_workspace = ::config::workspaces::get_active_workspace_name().unwrap();
-    ::config::presets::replace_preset(&workspace_name, &new_presets).unwrap();
+    if new_presets == presets {
+        return;
+    }
 
-    if new_presets != presets {
-        // Acquire the filesystem so we can check if it's already finished or not (for boot-time mod manager)
-        // if let Some(_filesystem) = crate::GLOBAL_FILESYSTEM.try_read() {
-            if active_workspace.eq(&workspace_name) && skyline_web::dialog::Dialog::yes_no("Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?") {
-                unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
-            }
-        // }
+    if let Err(err) = ::config::presets::replace_preset(&workspace_name, &new_presets) {
+        error!("Could not save the preset for workspace '{}': {}", workspace_name, err);
+        return;
+    }
+
+    let active_workspace = ::config::workspaces::get_active_workspace_name().unwrap();
+    if active_workspace == workspace_name
+        && skyline_web::dialog::Dialog::yes_no(
+            "Your preset has successfully been updated!<br>Your changes will take effect on the next boot.<br>Would you like to reboot the game to reload your mods?",
+        )
+    {
+        unsafe { skyline::nn::oe::RequestToRelaunchApplication() };
     }
 }

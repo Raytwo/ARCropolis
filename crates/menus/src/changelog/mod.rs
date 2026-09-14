@@ -1,6 +1,10 @@
 use serde::Deserialize;
 use skyline_web::Webpage;
 
+use crate::page;
+
+const REQUEST_TIMEOUT: u64 = 5;
+
 #[derive(Deserialize, Clone)]
 pub struct NotesEntry {
     pub section_title: String,
@@ -66,15 +70,17 @@ pub struct Contributor {
 
 impl Contributor {
     fn make_contributor_name_only(name: &str) -> Contributor {
-        let mut contributor = Contributor::default();
-        contributor.login = Some(name.to_string());
-        contributor
+        Contributor {
+            login: Some(name.to_string()),
+            ..Contributor::default()
+        }
     }
 
     fn get_contributor_from_git(username: &str) -> Contributor {
         match minreq::get(format!("https://api.github.com/users/{}", username))
             .with_header("Accept", "application/vnd.github.v3+json")
             .with_header("User-Agent", "ARCropolis")
+            .with_timeout(REQUEST_TIMEOUT)
             .send()
         {
             Ok(resp) => match resp.json::<Contributor>() {
@@ -86,21 +92,15 @@ impl Contributor {
     }
 
     fn get_contributor_image(&self) -> Vec<u8> {
-        match &self.avatar_url {
-            Some(url) => {
-                match minreq::get(url)
-                    .with_header("Accept", "application/vnd.github.v3+json")
-                    .with_header("User-Agent", "ARCropolis")
-                    .send()
-                {
-                    Ok(resp) => resp.as_bytes().to_vec(),
-                    Err(err) => {
-                        println!("Failed getting contributor avatar! Reason: {:?}", err);
-                        vec![]
-                    },
-                }
+        let Some(url) = &self.avatar_url else {
+            return vec![];
+        };
+        match minreq::get(url).with_header("User-Agent", "ARCropolis").with_timeout(REQUEST_TIMEOUT).send() {
+            Ok(resp) => resp.as_bytes().to_vec(),
+            Err(err) => {
+                println!("Failed getting contributor avatar! Reason: {:?}", err);
+                vec![]
             },
-            None => vec![],
         }
     }
 }
@@ -108,7 +108,6 @@ impl Contributor {
 #[derive(Debug, Deserialize)]
 pub enum NotesMessage {
     UpdateState { state: bool },
-    Prompt { state: bool },
     Closure,
 }
 
@@ -121,12 +120,11 @@ pub struct MainEntry {
     pub contributors: Vec<Contributor>,
 }
 
-pub fn build_html(info: &MainEntry) -> String {
-    let mut rendered = crate::files::CHANGELOG_HTML_TEXT.to_string();
-    rendered = rendered.replace("{{title}}", &info.title);
-    rendered = rendered.replace("{{date}}", &info.date);
-    rendered = rendered.replace("{{description}}", &info.description);
+fn escape_html(text: &str) -> String {
+    text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
+}
 
+pub fn build_html(info: &MainEntry) -> String {
     let mut entries = info
         .entries
         .iter()
@@ -147,8 +145,42 @@ pub fn build_html(info: &MainEntry) -> String {
         })
         .collect::<Vec<String>>();
 
-    if info.contributors.len() > 0 {
-        let formatted = format!(
+    if !info.contributors.is_empty() {
+        let mut contributors = String::new();
+        for (i, contributor) in info.contributors.iter().enumerate() {
+            let mut details = vec![format!(
+                "<li class=\"contributor-name\">{} {}</li>",
+                escape_html(contributor.login.as_deref().unwrap_or("???")),
+                contributor
+                    .name
+                    .as_ref()
+                    .map(|name| format!("<span style=\"font-size: 20px;\">({})</span>", escape_html(name)))
+                    .unwrap_or_default()
+            )];
+            if let Some(twitter) = &contributor.twitter_username {
+                details.push(format!("<li class=\"contributor-twitter\">Twitter: @{}</li>", escape_html(twitter)));
+            }
+            if let Some(blog) = &contributor.blog {
+                details.push(format!("<li class=\"contributor-blog\">{}</li>", escape_html(blog)));
+            }
+            if let Some(bio) = &contributor.bio {
+                details.push(format!("<li class=\"contributor-bio\">{}</li>", escape_html(bio)));
+            }
+
+            contributors.push_str(&format!(
+                "
+                <li class=\"contributor\">
+                    <div class=\"contributor-image\" style=\"background-image: url('./contributor{}.png');\"></div>
+                    <ul class=\"contributor-detail\">
+                        {}
+                    </ul>
+                </li>",
+                i,
+                details.join("\n")
+            ));
+        }
+
+        entries.push(format!(
             "
         <div class=\"section\">
             <h2 class=\"section-header\">
@@ -161,92 +193,48 @@ pub fn build_html(info: &MainEntry) -> String {
             </div>
         </div>
         ",
-            {
-                let mut res = String::new();
-                for i in 0..info.contributors.len() {
-                    let mut current_contributor: Vec<String> = vec![];
-
-                    current_contributor.push(format!(
-                        "<li class=\"contributor-name\">{} {}</li>",
-                        info.contributors[i].login.as_ref().unwrap(),
-                        {
-                            match &info.contributors[i].name {
-                                Some(name) => format!("<span style=\"font-size: 20px;\">({})</span>", name),
-                                None => format!(""),
-                            }
-                        }
-                    ));
-
-                    match &info.contributors[i].twitter_username {
-                        Some(twitter) => current_contributor.push(format!("<li class=\"contributor-twitter\">Twitter: @{}</li>", twitter)),
-                        None => {},
-                    }
-
-                    match &info.contributors[i].blog {
-                        Some(blog) => current_contributor.push(format!("<li class=\"contributor-blog\">{}</li>", blog)),
-                        None => {},
-                    }
-
-                    match &info.contributors[i].bio {
-                        Some(bio) => current_contributor.push(format!("<li class=\"contributor-bio\">{}</li>", bio)),
-                        None => {},
-                    }
-
-                    res.push_str(&format!(
-                        "
-                <li class=\"contributor\">
-                    <div class=\"contributor-image\" style=\"background-image: url('./{}.png');\"></div>
-                    <ul class=\"contributor-detail\">
-                        {}
-                    </ul>
-                </li>",
-                        i,
-                        current_contributor.join("\n")
-                    ));
-                }
-                res
-            }
-        );
-
-        entries.push(formatted);
+            contributors
+        ));
     }
 
-    rendered = rendered.replace("{{entries}}", &entries.join("\n"));
-
-    rendered
+    crate::files::CHANGELOG_HTML_TEXT
+        .replace("{{title}}", &info.title)
+        .replace("{{date}}", &info.date)
+        .replace("{{description}}", &info.description)
+        .replace("{{entries}}", &entries.join("\n"))
 }
 
-pub fn get_entries_from_md(text: &String) -> (Vec<Contributor>, Vec<NotesEntry>) {
+pub fn get_entries_from_md(text: &str) -> (Vec<Contributor>, Vec<NotesEntry>) {
     let mut entries: Vec<NotesEntry> = vec![];
     let mut found_contributors: Vec<&str> = vec![];
-    let data = text.split("\\r\\n").collect::<Vec<&str>>();
+    let data = text.lines().collect::<Vec<&str>>();
     let mut i = 0;
     while i < data.len() {
         if data[i].starts_with("### ") {
-            let heading = data[i].strip_prefix("### ").unwrap().trim().to_string();
+            let heading = escape_html(data[i].strip_prefix("### ").unwrap().trim());
             let mut bullet_points: Vec<String> = vec![];
             let mut y = i + 1;
-            while y != data.len() && data[y] != "" {
+            while y != data.len() && !data[y].is_empty() {
                 match data[y].strip_prefix("* ") {
                     Some(mut line) => {
                         if line.contains("(@") {
                             line = line.split("(@").collect::<Vec<&str>>()[0].trim();
                         }
-                        bullet_points.push(format!("<li>{}</li>", line));
+                        bullet_points.push(format!("<li>{}</li>", escape_html(line)));
                     },
                     None => {
                         break;
                     },
                 }
 
-                if data[y].contains("@") {
-                    let split = data[y].split("@").collect::<Vec<&str>>();
-                    for z in 1..split.len() {
+                if data[y].contains('@') {
+                    let split = data[y].split('@').collect::<Vec<&str>>();
+                    for part in split.iter().skip(1) {
                         static EOC: &[char] = &[' ', '/', ')', '\\'];
-                        let contributor = &split[z][..split[z].find(EOC).unwrap_or(split[z].len())];
+                        let contributor = &part[..part.find(EOC).unwrap_or(part.len())];
 
                         if !found_contributors.contains(&contributor) {
-                            found_contributors.push(&contributor);
+                            found_contributors.push(contributor);
                         }
                     }
                 }
@@ -263,27 +251,21 @@ pub fn get_entries_from_md(text: &String) -> (Vec<Contributor>, Vec<NotesEntry>)
         }
     }
 
-    let mut contributors: Vec<Contributor> = vec![];
-
-    for contributor in found_contributors {
-        contributors.push(Contributor::get_contributor_from_git(contributor));
-    }
+    let contributors = found_contributors.into_iter().map(Contributor::get_contributor_from_git).collect();
 
     (contributors, entries)
 }
 
 pub fn display_update_page(info: &MainEntry) -> bool {
-    let mut user_images: Vec<(String, Vec<u8>)> = Vec::new();
-
-    for i in 0..info.contributors.len() {
-        user_images.push((format!("{}.png", i), info.contributors[i].get_contributor_image()));
+    page::write_static_assets("notes", &[("notes.png", crate::files::CHANGELOG_IMAGE_BYTES)]);
+    page::write_file("notes.html", build_html(info));
+    for (i, contributor) in info.contributors.iter().enumerate() {
+        page::write_file(&format!("contributor{}.png", i), contributor.get_contributor_image());
     }
 
     let session = Webpage::new()
         .htdocs_dir("contents")
-        .file("index.html", &build_html(info))
-        .file("notes.png", &crate::files::CHANGELOG_IMAGE_BYTES)
-        .files(&user_images)
+        .start_page("notes.html")
         .background(skyline_web::Background::Default)
         .boot_display(skyline_web::BootDisplay::Default)
         .open_session(skyline_web::Visibility::Default)
@@ -291,12 +273,11 @@ pub fn display_update_page(info: &MainEntry) -> bool {
 
     let mut update = false;
 
-    while let Ok(message) = session.recv_json::<NotesMessage>() {
-        match message {
+    loop {
+        match page::next_message::<NotesMessage>(&session) {
             NotesMessage::UpdateState { state } => {
                 update = state;
             },
-            NotesMessage::Prompt { .. } => {},
             NotesMessage::Closure => {
                 session.exit();
                 session.wait_for_exit();
