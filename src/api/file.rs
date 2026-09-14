@@ -1,4 +1,7 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::LazyLock,
+};
 
 use owo_colors::OwoColorize;
 use smash_arc::*;
@@ -64,13 +67,21 @@ pub extern "C" fn arcrop_is_file_loaded(hash: Hash40) -> bool {
     }
 }
 
+// Plugins ask this once per mod folder (stage_config alone was abserved to make 339 calls on a 25gb modpack)
+// Listing the mods dir or reading the preset files on every call added up to 5 minutes to the boot time and the answer can't change until the next boot anyway
+static ENABLED_MODS: LazyLock<HashSet<Hash40>> = LazyLock::new(enabled_mods);
+
 #[no_mangle]
 pub extern "C" fn arcrop_is_mod_enabled(hash: Hash40) -> bool {
     debug!("arcrop_is_mod_enabled -> Received hash {} ({:#x})", hashes::find(hash).green(), hash.0);
 
+    ENABLED_MODS.contains(&hash)
+}
+
+fn enabled_mods() -> HashSet<Hash40> {
     let storage = config::GLOBAL_CONFIG.lock().unwrap();
 
-    let preset: HashSet<Hash40> = if storage.get_flag("legacy_discovery") || utils::env::is_emulator() {
+    if storage.get_flag("legacy_discovery") || utils::env::is_emulator() {
         WalkDir::new(crate::utils::paths::mods())
             .max_depth(1)
             .into_iter()
@@ -103,7 +114,5 @@ pub extern "C" fn arcrop_is_mod_enabled(hash: Hash40) -> bool {
         let workspace_list: HashMap<String, String> = storage.get_field_json("workspace_list").unwrap_or_default();
         let preset_name = &workspace_list[&workspace_name];
         storage.get_field_json(preset_name).unwrap_or_default()
-    };
-
-    preset.contains(&hash)
+    }
 }

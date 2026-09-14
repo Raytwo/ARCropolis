@@ -10,9 +10,9 @@ use smash_arc::{Hash40, Region};
 
 use crate::{chainloader::*, utils};
 
-struct RootWalk {
-    staged_tree: Vec<(PathBuf, usize)>,
-    staged_collected: Vec<(PathBuf, usize)>,
+pub(super) struct RootWalk {
+    pub(super) staged_tree: Vec<(PathBuf, usize)>,
+    pub(super) staged_collected: Vec<(PathBuf, usize)>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -197,7 +197,17 @@ pub fn perform_discovery() -> DiscoveryResult {
     active_roots.sort();
 
     super::cache::ensure_cache_dir();
-    let cache_key = super::cache::discovery_key(&active_roots);
+
+    let region = config::region();
+    let walked: Vec<(PathBuf, RootWalk)> = active_roots
+        .into_iter()
+        .map(|root| {
+            let walk = walk_one_root(&root, region);
+            (root, walk)
+        })
+        .collect();
+
+    let cache_key = super::cache::discovery_key(region, &walked);
     if let Some(cached) = super::cache::load_discovery(cache_key) {
         let DiscoveryResult { entries, collected } = cached;
 
@@ -214,15 +224,6 @@ pub fn perform_discovery() -> DiscoveryResult {
         load_and_run_plugins(&collected);
         return DiscoveryResult { entries, collected };
     }
-
-    let region = config::region();
-    let walked: Vec<(PathBuf, RootWalk)> = active_roots
-        .into_iter()
-        .map(|root| {
-            let walk = walk_one_root(&root, region);
-            (root, walk)
-        })
-        .collect();
 
     for (mod_root, RootWalk { staged_tree, staged_collected }) in walked {
         for (local, size) in staged_tree {

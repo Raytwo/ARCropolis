@@ -489,13 +489,40 @@ impl LoadedArcEx for LoadedArc {
 
         let mut start_count = Vec::with_capacity(buckets.len());
         let mut start = 0usize;
-        for bucket in buckets.iter_mut() {
+        for bucket in buckets.iter() {
             start_count.push((start, bucket.len()));
             start += bucket.len();
-            bucket.as_mut_slice().sort_by(|a, b| a.hash40().as_u64().cmp(&b.hash40().as_u64()));
         }
 
+        // Every bucket sorts on its own, so spread them over the three CPU cores.
+        // The sort is stable, so the result is the same as sorting them one after the other
+        let chunk = buckets.len().div_ceil(3).max(1);
+
+        std::thread::scope(|scope| {
+            let mut groups = buckets.chunks_mut(chunk);
+
+            let first = groups.next();
+
+            for group in groups {
+                std::thread::Builder::new()
+                    .stack_size(0x10000)
+                    .spawn_scoped(scope, move || {
+                        for bucket in group {
+                            bucket.sort_by(|a, b| a.hash40().as_u64().cmp(&b.hash40().as_u64()));
+                        }
+                    })
+                    .unwrap();
+            }
+
+            if let Some(group) = first {
+                for bucket in group {
+                    bucket.sort_by(|a, b| a.hash40().as_u64().cmp(&b.hash40().as_u64()));
+                }
+            }
+        });
+
         let mut new_hash_to_index = Vec::with_capacity(self.get_file_paths().len());
+
         for bucket in buckets.iter() {
             new_hash_to_index.extend_from_slice(bucket.as_slice());
         }
@@ -518,6 +545,7 @@ impl LoadedArcEx for LoadedArc {
                 skyline::libc::free(tmp);
             }
         }
+        
         assert!(self
             .get_file_path_index_from_hash(Hash40::from("fighter/common/param/fighter_param.prc"))
             .is_ok());

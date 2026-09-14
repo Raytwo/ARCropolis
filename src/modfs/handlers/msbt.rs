@@ -158,11 +158,10 @@ impl FileHandler for MsbtHandler {
             .ok_or_else(|| ModFsError::Handler("base msbt missing LBL1 section".to_string()))?
             .labels_mut()
         {
-            let lbl_name = lbl.name().to_owned();
-            if let Some(text_type) = labels.remove(&lbl_name) {
+            if let Some(text_type) = labels.remove(lbl.name()) {
                 let text_data = to_text_data(text_type);
                 lbl.set_value_raw(text_data)
-                    .map_err(|e| ModFsError::Handler(format!("failed to set label {}: {:?}", lbl_name, e)))?;
+                    .map_err(|e| ModFsError::Handler(format!("failed to set label {}: {:?}", lbl.name(), e)))?;
             }
         }
 

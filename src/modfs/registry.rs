@@ -90,7 +90,10 @@ impl HandlerRegistry {
     }
 
     pub fn bind_hash(&mut self, hash: Hash40, id: HandlerId) {
-        self.by_hash.entry(hash).or_default().push(id);
+        let ids = self.by_hash.entry(hash).or_default();
+        if !ids.contains(&id) {
+            ids.push(id);
+        }
     }
 
     pub fn handlers_for_hash(&self, hash: Hash40) -> &[HandlerId] {

@@ -1,42 +1,12 @@
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
-use super::discover::DiscoveryResult;
+use smash_arc::Region;
 
-fn hash_tree_signature<H: Hasher>(dir: &Path, hasher: &mut H) {
-    let iter = match std::fs::read_dir(dir) {
-        Ok(it) => it,
-        Err(_) => return,
-    };
-    let mut subdirs: Vec<PathBuf> = Vec::new();
-    let mut files: Vec<(PathBuf, u64)> = Vec::new();
-    for entry in iter.filter_map(|e| e.ok()) {
-        let ft = match entry.file_type() {
-            Ok(ft) => ft,
-            Err(_) => continue,
-        };
-        if ft.is_dir() {
-            subdirs.push(entry.path());
-        } else if ft.is_file() {
-            let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-            files.push((entry.path(), size));
-        }
-    }
-    subdirs.sort();
-    files.sort_by(|a, b| a.0.cmp(&b.0));
-    for (file, size) in &files {
-        if let Some(s) = file.to_str() {
-            s.hash(hasher);
-        }
-        size.hash(hasher);
-    }
-    for sub in subdirs {
-        hash_tree_signature(&sub, hasher);
-    }
-}
+use super::discover::{DiscoveryResult, RootWalk};
 
 const DISCOVERY_CACHE_FILE: &str = "discovery.cache";
 
@@ -48,15 +18,22 @@ fn discovery_cache_path() -> PathBuf {
     cache_dir().join(DISCOVERY_CACHE_FILE)
 }
 
-pub fn discovery_key(active_roots: &[PathBuf]) -> u64 {
+pub fn discovery_key(region: Region, walked: &[(PathBuf, RootWalk)]) -> u64 {
     let mut hasher = DefaultHasher::new();
     env!("CARGO_PKG_VERSION").hash(&mut hasher);
+    (region as u32).hash(&mut hasher);
 
-    let mut roots: Vec<&PathBuf> = active_roots.iter().collect();
-    roots.sort();
-    for root in roots {
+    for (root, walk) in walked {
         root.hash(&mut hasher);
-        hash_tree_signature(root, &mut hasher);
+        let mut folded: u64 = 0;
+        for (local, size) in walk.staged_tree.iter().chain(walk.staged_collected.iter()) {
+            let mut entry = DefaultHasher::new();
+            local.hash(&mut entry);
+            size.hash(&mut entry);
+            folded = folded.wrapping_add(entry.finish());
+        }
+        folded.hash(&mut hasher);
+        (walk.staged_tree.len() + walk.staged_collected.len()).hash(&mut hasher);
     }
     hasher.finish()
 }

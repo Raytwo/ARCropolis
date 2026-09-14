@@ -445,33 +445,47 @@ impl CachedFilesystem {
         }
         let files: Vec<Hash40> = files_set.into_iter().collect();
 
-        for (hash, new_file_set) in self.config.share_to_vanilla.iter() {
-            for new_file in new_file_set.0.iter() {
-                if context.contains_file(new_file.full_path.to_smash_arc()) {
-                    replacement::unshare::reshare_file(&mut context, new_file.full_path.to_smash_arc(), hash.to_smash_arc());
-                } else {
-                    replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc());
-                    replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
+        replacement::lookup::with_lookups(|unshare_lut, share_lut| {
+            for (hash, new_file_set) in self.config.share_to_vanilla.iter() {
+                for new_file in new_file_set.0.iter() {
+                    if context.contains_file(new_file.full_path.to_smash_arc()) {
+                        replacement::unshare::reshare_file(
+                            &mut context,
+                            new_file.full_path.to_smash_arc(),
+                            hash.to_smash_arc(),
+                            unshare_lut,
+                            share_lut,
+                        );
+                    } else {
+                        replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc(), share_lut);
+                        replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
+                    }
                 }
             }
-        }
 
-        // Reshare any files that depend on files in file groups, as we need to get rid of those else we crash.
-        replacement::unshare::reshare_file_groups(&mut context);
+            // Reshare any files that depend on files in file groups, as we need to get rid of those else we crash.
+            replacement::unshare::reshare_file_groups(&mut context);
 
-        replacement::unshare::unshare_files(&mut context, hash_ignore, files.into_iter());
+            replacement::unshare::unshare_files(&mut context, hash_ignore, files.into_iter(), unshare_lut, share_lut);
 
-        // Add new shared files to added files
-        for (hash, new_file_set) in self.config.share_to_added.iter() {
-            for new_file in new_file_set.0.iter() {
-                if context.contains_file(new_file.full_path.to_smash_arc()) {
-                    replacement::unshare::reshare_file(&mut context, new_file.full_path.to_smash_arc(), hash.to_smash_arc());
-                } else {
-                    replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc());
-                    replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
+            // Add new shared files to added files
+            for (hash, new_file_set) in self.config.share_to_added.iter() {
+                for new_file in new_file_set.0.iter() {
+                    if context.contains_file(new_file.full_path.to_smash_arc()) {
+                        replacement::unshare::reshare_file(
+                            &mut context,
+                            new_file.full_path.to_smash_arc(),
+                            hash.to_smash_arc(),
+                            unshare_lut,
+                            share_lut,
+                        );
+                    } else {
+                        replacement::addition::add_shared_file(&mut context, new_file, hash.to_smash_arc(), share_lut);
+                        replacement::addition::add_shared_searchable_file(&mut search_context, new_file);
+                    }
                 }
             }
-        }
+        });
 
         println!("Adding files to dir infos...");
         let mut dir_entries: Vec<(&hash40::Hash40, &Vec<hash40::Hash40>)> = self.config.new_dir_files.iter().collect();

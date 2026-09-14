@@ -99,7 +99,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
     debug!("Added file '{}' ({:#x})", path.display(), file_path.path.hash40().0);
 }
 
-pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Hash40) {
+pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Hash40, share_lut: &mut lookup::ShareLookup) {
     // Get the target shared FileInfoIndice index
     let info_indice_idx = if let Ok(info) = ctx.get_file_info_from_hash(shared_to) {
         info.file_info_indice_index.0
@@ -138,7 +138,7 @@ pub fn add_shared_file(ctx: &mut AdditionContext, new_file: &File, shared_to: Ha
     .hash40();
 
     // Add the shared file to the lookup
-    lookup::add_shared_file(
+    share_lut.add_shared_file(
         new_file.full_path.to_smash_arc(), // we can unwrap because of FilePath::from_path being successful
         shared_to.to_smash_arc(),
     );
