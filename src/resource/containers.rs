@@ -333,6 +333,9 @@ impl ResList {
             let node = skyline::libc::malloc(std::mem::size_of::<ListNode>()) as *mut ListNode;
             (*node).prev = &mut self.next as *mut *mut ListNode as *mut ListNode;
             (*node).next = self.next;
+            if !self.next.is_null() {
+                (*self.next).prev = node;
+            }
             self.next = node;
             (*node).data = value;
             self.size += 1;
