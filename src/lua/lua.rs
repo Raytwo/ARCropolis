@@ -161,17 +161,14 @@ impl LuaEnumBuilder {
         }
     }
 
-    pub fn declare_namespace(&mut self, lua_state: Option<&mut lua_state>, name: impl AsRef<str>) {
+    pub fn declare_namespace(&mut self, lua_state: Option<&mut lua_state>, name: impl AsRef<str>) -> *mut std::os::raw::c_char {
+        let raw = CString::new(name.as_ref())
+            .expect(&format!("Failed to make CString from {}!", name.as_ref()))
+            .into_raw();
         unsafe {
-            declare_namespace(
-                self,
-                lua_state,
-                CString::new(name.as_ref())
-                    .expect(&format!("Failed to make CString from {}!", name.as_ref()))
-                    .into_raw() as _,
-                -3,
-            );
+            declare_namespace(self, lua_state, raw as _, -3);
         }
+        raw
     }
 
     pub fn add_method(&mut self, reg: &luaL_Reg) {
@@ -384,11 +381,12 @@ impl lua_state {
         }
     }
 
-    pub fn add_ingame_manager(&mut self, name: impl AsRef<str>, registry: &[luaL_Reg]) {
+    pub fn add_ingame_manager(&mut self, name: impl AsRef<str>, registry: &[luaL_Reg]) -> *mut std::os::raw::c_char {
         let mut enum_builder = LuaEnumBuilder::new();
-        enum_builder.declare_namespace(Some(self), name);
+        let name_ptr = enum_builder.declare_namespace(Some(self), name);
         for reg in registry.iter() {
             enum_builder.add_method(reg);
         }
+        name_ptr
     }
 }
