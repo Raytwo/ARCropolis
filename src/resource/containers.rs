@@ -19,19 +19,23 @@ impl<T> Default for CppVector<T> {
 }
 
 impl<T> CppVector<T> {
-    unsafe fn realloc(&mut self) {
-        let current_capacity = self.eos.offset_from(self.start) as usize;
-        let current_len = self.end.offset_from(self.start) as usize;
-        let layout = Layout::from_size_align(current_capacity * 2 * std::mem::size_of::<T>(), 1).unwrap();
-        let (new_start, new_eos) = {
-            let start = std::alloc::alloc(layout) as *mut T;
-            (start, start.add(current_capacity * 2))
+    unsafe fn realloc(&mut self, additional: usize) {
+        let (current_capacity, current_len) = if self.start.is_null() {
+            (0, 0)
+        } else {
+            (self.eos.offset_from(self.start) as usize, self.end.offset_from(self.start) as usize)
         };
-        std::ptr::copy_nonoverlapping(self.start, new_start, current_len);
-        std::alloc::dealloc(
-            self.start as _,
-            Layout::from_size_align(current_capacity * std::mem::size_of::<T>(), 1).unwrap(),
-        );
+        let new_capacity = (current_capacity * 2).max(current_len + additional).max(4);
+        let layout = Layout::from_size_align(new_capacity * std::mem::size_of::<T>(), 1).unwrap();
+        let new_start = std::alloc::alloc(layout) as *mut T;
+        let new_eos = new_start.add(new_capacity);
+        if !self.start.is_null() {
+            std::ptr::copy_nonoverlapping(self.start, new_start, current_len);
+            std::alloc::dealloc(
+                self.start as _,
+                Layout::from_size_align(current_capacity * std::mem::size_of::<T>(), 1).unwrap(),
+            );
+        }
         self.start = new_start;
         self.end = self.start.add(current_len);
         self.eos = new_eos;
@@ -57,7 +61,7 @@ impl<T> CppVector<T> {
     pub fn push(&mut self, val: T) {
         unsafe {
             if self.end.add(1) > self.eos {
-                self.realloc();
+                self.realloc(1);
             }
             *self.end = val;
             self.end = self.end.add(1);
@@ -67,7 +71,7 @@ impl<T> CppVector<T> {
     pub fn reserve(&mut self, additional: usize) {
         unsafe {
             if self.end.add(additional) > self.eos {
-                self.realloc();
+                self.realloc(additional);
             }
         }
     }
@@ -120,7 +124,7 @@ impl<T> CppVector<T> {
     {
         unsafe {
             if self.end.add(slice.len()) > self.eos {
-                self.realloc();
+                self.realloc(slice.len());
                 self.extend_from_slice(slice);
             } else {
                 std::ptr::copy_nonoverlapping(slice.as_ptr(), self.end, slice.len());
@@ -135,7 +139,7 @@ impl<T> CppVector<T> {
     {
         unsafe {
             if self.end.add(range.len()) > self.eos {
-                self.realloc();
+                self.realloc(range.len());
                 self.extend_from_within(range);
             } else {
                 std::ptr::copy_nonoverlapping(self.start.add(range.start), self.end, range.len());
