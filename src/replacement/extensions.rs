@@ -175,10 +175,7 @@ impl SearchContext {
 }
 
 pub trait LoadedArcEx {
-    fn get_file_hash_to_path_index_mut(&mut self) -> &mut [HashToIndex];
-    fn get_bucket_for_hash_mut(&mut self, hash: Hash40) -> &mut [HashToIndex];
     fn patch_filedata(&mut self, hash: Hash40, size: u32, region: Region) -> Result<u32, LookupError>;
-    fn change_hash_lookup(&mut self, hash: Hash40, index: FilePathIdx) -> Result<(), LookupError>;
     fn get_shared_file(&self, hash: Hash40) -> Result<FilePathIdx, LookupError>;
     fn resort_file_hashes(&mut self);
     fn make_addition_context() -> AdditionContext;
@@ -187,25 +184,6 @@ pub trait LoadedArcEx {
 }
 
 impl LoadedArcEx for LoadedArc {
-    fn get_file_hash_to_path_index_mut(&mut self) -> &mut [HashToIndex] {
-        unsafe {
-            let fs = *self.fs_header;
-            let table_size = fs.file_info_path_count;
-            std::slice::from_raw_parts_mut(self.file_hash_to_path_index as *mut HashToIndex, table_size as _)
-        }
-    }
-
-    fn get_bucket_for_hash_mut(&mut self, hash: Hash40) -> &mut [HashToIndex] {
-        let range = {
-            let file_info_buckets = self.get_file_info_buckets();
-            let bucket_index = (hash.as_u64() % (file_info_buckets.len() as u64)) as usize;
-            let bucket = &file_info_buckets[bucket_index];
-            (bucket.start as usize)..((bucket.start + bucket.count) as usize)
-        };
-
-        &mut self.get_file_hash_to_path_index_mut()[range]
-    }
-
     fn patch_filedata(&mut self, hash: Hash40, size: u32, region: Region) -> Result<u32, LookupError> {
         let file_info = *self.get_file_info_from_hash(hash)?;
         let region = if file_info.flags.is_regional() {
@@ -224,17 +202,6 @@ impl LoadedArcEx for LoadedArc {
         let old_size = file_data.decomp_size;
         file_data.decomp_size = size;
         Ok(old_size)
-    }
-
-    fn change_hash_lookup(&mut self, hash: Hash40, index: FilePathIdx) -> Result<(), LookupError> {
-        let bucket = self.get_bucket_for_hash_mut(hash);
-
-        let index_in_bucket = bucket
-            .binary_search_by_key(&hash, |group| group.hash40())
-            .map_err(|_| LookupError::Missing)?;
-
-        bucket[index_in_bucket].set_index(index.0);
-        Ok(())
     }
 
     fn get_shared_file(&self, hash: Hash40) -> Result<FilePathIdx, LookupError> {
@@ -557,85 +524,6 @@ impl LoadedArcEx for LoadedArc {
 }
 
 pub trait SearchEx: SearchLookup {
-    fn get_folder_path_to_index_mut(&mut self) -> &mut [HashToIndex];
-    fn get_folder_path_list_mut(&mut self) -> &mut [FolderPathListEntry];
-    fn get_path_to_index_mut(&mut self) -> &mut [HashToIndex];
-    fn get_path_list_indices_mut(&mut self) -> &mut [u32];
-    fn get_path_list_mut(&mut self) -> &mut [PathListEntry];
-
-    fn get_folder_path_index_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut HashToIndex, LookupError> {
-        let folder_path_to_index = self.get_folder_path_to_index_mut();
-        match folder_path_to_index.binary_search_by_key(&hash.into(), |h| h.hash40()) {
-            Ok(idx) => Ok(&mut folder_path_to_index[idx]),
-            Err(_) => Err(LookupError::Missing),
-        }
-    }
-
-    fn get_folder_path_entry_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut FolderPathListEntry, LookupError> {
-        let index = *self.get_folder_path_index_from_hash(hash)?;
-        if index.index() != NO_CHILD {
-            Ok(&mut self.get_folder_path_list_mut()[index.index() as usize])
-        } else {
-            Err(LookupError::Missing)
-        }
-    }
-
-    fn get_path_index_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut HashToIndex, LookupError> {
-        let path_to_index = self.get_path_to_index_mut();
-        match path_to_index.binary_search_by_key(&hash.into(), |h| h.hash40()) {
-            Ok(idx) => Ok(&mut path_to_index[idx]),
-            Err(_) => Err(LookupError::Missing),
-        }
-    }
-
-    fn get_path_list_index_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut u32, LookupError> {
-        let index = *self.get_path_index_from_hash(hash)?;
-        if index.index() != NO_CHILD {
-            Ok(&mut self.get_path_list_indices_mut()[index.index() as usize])
-        } else {
-            Err(LookupError::Missing)
-        }
-    }
-
-    fn get_path_list_entry_from_hash_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut PathListEntry, LookupError> {
-        let index = self.get_path_list_index_from_hash(hash)?;
-        if index != NO_CHILD {
-            Ok(&mut self.get_path_list_mut()[index as usize])
-        } else {
-            Err(LookupError::Missing)
-        }
-    }
-
-    fn get_first_child_in_folder_mut(&mut self, hash: impl Into<Hash40>) -> Result<&mut PathListEntry, LookupError> {
-        let folder_path = self.get_folder_path_entry_from_hash(hash)?;
-        let index_idx = folder_path.get_first_child_index();
-
-        if index_idx == NO_CHILD as usize {
-            return Err(LookupError::Missing);
-        }
-
-        let path_entry_index = self.get_path_list_indices()[index_idx];
-        if path_entry_index != NO_CHILD {
-            Ok(&mut self.get_path_list_mut()[path_entry_index as usize])
-        } else {
-            Err(LookupError::Missing)
-        }
-    }
-
-    fn get_next_child_in_folder_mut(&mut self, current_child: &PathListEntry) -> Result<&mut PathListEntry, LookupError> {
-        let index_idx = current_child.path.index() as usize;
-        if index_idx == NO_CHILD as usize {
-            return Err(LookupError::Missing);
-        }
-
-        let path_entry_index = self.get_path_list_indices()[index_idx];
-        if path_entry_index != NO_CHILD {
-            Ok(&mut self.get_path_list_mut()[path_entry_index as usize])
-        } else {
-            Err(LookupError::Missing)
-        }
-    }
-
     fn resort_folder_paths(&mut self);
     fn resort_paths(&mut self);
     fn make_context() -> SearchContext;
@@ -643,41 +531,6 @@ pub trait SearchEx: SearchLookup {
 }
 
 impl SearchEx for LoadedSearchSection {
-    fn get_folder_path_to_index_mut(&mut self) -> &mut [HashToIndex] {
-        unsafe {
-            let table_size = (*self.body).folder_path_count;
-            std::slice::from_raw_parts_mut(self.folder_path_index as _, table_size as usize)
-        }
-    }
-
-    fn get_folder_path_list_mut(&mut self) -> &mut [FolderPathListEntry] {
-        unsafe {
-            let table_size = (*self.body).folder_path_count;
-            std::slice::from_raw_parts_mut(self.folder_path_list as _, table_size as usize)
-        }
-    }
-
-    fn get_path_to_index_mut(&mut self) -> &mut [HashToIndex] {
-        unsafe {
-            let table_size = (*self.body).path_indices_count;
-            std::slice::from_raw_parts_mut(self.path_index as _, table_size as usize)
-        }
-    }
-
-    fn get_path_list_indices_mut(&mut self) -> &mut [u32] {
-        unsafe {
-            let table_size = (*self.body).path_indices_count;
-            std::slice::from_raw_parts_mut(self.path_list_indices as _, table_size as usize)
-        }
-    }
-
-    fn get_path_list_mut(&mut self) -> &mut [PathListEntry] {
-        unsafe {
-            let table_size = (*self.body).path_count;
-            std::slice::from_raw_parts_mut(self.path_list as _, table_size as usize)
-        }
-    }
-
     fn resort_folder_paths(&mut self) {
         static NEEDS_FREE: AtomicBool = AtomicBool::new(false);
         let paths = self.get_folder_path_list();

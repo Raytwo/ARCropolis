@@ -21,7 +21,8 @@ pub extern "C" fn arcrop_load_file(hash: Hash40, out_buffer: *mut u8, buf_length
     let buffer = unsafe { std::slice::from_raw_parts_mut(out_buffer, buf_length) };
 
     // This function is intended to only be called by an arc api, which means that we have already write locked the thread and cannot read lock it
-    if let Some(size) = unsafe { crate::GLOBAL_FILESYSTEM.get_mut().unwrap().load_into(hash, buffer) } {
+    let filesystem = unsafe { &*crate::GLOBAL_FILESYSTEM.data_ptr() };
+    if let Some(size) = filesystem.load_into(hash, buffer) {
         *out_size = size;
         debug!("arcrop_load_file -> Successfully loaded file. Bytes read: {:#x}", size);
         true
@@ -86,27 +87,15 @@ fn enabled_mods() -> HashSet<Hash40> {
             .max_depth(1)
             .into_iter()
             .filter_map(|entry| {
-                if let Ok(entry) = entry {
-                    // Make this less gross
-                    if !entry.file_type().is_dir() {
-                        return None;
-                    }
-
-                    let path = entry.path();
-
-                    if path
-                        .file_name()
-                        .and_then(|name| name.to_str())
-                        .map(|name| !name.starts_with('.'))
-                        .unwrap_or(false)
-                    {
-                        Some(Hash40::from(path.to_str().unwrap()))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
+                let entry = entry.ok()?;
+                if !entry.file_type().is_dir() {
+                    return None;
                 }
+                let name = entry.file_name().to_str()?;
+                if name.starts_with('.') {
+                    return None;
+                }
+                Some(Hash40::from(entry.path().to_str()?))
             })
             .collect()
     } else {

@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
     fmt,
-    io::Write,
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
 };
@@ -204,6 +203,10 @@ impl CachedFilesystem {
             .map(|(local, _)| local.to_path_buf())
     }
 
+    pub fn has_local(&self, hash: Hash40) -> bool {
+        self.hash_lookup.contains_key(&hash) || self.modfs.patch().entry_for_hash(hash).is_some()
+    }
+
     pub fn load(&self, hash: Hash40) -> Option<Vec<u8>> {
         match self.modfs.read_by_hash(hash) {
             Ok(data) => Some(data),
@@ -214,21 +217,23 @@ impl CachedFilesystem {
         }
     }
 
-    pub fn load_into(&self, hash: Hash40, mut buffer: &mut [u8]) -> Option<usize> {
-        if let Some(data) = self.load(hash) {
-            if buffer.len() < data.len() {
+    pub fn load_into(&self, hash: Hash40, buffer: &mut [u8]) -> Option<usize> {
+        match self.modfs.read_into(hash, buffer) {
+            Ok(size) => Some(size),
+            Err(crate::modfs::ModFsError::BufferTooSmall { needed, available }) => {
                 error!(
-                    "The size of the file data is larger than the size of the provided buffer when loading file '{}' ({:#x}).",
+                    "The size of the file data ({:#x}) is larger than the size of the provided buffer ({:#x}) when loading file '{}' ({:#x}).",
+                    needed,
+                    available,
                     hashes::find(hash),
                     hash.0
                 );
                 None
-            } else {
-                buffer.write_all(&data).unwrap();
-                Some(data.len())
-            }
-        } else {
-            None
+            },
+            Err(e) => {
+                debug!("Failed to load '{}' ({:#x}): {:?}", hashes::find(hash), hash.0, e);
+                None
+            },
         }
     }
 
@@ -289,12 +294,11 @@ impl CachedFilesystem {
         let patches: Vec<(Hash40, usize)> = self
             .modfs
             .patch()
-            .iter_files()
-            .filter_map(|(local, entry)| {
+            .iter_hashed()
+            .filter_map(|(hash, local, entry)| {
                 if local.is_stream() {
                     return None;
                 }
-                let hash = local.smash_hash().ok()?;
                 Some((hash, entry.size))
             })
             .collect();
@@ -331,12 +335,11 @@ impl CachedFilesystem {
         let patch_remaps: Vec<(Hash40, Hash40)> = self
             .modfs
             .patch()
-            .iter_files()
-            .filter_map(|(local, _)| {
+            .iter_hashed()
+            .filter_map(|(hash, local, _)| {
                 if local.is_stream() {
                     return None;
                 }
-                let hash = local.smash_hash().ok()?;
                 let info = arc.get_file_info_from_hash(hash).ok()?;
                 let canonical = file_paths[info.file_path_index].path.hash40();
                 (canonical != hash).then_some((canonical, hash))
@@ -405,17 +408,13 @@ impl CachedFilesystem {
         }
 
         // Go through and add any files that were not found in the data.arc
-        for (local, _entry) in self.modfs.patch().iter_files() {
+        for (hash, local, _entry) in self.modfs.patch().iter_hashed() {
             if local.is_stream() {
                 continue;
             }
             if is_handler_consumed(local) {
                 continue;
             }
-            let hash = match local.smash_hash() {
-                Ok(h) => h,
-                Err(_) => continue,
-            };
             if context.contains_file(hash) {
                 continue;
             }
@@ -430,17 +429,15 @@ impl CachedFilesystem {
                 files_set.insert(hash);
             }
         }
-        for (local, _) in self.modfs.patch().iter_files() {
+        for (hash, local, _) in self.modfs.patch().iter_hashed() {
             if local.is_stream() {
                 continue;
             }
             if is_handler_consumed(local) {
                 continue;
             }
-            if let Ok(hash) = local.smash_hash() {
-                if !self.config.unshare_blacklist.contains(&hash.to_external()) {
-                    files_set.insert(hash);
-                }
+            if !self.config.unshare_blacklist.contains(&hash.to_external()) {
+                files_set.insert(hash);
             }
         }
         let files: Vec<Hash40> = files_set.into_iter().collect();
@@ -580,6 +577,13 @@ impl GlobalFilesystem {
         match self {
             Self::Initialized(fs) => fs.local_hash(hash),
             _ => None,
+        }
+    }
+
+    pub fn has_local(&self, hash: Hash40) -> bool {
+        match self {
+            Self::Initialized(fs) => fs.has_local(hash),
+            _ => false,
         }
     }
 

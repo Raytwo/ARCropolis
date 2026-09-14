@@ -30,16 +30,10 @@ fn inflate_incoming(ctx: &InlineCtx) {
         hashes::find(path_hash).bright_yellow()
     );
 
-    let mut fs = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
+    let mut fs = GLOBAL_FILESYSTEM.write().unwrap();
 
-    let should_add = if let Some(local) = fs.local_hash(path_hash) {
-        debug!("Added file '{}' to the queue.", local.display().yellow());
-        true
-    } else {
-        false
-    };
-
-    if should_add {
+    if fs.has_local(path_hash) {
+        debug!("Added file '{}' to the queue.", hashes::find(path_hash).yellow());
         fs.set_incoming(Some(path_hash));
     } else {
         fs.set_incoming(None);
@@ -58,7 +52,7 @@ fn inflate_dir_file(arg: u64, out_decomp_data: &mut InflateFile, comp_data: &Inf
 
     if result == 0x0 {
         // returns 0x0 on the very last read, since they can be read in chunks
-        let hash = unsafe { crate::GLOBAL_FILESYSTEM.write().unwrap().get_incoming() };
+        let hash = crate::GLOBAL_FILESYSTEM.write().unwrap().get_incoming();
         if let Some(hash) = hash {
             handle_file_replace(hash);
         }
@@ -105,7 +99,7 @@ pub fn handle_file_replace(hash: Hash40) {
         return;
     }
 
-    let mut fs = unsafe { crate::GLOBAL_FILESYSTEM.write().unwrap() };
+    let mut fs = crate::GLOBAL_FILESYSTEM.write().unwrap();
 
     let buffer = unsafe {
         std::slice::from_raw_parts_mut(

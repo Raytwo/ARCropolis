@@ -36,7 +36,13 @@ impl ModFs {
                 root: root.clone(),
                 size: *size,
             };
-            let hash = crate::PathExtension::smash_hash(local.as_path()).ok();
+            let hash = match crate::PathExtension::smash_hash(local.as_path()) {
+                Ok(hash) => hash,
+                Err(_) => {
+                    warn!("Could not hash '{}' because the path is not valid UTF-8, the file will never be served", full_path.display());
+                    Hash40(0)
+                },
+            };
             self.patch.insert(local.clone(), entry, hash);
 
             if let Some(s) = local.to_str() {

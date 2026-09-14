@@ -15,7 +15,6 @@ log = "0.4.19"
 smash-arc = { git = "https://github.com/jam1garner/smash-arc" }
 skyline = "0.6"
 config = { path = "../config" }
-semver = { version = "1", features = ["serde"] }
 camino = "1"
 minreq = { version = "2", features = ["https-native", "json-using-serde"] }
 

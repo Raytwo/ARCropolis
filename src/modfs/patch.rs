@@ -34,6 +34,7 @@ impl<'a> FileEntryRef<'a> {
 #[derive(Clone, Debug)]
 struct InternalEntry {
     local: PathBuf,
+    hash: Hash40,
     root_idx: u32,
     size: u32,
 }
@@ -82,28 +83,19 @@ impl PatchLayer {
         }
     }
 
-    pub fn insert(&mut self, local: PathBuf, entry: FileEntry, hash: Option<Hash40>) {
+    pub fn insert(&mut self, local: PathBuf, entry: FileEntry, hash: Hash40) {
         let root_idx = self.intern_root(entry.root);
         let size = entry.size as u32;
-        let path_key = Self::path_key(&local);
 
-        let entry_idx = if let Some(&idx) = self.index.get(&path_key) {
+        if let Some(&idx) = self.index.get(&hash) {
             let slot = &mut self.entries[idx as usize];
             slot.local = local;
             slot.root_idx = root_idx;
             slot.size = size;
-            idx
         } else {
             let idx = self.entries.len() as u32;
-            self.entries.push(InternalEntry { local, root_idx, size });
-            self.index.insert(path_key, idx);
-            idx
-        };
-
-        if let Some(h) = hash {
-            if h != path_key {
-                self.index.insert(h, entry_idx);
-            }
+            self.entries.push(InternalEntry { local, hash, root_idx, size });
+            self.index.insert(hash, idx);
         }
     }
 
@@ -144,6 +136,17 @@ impl PatchLayer {
             let entry = &self.entries[idx as usize];
             (entry.local.as_path(), self.to_ref(idx))
         })
+    }
+
+    // Same as iter_files but hands out the hash computed at insert time, so the boot passes don't rehash every path.
+    // Paths that failed to hash sit at 0 and were skipped by those passes before too
+    pub fn iter_hashed(&self) -> impl Iterator<Item = (Hash40, &Path, FileEntryRef<'_>)> {
+        (0..self.entries.len() as u32)
+            .map(move |idx| {
+                let entry = &self.entries[idx as usize];
+                (entry.hash, entry.local.as_path(), self.to_ref(idx))
+            })
+            .filter(|(hash, _, _)| hash.0 != 0)
     }
 
     pub fn conflicts(&self) -> &[Conflict] {

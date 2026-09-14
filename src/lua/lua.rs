@@ -3,7 +3,7 @@ use std::ffi::CString;
 use crate::offsets;
 use skyline::from_offset;
 
-pub type LuaCfunction = ::std::option::Option<unsafe extern "C" fn(L: &mut lua_state) -> ::std::os::raw::c_int>;
+pub type LuaCfunction = ::std::option::Option<unsafe extern "C" fn(state: &mut lua_state) -> ::std::os::raw::c_int>;
 pub type LMem = u64;
 
 #[from_offset(offsets::lua_l_newmetatable())]
@@ -107,6 +107,7 @@ pub struct unk_udata_struct {
 
 #[repr(C)]
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct unk_struct {
     pub unk_1_0x0: u64,
     pub unk_2_0x8: u32,
@@ -124,6 +125,7 @@ pub struct LuaEnumBuilder {
     pub table_index: i32,
 }
 
+#[allow(dead_code)]
 #[repr(i32)]
 pub enum LuaTagType {
     NilType = 0x0,
@@ -289,9 +291,9 @@ impl lua_state {
     }
 
     pub fn push_string(&mut self, string: impl AsRef<str>) {
-        let ptr = format!("{}\0", string.as_ref()).as_ptr();
+        let with_nul = format!("{}\0", string.as_ref());
         unsafe {
-            lua_pushstring(self, ptr as _);
+            lua_pushstring(self, with_nul.as_ptr() as _);
         }
         // self.increment_top_address(); // This is done by the native smash function
     }
@@ -350,39 +352,34 @@ impl lua_state {
             self.get_field(&lua_registry, &metatable);
             self.set_metatable(-2);
 
-            let mut set_field_var = std::ptr::null();
-
-            let pv_var7 = lua_registry.udata;
-
-            let mut pu_var4: *const unk_struct = std::ptr::null();
-            let mut pi_var1: *const unk_struct = std::ptr::null();
-
-            let lua_nil_addr = offsets::lua_nil() as *const u64;
             let lua_r_udata = lua_registry.udata as *const unk_udata_struct;
 
+            // The game walks a list here when unk_2_0xc is below 2 (see apply_ui2d_layout_bindings, 0x33702b0 in 13.0.1)
+            // No manager has hit that path yet so it was never replicated, the Ghidra translation is kept below for whoever needs it
             if (*lua_r_udata).unk_2_0xc < 2 {
                 panic!("lua_r_udata.unk_2_0xc is below a 2!");
-                // Implementation is copied word for word (and translated) from Ghidra.
-                // I have no idea what the game is doing here, but this is replicating what its doing
-                // You can see this being done in the `apply_ui2d_layout_bindings` function (0x33702b0 in Smash ver 13.0.1) after the metatable is set
-                pu_var4 = ((*lua_r_udata).unk_4_0x18 + (!((0xffffffff as u64) << ((*lua_r_udata).unk_1_0xb as u64 & 0x3f)) as u64 & 2) * 0x20)
-                    as *const unk_struct;
-                loop {
-                    set_field_var = pu_var4 as *const u64;
-                    if (*pu_var4).unk_4_0x18 == 0x13 && (*pu_var4).unk_3_0x10 == 2 {
-                        break;
-                    }
-                    pi_var1 = (*pu_var4).unk_5_0x1c as *const unk_struct;
-                    pu_var4 = ((pu_var4 as u64) + (*pi_var1).unk_1_0x0) as *const unk_struct;
-                    set_field_var = lua_nil_addr; // &LUA_NIL
-                    if *(pi_var1 as *const u32) == 0 {
-                        break;
-                    }
-                }
-            } else {
-                set_field_var = ((*lua_r_udata).unk_3_0x10 + 0x10) as *const u64;
             }
+            //
+            // let lua_nil_addr = <address of the game's LUA_NIL global, its offset finder was removed with this, see git history>;
+            // let mut pu_var4: *const unk_struct;
+            // let mut pi_var1: *const unk_struct;
+            // let mut set_field_var: *const u64;
+            // pu_var4 = ((*lua_r_udata).unk_4_0x18 + (!((0xffffffff as u64) << ((*lua_r_udata).unk_1_0xb as u64 & 0x3f)) as u64 & 2) * 0x20)
+            //     as *const unk_struct;
+            // loop {
+            //     set_field_var = pu_var4 as *const u64;
+            //     if (*pu_var4).unk_4_0x18 == 0x13 && (*pu_var4).unk_3_0x10 == 2 {
+            //         break;
+            //     }
+            //     pi_var1 = (*pu_var4).unk_5_0x1c as *const unk_struct;
+            //     pu_var4 = ((pu_var4 as u64) + (*pi_var1).unk_1_0x0) as *const unk_struct;
+            //     set_field_var = lua_nil_addr; // &LUA_NIL
+            //     if *(pi_var1 as *const u32) == 0 {
+            //         break;
+            //     }
+            // }
 
+            let set_field_var = ((*lua_r_udata).unk_3_0x10 + 0x10) as *const u64;
             self.set_field(set_field_var, &normal);
         }
     }

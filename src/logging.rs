@@ -1,5 +1,5 @@
 use std::{
-    fs::File, io::{BufWriter, Write}, ops::Deref, path::Path, sync::{LazyLock, Mutex}, time::SystemTime
+    fs::File, io::{BufWriter, Write}, ops::Deref, path::Path, sync::{LazyLock, Mutex}
 };
 
 use log::{LevelFilter, Metadata, Record, SetLoggerError};
@@ -35,9 +35,6 @@ impl FileLogger {
 
 // Summon the file logger and create a file for it based on the current time (requires time to be initialized)
 static FILE_WRITER: LazyLock<FileLogger> = LazyLock::new(|| {
-    let seconds = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .expect("Clock may have gone backwards!");
     let path = Path::new(LOG_PATH).join(format!("{}.log", get_time_string()));
     let _ = std::fs::create_dir_all(LOG_PATH);
     std::fs::File::create(path).map_or_else(

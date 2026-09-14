@@ -46,6 +46,7 @@ pub extern "C" fn arcorp_add_lua_ingame_manager(name: *mut u8, reg_vec_ptr: *mut
                 crate::lua::add_lua_ingame_manager(name, functions)
             },
             Err(err) => {
+                error!("arcorp_add_lua_ingame_manager -> Error when adding manager! Reason: {:?}", err);
                 false
             }
         }

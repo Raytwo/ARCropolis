@@ -296,9 +296,7 @@ pub fn display_update_page(info: &MainEntry) -> bool {
             NotesMessage::UpdateState { state } => {
                 update = state;
             },
-            NotesMessage::Prompt { state } => {
-                todo!()
-            },
+            NotesMessage::Prompt { .. } => {},
             NotesMessage::Closure => {
                 session.exit();
                 session.wait_for_exit();

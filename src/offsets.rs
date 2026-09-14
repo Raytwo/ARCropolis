@@ -382,15 +382,6 @@ static LUA_UI2D_BINDINGS_CODE: (&[u8], isize) = (
     -0x64c,
 );
 
-static LUA_NIL_ADRP_CODE: (&[u8], isize) = (
-    &[
-        0x21, 0x78, 0x27, 0x91, 0x09, 0x29, 0x41, 0xa9, 0xe9, 0x2b, 0x01, 0xa9, 0xe0, 0x03, 0x13, 0xaa, 0x09, 0x29, 0x40, 0xa9, 0xe9, 0x2b, 0x00,
-        0xa9, 0x09, 0x29, 0x43, 0xa9, 0xe9, 0x2b, 0x03, 0xa9, 0x09, 0x29, 0x42, 0xa9, 0xe9, 0x2b, 0x02, 0xa9, 0x09, 0x29, 0x45, 0xa9, 0xe9, 0x2b,
-        0x05, 0xa9, 0x09, 0x29, 0x44, 0xa9, 0xe9, 0x2b, 0x04, 0xa9, 0x09, 0x29, 0x47, 0xa9,
-    ],
-    -0x260,
-);
-
 static LUA_INGAME_BINDINGS_CODE: (&[u8], isize) = (
     &[
         0x08, 0xd9, 0x42, 0xf9, 0x08, 0x01, 0x40, 0xf9, 0x09, 0x01, 0x40, 0xf9, 0x2b, 0xa1, 0x41, 0x29, 0x08, 0x05, 0x00, 0x11, 0x28, 0x11, 0x00,
@@ -530,7 +521,6 @@ generate_members! {
         lua_getfield: usize,
         lua_setmetatable: usize,
         lua_ui2d_bindings: usize,
-        lua_nil: usize,
         system_locale_id: usize,
         lua_ingame_bindings: usize,
         declare_namespace: usize,
@@ -609,12 +599,6 @@ impl Offsets {
             let strb_offset = offset_from_strb_unsigned_immediate(adrp + 4);
             adrp_offset + strb_offset
         };
-        let lua_nil = {
-            let adrp = get_offset_neon(text, LUA_NIL_ADRP_CODE);
-            let adrp_offset = offset_from_adrp(adrp);
-            let strb_offset = offset_from_strb_unsigned_immediate(adrp + 4);
-            adrp_offset + strb_offset
-        };
         let system_locale_id = {
             let adrp = get_ui_chara_path_from_hash + (4 * 23); // Skip 24 instructions to get to the REGION_NUM ADRP
             let adrp_offset = offset_from_adrp(adrp);
@@ -665,7 +649,6 @@ impl Offsets {
             lua_getfield,
             lua_setmetatable,
             lua_ui2d_bindings,
-            lua_nil,
             system_locale_id,
             lua_ingame_bindings,
             declare_namespace,

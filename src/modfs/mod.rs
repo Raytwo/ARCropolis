@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    io::Read,
+    path::{Path, PathBuf},
+};
 
 use arc_config::Config as ModConfig;
 use smash_arc::{ArcLookup, Hash40, LookupError};
@@ -46,6 +49,8 @@ pub enum ModFsError {
     Vanilla(LookupError),
     #[error("handler error: {0}")]
     Handler(String),
+    #[error("file needs {needed:#x} bytes but the buffer only holds {available:#x}")]
+    BufferTooSmall { needed: usize, available: usize },
 }
 
 impl From<crate::InvalidOsStrError> for ModFsError {
@@ -205,6 +210,48 @@ impl ModFs {
         self.read_base(hash)
     }
 
+    pub fn read_into(&self, hash: Hash40, buffer: &mut [u8]) -> Result<usize, ModFsError> {
+        if let Some(chain) = self.virt.chain(hash) {
+            if let Some(entry) = chain.take_next() {
+                let result = Self::invoke_virtual(hash, entry);
+                chain.release();
+                match result {
+                    Ok(Some(bytes)) => return copy_into(&bytes, buffer),
+                    Ok(None) => {},
+                    Err(e) => return Err(e),
+                }
+            }
+        }
+
+        if self.handlers.handlers_for_hash(hash).is_empty() {
+            if let Some((local, entry)) = self.patch.entry_for_hash(hash) {
+                let mut file = std::fs::File::open(entry.full_path(local))?;
+                let mut read = 0;
+                loop {
+                    if read == buffer.len() {
+                        // Buffer is full, anything left in the file means it doesn't fit
+                        let mut probe = [0u8; 1];
+                        if file.read(&mut probe)? == 0 {
+                            return Ok(read);
+                        }
+                        return Err(ModFsError::BufferTooSmall {
+                            needed: entry.size,
+                            available: buffer.len(),
+                        });
+                    }
+                    let n = file.read(&mut buffer[read..])?;
+                    if n == 0 {
+                        return Ok(read);
+                    }
+                    read += n;
+                }
+            }
+        }
+
+        let bytes = self.read_base(hash)?;
+        copy_into(&bytes, buffer)
+    }
+
     fn invoke_virtual(hash: Hash40, entry: &VirtualEntry) -> Result<Option<Vec<u8>>, ModFsError> {
         use crate::fs::loaders::ApiCallback;
         match entry.callback {
@@ -256,4 +303,15 @@ impl ModFs {
         let (local, entry) = self.patch.entry_for_hash(hash)?;
         Some((entry.full_path(local), entry.size))
     }
+}
+
+fn copy_into(bytes: &[u8], buffer: &mut [u8]) -> Result<usize, ModFsError> {
+    if bytes.len() > buffer.len() {
+        return Err(ModFsError::BufferTooSmall {
+            needed: bytes.len(),
+            available: buffer.len(),
+        });
+    }
+    buffer[..bytes.len()].copy_from_slice(bytes);
+    Ok(bytes.len())
 }

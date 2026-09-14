@@ -1,9 +1,8 @@
 use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use arc_config::Config as ModConfig;
 use smash_arc::{ArcLookup, Hash40};
-use thiserror::Error;
 
 use crate::{resource, PathExtension};
 
@@ -17,12 +16,6 @@ const KIRBY_ARTICLE_OWNERS: &[&str] = &[
     "mario", "luigi", "donkey", "link", "samus", "samusd", "yoshi", "fox",
     "pikachu", "ness", "captain", "purin", "peach", "pickel",
 ];
-
-#[derive(Debug, Error)]
-pub enum InferenceError {
-    #[error("path is not valid UTF-8: {0}")]
-    NonUtf8(PathBuf),
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CostumeClone {
@@ -50,12 +43,14 @@ pub fn merge_into_config(entries: &[(PathBuf, PathBuf, usize)], config: &mut Mod
     let mut files_emitted = 0usize;
 
     for (_root, local, _size) in entries {
-        if let Some(clone) = classify_local_path(local) {
+        let Some(s) = local.to_str() else { continue };
+        let comps: Vec<&str> = s.split('/').collect();
+        if let Some(clone) = classify_local_path(&comps) {
             clones.insert(clone);
-        } else if let Some(stage_dir) = classify_stage_parent(local) {
+        } else if let Some(stage_dir) = classify_stage_parent(s) {
             stage_candidate_dirs.insert(stage_dir);
         }
-        if let Some(top_level) = classify_file_membership(local) {
+        if let Some(top_level) = classify_file_membership(s, &comps) {
             if let Ok(hash) = local.smash_hash() {
                 let key = hash40::Hash40::new(&top_level);
                 config
@@ -164,10 +159,7 @@ pub fn merge_into_config(entries: &[(PathBuf, PathBuf, usize)], config: &mut Mod
     );
 }
 
-fn classify_file_membership(local: &Path) -> Option<String> {
-    let s = local.to_str()?;
-    let comps: Vec<&str> = s.split('/').collect();
-
+fn classify_file_membership(s: &str, comps: &[&str]) -> Option<String> {
     if comps.len() >= 4 && comps[0] == "fighter" {
         let fighter = comps[1];
         let subtype = comps.get(2).copied()?;
@@ -183,7 +175,7 @@ fn classify_file_membership(local: &Path) -> Option<String> {
             }
         }
 
-        let (slot_idx, slot) = find_slot(&comps)?;
+        let (slot_idx, slot) = find_slot(comps)?;
 
         match subtype {
             "model" | "motion" | "sound" | "effect" | "param" => {
@@ -324,8 +316,7 @@ fn is_noncanonical_slot_lenient(s: &str) -> bool {
     bytes[0] == b'c' && bytes[1..].iter().all(|b| b.is_ascii_digit())
 }
 
-fn classify_stage_parent(local: &Path) -> Option<String> {
-    let s = local.to_str()?;
+fn classify_stage_parent(s: &str) -> Option<String> {
     if !s.starts_with("stage/") {
         return None;
     }
@@ -336,19 +327,18 @@ fn classify_stage_parent(local: &Path) -> Option<String> {
     Some(parent.to_string())
 }
 
-fn classify_local_path(local: &Path) -> Option<CostumeClone> {
-    let s = local.to_str()?;
-    let mut comps: Vec<&str> = s.split('/').collect();
+fn classify_local_path(comps: &[&str]) -> Option<CostumeClone> {
     if comps.len() < 4 || comps[0] != "fighter" {
         return None;
     }
-    if comps.last().is_some_and(|c| c.is_empty()) {
-        comps.pop();
-    }
+    let comps = match comps.last() {
+        Some(last) if last.is_empty() => &comps[..comps.len() - 1],
+        _ => comps,
+    };
 
     let fighter = comps[1].to_string();
 
-    let Some((slot_idx, slot_str)) = find_slot(&comps) else {
+    let Some((slot_idx, slot_str)) = find_slot(comps) else {
         return None;
     };
 
@@ -405,16 +395,4 @@ impl CostumeClone {
             CostumeSubtype::KirbyCopy => format!("fighter/{}/kirbycopy/{}", self.fighter, self.slot),
         }
     }
-}
-
-use log::info;
-
-#[derive(Debug, Clone)]
-pub enum Classification {
-    Uninferred,
-}
-
-#[allow(dead_code)]
-pub fn classify(_root: &Path, _local: &Path, _size: usize) -> Result<Classification, InferenceError> {
-    Ok(Classification::Uninferred)
 }

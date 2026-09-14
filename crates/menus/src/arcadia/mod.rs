@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use skyline_web::Webpage;
 use smash_arc::Hash40;
 
-use crate::{config, utils};
+use crate::utils;
 
 #[derive(Debug, Serialize)]
 pub struct Information {

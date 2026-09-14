@@ -1,6 +1,6 @@
 use std::{io::Write, str::FromStr, sync::LazyLock};
 
-use nn_fuse::{AccessorResult, DAccessor, DirectoryAccessor, FAccessor, FileAccessor, FileSystemAccessor, FsAccessor, FsEntryType};
+use nn_fuse::{AccessorResult, DAccessor, FAccessor, FileAccessor, FileSystemAccessor, FsAccessor, FsEntryType};
 use smash_arc::{ArcFile, ArcLookup, Hash40, Region};
 
 use crate::PathExtension;
@@ -19,18 +19,6 @@ impl FileAccessor for ArcFileAccessor {
     fn get_size(&mut self) -> Result<usize, AccessorResult> {
         debug!("ArcFileAccessor::get_size");
         Ok(ARC_FILE.get_file_data_from_hash(self.0, self.1).unwrap().decomp_size as _)
-    }
-}
-
-pub struct ArcDirAccessor;
-
-impl DirectoryAccessor for ArcDirAccessor {
-    fn read(&mut self, _buffer: &mut [nn_fuse::DirectoryEntry]) -> Result<usize, AccessorResult> {
-        Err(AccessorResult::Unimplemented)
-    }
-
-    fn get_entry_count(&mut self) -> Result<usize, AccessorResult> {
-        Err(AccessorResult::Unimplemented)
     }
 }
 

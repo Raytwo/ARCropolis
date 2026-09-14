@@ -33,7 +33,7 @@ pub extern "C" fn arcrop_register_callback(hash: Hash40, max_size: usize, cb: Ca
     let mut pending_calls = PENDING_CALLBACKS.lock().unwrap();
 
     if GlobalFilesystem::is_init() {
-        unsafe { crate::GLOBAL_FILESYSTEM.write().unwrap().handle_api_request(request) };
+        crate::GLOBAL_FILESYSTEM.write().unwrap().handle_api_request(request);
     } else {
         pending_calls.push(request);
     }
@@ -52,7 +52,7 @@ pub extern "C" fn arcrop_register_callback_with_path(hash: Hash40, cb: StreamCal
     let mut pending_calls = PENDING_CALLBACKS.lock().unwrap();
 
     if GlobalFilesystem::is_init() {
-        unsafe { crate::GLOBAL_FILESYSTEM.write().unwrap().handle_api_request(request) };
+        crate::GLOBAL_FILESYSTEM.write().unwrap().handle_api_request(request);
     } else {
         debug!("Pushing to pending calls!");
         pending_calls.push(request);

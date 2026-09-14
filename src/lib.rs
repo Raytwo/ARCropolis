@@ -3,7 +3,7 @@
 #![feature(proc_macro_hygiene)]
 #![feature(if_let_guard)]
 #![feature(map_try_insert)] // for not overwriting previously stored hashes
-#![feature(vec_into_raw_parts)]
+#![feature(rwlock_data_ptr)]
 #![feature(string_remove_matches)]
 // #![feature(fs_try_exists)]
 #![feature(int_roundings)]
@@ -44,9 +44,9 @@ use crate::utils::save::{get_language_id_in_savedata, get_system_region_from_lan
 
 use config::{GLOBAL_CONFIG, REGION};
 
-pub static mut GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = RwLock::new(GlobalFilesystem::Uninitialized);
+pub static GLOBAL_FILESYSTEM: RwLock<GlobalFilesystem> = RwLock::new(GlobalFilesystem::Uninitialized);
 
-static mut NEWS_DATA: LazyLock<RwLock<HashMap<String, String>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
+static NEWS_DATA: LazyLock<RwLock<HashMap<String, String>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 #[macro_export]
 macro_rules! reg_x {
@@ -186,12 +186,13 @@ fn check_for_changelog() {
     }
 }
 
+#[allow(dead_code)]
 #[cfg(feature = "online")]
 fn get_news_data() {
     skyline::install_hook!(msbt_text);
     match minreq::get("https://coolsonickirby.com/arc/news").send() {
         Ok(resp) => match resp.json::<HashMap<String, String>>() {
-            Ok(info) => unsafe { NEWS_DATA.write().unwrap().extend(info) },
+            Ok(info) => NEWS_DATA.write().unwrap().extend(info),
             Err(err) => println!("{:?}", err),
         },
         Err(err) => println!("{:?}", err),
@@ -257,12 +258,12 @@ fn initial_loading(_ctx: &InlineCtx) {
     replacement::lookup::initialize(Some(arc));
 
     let pending = {
-        let mut filesystem = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
+        let mut filesystem = GLOBAL_FILESYSTEM.write().unwrap();
         filesystem.take()
     };
     let ready = pending.finish(arc).unwrap();
 
-    let mut filesystem = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
+    let mut filesystem = GLOBAL_FILESYSTEM.write().unwrap();
     *filesystem = ready;
     filesystem.process_mods();
     filesystem.share_hashes();
@@ -460,7 +461,7 @@ pub fn main() {
     }
 
     // Acquire the filesystem and promise it to the initial_loading hook
-    let mut filesystem = unsafe { GLOBAL_FILESYSTEM.write().unwrap() };
+    let mut filesystem = GLOBAL_FILESYSTEM.write().unwrap();
 
     let discovery = std::thread::Builder::new()
         .stack_size(0x10000)

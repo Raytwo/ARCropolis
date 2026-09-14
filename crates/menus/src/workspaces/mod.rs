@@ -5,8 +5,6 @@ use serde::{Deserialize, Serialize};
 use skyline_web::Webpage;
 use smash_arc::Hash40;
 
-use crate::config;
-
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Information {
     workspaces: Vec<String>,

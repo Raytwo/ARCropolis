@@ -86,7 +86,7 @@ static ORIGINAL_GAME_NRO_HASHES: LazyLock<Vec<Sha256Hash>> = LazyLock::new(|| {
                 // Seek to hashes_offset and read the module hashes into nrr_hashes.
                 file.seek(io::SeekFrom::Start(hashes_offset as u64)).unwrap();
                 let mut nrr_hashes = Vec::with_capacity(num_hashes as usize);
-                for i in 0..num_hashes {
+                for _ in 0..num_hashes {
                     let mut hash_bytes = [0u8; 0x20];
                     file.read_exact(&mut hash_bytes).unwrap();
                     nrr_hashes.push(Sha256Hash { hash: hash_bytes });
