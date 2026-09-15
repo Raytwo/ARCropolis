@@ -419,29 +419,18 @@ pub fn add_files_to_directory(ctx: &mut AdditionContext, directory: Hash40, file
 
         // Get the FilePathIdx from the context
         if let Some(file_index) = get_path_idx(ctx, file) {
-            // Get the FileInfo from the context FileInfos with the FileInfoIndex with the file_index gotten
-            // earlier
-            let mut file_info =
-                ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index)];
+            let info_idx = usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index);
 
-            // The `new_shared_file` flag lives on the *source* FileInfo of a share-to-added/share-to-vanilla set,
-            // because the dependents (the files shared *to* it) only own a FilePath. That means the flag is visible
-            // both when a dependent is added to a directory and when the source itself is. We must only skip the
-            // linkage/data changes for dependents: relinking the shared FileInfoIndex to a dependent's directory
-            // entry would hijack the source. The source of a newly added share, however, needs the same in-directory
-            // FileInfo and normalized FileData as any other added file, otherwise every slot resolves to the
-            // placeholder chain `add_file` built (outside of any directory, still pointing at Mario's numdlb data).
-            let resolved_hash = ctx.filepaths[usize::from(file_info.file_path_index)].path.hash40();
-            let is_dependent = resolved_hash != file;
-            let is_added_source = !is_dependent && ctx.added_files.contains_key(&file);
-            let keep_linkage = file_info.flags.new_shared_file() && !is_added_source;
+            let mut file_info = match info_idx.checked_sub(ctx.file_infos.len()) {
+                Some(pending) => file_infos[pending],
+                None => ctx.file_infos[info_idx],
+            };
+
+            let is_dependent = ctx.filepaths[usize::from(file_info.file_path_index)].path.hash40() != file;
+            let keep_linkage = is_dependent || (file_info.flags.new_shared_file() && !ctx.added_files.contains_key(&file));
 
             if !keep_linkage {
-                // Get the FileInfoToData from the InfoToData array context
-                let info_to_data = &mut ctx.info_to_datas[usize::from(
-                    ctx.file_infos[usize::from(ctx.file_info_indices[ctx.filepaths[usize::from(file_index)].path.index() as usize].file_info_index)]
-                        .info_to_data_index,
-                )];
+                let info_to_data = &mut ctx.info_to_datas[usize::from(file_info.info_to_data_index)];
 
                 // Set the folder offset index to 0
                 info_to_data.folder_offset_index = 0x0;
