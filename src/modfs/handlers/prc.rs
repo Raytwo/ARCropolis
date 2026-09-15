@@ -86,4 +86,9 @@ impl FileHandler for PrcHandler {
             .map_err(|e| ModFsError::Handler(format!("failed to write patched prc: {:?}", e)))?;
         Ok(writer.into_inner())
     }
+
+    fn patched_size(&self, _hash: Hash40, base_size: usize) -> usize {
+        base_size * 2
+    }
+
 }

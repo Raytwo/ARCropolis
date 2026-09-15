@@ -11,9 +11,15 @@ use crate::{
     modfs::{registry::FileHandler, DiscoveryContext, ModFsError},
 };
 
+/// Slack added per patch file on top of its size, to cover section headers, alignment and the JUNK padding the
+/// writer emits when the merged file is laid out again.
+const PATCH_SLACK: usize = 0x100;
+
 #[derive(Default)]
 pub struct Nus3audioHandler {
     patches: HashMap<Hash40, Vec<PathBuf>>,
+    /// Sum of the on-disk sizes of every patch bound to a target, used to bound the merged file's size
+    patch_sizes: HashMap<Hash40, usize>,
 }
 
 impl FileHandler for Nus3audioHandler {
@@ -29,12 +35,13 @@ impl FileHandler for Nus3audioHandler {
         &["patch3audio"]
     }
 
-    fn discover(&mut self, _ctx: &mut DiscoveryContext, full_path: &Path, local: &Path, _size: usize) -> Option<Hash40> {
+    fn discover(&mut self, _ctx: &mut DiscoveryContext, full_path: &Path, local: &Path, size: usize) -> Option<Hash40> {
         let base_local = local.with_extension("nus3audio");
         let (base_local, _region) = super::strip_regional(&base_local);
 
         let hash = super::try_smash_hash(&base_local)?;
         self.patches.entry(hash).or_default().push(full_path.to_path_buf());
+        *self.patch_sizes.entry(hash).or_default() += size + PATCH_SLACK;
 
         if let Some(s) = local.to_str() {
             hashes::add(s);
@@ -43,6 +50,17 @@ impl FileHandler for Nus3audioHandler {
             hashes::add(s);
         }
         Some(hash)
+    }
+
+    fn patched_size(&self, hash: Hash40, base_size: usize) -> usize {
+        match self.patch_sizes.get(&hash) {
+            // Only allocates about as much as all of the audio patches will take up.
+            // This may not even be the final patched size as auto patches can
+            // replace audio instead of append it.
+            Some(extra) => (base_size + extra).next_multiple_of(0x1000),
+            // Fallback in case the above fails I guess
+            None => base_size * 2,
+        }
     }
 
     fn apply(&self, hash: Hash40, bytes: Vec<u8>) -> Result<Vec<u8>, ModFsError> {

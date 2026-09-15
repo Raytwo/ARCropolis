@@ -30,8 +30,8 @@ impl FileHandler for BgmHandler {
         &["bgm_property.bin"]
     }
 
-    fn size_multiplier(&self) -> u32 {
-        30
+    fn patched_size(&self, _hash: Hash40, base_size: usize) -> usize {
+        base_size * 30
     }
 
     fn discover(&mut self, _ctx: &mut DiscoveryContext, full_path: &Path, local: &Path, _size: usize) -> Option<Hash40> {
