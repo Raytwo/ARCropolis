@@ -2,7 +2,10 @@ use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
     path::Path,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        LazyLock, RwLock,
+    },
 };
 
 use arc_config::search::{File, Folder};
@@ -267,6 +270,14 @@ pub trait LoadedArcEx {
     fn contains_file(&self, hash: Hash40) -> bool;
 }
 
+/// Stores the original size of any file that is modified by ARCropolis.
+/// Sizes are stored in a HashMap keyed by file path hash and region.
+static ORIGINAL_DECOMP_SIZES: LazyLock<RwLock<HashMap<(u64, u32), u32>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
+
+pub fn original_decomp_size(hash: Hash40, region: Region) -> Option<u32> {
+    ORIGINAL_DECOMP_SIZES.read().unwrap().get(&(hash.0, region as u32)).copied()
+}
+
 impl LoadedArcEx for LoadedArc {
     fn patch_filedata(&mut self, hash: Hash40, size: u32, region: Region) -> Result<u32, LookupError> {
         let file_info = *self.get_file_info_from_hash(hash)?;
@@ -284,6 +295,7 @@ impl LoadedArcEx for LoadedArc {
 
         let file_data = self.get_file_data_mut(&file_info, region);
         let old_size = file_data.decomp_size;
+        ORIGINAL_DECOMP_SIZES.write().unwrap().entry((hash.0, region as u32)).or_insert(old_size);
         file_data.decomp_size = size;
         Ok(old_size)
     }
@@ -549,7 +561,7 @@ impl LoadedArcEx for LoadedArc {
                 skyline::libc::free(tmp);
             }
         }
-        
+
         assert!(self
             .get_file_path_index_from_hash(Hash40::from("fighter/common/param/fighter_param.prc"))
             .is_ok());

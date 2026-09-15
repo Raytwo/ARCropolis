@@ -1,24 +1,48 @@
-use std::{io::Write, str::FromStr, sync::LazyLock};
+use std::str::FromStr;
 
 use nn_fuse::{AccessorResult, DAccessor, FAccessor, FileAccessor, FileSystemAccessor, FsAccessor, FsEntryType};
-use smash_arc::{ArcFile, ArcLookup, Hash40, Region};
+use smash_arc::{ArcLookup, Hash40, Region};
 
-use crate::PathExtension;
+use crate::{replacement::extensions::original_decomp_size, resource, PathExtension};
 
-pub static ARC_FILE: LazyLock<ArcFile> = LazyLock::new(|| ArcFile::open("rom:/data.arc").unwrap());
+pub struct ArcFileAccessor {
+    hash: Hash40,
+    region: Region,
+    contents: Option<Vec<u8>>,
+}
 
-pub struct ArcFileAccessor(Hash40, Region);
+impl ArcFileAccessor {
+    fn contents(&mut self) -> Result<&[u8], AccessorResult> {
+        if self.contents.is_none() {
+            let data = resource::arc().get_file_contents(self.hash, self.region).map_err(|err| {
+                error!("ArcFileAccessor: failed to read {:#x} from data.arc: {:?}", self.hash.0, err);
+                AccessorResult::Unexpected
+            })?;
+            self.contents = Some(data);
+        }
+        Ok(self.contents.as_deref().unwrap_or_default())
+    }
+}
 
 impl FileAccessor for ArcFileAccessor {
-    fn read(&mut self, mut buffer: &mut [u8], offset: usize) -> Result<usize, AccessorResult> {
+    fn read(&mut self, buffer: &mut [u8], offset: usize) -> Result<usize, AccessorResult> {
         debug!("ArcFileAccessor::read - Buffer length: {:x}", buffer.len());
-        let file = ARC_FILE.get_file_contents(self.0, self.1).unwrap();
-        Ok(buffer.write(&file.as_slice()[offset..]).unwrap())
+        let file = self.contents()?;
+        let offset = offset.min(file.len());
+        let count = buffer.len().min(file.len() - offset);
+        buffer[..count].copy_from_slice(&file[offset..offset + count]);
+        Ok(count)
     }
 
     fn get_size(&mut self) -> Result<usize, AccessorResult> {
         debug!("ArcFileAccessor::get_size");
-        Ok(ARC_FILE.get_file_data_from_hash(self.0, self.1).unwrap().decomp_size as _)
+        if let Some(size) = original_decomp_size(self.hash, self.region) {
+            return Ok(size as usize);
+        }
+        resource::arc()
+            .get_file_data_from_hash(self.hash, self.region)
+            .map(|data| data.decomp_size as usize)
+            .map_err(|_| AccessorResult::PathNotFound)
     }
 }
 
@@ -50,8 +74,9 @@ impl FileSystemAccessor for ArcFuse {
             }
         }
 
+        let arc = resource::arc();
         let hash = path.smash_hash().unwrap();
-        match ARC_FILE.get_file_info_from_hash(hash) {
+        match arc.get_file_info_from_hash(hash) {
             Ok(info) => {
                 if !info.flags.is_regional() {
                     file_region = Region::None;
@@ -60,8 +85,15 @@ impl FileSystemAccessor for ArcFuse {
             Err(_) => file_region = Region::None,
         }
         if read != 0 {
-            if ARC_FILE.get_file_path_index_from_hash(hash).is_ok() {
-                Ok(FAccessor::new(ArcFileAccessor(hash, file_region), mode))
+            if arc.get_file_path_index_from_hash(hash).is_ok() {
+                Ok(FAccessor::new(
+                    ArcFileAccessor {
+                        hash,
+                        region: file_region,
+                        contents: None,
+                    },
+                    mode,
+                ))
             } else {
                 Err(AccessorResult::PathNotFound)
             }
