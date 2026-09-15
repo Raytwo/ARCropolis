@@ -118,4 +118,8 @@ impl FileHandler for MotionListHandler {
             .map_err(|e| ModFsError::Handler(format!("failed to write patched motion_list: {:?}", e)))?;
         Ok(writer.into_inner())
     }
+
+    fn patched_size(&self, _hash: Hash40, base_size: usize) -> usize {
+        base_size * 2
+    }
 }

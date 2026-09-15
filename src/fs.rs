@@ -107,9 +107,10 @@ impl CachedFilesystem {
 
         for hash in modfs.handlers().bound_hashes() {
             if let Ok(data) = arc.get_file_data_from_hash(hash, config::region()) {
-                let multiplier = modfs.handlers().size_multiplier_for_hash(hash).max(10) as usize;
+                let base_size = data.decomp_size as usize;
+                let size = modfs.handlers().patched_size_for_hash(hash, base_size).unwrap_or(base_size);
                 hashed_paths.insert(hash, get_path_from_hash(hash));
-                hashed_sizes.insert(hash, (data.decomp_size as usize) * multiplier);
+                hashed_sizes.insert(hash, size);
             }
         }
 

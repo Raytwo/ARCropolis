@@ -188,8 +188,7 @@ impl ModFs {
                 return Some(s);
             }
             let base = self.patch.get(path).map(|e| e.size)?;
-            let mult = self.handlers.size_multiplier_for_hash(hash);
-            return Some(if mult == 0 { base } else { base * mult as usize });
+            return Some(self.handlers.patched_size_for_hash(hash, base).unwrap_or(base));
         }
         self.patch.get(path).map(|e| e.size)
     }
