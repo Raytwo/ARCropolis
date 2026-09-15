@@ -53,11 +53,15 @@ fn event_loop() {
         std::mem::swap(&mut events, &mut full_events);
         drop(full_events);
 
-        let cbs = EVENT_CALLBACKS.read().unwrap();
-
         for e in events.into_iter() {
-            for cb in cbs[e].iter() {
+            let cbs: Vec<EventCallbackFn> = EVENT_CALLBACKS.read().unwrap()[e].clone();
+            for (i, cb) in cbs.iter().enumerate() {
+                let start = std::time::Instant::now();
                 cb(e);
+                let elapsed = start.elapsed().as_millis();
+                if elapsed > 1000 {
+                    warn!("Event callback {} of {} at {:#x} took {} ms", i + 1, cbs.len(), *cb as usize, elapsed);
+                }
             }
         }
     }

@@ -70,6 +70,32 @@ pub struct ModFs {
     virt: VirtualLayer,
     handlers: HandlerRegistry,
     conflict_mode: ConflictMode,
+    dir_index: std::sync::RwLock<Option<DirIndex>>,
+}
+
+struct DirIndex {
+    built_for: usize,
+    dirs: std::collections::HashSet<PathBuf>,
+    children: std::collections::HashMap<PathBuf, Vec<PathBuf>>,
+}
+
+impl DirIndex {
+    fn build(patch: &PatchLayer, built_for: usize) -> Self {
+        let mut dirs = std::collections::HashSet::new();
+        let mut children: std::collections::HashMap<PathBuf, Vec<PathBuf>> = std::collections::HashMap::new();
+        let mut seen = std::collections::HashSet::new();
+        for (local, _) in patch.iter_files() {
+            let mut child = local.to_path_buf();
+            while let Some(parent) = child.parent().map(Path::to_path_buf) {
+                if seen.insert(child.clone()) {
+                    children.entry(parent.clone()).or_default().push(child.clone());
+                }
+                dirs.insert(parent.clone());
+                child = parent;
+            }
+        }
+        Self { built_for, dirs, children }
+    }
 }
 
 impl Default for ModFs {
@@ -87,7 +113,24 @@ impl ModFs {
             virt: VirtualLayer::new(),
             handlers,
             conflict_mode: ConflictMode::default(),
+            dir_index: std::sync::RwLock::new(None),
         }
+    }
+
+    fn with_dir_index<R>(&self, f: impl FnOnce(&DirIndex) -> R) -> R {
+        let count = self.patch.num_entries();
+        {
+            let guard = self.dir_index.read().unwrap();
+            if let Some(index) = guard.as_ref() {
+                if index.built_for == count {
+                    return f(index);
+                }
+            }
+        }
+        let index = DirIndex::build(&self.patch, count);
+        let mut guard = self.dir_index.write().unwrap();
+        *guard = Some(index);
+        f(guard.as_ref().unwrap())
     }
 
     pub fn register_handler<H: FileHandler>(&mut self, handler: H) {
@@ -152,37 +195,15 @@ impl ModFs {
     }
 
     pub fn read_dir<'a>(&'a self, path: &Path) -> Vec<PathBuf> {
-        let mut seen = std::collections::HashSet::new();
-        let mut out = Vec::new();
-
-        for (local, _entry) in self.patch.iter_files() {
-            let tail = if path.as_os_str().is_empty() {
-                local
-            } else if let Ok(rest) = local.strip_prefix(path) {
-                rest
-            } else {
-                continue;
-            };
-
-            let mut components = tail.components();
-            let Some(first) = components.next() else { continue };
-
-            let child = path.join(first);
-            if seen.insert(child.clone()) {
-                out.push(child);
-            }
-        }
-        out
+        self.with_dir_index(|index| index.children.get(path).cloned().unwrap_or_default())
     }
 
     pub fn entry_type(&self, path: &Path) -> Option<EntryType> {
         if self.patch.contains(path) {
             return Some(EntryType::File);
         }
-        for (local, _) in self.patch.iter_files() {
-            if local.starts_with(path) && local != path {
-                return Some(EntryType::Directory);
-            }
+        if self.with_dir_index(|index| index.dirs.contains(path)) {
+            return Some(EntryType::Directory);
         }
         None
     }
