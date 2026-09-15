@@ -473,6 +473,8 @@ impl LoadedArcEx for LoadedArc {
         let (folder_children_hashes, folder_children_hashes_len) = (folder_children_hashes.as_mut_ptr(), folder_children_hashes.len());
         // --------------------- END DIRECTORY ADDITION VARIABLES ---------------------
 
+        // arc:/ keeps reading the game's original tables through fuse/arc.rs, which copied these header counts and
+        // the hash buckets before patching. Never free the original arrays or write into them
         let header = unsafe { &mut *(self.fs_header as *mut FileSystemHeader) };
 
         self.file_paths = filepaths;
@@ -537,6 +539,7 @@ impl LoadedArcEx for LoadedArc {
 
         for (idx, _) in start_count.iter().enumerate().take(bucket_count) {
             unsafe {
+                // written in place, fuse/arc.rs took its own copy of the buckets before patching
                 *(self.file_info_buckets as *mut FileInfoBucket).add(1 + idx) = FileInfoBucket {
                     start: start_count[idx].0 as u32,
                     count: start_count[idx].1 as u32,
