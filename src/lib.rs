@@ -121,21 +121,68 @@ impl PathExtension for Path {
                 return Ok(hash);
             }
         }
-        let mut path = self
-            .as_os_str()
-            .to_str()
-            .ok_or(InvalidOsStrError)?
-            .to_lowercase()
-            .replace(';', ":")
-            .replace(".mp4", ".webm")
-            .replace(".lua", ".lc");
-
-        if let Some(regional_idx) = path.find('+') {
-            path.replace_range(regional_idx..regional_idx + 6, "")
+        let raw = self.as_os_str().to_str().ok_or(InvalidOsStrError)?;
+        if let Some(hash) = fast_smash_hash(raw) {
+            return Ok(hash);
         }
 
-        Ok(Hash40::from(path.trim_start_matches('/')))
+        Ok(slow_smash_hash(raw))
     }
+}
+
+fn slow_smash_hash(raw: &str) -> Hash40 {
+    let mut path = raw.to_lowercase().replace(';', ":").replace(".mp4", ".webm").replace(".lua", ".lc");
+
+    if let Some(regional_idx) = path.find('+') {
+        path.replace_range(regional_idx..regional_idx + 6, "")
+    }
+
+    Hash40::from(path.trim_start_matches('/'))
+}
+
+fn fast_smash_hash(raw: &str) -> Option<Hash40> {
+    const MAX_INPUT: usize = 512;
+    let bytes = raw.as_bytes();
+    if !bytes.is_ascii() || bytes.len() > MAX_INPUT {
+        return None;
+    }
+
+    // ".mp4" becomes ".webm", so the output can outgrow the input by a quarter at most
+    let mut buf = [0u8; MAX_INPUT + MAX_INPUT / 4 + 8];
+    let mut len = 0;
+    let mut i = 0;
+    while i < bytes.len() {
+        let rest = &bytes[i..];
+        if rest.len() >= 4 && rest[0] == b'.' && rest[1..4].eq_ignore_ascii_case(b"mp4") {
+            buf[len..len + 5].copy_from_slice(b".webm");
+            len += 5;
+            i += 4;
+            continue;
+        }
+        if rest.len() >= 4 && rest[0] == b'.' && rest[1..4].eq_ignore_ascii_case(b"lua") {
+            buf[len..len + 3].copy_from_slice(b".lc");
+            len += 3;
+            i += 4;
+            continue;
+        }
+        let byte = bytes[i].to_ascii_lowercase();
+        buf[len] = if byte == b';' { b':' } else { byte };
+        len += 1;
+        i += 1;
+    }
+
+    // A regional suffix like +us_en is cut out, the slow path panics when fewer than 6 bytes follow the plus so leave that case to it
+    if let Some(plus) = buf[..len].iter().position(|&b| b == b'+') {
+        if plus + 6 > len {
+            return None;
+        }
+        buf.copy_within(plus + 6..len, plus);
+        len -= 6;
+    }
+
+    let start = buf[..len].iter().position(|&b| b != b'/').unwrap_or(len);
+    let normalized = std::str::from_utf8(&buf[start..len]).ok()?;
+    Some(Hash40::from(normalized))
 }
 
 /// Basic code for getting a hash40 from a path, ignoring things like if it exists

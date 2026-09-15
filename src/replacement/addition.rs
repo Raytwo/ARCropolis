@@ -1,4 +1,4 @@
-use std::{collections::HashSet, path::Path};
+use std::{collections::HashSet, path::Path, sync::LazyLock};
 
 use arc_config::{
     search::{File, Folder},
@@ -34,12 +34,12 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
     // Create a new FileDataIdx by getting the length of all file_datas in the vector
     let file_data_idx = FileDataIdx(ctx.file_datas.len() as u32);
 
+    static BASE_MODEL: LazyLock<Hash40> = LazyLock::new(|| Hash40::from("fighter/mario/model/body/c00/model.numdlb"));
+    static NUTEXB: LazyLock<Hash40> = LazyLock::new(|| Hash40::from("nutexb"));
+    static EFF: LazyLock<Hash40> = LazyLock::new(|| Hash40::from("eff"));
+
     // Create a base file for the new file from mario's numdlb and set the region to none
-    let base_file = ctx.get_file_in_folder(
-        ctx.get_file_info_from_hash(Hash40::from("fighter/mario/model/body/c00/model.numdlb"))
-            .unwrap(),
-        Region::None,
-    );
+    let base_file = ctx.get_file_in_folder(ctx.get_file_info_from_hash(*BASE_MODEL).unwrap(), Region::None);
 
     // Create a new FileInfoIndex with the created file_info_idx above and a dir offset index of
     let new_info_indice_idx = FileInfoIndex {
@@ -53,7 +53,7 @@ pub fn add_file(ctx: &mut AdditionContext, path: &Path) {
         file_path_index: filepath_idx,
         file_info_indice_index: file_info_indice_idx,
         info_to_data_index: info_to_data_idx,
-        flags: FileInfoFlags::new().with_unknown1(file_path.ext.hash40() == Hash40::from("nutexb") || file_path.ext.hash40() == Hash40::from("eff")),
+        flags: FileInfoFlags::new().with_unknown1(file_path.ext.hash40() == *NUTEXB || file_path.ext.hash40() == *EFF),
     };
 
     // Set the new file to be standalone so it doesn't need to be near the other files
