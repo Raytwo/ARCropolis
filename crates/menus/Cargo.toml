@@ -12,7 +12,7 @@ toml = "0.5.11"
 skyline-web = "0.2.0"
 skyline-config = { git = "https://github.com/skyline-rs/skyline-config" }
 log = "0.4.19"
-smash-arc = { git = "https://github.com/jam1garner/smash-arc" }
+smash-arc = { version = "0.6.0", default-features = false }
 skyline = "0.6"
 config = { path = "../config" }
 camino = "1"
