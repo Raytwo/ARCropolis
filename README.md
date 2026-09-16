@@ -48,6 +48,7 @@ Head over to the [Discussions](https://github.com/Raytwo/ARCropolis/discussions/
 ## Noteworthy mods and plugins for use with ARCropolis
 
 - [HewDraw Remix (HDR)](https://github.com/HDR-Development/HDR-Releases) - A massive gameplay overhaul with cherry-picked skins by various community members, custom menus, new music, and much more!
+- [The WuBor Patch](https://github.com/WuBoytH/The-WuBor-Patch) - Collection of balance and gameplay changes.
 - [Smash Minecraft Skins](https://github.com/jam1garner/smash-minecraft-skins) - A Skyline plugin for downloading Minecraft skins from its official servers directly from Smash!
 - [One Slot Victory Theme](https://github.com/Coolsonickirby/One-Slot-Victory-Theme) - A Skyline plugin for configuring victory fanfares on a per-costume basis.
 - [Arc Randomizer](https://github.com/Coolsonickirby/arc-randomizer) - A Skyline plugin for randomly picking one of multiple files when modding the game.
@@ -57,6 +58,6 @@ Head over to the [Discussions](https://github.com/Raytwo/ARCropolis/discussions/
 Here is a list of multiple people who have contributed to ARCropolis over time:
 
 - Current maintainers: `Raytwo`, `blujay`
-- Contributors: `Raytwo`, `Coolsonickirby`, `blujay`, `jam1garner`, `jozz`
+- Contributors: `Raytwo`, `Coolsonickirby`, `blujay`, `jam1garner`, `jozz`, `WuBoytH`
 - Special thanks: `Shadów`, `Genwald`
 - Logo: `Styley`
