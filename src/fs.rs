@@ -83,8 +83,6 @@ impl CachedFilesystem {
 
     /// Use the file information that was generated during file discovery to fill out a GlobalFilesystem struct
     pub fn make_from_promise(discovery: DiscoveryResult) -> CachedFilesystem {
-        let arc = resource::arc();
-
         // Load the default config, which we will then join with the other configs
         let mut config = match ModConfig::from_json(DEFAULT_CONFIG) {
             Ok(cfg) => cfg,
@@ -105,13 +103,10 @@ impl CachedFilesystem {
         let mut hashed_paths: HashMap<Hash40, PathBuf> = HashMap::new();
         let mut hashed_sizes: HashMap<Hash40, usize> = HashMap::new();
 
-        for hash in modfs.handlers().bound_hashes() {
-            if let Ok(data) = arc.get_file_data_from_hash(hash, config::region()) {
-                let base_size = data.decomp_size as usize;
-                let size = modfs.handlers().patched_size_for_hash(hash, base_size).unwrap_or(base_size);
-                hashed_paths.insert(hash, get_path_from_hash(hash));
-                hashed_sizes.insert(hash, size);
-            }
+        // Patch every handler-bound file once now so the exact result size is what gets written into the data.arc
+        for (&hash, &size) in modfs.measure_patched_sizes() {
+            hashed_paths.insert(hash, get_path_from_hash(hash));
+            hashed_sizes.insert(hash, size);
         }
 
         for dep in nus3audio_deps {

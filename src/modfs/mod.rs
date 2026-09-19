@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     io::Read,
     path::{Path, PathBuf},
 };
@@ -71,6 +72,8 @@ pub struct ModFs {
     handlers: HandlerRegistry,
     conflict_mode: ConflictMode,
     dir_index: std::sync::RwLock<Option<DirIndex>>,
+    /// Exact size of every handler-patched file, measured by running its handler chain once at boot
+    patched_sizes: HashMap<Hash40, usize>,
 }
 
 struct DirIndex {
@@ -114,6 +117,7 @@ impl ModFs {
             handlers,
             conflict_mode: ConflictMode::default(),
             dir_index: std::sync::RwLock::new(None),
+            patched_sizes: HashMap::new(),
         }
     }
 
@@ -187,10 +191,63 @@ impl ModFs {
             if let Some(s) = self.virt.max_size(hash) {
                 return Some(s);
             }
-            let base = self.patch.get(path).map(|e| e.size)?;
-            return Some(self.handlers.patched_size_for_hash(hash, base).unwrap_or(base));
+            if let Some(&s) = self.patched_sizes.get(&hash) {
+                return Some(s);
+            }
         }
         self.patch.get(path).map(|e| e.size)
+    }
+
+    /// Runs the handler chain for every bound hash once and records the exact size of the result. That size is what
+    /// gets written into the data.arc, so the game allocates exactly what the patched file needs instead of a guessed
+    /// multiple of the vanilla size. The patched bytes are dropped right away and regenerated when the file loads.
+    ///
+    /// Files whose base can't be read (not in the arc, unreadable patch entry) are skipped. If a handler fails, the
+    /// load will fail the same way later, so the unpatched size is recorded for it.
+    pub fn measure_patched_sizes(&mut self) -> &HashMap<Hash40, usize> {
+        let bound: Vec<Hash40> = self.handlers.bound_hashes().collect();
+        let mut sizes = HashMap::with_capacity(bound.len());
+
+        for hash in bound {
+            let base = match self.read_unpatched(hash) {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    debug!(
+                        "modfs: not measuring '{}' ({:#x}), the base file could not be read: {:?}",
+                        crate::hashes::find(hash),
+                        hash.0,
+                        e
+                    );
+                    continue;
+                },
+            };
+            let base_len = base.len();
+            let size = match self.handlers.apply_chain(hash, base) {
+                Ok(patched) => patched.len(),
+                Err(e) => {
+                    warn!(
+                        "modfs: failed to patch '{}' ({:#x}) while measuring its size, keeping the unpatched size {:#x}: {:?}",
+                        crate::hashes::find(hash),
+                        hash.0,
+                        base_len,
+                        e
+                    );
+                    base_len
+                },
+            };
+            debug!(
+                "modfs: '{}' ({:#x}) patches to {:#x} bytes (base {:#x})",
+                crate::hashes::find(hash),
+                hash.0,
+                size,
+                base_len
+            );
+            sizes.insert(hash, size);
+        }
+
+        info!(target: "std", "modfs: measured exact sizes for {} patched files", sizes.len());
+        self.patched_sizes = sizes;
+        &self.patched_sizes
     }
 
     pub fn read_dir<'a>(&'a self, path: &Path) -> Vec<PathBuf> {
@@ -291,13 +348,18 @@ impl ModFs {
     }
 
     pub fn read_base(&self, hash: Hash40) -> Result<Vec<u8>, ModFsError> {
-        let bytes = if let Some((local, entry)) = self.patch.entry_for_hash(hash) {
-            std::fs::read(entry.full_path(local))?
+        let bytes = self.read_unpatched(hash)?;
+        self.handlers.apply_chain(hash, bytes)
+    }
+
+    /// Reads the file a handler chain starts from: the mod's own file if one replaces it, otherwise the vanilla one
+    fn read_unpatched(&self, hash: Hash40) -> Result<Vec<u8>, ModFsError> {
+        if let Some((local, entry)) = self.patch.entry_for_hash(hash) {
+            Ok(std::fs::read(entry.full_path(local))?)
         } else {
             let arc = crate::resource::arc();
-            arc.get_file_contents(hash, config::region())?
-        };
-        self.handlers.apply_chain(hash, bytes)
+            Ok(arc.get_file_contents(hash, config::region())?)
+        }
     }
 
     pub fn resolve_stream_path(&self, hash: Hash40) -> Option<(std::path::PathBuf, usize)> {

@@ -31,10 +31,6 @@ pub trait FileHandler: Send + Sync + 'static {
         Ok(bytes)
     }
 
-    fn patched_size(&self, _hash: Hash40, base_size: usize) -> usize {
-        base_size * 10
-    }
-
     fn finalize(&self, _config: &mut ModConfig) {}
 }
 
@@ -106,14 +102,6 @@ impl HandlerRegistry {
 
     pub fn has_load_patchers(&self, hash: Hash40) -> bool {
         self.handlers_for_hash(hash).iter().any(|id| self.handlers[id.0].patches_load())
-    }
-
-    /// Returns the largest buffer size any handler bound to `hash` needs, or `None` if no handler is bound.
-    pub fn patched_size_for_hash(&self, hash: Hash40, base_size: usize) -> Option<usize> {
-        self.handlers_for_hash(hash)
-            .iter()
-            .map(|id| self.handlers[id.0].patched_size(hash, base_size))
-            .max()
     }
 
     pub fn apply_chain(&self, hash: Hash40, mut bytes: Vec<u8>) -> Result<Vec<u8>, ModFsError> {

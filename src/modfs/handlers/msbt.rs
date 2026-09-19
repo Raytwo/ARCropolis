@@ -178,10 +178,6 @@ impl FileHandler for MsbtHandler {
             .map_err(|e| ModFsError::Handler(format!("failed to write patched msbt: {:?}", e)))?;
         Ok(cursor.into_inner())
     }
-
-    fn patched_size(&self, _hash: Hash40, base_size: usize) -> usize {
-        base_size * 2
-    }
 }
 
 fn to_text_data(text_type: &TextType) -> Vec<u8> {
