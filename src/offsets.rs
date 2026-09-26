@@ -391,6 +391,21 @@ static LUA_PUSHSTRING_CODE: (&[u8], isize) = (
     -0x38,
 );
 
+static LOAD_STREAM_CODE: (&[u8], isize) = (
+    &[
+        0xfc, 0x6f, 0xba, 0xa9,
+        0xfa, 0x67, 0x01, 0xa9,
+        0xf8, 0x5f, 0x02, 0xa9,
+        0xf6, 0x57, 0x03, 0xa9,
+        0xf4, 0x4f, 0x04, 0xa9,
+        0xfd, 0x7b, 0x05, 0xa9,
+        0xfd, 0x43, 0x01, 0x91,
+        0xff, 0xc3, 0x1b, 0xd1,
+        0xe8, 0x63, 0x05, 0x91
+    ],
+    0
+);
+
 #[allow(clippy::inconsistent_digit_grouping)]
 fn offset_from_adrp(adrp_offset: usize) -> usize {
     patterns::adrp_page(get_text(), adrp_offset)
@@ -476,6 +491,7 @@ generate_members! {
         declare_namespace: usize,
         add_method: usize,
         lua_pushstring: usize,
+        load_stream: usize,
     }
 }
 
@@ -524,6 +540,7 @@ impl Offsets {
         let declare_namespace = get_offset_neon(text, DECLARE_NAMESPACE_CODE);
         let add_method = get_offset_neon(text, ADD_METHOD_CODE);
         let lua_pushstring = get_offset_neon(text, LUA_PUSHSTRING_CODE);
+        let load_stream = get_offset_neon(text, LOAD_STREAM_CODE);
 
         let filesystem_info = {
             let adrp = get_offset_neon(text, FILESYSTEM_INFO_ADRP_SEARCH_CODE);
@@ -604,6 +621,7 @@ impl Offsets {
             declare_namespace,
             add_method,
             lua_pushstring,
+            load_stream
         })
     }
 }
